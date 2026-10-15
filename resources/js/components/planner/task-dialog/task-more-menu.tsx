@@ -12,17 +12,27 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import type { Task } from '@/lib/db/types';
+import type { MoveTaskInput } from '@/lib/db/tasks';
 import {
+    SOMEDAY_MOVE,
     duplicateWithToast,
-    moveToNextWeek,
-    moveToSomeday,
-    moveToTomorrow,
+    moveWithUndo,
+    nextWeekMove,
+    tomorrowMove,
 } from '@/lib/planner/task-actions';
+import { useTaskEditor } from './task-editor';
 import { TOOLBAR_BUTTON_CLASS, ToolbarTooltip } from './toolbar-tooltip';
 
-/** Quick moves (Tomorrow, Next week, Someday) and Duplicate. */
-export function TaskMoreMenu({ task }: { task: Task }) {
+/**
+ * Quick moves (Tomorrow, Next week, Someday; an occurrence moves alone, with
+ * an "Undo" toast) and Duplicate (always a one-off copy).
+ */
+export function TaskMoreMenu() {
+    const { task, write } = useTaskEditor();
+    const canMove = task.kind !== 'series';
+    const move = (input: MoveTaskInput) =>
+        write((id) => moveWithUndo(id, input), { follow: true });
+
     return (
         <DropdownMenu>
             <ToolbarTooltip label="More">
@@ -39,22 +49,30 @@ export function TaskMoreMenu({ task }: { task: Task }) {
                 </DropdownMenuTrigger>
             </ToolbarTooltip>
             <DropdownMenuContent align="end" className="min-w-40">
-                <DropdownMenuItem onSelect={() => moveToTomorrow(task)}>
+                <DropdownMenuItem
+                    disabled={!canMove}
+                    onSelect={() => move(tomorrowMove(task))}
+                >
                     Tomorrow
                     <ArrowRight className="ms-auto rtl:rotate-180" />
                 </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => moveToNextWeek(task)}>
+                <DropdownMenuItem
+                    disabled={!canMove}
+                    onSelect={() => move(nextWeekMove(task))}
+                >
                     Next week
                     <CalendarArrowUp className="ms-auto" />
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                    disabled={task.date === null}
-                    onSelect={() => moveToSomeday(task)}
+                    disabled={!canMove || task.date === null}
+                    onSelect={() => move(SOMEDAY_MOVE)}
                 >
                     Someday
                     <ArrowDownToLine className="ms-auto" />
                 </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => duplicateWithToast(task)}>
+                <DropdownMenuItem
+                    onSelect={() => write((id) => duplicateWithToast(id))}
+                >
                     Duplicate
                     <Copy className="ms-auto" />
                 </DropdownMenuItem>

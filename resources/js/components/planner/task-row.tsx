@@ -1,35 +1,94 @@
 import { useSortable } from '@dnd-kit/sortable';
-import { CircleCheck, GripVertical } from 'lucide-react';
+import { CircleCheck, GripVertical, Repeat } from 'lucide-react';
 import { usePlannerDnd } from '@/components/planner/planner-dnd';
+import { useScopedAction } from '@/components/planner/scope-prompt';
 import { TaskContextMenu } from '@/components/planner/task-context-menu';
 import { Button } from '@/components/ui/button';
-import type { TaskPlacement } from '@/lib/db/tasks';
-import type { Task } from '@/lib/db/types';
-import type { TaskDragData } from '@/lib/planner/drop';
 import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { useSeries } from '@/hooks/use-tasks';
+import type { TaskPlacement } from '@/lib/db/tasks';
+import type { TaskDragData } from '@/lib/planner/drop';
+import { summarizeRecurrence } from '@/lib/planner/repeat';
+import {
+    SOMEDAY_MOVE,
     deleteWithUndo,
     duplicateWithToast,
-    moveToNextWeek,
-    moveToSomeday,
-    moveToTomorrow,
+    moveWithUndo,
+    nextWeekMove,
     setTaskColor,
+    tomorrowMove,
 } from '@/lib/planner/task-actions';
 import { TASK_COLOR_STYLES } from '@/lib/planner/task-colors';
+import { isRecurring } from '@/lib/recurrence/expand';
+import type { PlannerTask } from '@/lib/recurrence/expand';
 import { cn } from '@/lib/utils';
 
 type Props = {
-    task: Task;
+    task: PlannerTask;
     /** The list the row is in, and its tasks in display order (for drops). */
     placement: TaskPlacement;
-    tasks: Task[];
+    tasks: PlannerTask[];
     /** Opens the task (click, Enter or Space on its text). */
     onOpen: (taskId: string) => void;
     onToggleDone: (taskId: string) => void;
     className?: string;
 };
 
-/** The task's time pill and text pill, as shown in a row (and the drag overlay). */
-export function TaskLabel({ task }: { task: Task }) {
+type TaskRepeat = {
+    /** Shown with the repeat icon: it belongs to a live series. */
+    repeats: boolean;
+    /** "Every Mon, Wed"; `null` until the series has loaded. */
+    summary: string | null;
+};
+
+/**
+ * Whether a row belongs to a live series, and its rule in words. An exception
+ * whose series is gone is a one-off task now.
+ */
+function useTaskRepeat(task: PlannerTask): TaskRepeat {
+    const series = useSeries(isRecurring(task) ? task : null);
+
+    return {
+        repeats:
+            task.kind === 'occurrence' ||
+            (task.kind === 'exception' && Boolean(series)),
+        summary: series ? summarizeRecurrence(series.recurrence) : null,
+    };
+}
+
+/** The repeat icon, with the rule in a tooltip ("Every Mon, Wed"). */
+function RepeatIcon({ summary }: { summary: string | null }) {
+    // A span carries the tooltip: buttons turn off pointer events on icons.
+    const icon = (
+        <span
+            data-testid="repeat-icon"
+            className="ms-1.5 flex shrink-0 opacity-70"
+        >
+            <Repeat aria-hidden className="size-3" />
+        </span>
+    );
+
+    return summary ? (
+        <Tooltip>
+            <TooltipTrigger asChild>{icon}</TooltipTrigger>
+            <TooltipContent>{summary}</TooltipContent>
+        </Tooltip>
+    ) : (
+        icon
+    );
+}
+
+function TaskLabelView({
+    task,
+    repeat,
+}: {
+    task: PlannerTask;
+    repeat: TaskRepeat;
+}) {
     const color = TASK_COLOR_STYLES[task.color];
 
     return (
@@ -39,6 +98,7 @@ export function TaskLabel({ task }: { task: Task }) {
                     {task.time}
                 </span>
             )}
+            {repeat.repeats && <RepeatIcon summary={repeat.summary} />}
             <span
                 className={cn(
                     'truncate rounded-full px-1.5 leading-6',
@@ -51,6 +111,14 @@ export function TaskLabel({ task }: { task: Task }) {
             </span>
         </>
     );
+}
+
+/**
+ * The task's time pill, repeat icon and text pill, as shown in a row (and the
+ * drag overlay).
+ */
+export function TaskLabel({ task }: { task: PlannerTask }) {
+    return <TaskLabelView task={task} repeat={useTaskRepeat(task)} />;
 }
 
 /**
@@ -73,7 +141,13 @@ export function TaskRow({
     onToggleDone,
     className,
 }: Props) {
-    const label = [task.time, task.text, task.done ? '(done)' : null]
+    const repeat = useTaskRepeat(task);
+    const label = [
+        task.time,
+        task.text,
+        repeat.repeats ? '(repeats)' : null,
+        task.done ? '(done)' : null,
+    ]
         .filter(Boolean)
         .join(' ');
     const { setNodeRef, setActivatorNodeRef, listeners, attributes } =
@@ -89,16 +163,25 @@ export function TaskRow({
         });
     // Dimmed while dragged, and until the drop has been written.
     const isDragging = usePlannerDnd().activeId === task.id;
+    const scoped = useScopedAction(task);
 
     return (
         <TaskContextMenu
             task={task}
-            onColorChange={(color) => setTaskColor(task, color)}
-            onMoveToTomorrow={() => moveToTomorrow(task)}
-            onMoveToNextWeek={() => moveToNextWeek(task)}
-            onMoveToSomeday={() => moveToSomeday(task)}
-            onDuplicate={() => duplicateWithToast(task)}
-            onDelete={() => deleteWithUndo(task)}
+            onColorChange={(color) => {
+                if (color !== task.color) {
+                    void scoped('edit', (scope) =>
+                        setTaskColor(task.id, color, scope),
+                    );
+                }
+            }}
+            onMoveToTomorrow={() => moveWithUndo(task.id, tomorrowMove(task))}
+            onMoveToNextWeek={() => moveWithUndo(task.id, nextWeekMove(task))}
+            onMoveToSomeday={() => moveWithUndo(task.id, SOMEDAY_MOVE)}
+            onDuplicate={() => duplicateWithToast(task.id)}
+            onDelete={() =>
+                void scoped('delete', (scope) => deleteWithUndo(task.id, scope))
+            }
         >
             <div
                 ref={setNodeRef}
@@ -127,7 +210,7 @@ export function TaskRow({
                     // positioned parent), not just the text button.
                     className="h-full min-w-0 flex-1 justify-start gap-0 rounded-none px-0 text-base font-normal text-inherit after:pointer-events-none after:absolute after:inset-0 after:rounded-sm after:border after:border-transparent hover:bg-transparent hover:text-inherit focus-visible:border-transparent focus-visible:ring-0 focus-visible:after:border-ring focus-visible:after:ring-3 focus-visible:after:ring-ring/30 active:not-aria-[haspopup]:translate-y-0 lg:text-sm"
                 >
-                    <TaskLabel task={task} />
+                    <TaskLabelView task={task} repeat={repeat} />
                 </Button>
                 <Button
                     ref={setActivatorNodeRef}

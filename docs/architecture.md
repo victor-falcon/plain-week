@@ -320,7 +320,12 @@ measurements in [style.md](./style.md#planner-layout)). It follows the offline-f
 
 - Data comes only from the live hooks (`useWeekTasks`, `useSomedayTasks`, `usePendingChangeCount`); writes go through
   the repository (`createTask`, `toggleDone`, and in the task dialog `updateTask`, `updateSubtasks`, `moveTask`,
-  `duplicateTask`, `deleteTask` / `restoreTask`) without awaiting them. Write failures show a toast.
+  `duplicateTask`, `deleteTask`, `setRecurrence`, undone with an `UndoLog`) without awaiting them. Write failures show
+  a toast.
+- The task dialog writes through a per-dialog queue (`task-dialog/task-editor.tsx`): each write runs after the previous
+  one, on the id the previous one returned, and the dialog switches to it. That is how it survives an occurrence
+  becoming an exception or a "this and all future" split ending the id it opened with. Scoped edits on a recurring task
+  ask "Only this task / This and all future" once per dialog (see [style.md](./style.md#recurring-tasks)).
 - `SyncProvider` is mounted at the page root.
 - The shown week lives in the URL (`?week=YYYY-MM-DD`, the Monday; dropped for the current week), so changing weeks
   needs no server round trip and works offline (`hooks/use-week-navigation.ts`, pure helpers `weekFromUrl` /

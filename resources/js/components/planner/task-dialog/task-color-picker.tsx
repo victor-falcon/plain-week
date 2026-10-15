@@ -7,17 +7,18 @@ import {
 } from '@/components/ui/popover';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { TASK_COLORS } from '@/lib/db/types';
-import type { Task } from '@/lib/db/types';
+import { updateTask } from '@/lib/db/tasks';
 import { TASK_COLOR_STYLES, isTaskColor } from '@/lib/planner/task-colors';
 import { cn } from '@/lib/utils';
-import { setTaskColor } from '@/lib/planner/task-actions';
+import { useTaskEditor } from './task-editor';
 import { TOOLBAR_BUTTON_CLASS, ToolbarTooltip } from './toolbar-tooltip';
 
 /**
  * Toolbar button showing the task's color as a dot. Its popover holds the
  * nine swatches; the current one is checked.
  */
-export function TaskColorPicker({ task }: { task: Task }) {
+export function TaskColorPicker() {
+    const { task, edit } = useTaskEditor();
     const current = TASK_COLOR_STYLES[task.color];
 
     return (
@@ -49,8 +50,10 @@ export function TaskColorPicker({ task }: { task: Task }) {
                     value={task.color}
                     onValueChange={(value) => {
                         // Radix sends '' when the current item is clicked again.
-                        if (isTaskColor(value)) {
-                            setTaskColor(task, value);
+                        if (isTaskColor(value) && value !== task.color) {
+                            edit((id, scope) =>
+                                updateTask(id, { color: value }, { scope }),
+                            );
                         }
                     }}
                     spacing={1}

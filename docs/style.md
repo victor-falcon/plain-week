@@ -89,9 +89,11 @@ Installed in `resources/js/components/ui/` and where they are used:
 | `textarea`                                                         | Task dialog title and notes                                                          |
 | `checkbox`                                                         | Subtasks, "Remember me" on login                                                     |
 | `dialog`                                                           | Task dialog; account deletion, passkeys and 2FA setup in settings                    |
-| `popover`                                                          | Task dialog date, time and color pickers                                             |
-| `calendar`                                                         | Task dialog date picker                                                              |
-| `toggle-group` (+ `toggle`)                                        | Task color picker                                                                    |
+| `alert-dialog`                                                     | Scope prompt of recurring tasks (`scope-prompt.tsx`)                                 |
+| `popover`                                                          | Task dialog date, time, repeat and color pickers                                     |
+| `calendar`                                                         | Task dialog date picker, repeat end date                                             |
+| `toggle-group` (+ `toggle`)                                        | Task color picker, repeat picker (kind and weekdays)                                 |
+| `select`                                                           | Repeat picker (day of the month)                                                     |
 | `dropdown-menu`                                                    | Task dialog "More" menu, planner account menu, app header user menu                  |
 | `context-menu`                                                     | Task row context menu (`task-context-menu.tsx`)                                      |
 | `tooltip`                                                          | Planner header buttons, account button, task dialog toolbar (`toolbar-tooltip.tsx`)  |
@@ -100,7 +102,7 @@ Installed in `resources/js/components/ui/` and where they are used:
 | `direction`                                                        | `app.tsx` (RTL)                                                                      |
 | `alert`, `card`, `label`, `spinner`, `input-otp`, `separator`      | Auth and settings pages (from the Laravel starter kit)                               |
 | `sidebar` (+ `skeleton`), `sheet`, `navigation-menu`, `breadcrumb` | Starter kit app shell around the settings pages                                      |
-| `badge`, `collapsible`, `select`                                   | Installed, not used yet                                                              |
+| `badge`, `collapsible`                                             | Installed, not used yet                                                              |
 
 `icon.tsx` and `placeholder-pattern.tsx` in the same folder are starter kit helpers, not shadcn components.
 
@@ -119,7 +121,12 @@ Installed in `resources/js/components/ui/` and where they are used:
   caller decides what each action does; items are `ContextMenuItem` with a trailing icon (`ms-auto`, directional icons
   `rtl:rotate-180`), the destructive one last after a separator with `variant="destructive"`.
 - **Toasts.** `toast()` from `sonner`. Destructive actions do not ask for confirmation: they act and offer an "Undo"
-  action in the toast (delete, drop on an edge zone). Write failures use `toast.error`.
+  action in the toast (delete, drop on an edge zone, quick moves: "Moved to Tue 13 Oct."). Write failures use
+  `toast.error`. Toasts stay clickable over a modal dialog (`AppToaster` gives them `pointer-events-auto`), and a click
+  on one does not close the task dialog.
+- **Scope prompt.** The one question the planner asks: on a recurring task, an `AlertDialog` with "Only this task" /
+  "This and all future" (and Cancel). It is a choice, not a confirmation; see
+  [Recurring tasks](#recurring-tasks).
 - **Drag and drop.** dnd-kit (`PlannerDnd`, `useSortable` per row); visuals are in [Planner layout](#planner-layout) and
   behaviour in [architecture.md](./architecture.md#drag-and-drop).
 - **Responsive.** One breakpoint matters: `lg` (1024px) switches between the desktop grid and the stacked mobile
@@ -198,24 +205,25 @@ mounted once by the planner page with the open task id. Layout and behaviour fol
 tokens. Every edit is written to the local database as it happens (no save button, nothing waits on the network); Esc or
 a click outside closes it.
 
-| Part     | Components                                  | Behaviour                                                                                                                                                                                                                                                              |
-| -------- | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Surface  | `Dialog` (`DialogContent`)                  | `bg-secondary`, `sm:max-w-lg` (512px), the preset's `rounded-4xl`; 64px from the top on desktop, 16px on mobile, full width minus the 16px gutters on phones                                                                                                           |
-| Date     | `Popover` + `Calendar`                      | "Mon, 12 Oct 2026" ("12 Oct" on phones, plus the year outside the current year) or "Someday"; weeks start on Monday; picking a day moves the task to the end of that day                                                                                               |
-| Time     | `Popover` + `Input type="time"` + `Button`  | Clock icon, plus the time once set ('HH:mm', 24-hour in storage); "Clear" (or emptying the field) removes it                                                                                                                                                           |
-| Delete   | `Button` + `Tooltip`, Sonner toast          | Deletes at once and closes; the toast's "Undo" restores the same task (`restoreTask`). No confirmation                                                                                                                                                                 |
-| Color    | `Popover` + `ToggleGroup` + `Tooltip`       | The icon is a dot of the current color; the nine swatches come from `TASK_COLOR_STYLES`, the current one checked                                                                                                                                                       |
-| More     | `DropdownMenu` + `Tooltip`                  | Tomorrow (day after the task's date), Next week (+7 days), Someday (first column; disabled for a Someday task), Duplicate. For a Someday task, Tomorrow and Next week count from today                                                                                 |
-| Title    | `Textarea` (`field-sizing-content`)         | `text-2xl`, grows with the text, 1px `border-foreground/30` underline; Enter moves to the notes and pasted line breaks become spaces; an emptied title is put back on blur. The check at the end completes the task (done: muted and `line-through`)                   |
-| Notes    | `Textarea`                                  | Plain text, "Add some extra notes here…"                                                                                                                                                                                                                               |
-| Subtasks | `Checkbox` + `Input` + `Button` per subtask | Round checkbox, editable text, delete button (shown on hover/focus with a mouse, always on touch); "Add subtask..." adds on Enter and keeps focus, and also adds what was typed when it loses focus or the dialog closes; Enter in a subtask moves to "Add subtask..." |
+| Part     | Components                                        | Behaviour                                                                                                                                                                                                                                                              |
+| -------- | ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Surface  | `Dialog` (`DialogContent`)                        | `bg-secondary`, `sm:max-w-lg` (512px), the preset's `rounded-4xl`; 64px from the top on desktop, 16px on mobile, full width minus the 16px gutters on phones                                                                                                           |
+| Date     | `Popover` + `Calendar`                            | "Mon, 12 Oct 2026" ("12 Oct" on phones, plus the year outside the current year) or "Someday"; weeks start on Monday; picking a day moves the task to the end of that day                                                                                               |
+| Time     | `Popover` + `Input type="time"` + `Button`        | Clock icon, plus the time once set ('HH:mm', 24-hour in storage); "Clear" (or emptying the field) removes it                                                                                                                                                           |
+| Delete   | `Button` + `Tooltip`, Sonner toast                | Deletes at once and closes; the toast's "Undo" puts back everything the delete changed (an `UndoLog`). No confirmation; a recurring task asks the scope first                                                                                                          |
+| Repeat   | `Popover` + `ToggleGroup` + `Select` + `Calendar` | Between Delete and Color, like Tweek. See [Recurring tasks](#recurring-tasks)                                                                                                                                                                                          |
+| Color    | `Popover` + `ToggleGroup` + `Tooltip`             | The icon is a dot of the current color; the nine swatches come from `TASK_COLOR_STYLES`, the current one checked                                                                                                                                                       |
+| More     | `DropdownMenu` + `Tooltip`                        | Tomorrow (day after the task's date), Next week (+7 days), Someday (first column; disabled for a Someday task), Duplicate. For a Someday task, Tomorrow and Next week count from today. Moves show a "Moved to …" toast with Undo                                      |
+| Title    | `Textarea` (`field-sizing-content`)               | `text-2xl`, grows with the text, 1px `border-foreground/30` underline; Enter moves to the notes and pasted line breaks become spaces; an emptied title is put back on blur. The check at the end completes the task (done: muted and `line-through`)                   |
+| Notes    | `Textarea`                                        | Plain text, "Add some extra notes here…"                                                                                                                                                                                                                               |
+| Subtasks | `Checkbox` + `Input` + `Button` per subtask       | Round checkbox, editable text, delete button (shown on hover/focus with a mouse, always on touch); "Add subtask..." adds on Enter and keeps focus, and also adds what was typed when it loses focus or the dialog closes; Enter in a subtask moves to "Add subtask..." |
 
 The toolbar stays on one line at every width. Toolbar icon buttons are `ghost` `icon-sm` round buttons with a tooltip on hover (not on focus: focus returns to a
 trigger when its popover closes, and an open tooltip would take the next Esc meant for the dialog); the one whose
 popover or menu is open is filled (`aria-expanded:bg-foreground aria-expanded:text-background`), like Tweek's active
 icon. Opening the dialog focuses the dialog itself, so no tooltip pops up and touch devices do not open the keyboard;
-closing it focuses the task's row again, wherever it moved. A tall dialog scrolls inside the viewport. Repeat,
-reminders, rich-text notes and attachments are not part of v0.0.1.
+closing it focuses the task's row again, wherever it moved. A tall dialog scrolls inside the viewport. Reminders,
+rich-text notes and attachments are not part of Plain Week yet.
 
 ## Task context menu
 
@@ -227,13 +235,66 @@ row, in the days and in Someday. The actions come in as props (`onColorChange`, 
 | Part   | Behaviour                                                                                                                                   |
 | ------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | Colors | A row of the nine swatches (`TaskColorSwatch`, shared with the dialog's color picker), `menuitemradio` items with the current color checked |
-| Moves  | Tomorrow, Next week and Someday, as in the dialog's More menu; Someday is hidden for a task that is already in Someday                      |
-| Copy   | Duplicate (toast "Task duplicated.")                                                                                                        |
+| Moves  | Tomorrow, Next week and Someday, as in the dialog's More menu, with a "Moved to …" toast and Undo; Someday is hidden for a Someday task     |
+| Copy   | Duplicate (toast "Task duplicated."); the copy of a recurring task is a one-off task                                                        |
 | Delete | After a separator, `variant="destructive"` (the translucent preset menu shows it in the accent color); deletes at once with an "Undo" toast |
+
+On a recurring task, a color change and Delete ask the scope first (moves never do: they move only that task).
 
 It opens with a right click, with Shift+F10 or the context menu key while focus is in the row (anchored to the row's
 start corner), and with a still touch hold (below). A right click never starts a drag (the mouse sensor ignores the
 right button) and never opens the task dialog.
+
+## Recurring tasks
+
+Data rules are in [architecture.md](./architecture.md#recurring-tasks-client); this is how they look and behave.
+
+**Rows.** An occurrence or exception of a series shows a small `Repeat` icon (12px, 70 % opacity) between the time pill
+and the text, with a tooltip summarising the rule ("Every Mon, Wed", "Every day", "Monthly on day 31", plus ", until
+31 Dec"; `summarizeRecurrence` in `lib/planner/repeat.ts`). Its accessible name gets "(repeats)". An exception whose
+series is gone shows no icon. Rows are keyed by `rowKey` (series id and generated date for occurrences and exceptions), so a
+row keeps focus when its first change turns the occurrence into an exception row with a new id.
+
+**Repeat picker** (`task-dialog/task-repeat-picker.tsx`). A round toolbar button with the `Repeat` icon, between Delete
+and Color; its label is "Repeat" or "Repeat: Every Mon, Wed". Disabled for a Someday task (it cannot repeat). The
+popover (320px, `align="end"`) holds a draft that "Apply" writes:
+
+| Part     | Components                       | Behaviour                                                                                                                   |
+| -------- | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Kind     | `ToggleGroup type="single"`      | Never / Weekly / Monthly, outline segments, the selected one filled                                                         |
+| Weekdays | `ToggleGroup type="multiple"`    | Seven localized short names from Monday (`aria-label` the long name); the task's own weekday is always selected (see below) |
+| Day      | `Select` (1–31)                  | "Monthly on day N"; N starts at the task's day of the month; from 29 on, the note "On the last day in shorter months."      |
+| Ends     | `Popover` + `Calendar`, `Button` | "Never" or the end date (not before the start); an X button clears it                                                       |
+| Apply    | `Button`                         | Writes the rule; on an occurrence a note says "Applies to this and all future tasks."                                       |
+
+The rule starts on the task's date (for an occurrence, its own date: the series is split there). If that date did not
+match the rule the task would vanish from its own day, so the picker opens with that weekday (weekly) and day of the
+month (monthly) chosen, and the weekday cannot be deselected. A monthly day other than the date's moves the task to
+the first matching date: the picker says "Starts on Sun, 1 Nov 2026." and the dialog follows the task there. A rule
+that would end before its first date cannot be applied. "Never" on an occurrence asks the scope ("Stop
+repeating": only this one becomes a one-off task, or the series ends here).
+
+**Scope prompt** (`scope-prompt.tsx`, `ScopePromptProvider` mounted once by the planner page, `useScopePrompt()` /
+`useScopeFor()`). An `AlertDialog` titled after the action ("Edit recurring task", "Delete recurring task", "Stop
+repeating"; in the dialog the edit prompt adds that the answer applies until the task is closed) with Cancel, "This and all future" (outline) and "Only this task" (default, destructive for delete). It is
+asked only for an occurrence, or an exception whose series still exists.
+
+| Change                                                  | Asks?                                                                                    |
+| ------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Title, notes, color, time, subtasks (in the dialog)     | Once per dialog session, on the first change; the answer applies until the dialog closes |
+| Delete, "Never" in the repeat picker                    | Every time                                                                               |
+| A new or changed rule                                   | Never: a rule always applies from this task on                                           |
+| Done, moves (date picker, More menu, context menu, DnD) | Never: only this task                                                                    |
+| Duplicate                                               | Never: the copy is a one-off task                                                        |
+| Color from the context menu                             | Every time                                                                               |
+
+The prompt opens on the first keystroke and takes focus; answering returns focus to the field with the typed text kept.
+Cancelling puts the field back to the stored value and writes nothing.
+
+**The dialog follows the task.** A change can give the task a new id (an occurrence's first change creates its
+exception; "This and all future" starts a new series). The dialog keeps one session per opened task
+(`task-dialog/task-editor.tsx`): its writes run one after another on the id the previous write returned, and it shows
+the last loaded item while the next id loads, so it never closes or flashes in between.
 
 ### Touch gestures on a task row
 

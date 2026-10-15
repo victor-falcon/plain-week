@@ -9,6 +9,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- **Recurring tasks.** Repeat a task weekly on any weekdays or monthly on a day (the last day in shorter months), with
+  an optional end date, from the new Repeat button in the task dialog. Recurring tasks show a repeat icon with the rule
+  in a tooltip. Changing one asks "Only this task" or "This and all future" (once per dialog for typing); completing or
+  moving one only ever affects that one.
+- **Undo for quick moves.** Tomorrow, Next week and Someday, from the context menu or the task dialog, say where the
+  task went ("Moved to Tue 13 Oct.") with an Undo.
 - **Recurring tasks: sync.** Tasks carry `recurrence`, `series_id` and `occurrence_date`, validated and synced by the
   server so recurring tasks and their per-day changes reach every device.
 - **Task context menu.** Right click a task (or press Shift+F10 / the context menu key on it) to change its color, move

@@ -9,16 +9,18 @@ import {
 } from '@/components/ui/popover';
 import { parseDateKey, toDateKey } from '@/lib/db/dates';
 import { moveTask } from '@/lib/db/tasks';
-import type { Task } from '@/lib/db/types';
 import { formatLongDate, formatShortDate } from '@/lib/planner/format';
-import { saveLocally } from '@/lib/planner/save-locally';
+import { useTaskEditor } from './task-editor';
 import { TOOLBAR_BUTTON_CLASS } from './toolbar-tooltip';
 
 /**
  * The task's date ("Mon, 12 Oct 2026", or "Someday"). It opens a calendar
  * (weeks start on Monday); picking a day moves the task to the end of it.
+ * Moving an occurrence moves only that one. A series row (shown when a new
+ * rule skips the task's own day) cannot be moved.
  */
-export function TaskDatePicker({ task }: { task: Task }) {
+export function TaskDatePicker() {
+    const { task, write } = useTaskEditor();
     const [open, setOpen] = useState(false);
     const selected = task.date ? parseDateKey(task.date) : undefined;
     const label = task.date ? formatLongDate(task.date) : 'Someday';
@@ -29,7 +31,10 @@ export function TaskDatePicker({ task }: { task: Task }) {
         setOpen(false);
 
         if (date && toDateKey(date) !== task.date) {
-            saveLocally(moveTask(task.id, { date: toDateKey(date) }));
+            write((id) => moveTask(id, { date: toDateKey(date) }), {
+                follow: true,
+                error: 'Could not move the task.',
+            });
         }
     };
 
@@ -41,6 +46,7 @@ export function TaskDatePicker({ task }: { task: Task }) {
                     variant="ghost"
                     size="sm"
                     aria-label={`Date: ${label}`}
+                    disabled={task.kind === 'series'}
                     className={`${TOOLBAR_BUTTON_CLASS} min-w-0 shrink font-medium`}
                 >
                     <CalendarDays data-icon="inline-start" />

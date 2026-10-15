@@ -1,12 +1,12 @@
 import { TaskList } from '@/components/planner/task-list';
-import type { Task } from '@/lib/db/types';
+import type { PlannerTask } from '@/lib/recurrence/expand';
 import { formatDay, formatWeekday } from '@/lib/planner/format';
 import { cn } from '@/lib/utils';
 
 type Props = {
     /** 'YYYY-MM-DD'. */
     date: string;
-    tasks: Task[] | undefined;
+    tasks: PlannerTask[] | undefined;
     rows: number;
     isToday: boolean;
     onOpenTask: (taskId: string) => void;

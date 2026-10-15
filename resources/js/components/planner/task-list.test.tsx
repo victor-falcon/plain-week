@@ -10,6 +10,7 @@ import {
     it,
     vi,
 } from 'vite-plus/test';
+import { ScopePromptProvider } from '@/components/planner/scope-prompt';
 import { TaskList } from '@/components/planner/task-list';
 import { wipeLocalDatabase } from '@/lib/db/database';
 import { createTask, listTasksIn } from '@/lib/db/tasks';
@@ -27,13 +28,15 @@ function Day({
     const tasks = useLiveQuery(() => listTasksIn({ date: DAY }), []);
 
     return (
-        <TaskList
-            placement={{ date: DAY }}
-            tasks={tasks}
-            rows={rows}
-            newTaskLabel={LABEL}
-            onOpenTask={onOpenTask}
-        />
+        <ScopePromptProvider>
+            <TaskList
+                placement={{ date: DAY }}
+                tasks={tasks}
+                rows={rows}
+                newTaskLabel={LABEL}
+                onOpenTask={onOpenTask}
+            />
+        </ScopePromptProvider>
     );
 }
 

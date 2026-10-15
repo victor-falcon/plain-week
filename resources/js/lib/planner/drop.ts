@@ -3,6 +3,7 @@ import { compareDayOrder } from '@/lib/db/position';
 import { placementOf } from '@/lib/db/queries';
 import type { MoveTaskInput, TaskPlacement } from '@/lib/db/tasks';
 import type { Task } from '@/lib/db/types';
+import type { PlannerTask } from '@/lib/recurrence/expand';
 import { formatDay, formatWeekday } from '@/lib/planner/format';
 import { addDays, addWeeks, weekdayIndex } from '@/lib/planner/week';
 
@@ -20,7 +21,7 @@ export type WeekDirection = -1 | 1;
 export type TaskListRef = { placement: TaskPlacement; tasks: Task[] };
 
 /** dnd-kit `data` of a draggable task row (`useSortable`). */
-export type TaskDragData = TaskListRef & { type: 'task'; task: Task };
+export type TaskDragData = TaskListRef & { type: 'task'; task: PlannerTask };
 
 /** dnd-kit `data` of a list droppable (a day or Someday column). */
 export type ListDropData = TaskListRef & { type: 'list' };
