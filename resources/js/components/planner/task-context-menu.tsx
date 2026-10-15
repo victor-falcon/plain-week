@@ -138,7 +138,7 @@ export function TaskContextMenu({
                             onColorChange(value);
                         }
                     }}
-                    className="grid grid-cols-5 gap-1 px-1 pb-1"
+                    className="grid grid-cols-5 justify-items-center gap-1 px-1 pb-1"
                 >
                     {TASK_COLORS.map((color) => (
                         <ContextMenuRadioItem

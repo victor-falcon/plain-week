@@ -233,12 +233,12 @@ row, in the days and in Someday. The actions come in as props (`onColorChange`, 
 `onMoveToNextWeek`, `onMoveToSomeday`, `onDuplicate`, `onDelete`); `TaskRow` wires them to the shared task actions in
 `lib/planner/task-actions.ts`, which the task dialog uses too.
 
-| Part   | Behaviour                                                                                                                                                                                        |
-| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Colors | The nine swatches in two rows of five and four (`TaskColorSwatch`, as in the dialog's color picker), `menuitemradio` items with the current color checked; the swatch grid sets the menu's width |
-| Moves  | Tomorrow, Next week and Someday, as in the dialog's More menu, with a "Moved to …" toast and Undo; Someday is hidden for a Someday task                                                          |
-| Copy   | Duplicate (toast "Task duplicated."); the copy of a recurring task is a one-off task                                                                                                             |
-| Delete | After a separator, `variant="destructive"` (the translucent preset menu shows it in the accent color); deletes at once with an "Undo" toast                                                      |
+| Part   | Behaviour                                                                                                                                                                                                                                                   |
+| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Colors | The nine swatches in two rows of five and four (`TaskColorSwatch`, as in the dialog's color picker), `menuitemradio` items with the current color checked; the swatch grid sets the menu's width; arrow keys move through it in order, like the other items |
+| Moves  | Tomorrow, Next week and Someday, as in the dialog's More menu, with a "Moved to …" toast and Undo; Someday is hidden for a Someday task                                                                                                                     |
+| Copy   | Duplicate (toast "Task duplicated."); the copy of a recurring task is a one-off task                                                                                                                                                                        |
+| Delete | After a separator, `variant="destructive"` (the translucent preset menu shows it in the accent color); deletes at once with an "Undo" toast                                                                                                                 |
 
 On a recurring task, a color change and Delete ask the scope first (moves never do: they move only that task).
 
