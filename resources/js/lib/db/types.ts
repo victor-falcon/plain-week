@@ -30,11 +30,16 @@ export type Subtask = {
 /** ISO weekday: 1 is Monday, 7 is Sunday. */
 export type IsoWeekday = 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
+/** The largest `every` of a daily rule ("every 365 days"). */
+export const MAX_EVERY_DAYS = 365;
+
 /**
  * The repeat rule of a series row. `until` is the last date (inclusive) that
- * can produce an occurrence.
+ * can produce an occurrence. A daily rule repeats every `every` days from the
+ * series' `date`.
  */
 export type Recurrence =
+    | { type: 'daily'; every: number; until?: string | null }
     | { type: 'weekly'; weekdays: IsoWeekday[]; until?: string | null }
     | { type: 'monthly'; day: number; until?: string | null };
 
@@ -84,10 +89,16 @@ export type OutboxEntry = {
 };
 
 /**
- * `cursor` and `user_id` belong to the sync engine; `demo_seeded` and
- * `demo_ids` to the guest onboarding (`lib/db/demo.ts`) and never sync.
+ * `cursor`, `cursor_format` and `user_id` belong to the sync engine;
+ * `demo_seeded` and `demo_ids` to the guest onboarding (`lib/db/demo.ts`) and
+ * never sync.
  */
-export type MetaKey = 'cursor' | 'user_id' | 'demo_seeded' | 'demo_ids';
+export type MetaKey =
+    | 'cursor'
+    | 'cursor_format'
+    | 'user_id'
+    | 'demo_seeded'
+    | 'demo_ids';
 
 export type MetaEntry = {
     key: MetaKey;

@@ -19,6 +19,15 @@ export type SyncTransport = {
     pull(cursor: number, limit: number): Promise<PullResponse>;
 };
 
+/**
+ * What this client understands, sent as `X-Sync-Format` on push and pull:
+ * 2 adds daily ("every N days") rules. The server never sends a daily series
+ * to a client without the header (v0.0.3 and older).
+ */
+export const SYNC_FORMAT = 2;
+
+const SYNC_HEADERS = { 'X-Sync-Format': String(SYNC_FORMAT) };
+
 export class SyncHttpError extends Error {
     constructor(readonly status: number) {
         super(`Sync request failed with HTTP ${status}.`);
@@ -94,9 +103,11 @@ export const fetchTransport: SyncTransport = {
     push: (tasks) =>
         request<PushResponse>(push.url(), {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', ...SYNC_HEADERS },
             body: JSON.stringify({ tasks }),
         }),
     pull: (cursor, limit) =>
-        request<PullResponse>(pull.url({ query: { cursor, limit } })),
+        request<PullResponse>(pull.url({ query: { cursor, limit } }), {
+            headers: SYNC_HEADERS,
+        }),
 };

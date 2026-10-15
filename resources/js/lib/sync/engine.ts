@@ -5,7 +5,7 @@ import { compareTimestamps } from '@/lib/db/dates';
 import { purgeDemoTasks } from '@/lib/db/demo';
 import type { OutboxEntry, Task } from '@/lib/db/types';
 import { withSyncLock } from './lock';
-import { SyncHttpError } from './transport';
+import { SYNC_FORMAT, SyncHttpError } from './transport';
 import type { SyncTransport } from './transport';
 
 export type SyncStatus = 'idle' | 'syncing' | 'offline' | 'error';
@@ -464,7 +464,7 @@ export class SyncEngine {
 
     private async pull(generation: number): Promise<void> {
         const { db } = this;
-        let cursor = Number((await db.meta.get('cursor'))?.value ?? 0);
+        let cursor = await this.storedCursor();
 
         for (;;) {
             this.assertCurrent(generation);
@@ -475,7 +475,10 @@ export class SyncEngine {
             await db.transaction('rw', allTables(db), async () => {
                 this.assertCurrent(generation);
                 await this.applyRemote(page.tasks.map(toTask));
-                await db.meta.put({ key: 'cursor', value: next });
+                await db.meta.bulkPut([
+                    { key: 'cursor', value: next },
+                    { key: 'cursor_format', value: SYNC_FORMAT },
+                ]);
             });
 
             if (!page.has_more || next <= cursor) {
@@ -484,6 +487,20 @@ export class SyncEngine {
 
             cursor = next;
         }
+    }
+
+    /**
+     * Where the next pull starts. A cursor stored by an older format starts
+     * over once: the server held back rows that format could not read (a
+     * v0.0.3 client never got daily series), and they are below that cursor.
+     */
+    private async storedCursor(): Promise<number> {
+        const [cursor, format] = await this.db.meta.bulkGet([
+            'cursor',
+            'cursor_format',
+        ]);
+
+        return format?.value === SYNC_FORMAT ? Number(cursor?.value ?? 0) : 0;
     }
 
     /**

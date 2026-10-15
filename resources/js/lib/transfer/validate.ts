@@ -1,4 +1,5 @@
-import { SOMEDAY_COLUMNS, TASK_COLORS } from '@/lib/db/types';
+import { MAX_EVERY_DAYS, SOMEDAY_COLUMNS, TASK_COLORS } from '@/lib/db/types';
+import { isValidEvery } from '@/lib/recurrence/expand';
 import type {
     IsoWeekday,
     Recurrence,
@@ -26,7 +27,7 @@ export class ImportError extends Error {
 const DATE_KEY = /^(\d{4})-(\d{2})-(\d{2})$/;
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
 const TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
-const RECURRENCE_KEYS = ['type', 'weekdays', 'day', 'until'];
+const RECURRENCE_KEYS = ['type', 'every', 'weekdays', 'day', 'until'];
 const MAX_POSITION_LENGTH = 255;
 const MAX_SUBTASK_ID_LENGTH = 255;
 
@@ -215,10 +216,28 @@ function parseRecurrence(v: RowValidator, value: unknown): Recurrence | null {
 
     const end = until === null ? {} : { until };
 
+    if (value.type === 'daily') {
+        const { every } = value;
+
+        if (
+            Object.hasOwn(value, 'weekdays') ||
+            Object.hasOwn(value, 'day') ||
+            !isValidEvery(every)
+        ) {
+            v.fail(
+                'recurrence.every',
+                `must be a number of days from 1 to ${MAX_EVERY_DAYS}`,
+            );
+        }
+
+        return { type: 'daily', every: every as number, ...end };
+    }
+
     if (value.type === 'weekly') {
         const { weekdays } = value;
 
         if (
+            Object.hasOwn(value, 'every') ||
             Object.hasOwn(value, 'day') ||
             !Array.isArray(weekdays) ||
             weekdays.length === 0 ||
@@ -244,6 +263,7 @@ function parseRecurrence(v: RowValidator, value: unknown): Recurrence | null {
         const { day } = value;
 
         if (
+            Object.hasOwn(value, 'every') ||
             Object.hasOwn(value, 'weekdays') ||
             !Number.isInteger(day) ||
             (day as number) < 1 ||
@@ -255,7 +275,7 @@ function parseRecurrence(v: RowValidator, value: unknown): Recurrence | null {
         return { type: 'monthly', day: day as number, ...end };
     }
 
-    return v.fail('recurrence.type', 'must be "weekly" or "monthly"');
+    return v.fail('recurrence.type', 'must be "daily", "weekly" or "monthly"');
 }
 
 function isSomedayColumn(value: unknown): value is SomedayColumn {

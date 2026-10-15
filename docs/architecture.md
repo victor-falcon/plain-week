@@ -19,25 +19,25 @@ not be merged.
 
 Same shape on the client and on the wire. Keys are `snake_case` both on the wire and in Dexie.
 
-| Field             | Type                                                                                                                 | Notes                                                                                  |
-| ----------------- | -------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| `id`              | string (UUID v7)                                                                                                     | Generated on the client                                                                |
-| `text`            | string                                                                                                               |                                                                                        |
-| `date`            | `'YYYY-MM-DD'` \| `null`                                                                                             | `null` means Someday                                                                   |
-| `someday_column`  | `0` \| `1` \| `2` \| `null`                                                                                          | Required when `date` is `null`                                                         |
-| `position`        | string                                                                                                               | Fractional index key (npm `fractional-indexing`); order within a day or Someday column |
-| `done`            | boolean                                                                                                              |                                                                                        |
-| `done_at`         | ISO-8601 string \| `null`                                                                                            |                                                                                        |
-| `color`           | `'none'` \| `'pink'` \| `'yellow'` \| `'black'` \| `'grey'` \| `'cornflower'` \| `'mango'` \| `'green'` \| `'lilac'` | Default `'none'`                                                                       |
-| `time`            | `'HH:mm'` \| `null`                                                                                                  |                                                                                        |
-| `notes`           | string                                                                                                               | Plain text in v0.0.1                                                                   |
-| `subtasks`        | array of `{ id: string, text: string, done: boolean }`                                                               | Stored as JSON                                                                         |
-| `recurrence`      | `{ type: 'weekly', weekdays: number[], until? }` \| `{ type: 'monthly', day: number, until? }` \| `null`             | Only on a series row; stored as JSON. See [Recurring tasks](#recurring-tasks)          |
-| `series_id`       | string \| `null`                                                                                                     | Only on an exception row: id of the series it overrides                                |
-| `occurrence_date` | `'YYYY-MM-DD'` \| `null`                                                                                             | Only on an exception row: the original generated date it replaces                      |
-| `created_at`      | ISO-8601 string (UTC, ms)                                                                                            | Set by the client                                                                      |
-| `updated_at`      | ISO-8601 string (UTC, ms)                                                                                            | Set by the client on every change; drives last-write-wins                              |
-| `deleted_at`      | ISO-8601 string \| `null`                                                                                            | Soft delete (tombstone). Never hard-delete through sync                                |
+| Field             | Type                                                                                                                                                   | Notes                                                                                  |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------- |
+| `id`              | string (UUID v7)                                                                                                                                       | Generated on the client                                                                |
+| `text`            | string                                                                                                                                                 |                                                                                        |
+| `date`            | `'YYYY-MM-DD'` \| `null`                                                                                                                               | `null` means Someday                                                                   |
+| `someday_column`  | `0` \| `1` \| `2` \| `null`                                                                                                                            | Required when `date` is `null`                                                         |
+| `position`        | string                                                                                                                                                 | Fractional index key (npm `fractional-indexing`); order within a day or Someday column |
+| `done`            | boolean                                                                                                                                                |                                                                                        |
+| `done_at`         | ISO-8601 string \| `null`                                                                                                                              |                                                                                        |
+| `color`           | `'none'` \| `'pink'` \| `'yellow'` \| `'black'` \| `'grey'` \| `'cornflower'` \| `'mango'` \| `'green'` \| `'lilac'`                                   | Default `'none'`                                                                       |
+| `time`            | `'HH:mm'` \| `null`                                                                                                                                    |                                                                                        |
+| `notes`           | string                                                                                                                                                 | Plain text in v0.0.1                                                                   |
+| `subtasks`        | array of `{ id: string, text: string, done: boolean }`                                                                                                 | Stored as JSON                                                                         |
+| `recurrence`      | `{ type: 'daily', every: number, until? }` \| `{ type: 'weekly', weekdays: number[], until? }` \| `{ type: 'monthly', day: number, until? }` \| `null` | Only on a series row; stored as JSON. See [Recurring tasks](#recurring-tasks)          |
+| `series_id`       | string \| `null`                                                                                                                                       | Only on an exception row: id of the series it overrides                                |
+| `occurrence_date` | `'YYYY-MM-DD'` \| `null`                                                                                                                               | Only on an exception row: the original generated date it replaces                      |
+| `created_at`      | ISO-8601 string (UTC, ms)                                                                                                                              | Set by the client                                                                      |
+| `updated_at`      | ISO-8601 string (UTC, ms)                                                                                                                              | Set by the client on every change; drives last-write-wins                              |
+| `deleted_at`      | ISO-8601 string \| `null`                                                                                                                              | Soft delete (tombstone). Never hard-delete through sync                                |
 
 Server-only columns: `user_id` (foreign key) and `version` (unsigned bigint, monotonically increasing, assigned on every
 accepted write).
@@ -53,17 +53,19 @@ client from local data, never fetched. Every row is exactly one of three kinds:
 | Series    | set          | `null`      | `null`            | `date` is the start (anchor) date and is never `null`       |
 | Exception | `null`       | set         | set               | Overrides one occurrence; its own `date` may differ (moved) |
 
-`recurrence` is `{ "type": "weekly", "weekdays": [1, 3, 5] }` (ISO weekdays, 1 = Monday … 7 = Sunday, unique, sorted,
-at least one) or `{ "type": "monthly", "day": 1–31 }`, both with an optional `"until": "YYYY-MM-DD"` (inclusive end, not
-before `date`). No other keys are allowed.
+`recurrence` is `{ "type": "daily", "every": 1–365 }` (an integer number of days), `{ "type": "weekly", "weekdays":
+[1, 3, 5] }` (ISO weekdays, 1 = Monday … 7 = Sunday, unique, sorted, at least one) or `{ "type": "monthly", "day": 1–31 }`,
+each with an optional `"until": "YYYY-MM-DD"` (inclusive end, not before `date`). No other keys are allowed.
 
 Expansion (client, pure function): for a visible date range a series yields a virtual occurrence on every matching date
-from its `date` to `until` (if set). Weekly matches the listed ISO weekdays; monthly matches `day`, or the last day of
-a shorter month. A virtual occurrence has the id `${series.id}:${YYYY-MM-DD}`, inherits the series' content and
+from its `date` to `until` (if set). Daily matches `date` plus a multiple of `every` days (counted in calendar days, so
+"every 21 days" from a Monday is always a Monday); weekly matches the listed ISO weekdays; monthly matches `day`, or the
+last day of a shorter month. A virtual occurrence has the id `${series.id}:${YYYY-MM-DD}`, inherits the series' content and
 `position`, and is not done. An exception row for `(series_id, occurrence_date)` suppresses that occurrence and is shown
 at its own `date` instead, or not at all if it is a tombstone. The series row itself is never rendered, and Someday
 never holds series or virtual occurrences. Any change to an occurrence materializes an exception; "this and all future"
-edits end the series with `until` = the day before and start a new series. The client data layer owns the details (see
+edits end the series with `until` = the day before and start a new series anchored on that occurrence (so a new daily
+`every` counts from there). The client data layer owns the details (see
 [Client data layer](#client-data-layer)).
 
 The server treats the three fields as plain synced columns (same LWW, same push/pull):
@@ -73,6 +75,13 @@ The server treats the three fields as plain synced columns (same LWW, same push/
 - The three keys are optional on push, all together or none, for clients from before v0.0.2. Such a record is applied
   only to a new or plain row (new rows get `null`); for a stored series or exception it is rejected, since those clients
   cannot represent it. Pull always returns the keys, `null` when unset.
+- Clients from v0.0.3 and older know only weekly and monthly rules. v0.0.3 drops an unknown rule from its planner, but
+  it crashes rendering an exception whose series has one (its rule summary reads `weekdays`). So the server tells
+  clients apart by the `X-Sync-Format` header (see [Sync endpoints](#sync-endpoints)). A pull without it (or below `2`)
+  gets every daily series row as a tombstone (`deleted_at` set to its `updated_at`, in the response only), so it also
+  disappears from those clients when a weekly or monthly series they hold turns daily. A push from such a client to a
+  stored daily series is rejected, like the pre-v0.0.2 rule above, so it can never overwrite or delete one. The
+  exceptions of a daily series still reach those clients, which show them as one-off tasks.
 - `series_id` is not a foreign key: an exception may arrive before its series (any order across batches). It is
   indexed with `user_id`. Pull only ever returns the user's own rows, so a `series_id` pointing at someone else's task
   exposes nothing. Uniqueness of `(series_id, occurrence_date)` is not enforced by the server either: the client keeps
@@ -81,6 +90,11 @@ The server treats the three fields as plain synced columns (same LWW, same push/
 ## Sync endpoints
 
 Web routes with session auth and CSRF, JSON in and out. All require authentication; guests get `401`.
+
+Both take an optional `X-Sync-Format: <int>` header that says what the client understands: none (or `1`) is a client
+up to v0.0.3; `2` adds daily rules. A missing or malformed header counts as `1`; a higher one as the newest the server
+knows. The client sends `2` (`SYNC_FORMAT` in `lib/sync/transport.ts`); the server's side is
+`App\Actions\Sync\SyncFormat`. What changes for an older format is in [Recurring tasks](#recurring-tasks).
 
 ### `POST /sync/push`
 
@@ -110,7 +124,9 @@ a `422` (it is not clamped).
 - A pulled record is applied only if `remote.updated_at >= local.updated_at` and its id is not pending in the outbox.
   (Client refinement: a pending change that is strictly older than the remote record is dropped and the remote record
   applied, because the server would refuse it anyway. See [Sync lifecycle](#sync-lifecycle-libsync).)
-- The cursor is persisted in the Dexie `meta` table (key `cursor`). The `user_id` is stored there too; if a different
+- The cursor is persisted in the Dexie `meta` table (key `cursor`), with the sync format it was pulled with
+  (`cursor_format`). A cursor from another format (or none: v0.0.3 did not store it) is dropped once and the client
+  pulls from `0`, because the server sent rows that format could not read as tombstones. Re-applying the rest is harmless (LWW). The `user_id` is stored there too; if a different
   user logs in, the local database is wiped first.
 - Guest to account: guest data is already in the outbox, so the first authenticated sync pushes it and guest work is
   kept. Untouched demo tasks are deleted first and never pushed ([Guest onboarding](#guest-onboarding-demo-tasks)).
@@ -124,11 +140,11 @@ The UI imports the repository functions and the hooks; it never talks to `fetch`
 
 ### IndexedDB schema (Dexie database `plain-week`, version 2)
 
-| Table    | Primary key | Indexes                                                                                                                   | Content                                                                                                                                           |
-| -------- | ----------- | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `tasks`  | `id`        | `date`, `[date+position]`, `someday_column`, `updated_at`, `deleted_at`, `recurrence.type`, `[series_id+occurrence_date]` | `Task` records, tombstones included                                                                                                               |
-| `outbox` | `task_id`   |                                                                                                                           | `{ task_id, revision, failed_revision? }`: pending changes                                                                                        |
-| `meta`   | `key`       |                                                                                                                           | `cursor` (last pulled version), `user_id` (owner of the local data), `demo_seeded`, `demo_ids` ([Guest onboarding](#guest-onboarding-demo-tasks)) |
+| Table    | Primary key | Indexes                                                                                                                   | Content                                                                                                                                                            |
+| -------- | ----------- | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `tasks`  | `id`        | `date`, `[date+position]`, `someday_column`, `updated_at`, `deleted_at`, `recurrence.type`, `[series_id+occurrence_date]` | `Task` records, tombstones included                                                                                                                                |
+| `outbox` | `task_id`   |                                                                                                                           | `{ task_id, revision, failed_revision? }`: pending changes                                                                                                         |
+| `meta`   | `key`       |                                                                                                                           | `cursor` (last pulled version), `cursor_format`, `user_id` (owner of the local data), `demo_seeded`, `demo_ids` ([Guest onboarding](#guest-onboarding-demo-tasks)) |
 
 IndexedDB leaves a row out of an index when the indexed value is null, so `recurrence.type` lists series rows only and
 `[series_id+occurrence_date]` exception rows only. Version 2 added both indexes and an upgrade that sets `recurrence`,
@@ -210,8 +226,8 @@ occurrences: `lib/recurrence/expand.ts` generates them, as pure functions on `'Y
 `isRecurring(item)` is true for everything but `task`; `getSeries(item)` (and `useSeries`) gives the series.
 
 **Expansion.** `expandSeries(series, exceptions, rangeStart, rangeEnd)` returns the occurrences on every date from
-`max(series.date, rangeStart)` to `min(until, rangeEnd)` that matches the rule (weekly: ISO weekday in `weekdays`;
-monthly: day `day`, or the last day of a shorter month), minus the dates an exception row replaces, plus that series'
+`max(series.date, rangeStart)` to `min(until, rangeEnd)` that matches the rule (daily: a multiple of `every` days after
+`series.date`; weekly: ISO weekday in `weekdays`; monthly: day `day`, or the last day of a shorter month), minus the dates an exception row replaces, plus that series'
 live exceptions dated in the range. A deleted exception hides its occurrence. `queryRangeItems` combines the rows dated
 in the range (plain and exceptions; series rows skipped) with the expansion of every live series that overlaps it
 (found through the `recurrence.type` index; their exceptions through `[series_id+occurrence_date]`). Someday holds only

@@ -26,6 +26,11 @@ export function addDays(key: string, days: number): string {
     return fromUtcMs(toUtcMs(key) + days * DAY_MS);
 }
 
+/** Whole days from `from` to `to` (negative when `to` is earlier). */
+export function daysBetween(from: string, to: string): number {
+    return Math.round((toUtcMs(to) - toUtcMs(from)) / DAY_MS);
+}
+
 export function isoWeekday(key: string): IsoWeekday {
     return (((new Date(toUtcMs(key)).getUTCDay() + 6) % 7) + 1) as IsoWeekday;
 }

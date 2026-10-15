@@ -95,6 +95,7 @@ Installed in `resources/js/components/ui/` and where they are used:
 | `calendar`                                                         | Task dialog date picker, repeat end date                                               |
 | `toggle-group` (+ `toggle`)                                        | Task color picker, repeat picker (kind and weekdays)                                   |
 | `select`                                                           | Repeat picker (day of the month)                                                       |
+| `input`                                                            | Repeat picker ("every N days"), settings forms                                         |
 | `dropdown-menu`                                                    | Task dialog "More" menu, planner account menu, app header user menu                    |
 | `context-menu`                                                     | Task row context menu (`task-context-menu.tsx`)                                        |
 | `tooltip`                                                          | Planner header buttons, account button, task dialog toolbar (`toolbar-tooltip.tsx`)    |
@@ -262,7 +263,8 @@ popover (320px, `align="end"`) holds a draft that "Apply" writes:
 
 | Part     | Components                       | Behaviour                                                                                                                                                           |
 | -------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Kind     | `ToggleGroup type="single"`      | Never / Weekly / Monthly, outline segments, the selected one filled                                                                                                 |
+| Kind     | `ToggleGroup type="single"`      | Never / Daily / Weekly / Monthly, outline segments, the selected one filled                                                                                         |
+| Every    | `Input type="number"` (1–365)    | "Every N days"; N starts at 2 (or the stored N); out of range, the note "Enter a number of days from 1 to 365." and Apply is disabled                               |
 | Weekdays | `ToggleGroup type="multiple"`    | Seven localized short names from Monday (`aria-label` the long name); the task's own weekday is always selected (see below)                                         |
 | Day      | `Select` (1–31)                  | "Monthly on day N"; N starts at the task's day of the month; from 29 on, the note "On the last day in shorter months."                                              |
 | Ends     | `Popover` + `Calendar`, `Button` | "Never" or the end date (not before the start); an X button clears it                                                                                               |

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vite-plus/test';
 import type { Recurrence, Task } from '@/lib/db/types';
 import { makeTask } from '@/test/fixtures';
-import { addDays, daysInMonth, isoWeekday } from './dates';
+import { addDays, daysBetween, daysInMonth, isoWeekday } from './dates';
 import {
     expandSeries,
     firstRuleDate,
@@ -101,27 +101,60 @@ describe('occurrence ids', () => {
 });
 
 describe('matchesRule', () => {
+    it('counts a daily rule from its anchor, never before it', () => {
+        const every21: Recurrence = { type: 'daily', every: 21 };
+
+        expect(matchesRule(every21, '2026-10-12', '2026-10-12')).toBe(true);
+        expect(matchesRule(every21, '2026-10-12', '2026-11-02')).toBe(true);
+        expect(matchesRule(every21, '2026-10-12', '2026-11-23')).toBe(true);
+        expect(matchesRule(every21, '2026-10-12', '2026-11-01')).toBe(false);
+        expect(matchesRule(every21, '2026-10-12', '2026-09-21')).toBe(false);
+        expect(
+            matchesRule(
+                { type: 'daily', every: 1 },
+                '2026-10-12',
+                '2026-10-13',
+            ),
+        ).toBe(true);
+    });
+
     it('clamps a monthly day to the last day of shorter months', () => {
         const on31: Recurrence = { type: 'monthly', day: 31 };
 
-        expect(matchesRule(on31, '2026-01-31')).toBe(true);
-        expect(matchesRule(on31, '2026-02-28')).toBe(true);
-        expect(matchesRule(on31, '2026-02-27')).toBe(false);
-        expect(matchesRule(on31, '2026-04-30')).toBe(true);
-        expect(matchesRule(on31, '2028-02-28')).toBe(false);
-        expect(matchesRule(on31, '2028-02-29')).toBe(true);
-        expect(matchesRule({ type: 'monthly', day: 29 }, '2026-02-28')).toBe(
-            true,
-        );
-        expect(matchesRule({ type: 'monthly', day: 29 }, '2028-02-28')).toBe(
-            false,
-        );
-        expect(matchesRule({ type: 'monthly', day: 30 }, '2026-03-30')).toBe(
-            true,
-        );
-        expect(matchesRule({ type: 'monthly', day: 30 }, '2026-03-31')).toBe(
-            false,
-        );
+        expect(matchesRule(on31, '2026-01-01', '2026-01-31')).toBe(true);
+        expect(matchesRule(on31, '2026-01-01', '2026-02-28')).toBe(true);
+        expect(matchesRule(on31, '2026-01-01', '2026-02-27')).toBe(false);
+        expect(matchesRule(on31, '2026-01-01', '2026-04-30')).toBe(true);
+        expect(matchesRule(on31, '2026-01-01', '2028-02-28')).toBe(false);
+        expect(matchesRule(on31, '2026-01-01', '2028-02-29')).toBe(true);
+        expect(
+            matchesRule(
+                { type: 'monthly', day: 29 },
+                '2026-01-01',
+                '2026-02-28',
+            ),
+        ).toBe(true);
+        expect(
+            matchesRule(
+                { type: 'monthly', day: 29 },
+                '2026-01-01',
+                '2028-02-28',
+            ),
+        ).toBe(false);
+        expect(
+            matchesRule(
+                { type: 'monthly', day: 30 },
+                '2026-01-01',
+                '2026-03-30',
+            ),
+        ).toBe(true);
+        expect(
+            matchesRule(
+                { type: 'monthly', day: 30 },
+                '2026-01-01',
+                '2026-03-31',
+            ),
+        ).toBe(false);
     });
 });
 
@@ -226,6 +259,69 @@ describe('expandSeries', () => {
             '2026-04-30',
             '2026-05-31',
             '2026-06-30',
+        ]);
+    });
+
+    it('generates daily occurrences every N days from the anchor', () => {
+        const every21 = series({ type: 'daily', every: 21 });
+
+        expect(
+            dates(expandSeries(every21, [], '2026-10-01', '2027-01-31')),
+        ).toEqual([
+            '2026-10-12',
+            '2026-11-02',
+            '2026-11-23',
+            '2026-12-14',
+            '2027-01-04',
+            '2027-01-25',
+        ]);
+        // A week in the middle of the gap shows nothing.
+        expect(expandSeries(every21, [], '2026-10-19', '2026-10-25')).toEqual(
+            [],
+        );
+        expect(
+            dates(
+                expandSeries(
+                    series({ type: 'daily', every: 2, until: '2026-10-17' }),
+                    [],
+                    '2026-10-12',
+                    '2026-10-18',
+                ),
+            ),
+        ).toEqual(['2026-10-12', '2026-10-14', '2026-10-16']);
+    });
+
+    it('keeps the daily cadence across DST changes and leap days', () => {
+        const items = expandSeries(
+            series({ type: 'daily', every: 7 }, { date: '2028-02-22' }),
+            [],
+            '2028-02-01',
+            '2028-04-10',
+        );
+
+        expect(dates(items)).toEqual([
+            '2028-02-22',
+            '2028-02-29',
+            '2028-03-07',
+            '2028-03-14',
+            '2028-03-21',
+            '2028-03-28',
+            '2028-04-04',
+        ]);
+        expect(daysBetween('2026-03-28', '2026-03-30')).toBe(2);
+        expect(daysBetween('2026-10-30', '2026-10-24')).toBe(-6);
+    });
+
+    it('lets an exception replace a daily occurrence', () => {
+        const items = expandSeries(
+            series({ type: 'daily', every: 21 }),
+            [exception('2026-11-02', { date: '2026-11-04' })],
+            '2026-11-02',
+            '2026-11-08',
+        );
+
+        expect(items.map((item) => [item.kind, item.date])).toEqual([
+            ['exception', '2026-11-04'],
         ]);
     });
 
@@ -365,6 +461,12 @@ describe('normalizeRecurrence', () => {
                 '2026-10-12',
             ),
         ).toEqual({ type: 'monthly', day: 31, until: '2026-12-31' });
+        expect(
+            normalizeRecurrence(
+                { type: 'daily', every: 21, until: null },
+                '2026-10-12',
+            ),
+        ).toEqual({ type: 'daily', every: 21 });
     });
 
     it('refuses rules the server would refuse', () => {
@@ -381,6 +483,15 @@ describe('normalizeRecurrence', () => {
         ).toThrow();
         expect(() =>
             normalizeRecurrence({ type: 'monthly', day: 0 }, anchor),
+        ).toThrow();
+        expect(() =>
+            normalizeRecurrence({ type: 'daily', every: 0 }, anchor),
+        ).toThrow();
+        expect(() =>
+            normalizeRecurrence({ type: 'daily', every: 366 }, anchor),
+        ).toThrow();
+        expect(() =>
+            normalizeRecurrence({ type: 'daily', every: 1.5 }, anchor),
         ).toThrow();
         expect(() =>
             normalizeRecurrence({ type: 'monthly', day: 32 }, anchor),
@@ -404,6 +515,9 @@ describe('firstRuleDate', () => {
         );
         expect(firstRuleDate({ type: 'monthly', day: 31 }, '2027-02-01')).toBe(
             '2027-02-28',
+        );
+        expect(firstRuleDate({ type: 'daily', every: 365 }, '2026-10-15')).toBe(
+            '2026-10-15',
         );
         expect(
             firstRuleDate(

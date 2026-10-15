@@ -84,11 +84,16 @@ export function rowKey(item: PlannerTask): string {
 
 /** What the repeat picker edits; `kind: 'never'` means no rule. */
 export type RepeatDraft = {
-    kind: 'never' | 'weekly' | 'monthly';
+    kind: 'never' | 'daily' | 'weekly' | 'monthly';
+    /** Days between occurrences of a daily rule. */
+    every: number;
     weekdays: IsoWeekday[];
     day: number;
     until: string | null;
 };
+
+/** The "every N days" a new daily rule starts with. */
+export const DEFAULT_EVERY_DAYS = 2;
 
 /**
  * The picker's starting state: the current rule, or, for a task that does not
@@ -101,10 +106,15 @@ export function repeatDraft(
 ): RepeatDraft {
     const draft: RepeatDraft = {
         kind: 'never',
+        every: DEFAULT_EVERY_DAYS,
         weekdays: [isoWeekday(anchor)],
         day: dayOfMonth(anchor),
         until: current?.until ?? null,
     };
+
+    if (current?.type === 'daily') {
+        return { ...draft, kind: 'daily', every: current.every };
+    }
 
     if (current?.type === 'weekly') {
         return { ...draft, kind: 'weekly', weekdays: current.weekdays };
@@ -120,6 +130,10 @@ export function repeatDraft(
 /** The rule a draft stands for (`null`: no repeat). */
 export function draftToRecurrence(draft: RepeatDraft): Recurrence | null {
     const end = draft.until === null ? {} : { until: draft.until };
+
+    if (draft.kind === 'daily') {
+        return { type: 'daily', every: draft.every, ...end };
+    }
 
     if (draft.kind === 'weekly') {
         return {
@@ -149,6 +163,10 @@ export function sameRecurrence(
         return false;
     }
 
+    if (a.type === 'daily' && b.type === 'daily') {
+        return a.every === b.every;
+    }
+
     if (a.type === 'weekly' && b.type === 'weekly') {
         const sorted = (days: IsoWeekday[]) =>
             [...new Set(days)].sort((x, y) => x - y).join();
@@ -160,8 +178,8 @@ export function sameRecurrence(
 }
 
 /**
- * A short human summary: "Every Mon, Wed", "Every day", "Monthly on day 31",
- * plus ", until 31 Dec" when the rule ends.
+ * A short human summary: "Every Mon, Wed", "Every day", "Every 21 days",
+ * "Monthly on day 31", plus ", until 31 Dec" when the rule ends.
  */
 export function summarizeRecurrence(
     recurrence: Recurrence,
@@ -169,7 +187,12 @@ export function summarizeRecurrence(
 ): string {
     let summary: string;
 
-    if (recurrence.type === 'monthly') {
+    if (recurrence.type === 'daily') {
+        summary =
+            recurrence.every === 1
+                ? 'Every day'
+                : `Every ${recurrence.every} days`;
+    } else if (recurrence.type === 'monthly') {
         summary = `Monthly on day ${recurrence.day}`;
     } else if (recurrence.weekdays.length === 7) {
         summary = 'Every day';
