@@ -35,6 +35,19 @@ export function formatLongDate(dateKey: string): string {
     return `${weekdayFormat.format(date)}, ${dayFormat.format(date)} ${yearFormat.format(date)}`;
 }
 
+/**
+ * "12 Oct" for a 'YYYY-MM-DD' key in the current year, "12 Oct 2027"
+ * otherwise.
+ */
+export function formatShortDate(dateKey: string, today = new Date()): string {
+    const date = parseDateKey(dateKey);
+    const day = dayFormat.format(date);
+
+    return date.getFullYear() === today.getFullYear()
+        ? day
+        : `${day} ${yearFormat.format(date)}`;
+}
+
 /** "October 2026" (long) or "Oct 2026" (short). */
 export function formatMonthTitle(date: Date, style: 'long' | 'short'): string {
     return (style === 'long' ? longMonthFormat : shortMonthFormat).format(date);
