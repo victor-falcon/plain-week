@@ -122,7 +122,8 @@ Installed in `resources/js/components/ui/` and where they are used:
   `rtl:rotate-180`), the destructive one last after a separator with `variant="destructive"`.
 - **Toasts.** `toast()` from `sonner`. Destructive actions do not ask for confirmation: they act and offer an "Undo"
   action in the toast (delete, drop on an edge zone, quick moves: "Moved to Tue 13 Oct."). Write failures use
-  `toast.error`.
+  `toast.error`. Toasts stay clickable over a modal dialog (`AppToaster` gives them `pointer-events-auto`), and a click
+  on one does not close the task dialog.
 - **Scope prompt.** The one question the planner asks: on a recurring task, an `AlertDialog` with "Only this task" /
   "This and all future" (and Cancel). It is a choice, not a confirmation; see
   [Recurring tasks](#recurring-tasks).
