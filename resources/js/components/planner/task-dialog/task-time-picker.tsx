@@ -10,7 +10,7 @@ import {
 import { updateTask } from '@/lib/db/tasks';
 import type { Task } from '@/lib/db/types';
 import { cn } from '@/lib/utils';
-import { saveLocally } from './save-locally';
+import { saveLocally } from '@/lib/planner/save-locally';
 import { TOOLBAR_BUTTON_CLASS } from './toolbar-tooltip';
 
 const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;

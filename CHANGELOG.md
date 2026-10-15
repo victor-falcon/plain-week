@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - **Recurring tasks: sync.** Tasks carry `recurrence`, `series_id` and `occurrence_date`, validated and synced by the
   server so recurring tasks and their per-day changes reach every device.
+- **Task context menu.** Right click a task (or press Shift+F10 / the context menu key on it) to change its color, move
+  it to tomorrow, next week or Someday, duplicate it or delete it with undo. On touch screens, press and hold still to
+  open it; press, hold and move still drags the task.
 
 ## [0.0.1] - 2026-10-15
 
