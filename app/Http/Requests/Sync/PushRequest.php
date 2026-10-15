@@ -7,6 +7,7 @@ use App\Enums\TaskColor;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class PushRequest extends FormRequest
 {
@@ -42,10 +43,102 @@ class PushRequest extends FormRequest
             'tasks.*.subtasks.*.id' => ['required', 'string', 'max:255'],
             'tasks.*.subtasks.*.text' => ['present', 'string'],
             'tasks.*.subtasks.*.done' => ['required', 'boolean:strict'],
+            // Recurrence fields are optional so clients from before v0.0.2 keep syncing; a missing key leaves the stored
+            // value untouched. Cross-field invariants are checked in after().
+            'tasks.*.recurrence' => ['sometimes', 'nullable', 'array:type,weekdays,day,until'],
+            'tasks.*.recurrence.type' => ['required_with:tasks.*.recurrence', 'string', 'in:weekly,monthly'],
+            'tasks.*.recurrence.weekdays' => [
+                'required_if:tasks.*.recurrence.type,weekly', 'prohibited_unless:tasks.*.recurrence.type,weekly', 'list',
+                'min:1', 'max:7',
+            ],
+            'tasks.*.recurrence.weekdays.*' => ['integer:strict', 'between:1,7'],
+            'tasks.*.recurrence.day' => [
+                'required_if:tasks.*.recurrence.type,monthly', 'prohibited_unless:tasks.*.recurrence.type,monthly',
+                'integer:strict', 'between:1,31',
+            ],
+            'tasks.*.recurrence.until' => ['sometimes', 'nullable', 'date_format:Y-m-d'],
+            'tasks.*.series_id' => ['sometimes', 'nullable', 'string', 'uuid', 'lowercase', 'different:tasks.*.id'],
+            'tasks.*.occurrence_date' => ['sometimes', 'nullable', 'date_format:Y-m-d'],
             'tasks.*.created_at' => ['required', $timestamp],
             'tasks.*.updated_at' => ['required', $timestamp],
             'tasks.*.deleted_at' => ['present', 'nullable', $timestamp],
         ];
+    }
+
+    /**
+     * Check the recurrence invariants that span several fields of a record.
+     *
+     * A row is plain (no recurrence fields), a series (`recurrence` and a `date`, no `series_id`/`occurrence_date`) or
+     * an exception (`series_id` and `occurrence_date`, no `recurrence`). Tombstones skip these checks, so deleting a
+     * row is never refused (for example a series ended before its start date when it is deleted from its first day).
+     *
+     * @return array<int, callable(Validator): void>
+     */
+    public function after(): array
+    {
+        return [
+            function (Validator $validator) {
+                if ($validator->errors()->isNotEmpty()) {
+                    return;
+                }
+
+                /** @var list<array<string, mixed>> $records */
+                $records = $validator->getData()['tasks'];
+
+                foreach ($records as $index => $record) {
+                    if ($record['deleted_at'] !== null) {
+                        continue;
+                    }
+
+                    foreach ($this->recurrenceViolations($record) as $field => $message) {
+                        $validator->errors()->add("tasks.{$index}.{$field}", $message);
+                    }
+                }
+            },
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $record
+     * @return array<string, string>
+     */
+    private function recurrenceViolations(array $record): array
+    {
+        /** @var array{type: string, weekdays?: list<int>, day?: int, until?: string|null}|null $recurrence */
+        $recurrence = $record['recurrence'] ?? null;
+        $seriesId = $record['series_id'] ?? null;
+        $occurrenceDate = $record['occurrence_date'] ?? null;
+
+        if ($recurrence !== null) {
+            return array_filter([
+                'date' => $record['date'] === null ? 'A recurring task needs a date.' : null,
+                'series_id' => $seriesId !== null ? 'A recurring task cannot be an exception of a series.' : null,
+                'occurrence_date' => $occurrenceDate !== null ? 'A recurring task cannot be an exception of a series.' : null,
+                'recurrence.weekdays' => isset($recurrence['weekdays']) && ! $this->isStrictlyAscending($recurrence['weekdays'])
+                    ? 'The weekdays must be unique and sorted.' : null,
+                'recurrence.until' => isset($recurrence['until']) && $record['date'] !== null && $recurrence['until'] < $record['date']
+                    ? 'The end date cannot be before the task date.' : null,
+            ]);
+        }
+
+        return array_filter([
+            'series_id' => $seriesId === null && $occurrenceDate !== null ? 'An exception needs its series.' : null,
+            'occurrence_date' => $seriesId !== null && $occurrenceDate === null ? 'An exception needs its occurrence date.' : null,
+        ]);
+    }
+
+    /**
+     * @param  list<int>  $values
+     */
+    private function isStrictlyAscending(array $values): bool
+    {
+        for ($i = 1; $i < count($values); $i++) {
+            if ($values[$i] <= $values[$i - 1]) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**

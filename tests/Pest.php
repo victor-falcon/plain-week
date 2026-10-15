@@ -1,6 +1,8 @@
 <?php
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
+use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
 
 /*
@@ -47,4 +49,41 @@ expect()->extend('toBeOne', function () {
 function something()
 {
     // ..
+}
+
+/**
+ * Build a full wire record.
+ *
+ * @param  array<string, mixed>  $overrides
+ * @return array<string, mixed>
+ */
+function wireTask(array $overrides = []): array
+{
+    return array_merge([
+        'id' => (string) Str::uuid7(),
+        'text' => 'Buy milk',
+        'date' => '2026-10-15',
+        'someday_column' => null,
+        'position' => 'a0',
+        'done' => false,
+        'done_at' => null,
+        'color' => 'none',
+        'time' => null,
+        'notes' => '',
+        'subtasks' => [],
+        'recurrence' => null,
+        'series_id' => null,
+        'occurrence_date' => null,
+        'created_at' => '2026-10-15T08:35:00.123Z',
+        'updated_at' => '2026-10-15T08:35:00.123Z',
+        'deleted_at' => null,
+    ], $overrides);
+}
+
+/**
+ * @param  list<array<string, mixed>>  $tasks
+ */
+function push(array $tasks): TestResponse
+{
+    return test()->postJson(route('sync.push'), ['tasks' => $tasks]);
 }

@@ -7,6 +7,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **Recurring tasks: sync.** Tasks carry `recurrence`, `series_id` and `occurrence_date`, validated and synced by the
+  server so recurring tasks and their per-day changes reach every device.
+
 ## [0.0.1] - 2026-10-15
 
 The first release: a minimal, offline-first weekly planner you can use as a guest or with an account that syncs
