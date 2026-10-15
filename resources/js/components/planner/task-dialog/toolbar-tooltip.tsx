@@ -1,5 +1,4 @@
 import type { ReactElement } from 'react';
-import { toast } from 'sonner';
 import {
     Tooltip,
     TooltipContent,
@@ -27,12 +26,4 @@ export function ToolbarTooltip({
             <TooltipContent>{label}</TooltipContent>
         </Tooltip>
     );
-}
-
-/**
- * Runs a local write. Writes only touch IndexedDB, so they are not awaited by
- * the UI; a failure (quota, a task deleted meanwhile) is reported in a toast.
- */
-export function save(write: Promise<unknown>): void {
-    write.catch(() => toast.error('Could not update the task.'));
 }

@@ -1,4 +1,5 @@
 import { Plus, X } from 'lucide-react';
+import { useEffect, useRef } from 'react';
 import { v7 as uuidv7 } from 'uuid';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -6,18 +7,20 @@ import { Input } from '@/components/ui/input';
 import { updateSubtasks } from '@/lib/db/tasks';
 import type { Subtask, Task } from '@/lib/db/types';
 import { cn } from '@/lib/utils';
-import { save } from './toolbar';
+import { saveLocally } from './save-locally';
 
 const FIELD_CLASS =
     'h-8 flex-1 rounded-none border-0 bg-transparent px-0 shadow-none focus-visible:ring-0 dark:bg-transparent';
 
 /**
  * Subtasks: each with a checkbox, editable text and a delete button, then an
- * "Add subtask..." field that adds on Enter and stays focused for the next.
+ * "Add subtask..." field that adds on Enter (and stays focused for the next),
+ * when it loses focus, or when the dialog closes with text still in it.
  */
 export function TaskSubtasks({ task }: { task: Task }) {
+    const addInputRef = useRef<HTMLInputElement>(null);
     const change = (update: (subtasks: Subtask[]) => Subtask[]) =>
-        save(updateSubtasks(task.id, update));
+        saveLocally(updateSubtasks(task.id, update));
 
     const edit = (id: string, patch: Partial<Omit<Subtask, 'id'>>) =>
         change((subtasks) =>
@@ -43,6 +46,19 @@ export function TaskSubtasks({ task }: { task: Task }) {
         ]);
     };
 
+    // Closing the dialog unmounts the field without a blur event.
+    useEffect(() => {
+        const input = addInputRef.current;
+
+        return () => {
+            if (input) {
+                add(input);
+            }
+        };
+        // `add` only needs the task id, which never changes for this dialog.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
     return (
         <ul className="flex flex-col">
             {task.subtasks.map((subtask) => (
@@ -66,6 +82,15 @@ export function TaskSubtasks({ task }: { task: Task }) {
 
                             if (text.trim() !== '') {
                                 edit(subtask.id, { text });
+                            }
+                        }}
+                        onKeyDown={(event) => {
+                            if (
+                                event.key === 'Enter' &&
+                                !event.nativeEvent.isComposing
+                            ) {
+                                event.preventDefault();
+                                addInputRef.current?.focus();
                             }
                         }}
                         onBlur={(event) => {
@@ -95,7 +120,9 @@ export function TaskSubtasks({ task }: { task: Task }) {
             <li className="flex items-center gap-2 text-muted-foreground">
                 <Plus className="size-4 shrink-0" />
                 <Input
+                    ref={addInputRef}
                     aria-label="Add subtask"
+                    onBlur={(event) => add(event.currentTarget)}
                     placeholder="Add subtask..."
                     enterKeyHint="enter"
                     onKeyDown={(event) => {

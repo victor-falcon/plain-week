@@ -18,7 +18,8 @@ import { TaskDatePicker } from './task-date-picker';
 import { TaskMoreMenu } from './task-more-menu';
 import { TaskSubtasks } from './task-subtasks';
 import { TaskTimePicker } from './task-time-picker';
-import { save, TOOLBAR_BUTTON_CLASS, ToolbarTooltip } from './toolbar';
+import { saveLocally } from './save-locally';
+import { TOOLBAR_BUTTON_CLASS, ToolbarTooltip } from './toolbar-tooltip';
 
 type Props = {
     /** The task to show; null keeps the dialog closed. */
@@ -67,17 +68,21 @@ function TaskDialogContent({
     const notesRef = useRef<HTMLTextAreaElement>(null);
 
     const handleDelete = () => {
-        onClose();
-        deleteTask(task.id).then(
-            () =>
+        saveLocally(deleteTask(task.id), {
+            error: 'Could not delete the task.',
+            onSaved: () => {
+                onClose();
                 toast('Task deleted.', {
                     action: {
                         label: 'Undo',
-                        onClick: () => save(restoreTask(task.id)),
+                        onClick: () =>
+                            saveLocally(restoreTask(task.id), {
+                                error: 'Could not restore the task.',
+                            }),
                     },
-                }),
-            () => toast.error('Could not delete the task.'),
-        );
+                });
+            },
+        });
     };
 
     return (
@@ -91,7 +96,20 @@ function TaskDialogContent({
                 event.preventDefault();
                 contentRef.current?.focus();
             }}
-            className="top-4 translate-y-0 gap-4 bg-secondary p-4 text-secondary-foreground sm:top-16 sm:max-w-lg sm:p-6"
+            // Back to the task's row, which may have moved to another day
+            // since it opened the dialog (when it is not shown, Radix falls
+            // back to the element that had focus).
+            onCloseAutoFocus={(event) => {
+                const row = document.querySelector<HTMLElement>(
+                    `[data-task-id="${task.id}"] button`,
+                );
+
+                if (row) {
+                    event.preventDefault();
+                    row.focus();
+                }
+            }}
+            className="top-4 max-h-[calc(100dvh-2rem)] translate-y-0 gap-4 overflow-y-auto bg-secondary p-4 text-secondary-foreground sm:top-16 sm:max-h-[calc(100dvh-8rem)] sm:max-w-lg sm:p-6"
         >
             <DialogTitle className="sr-only">Edit task</DialogTitle>
             <div className="-mx-2 -mt-1 flex flex-wrap items-center gap-1">
@@ -114,16 +132,30 @@ function TaskDialogContent({
                     <TaskMoreMenu task={task} />
                 </div>
             </div>
+            {/*
+              The text fields are uncontrolled (the dialog remounts per task):
+              typing never waits on the database round trip, and a remote edit
+              of the same field made while the dialog is open shows next time.
+            */}
             <div className="mt-6 flex items-start gap-2 border-b border-foreground/30 pb-1">
                 <Textarea
                     aria-label="Task"
                     defaultValue={task.text}
                     rows={1}
                     onChange={(event) => {
+                        // The title is one line: pasted line breaks become
+                        // spaces.
+                        if (/[\r\n]/.test(event.target.value)) {
+                            event.target.value = event.target.value.replace(
+                                /\s*[\r\n]+\s*/g,
+                                ' ',
+                            );
+                        }
+
                         const text = event.target.value;
 
                         if (text.trim() !== '') {
-                            save(updateTask(task.id, { text }));
+                            saveLocally(updateTask(task.id, { text }));
                         }
                     }}
                     onBlur={(event) => {
@@ -153,7 +185,7 @@ function TaskDialogContent({
                     size="icon-sm"
                     aria-label={task.done ? 'Mark as not done' : 'Mark as done'}
                     aria-pressed={task.done}
-                    onClick={() => save(toggleDone(task.id))}
+                    onClick={() => saveLocally(toggleDone(task.id))}
                     className="mt-0.5 shrink-0 rounded-full hover:bg-transparent"
                 >
                     <CircleCheck
@@ -171,7 +203,9 @@ function TaskDialogContent({
                 placeholder="Add some extra notes here…"
                 defaultValue={task.notes}
                 onChange={(event) =>
-                    save(updateTask(task.id, { notes: event.target.value }))
+                    saveLocally(
+                        updateTask(task.id, { notes: event.target.value }),
+                    )
                 }
                 className="min-h-10 rounded-none border-0 bg-transparent p-0 shadow-none focus-visible:ring-0 dark:bg-transparent"
             />

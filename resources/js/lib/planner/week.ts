@@ -9,7 +9,7 @@ export const WEEKEND_ROWS = 5;
 /** Rows rendered per Someday column on desktop. */
 export const SOMEDAY_ROWS = 2;
 
-function addDays(date: Date, days: number): Date {
+export function addDays(date: Date, days: number): Date {
     return new Date(date.getFullYear(), date.getMonth(), date.getDate() + days);
 }
 

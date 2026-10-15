@@ -10,7 +10,8 @@ import {
 import { updateTask } from '@/lib/db/tasks';
 import type { Task } from '@/lib/db/types';
 import { cn } from '@/lib/utils';
-import { save, TOOLBAR_BUTTON_CLASS } from './toolbar';
+import { saveLocally } from './save-locally';
+import { TOOLBAR_BUTTON_CLASS } from './toolbar-tooltip';
 
 const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 
@@ -22,14 +23,17 @@ export function TaskTimePicker({ task }: { task: Task }) {
     const [open, setOpen] = useState(false);
 
     const handleChange = (value: string) => {
-        if (TIME_PATTERN.test(value) && value !== task.time) {
-            save(updateTask(task.id, { time: value }));
+        // The native field reports '' once it is cleared.
+        const time = TIME_PATTERN.test(value) ? value : null;
+
+        if ((value === '' || time !== null) && time !== task.time) {
+            saveLocally(updateTask(task.id, { time }));
         }
     };
 
     const handleClear = () => {
         setOpen(false);
-        save(updateTask(task.id, { time: null }));
+        saveLocally(updateTask(task.id, { time: null }));
     };
 
     return (

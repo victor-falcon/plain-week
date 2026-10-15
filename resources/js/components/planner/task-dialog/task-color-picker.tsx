@@ -11,7 +11,8 @@ import { TASK_COLORS } from '@/lib/db/types';
 import type { Task, TaskColor } from '@/lib/db/types';
 import { TASK_COLOR_STYLES } from '@/lib/planner/task-colors';
 import { cn } from '@/lib/utils';
-import { save, TOOLBAR_BUTTON_CLASS, ToolbarTooltip } from './toolbar';
+import { saveLocally } from './save-locally';
+import { TOOLBAR_BUTTON_CLASS, ToolbarTooltip } from './toolbar-tooltip';
 
 function isTaskColor(value: string): value is TaskColor {
     return (TASK_COLORS as readonly string[]).includes(value);
@@ -54,7 +55,7 @@ export function TaskColorPicker({ task }: { task: Task }) {
                     onValueChange={(value) => {
                         // Radix sends '' when the current item is clicked again.
                         if (isTaskColor(value) && value !== task.color) {
-                            save(updateTask(task.id, { color: value }));
+                            saveLocally(updateTask(task.id, { color: value }));
                         }
                     }}
                     spacing={1}

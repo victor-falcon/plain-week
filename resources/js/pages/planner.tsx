@@ -1,8 +1,8 @@
 import { Head } from '@inertiajs/react';
 import { useCallback, useState } from 'react';
 import { PlannerHeader } from '@/components/planner/planner-header';
-import { TaskDialog } from '@/components/planner/task-dialog/task-dialog';
 import { SomedaySection } from '@/components/planner/someday-section';
+import { TaskDialog } from '@/components/planner/task-dialog/task-dialog';
 import { WeekGrid } from '@/components/planner/week-grid';
 import { SyncProvider } from '@/components/sync-provider';
 import { usePlannerShortcuts } from '@/hooks/use-planner-shortcuts';

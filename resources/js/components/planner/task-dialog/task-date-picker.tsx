@@ -11,7 +11,8 @@ import { parseDateKey, toDateKey } from '@/lib/db/dates';
 import { moveTask } from '@/lib/db/tasks';
 import type { Task } from '@/lib/db/types';
 import { formatLongDate } from '@/lib/planner/format';
-import { save, TOOLBAR_BUTTON_CLASS } from './toolbar';
+import { saveLocally } from './save-locally';
+import { TOOLBAR_BUTTON_CLASS } from './toolbar-tooltip';
 
 /**
  * The task's date ("Mon, 12 Oct 2026" or "Someday"). It opens a calendar
@@ -20,12 +21,13 @@ import { save, TOOLBAR_BUTTON_CLASS } from './toolbar';
 export function TaskDatePicker({ task }: { task: Task }) {
     const [open, setOpen] = useState(false);
     const selected = task.date ? parseDateKey(task.date) : undefined;
+    const label = task.date ? formatLongDate(task.date) : 'Someday';
 
     const handleSelect = (date: Date | undefined) => {
         setOpen(false);
 
         if (date && toDateKey(date) !== task.date) {
-            save(moveTask(task.id, { date: toDateKey(date) }));
+            saveLocally(moveTask(task.id, { date: toDateKey(date) }));
         }
     };
 
@@ -36,11 +38,11 @@ export function TaskDatePicker({ task }: { task: Task }) {
                     type="button"
                     variant="ghost"
                     size="sm"
-                    aria-label={`Date: ${task.date ? formatLongDate(task.date) : 'Someday'}`}
+                    aria-label={`Date: ${label}`}
                     className={`${TOOLBAR_BUTTON_CLASS} font-medium`}
                 >
                     <CalendarDays data-icon="inline-start" />
-                    {task.date ? formatLongDate(task.date) : 'Someday'}
+                    {label}
                 </Button>
             </PopoverTrigger>
             <PopoverContent align="start" className="w-auto p-0">

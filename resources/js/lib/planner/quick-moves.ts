@@ -1,11 +1,8 @@
 import { parseDateKey, toDateKey } from '@/lib/db/dates';
+import { addDays } from './week';
 
 function shiftDays(dateKey: string, days: number): string {
-    const date = parseDateKey(dateKey);
-
-    return toDateKey(
-        new Date(date.getFullYear(), date.getMonth(), date.getDate() + days),
-    );
+    return toDateKey(addDays(parseDateKey(dateKey), days));
 }
 
 /**

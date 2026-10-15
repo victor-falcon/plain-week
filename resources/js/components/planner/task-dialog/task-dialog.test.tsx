@@ -33,7 +33,9 @@ async function stored(id: string): Promise<Task | undefined> {
     return db.tasks.get(id);
 }
 
-async function open(fields: { notes?: string } = {}) {
+async function open(
+    fields: { notes?: string; subtasks?: Task['subtasks'] } = {},
+) {
     const task = await createTask({ text: 'Plan trip', date: DAY, ...fields });
     const user = userEvent.setup();
 
@@ -141,6 +143,16 @@ describe('TaskDialog', () => {
         await user.click(screen.getByRole('button', { name: 'Clear' }));
         await within(dialog).findByRole('button', { name: 'Set time' });
         expect((await stored(task.id))?.time).toBeNull();
+
+        // Emptying the native field clears it too.
+        await user.click(
+            within(dialog).getByRole('button', { name: 'Set time' }),
+        );
+        await user.type(await screen.findByLabelText('Time'), '10:15');
+        await within(dialog).findByRole('button', { name: 'Time: 10:15' });
+        await user.clear(screen.getByLabelText('Time'));
+        await within(dialog).findByRole('button', { name: 'Set time' });
+        expect((await stored(task.id))?.time).toBeNull();
     });
 
     it('changes the color', async () => {
@@ -196,6 +208,52 @@ describe('TaskDialog', () => {
             expect((await stored(task.id))?.subtasks).toMatchObject([
                 { text: 'Hotel room', done: false },
             ]),
+        );
+    });
+
+    it('keeps a subtask typed without Enter when focus leaves or the dialog closes', async () => {
+        const { task, user, dialog } = await open();
+
+        await user.type(
+            within(dialog).getByLabelText('Add subtask'),
+            'Blurred',
+        );
+        await user.click(within(dialog).getByLabelText('Notes'));
+        await user.type(within(dialog).getByLabelText('Add subtask'), 'Closed');
+        await user.keyboard('{Escape}');
+
+        await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+        await waitFor(async () =>
+            expect(
+                (await stored(task.id))?.subtasks.map((s) => s.text),
+            ).toEqual(['Blurred', 'Closed']),
+        );
+    });
+
+    it('moves from a subtask to "Add subtask" with Enter', async () => {
+        const { user, dialog } = await open({
+            subtasks: [{ id: 's1', text: 'Flights', done: false }],
+        });
+
+        await user.click(within(dialog).getByLabelText('Subtask'));
+        await user.keyboard('{Enter}');
+
+        expect(document.activeElement).toBe(
+            within(dialog).getByLabelText('Add subtask'),
+        );
+    });
+
+    it('turns pasted line breaks in the title into spaces', async () => {
+        const { task, user, dialog } = await open();
+
+        const title = within(dialog).getByLabelText('Task');
+        await user.clear(title);
+        await user.click(title);
+        await user.paste('Plan\ntrip');
+
+        expect((title as HTMLTextAreaElement).value).toBe('Plan trip');
+        await waitFor(async () =>
+            expect((await stored(task.id))?.text).toBe('Plan trip'),
         );
     });
 

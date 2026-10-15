@@ -15,20 +15,25 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useToday } from '@/hooks/use-today';
 import { duplicateTask, moveTask } from '@/lib/db/tasks';
+import type { TaskPlacement } from '@/lib/db/tasks';
+import { SOMEDAY_COLUMNS } from '@/lib/db/types';
 import type { Task } from '@/lib/db/types';
 import { nextWeekOf, tomorrowOf } from '@/lib/planner/quick-moves';
-import { save, TOOLBAR_BUTTON_CLASS, ToolbarTooltip } from './toolbar';
+import { saveLocally } from './save-locally';
+import { TOOLBAR_BUTTON_CLASS, ToolbarTooltip } from './toolbar-tooltip';
 
 /** Quick moves (Tomorrow, Next week, Someday) and Duplicate. */
 export function TaskMoreMenu({ task }: { task: Task }) {
     const today = useToday();
 
-    const handleDuplicate = () => {
-        duplicateTask(task.id).then(
-            () => toast.success('Task duplicated.'),
-            () => toast.error('Could not duplicate the task.'),
-        );
-    };
+    const move = (placement: TaskPlacement) =>
+        saveLocally(moveTask(task.id, placement));
+
+    const handleDuplicate = () =>
+        saveLocally(duplicateTask(task.id), {
+            error: 'Could not duplicate the task.',
+            onSaved: () => toast.success('Task duplicated.'),
+        });
 
     return (
         <DropdownMenu>
@@ -48,11 +53,9 @@ export function TaskMoreMenu({ task }: { task: Task }) {
             <DropdownMenuContent align="end" className="min-w-40">
                 <DropdownMenuItem
                     onSelect={() =>
-                        save(
-                            moveTask(task.id, {
-                                date: tomorrowOf(task.date, today),
-                            }),
-                        )
+                        move({
+                            date: tomorrowOf(task.date, today),
+                        })
                     }
                 >
                     Tomorrow
@@ -60,11 +63,9 @@ export function TaskMoreMenu({ task }: { task: Task }) {
                 </DropdownMenuItem>
                 <DropdownMenuItem
                     onSelect={() =>
-                        save(
-                            moveTask(task.id, {
-                                date: nextWeekOf(task.date, today),
-                            }),
-                        )
+                        move({
+                            date: nextWeekOf(task.date, today),
+                        })
                     }
                 >
                     Next week
@@ -73,12 +74,10 @@ export function TaskMoreMenu({ task }: { task: Task }) {
                 <DropdownMenuItem
                     disabled={task.date === null}
                     onSelect={() =>
-                        save(
-                            moveTask(task.id, {
-                                date: null,
-                                someday_column: 0,
-                            }),
-                        )
+                        move({
+                            date: null,
+                            someday_column: SOMEDAY_COLUMNS[0],
+                        })
                     }
                 >
                     Someday
