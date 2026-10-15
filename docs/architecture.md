@@ -97,7 +97,8 @@ After login, registration and email verification Fortify redirects to `/` (`conf
 
 **Email verification never blocks the app.** Self-hosted instances often have no mail server, so no route uses the
 `verified` middleware. The verify-email flow (notice page, resend link, signed verification URL) still works for
-instances that do send mail.
+instances that do send mail: the "unverified" notice and resend link live on the profile settings page. Keep
+`MAIL_MAILER=log` (the default) when there is no mail server, otherwise sending the verification email fails.
 
 Sync routes always answer in JSON, whatever the `Accept` header: guests get `401 {"message": "Unauthenticated."}`
 instead of a redirect, validation errors are `422`, and a missing or stale CSRF token is `419`. Requests must be
@@ -130,7 +131,7 @@ leading spaces in `text`) round-trip exactly.
 | `deleted_at`     | datetime(3), nullable      | Tombstone. Not Eloquent soft deletes: tombstones are synced |
 | `version`        | unsigned bigint            | Indexed with `user_id`                                      |
 
-`sync_versions`: a single row (`id = 1`) holding the last version handed out.
+`sync_versions`: a single row (`id = 1`) holding the last version handed out, seeded by its migration.
 
 The `Task` model disables Eloquent timestamps (the client owns them). Timestamps go through the
 `App\Casts\UtcMillisDateTime` cast: they are stored as UTC with milliseconds and returned in the wire format
@@ -155,14 +156,21 @@ instead of failing.
   touched.
 - A record older than the stored row (`updated_at` strictly lower) is skipped silently: it is in neither `applied` nor
   `rejected`. Equal `updated_at` is applied.
-- `cursor` is the highest version among the user's tasks after the push (`0` if the user has none).
+- `cursor` is the highest version among the user's tasks after the push (`0` if the user has none). It is **not** a
+  pull position: other devices may have written versions below it that this client has not pulled yet. Only advance
+  the stored pull cursor from `/sync/pull` responses.
 
 Validation (`App\Http\Requests\Sync\PushRequest`) rejects the whole batch with `422` if any record is invalid:
 `tasks` must be a list of at most 500 records; every field of the contract must be present; `id` a UUID; `date`
 `YYYY-MM-DD` or `null`; `someday_column` `0`–`2` and required when `date` is `null`; `color` one of the nine values;
 `time` `HH:mm` or `null`; `done` and subtask `done` real booleans; `subtasks` a list of `{ id, text, done }`;
-timestamps exactly `YYYY-MM-DDTHH:mm:ss.sssZ` (what `Date.prototype.toISOString()` produces). Limits: `text` 10 000
-characters, `notes` 100 000, `position` 255.
+timestamps exactly `YYYY-MM-DDTHH:mm:ss.sssZ` (what `Date.prototype.toISOString()` produces); `id` must be lowercase
+(the primary key is case sensitive). `text`, `notes` and subtask `text` have no length limit; `position` is at most
+255 characters.
+
+A `422` is not transient: retrying the same batch fails again. The client should surface it as an error instead of
+retrying forever, and must not drop the other records of the batch. `5xx` and network errors are transient (for
+example a SQLite lock that outlives `busy_timeout`) and can be retried.
 
 ### Examples
 
@@ -195,7 +203,11 @@ Accept: application/json
 ```
 
 ```json
-{ "applied": ["0199e7a4-6c1e-7a0b-9f3e-2d4c5b6a7e8f"], "rejected": [], "cursor": 42 }
+{
+    "applied": ["0199e7a4-6c1e-7a0b-9f3e-2d4c5b6a7e8f"],
+    "rejected": [],
+    "cursor": 42
+}
 ```
 
 ```http

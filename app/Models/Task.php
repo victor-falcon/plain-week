@@ -55,6 +55,7 @@ class Task extends Model
     protected function casts(): array
     {
         return [
+            'user_id' => 'integer',
             'someday_column' => 'integer',
             'done' => 'boolean',
             'done_at' => UtcMillisDateTime::class,

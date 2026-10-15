@@ -245,6 +245,7 @@ test('push rejects invalid records with 422', function (array $overrides, string
     'timestamp without milliseconds' => [['updated_at' => '2026-10-15T08:35:00Z'], 'updated_at'],
     'timestamp with offset' => [['created_at' => '2026-10-15T08:35:00.000+02:00'], 'created_at'],
     'non-uuid id' => [['id' => 'not-a-uuid'], 'id'],
+    'uppercase id' => [['id' => '0199E7A4-6C1E-7A0B-9F3E-2D4C5B6A7E8F'], 'id'],
     'subtasks not a list' => [['subtasks' => ['a' => ['id' => 's', 'text' => 't', 'done' => false]]], 'subtasks'],
     'subtask missing done' => [['subtasks' => [['id' => 's', 'text' => 't']]], 'subtasks.0.done'],
     'done not boolean' => [['done' => 'yes'], 'done'],
