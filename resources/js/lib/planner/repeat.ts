@@ -1,17 +1,18 @@
 import type { IsoWeekday, Recurrence } from '@/lib/db/types';
-import { dayOfMonth, isoWeekday } from '@/lib/recurrence/dates';
-import type { PlannerTask } from '@/lib/recurrence/expand';
-import { formatShortDate } from './format';
-
-/** The UI is English only for now (see format.ts). */
-const LOCALE = 'en-GB';
+import { addDays, dayOfMonth, isoWeekday } from '@/lib/recurrence/dates';
+import { matchesRule } from '@/lib/recurrence/expand';
+import type { PlannerTask, SeriesItem } from '@/lib/recurrence/expand';
+import { LOCALE, formatShortDate } from './format';
 
 /** ISO weekdays in the order the picker shows them: weeks start on Monday. */
 export const ISO_WEEKDAYS: IsoWeekday[] = [1, 2, 3, 4, 5, 6, 7];
 
-/** 2026-10-12 is a Monday: ISO weekday n is 2026-10-(11 + n). */
+/** Any Monday (UTC): ISO weekday n is n - 1 days after it. */
+const A_MONDAY_MS = Date.UTC(2026, 9, 12);
+const DAY_MS = 86_400_000;
+
 function weekdayDate(weekday: IsoWeekday): Date {
-    return new Date(Date.UTC(2026, 9, 11 + weekday));
+    return new Date(A_MONDAY_MS + (weekday - 1) * DAY_MS);
 }
 
 const shortWeekday = new Intl.DateTimeFormat(LOCALE, {
@@ -42,6 +43,50 @@ export function repeatAnchor(item: PlannerTask): string | null {
     return item.kind === 'occurrence' || item.kind === 'exception'
         ? item.occurrenceDate
         : item.date;
+}
+
+/**
+ * Whether a change to this item can apply to "only this task" or "this and
+ * all future": an occurrence, or an exception whose series still exists
+ * (`series` is the item's loaded series; `undefined` while loading). A plain
+ * task, a series row and an exception whose series is gone have no scope.
+ */
+export function asksScope(
+    item: PlannerTask,
+    series: SeriesItem | null | undefined,
+): boolean {
+    return (
+        item.kind === 'occurrence' ||
+        (item.kind === 'exception' && series !== null)
+    );
+}
+
+/**
+ * A React key that survives an occurrence's first change, when it becomes an
+ * exception row with a new id (focus and row state stay put).
+ */
+export function rowKey(item: PlannerTask): string {
+    return item.kind === 'occurrence' || item.kind === 'exception'
+        ? `${item.seriesId}:${item.occurrenceDate}`
+        : item.id;
+}
+
+/**
+ * The first date from `anchor` on that `rule` produces, or `null` when it
+ * ends before one (every rule matches within two months).
+ */
+export function firstRuleDate(rule: Recurrence, anchor: string): string | null {
+    for (let day = anchor, i = 0; i < 62; day = addDays(day, 1), i++) {
+        if (rule.until && day > rule.until) {
+            return null;
+        }
+
+        if (matchesRule(rule, day)) {
+            return day;
+        }
+    }
+
+    return null;
 }
 
 /** What the repeat picker edits; `kind: 'never'` means no rule. */

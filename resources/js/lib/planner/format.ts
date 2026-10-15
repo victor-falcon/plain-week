@@ -1,7 +1,7 @@
 import { parseDateKey } from '@/lib/db/dates';
 
 /** The UI is English only for now; dates read "12 Oct", "October 2026". */
-const LOCALE = 'en-GB';
+export const LOCALE = 'en-GB';
 
 const dayFormat = new Intl.DateTimeFormat(LOCALE, {
     day: 'numeric',

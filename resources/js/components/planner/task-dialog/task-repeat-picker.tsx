@@ -22,6 +22,7 @@ import { formatLongDate } from '@/lib/planner/format';
 import {
     ISO_WEEKDAYS,
     draftToRecurrence,
+    firstRuleDate,
     repeatAnchor,
     repeatDraft,
     sameRecurrence,
@@ -30,6 +31,7 @@ import {
 } from '@/lib/planner/repeat';
 import type { RepeatDraft } from '@/lib/planner/repeat';
 import { isoWeekday } from '@/lib/recurrence/dates';
+import { isRecurring, occurrenceId } from '@/lib/recurrence/expand';
 import { cn } from '@/lib/utils';
 import { useTaskEditor } from './task-editor';
 import { TOOLBAR_BUTTON_CLASS, ToolbarTooltip } from './toolbar-tooltip';
@@ -47,7 +49,7 @@ const SELECTED_CLASS =
  * series from there on), so that date's weekday always stays selected.
  */
 export function TaskRepeatPicker() {
-    const { task, series, write, askScope } = useTaskEditor();
+    const { task, series, recurring, write, askScope } = useTaskEditor();
     const anchor = repeatAnchor(task);
     const current = series?.recurrence ?? null;
     const [open, setOpen] = useState(false);
@@ -77,19 +79,24 @@ export function TaskRepeatPicker() {
         }
 
         if (rule !== null) {
-            // On an occurrence a rule always applies from here on.
-            write((id) => setRecurrence(id, rule), {
-                follow: true,
-                error: 'Could not change the repeat.',
-            });
+            // On an occurrence a rule always applies from here on. When the
+            // rule skips the task's day, follow the task to its first date.
+            write(
+                async (id) => {
+                    const item = await setRecurrence(id, rule);
+                    const first =
+                        item.kind === 'series' &&
+                        firstRuleDate(item.recurrence, item.date);
+
+                    return first ? { id: occurrenceId(item.id, first) } : item;
+                },
+                { follow: true, error: 'Could not change the repeat.' },
+            );
 
             return;
         }
 
-        const scope =
-            task.kind === 'series'
-                ? undefined
-                : await askScope('stop-repeating');
+        const scope = await askScope('stop-repeating');
 
         if (scope !== null) {
             write((id) => setRecurrence(id, null, { scope }), {
@@ -108,8 +115,12 @@ export function TaskRepeatPicker() {
                         variant="ghost"
                         size="icon-sm"
                         aria-label={label}
-                        // A Someday task cannot repeat.
-                        disabled={anchor === null}
+                        // A Someday task cannot repeat; a recurring one waits
+                        // for its rule to load.
+                        disabled={
+                            anchor === null ||
+                            (isRecurring(task) && series === undefined)
+                        }
                         className={cn(
                             TOOLBAR_BUTTON_CLASS,
                             current && 'text-foreground',
@@ -126,17 +137,50 @@ export function TaskRepeatPicker() {
                         draft={draft}
                         onChange={setDraft}
                     />
-                    {task.kind !== 'task' && draft.kind !== 'never' && (
+                    <StartNote anchor={anchor} draft={draft} />
+                    {recurring && draft.kind !== 'never' && (
                         <p className="text-xs text-muted-foreground">
                             Applies to this and all future tasks.
                         </p>
                     )}
-                    <Button type="button" onClick={apply}>
+                    <Button
+                        type="button"
+                        // A rule that ends before its first date is refused.
+                        disabled={!repeatsAtLeastOnce(draft, anchor)}
+                        onClick={apply}
+                    >
                         Apply
                     </Button>
                 </PopoverContent>
             )}
         </Popover>
+    );
+}
+
+function repeatsAtLeastOnce(draft: RepeatDraft, anchor: string): boolean {
+    const rule = draftToRecurrence(draft);
+
+    return rule === null || firstRuleDate(rule, anchor) !== null;
+}
+
+/**
+ * "Starts on Sun, 1 Nov 2026." when the rule skips the task's own day (a
+ * monthly day other than the date's): the task moves to that first date.
+ */
+function StartNote({ anchor, draft }: { anchor: string; draft: RepeatDraft }) {
+    const rule = draftToRecurrence(draft);
+    const first = rule && firstRuleDate(rule, anchor);
+
+    if (!rule || first === anchor) {
+        return null;
+    }
+
+    return (
+        <p className="text-xs text-muted-foreground">
+            {first
+                ? `Starts on ${formatLongDate(first)}.`
+                : 'Ends before it repeats once.'}
+        </p>
     );
 }
 

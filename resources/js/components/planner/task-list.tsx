@@ -15,6 +15,7 @@ import { createTask, toggleDone } from '@/lib/db/tasks';
 import type { TaskPlacement } from '@/lib/db/tasks';
 import type { PlannerTask } from '@/lib/recurrence/expand';
 import { placementKey } from '@/lib/planner/drop';
+import { rowKey } from '@/lib/planner/repeat';
 import type { ListDropData } from '@/lib/planner/drop';
 import { parseSmartTime } from '@/lib/planner/smart-time';
 import { cn } from '@/lib/utils';
@@ -123,7 +124,7 @@ export function TaskList({
                 strategy={verticalListSortingStrategy}
             >
                 {listTasks.map((task) => (
-                    <Fragment key={task.id}>
+                    <Fragment key={rowKey(task)}>
                         {indicatorBefore === task.id && <DropIndicator />}
                         <TaskRow
                             task={task}

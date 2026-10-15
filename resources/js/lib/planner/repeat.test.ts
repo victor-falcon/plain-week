@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vite-plus/test';
+import { makeTask } from '@/test/fixtures';
 import {
+    asksScope,
     draftToRecurrence,
+    firstRuleDate,
     repeatDraft,
+    rowKey,
     sameRecurrence,
     summarizeRecurrence,
     weekdayName,
@@ -117,5 +121,46 @@ describe('weekdayName', () => {
     it('names ISO weekdays', () => {
         expect(weekdayName(1)).toBe('Mon');
         expect(weekdayName(7, 'long')).toBe('Sunday');
+    });
+});
+
+describe('firstRuleDate', () => {
+    it('is the anchor when the rule matches it, else the next match', () => {
+        expect(firstRuleDate({ type: 'monthly', day: 31 }, '2026-10-31')).toBe(
+            '2026-10-31',
+        );
+        expect(firstRuleDate({ type: 'monthly', day: 1 }, '2026-10-31')).toBe(
+            '2026-11-01',
+        );
+        expect(firstRuleDate({ type: 'monthly', day: 31 }, '2027-02-01')).toBe(
+            '2027-02-28',
+        );
+        expect(
+            firstRuleDate(
+                { type: 'monthly', day: 1, until: '2026-10-31' },
+                '2026-10-15',
+            ),
+        ).toBeNull();
+    });
+});
+
+describe('asksScope and rowKey', () => {
+    const base = { ...makeTask(), seriesId: 's', occurrenceDate: '2026-10-14' };
+
+    it('asks for occurrences and for exceptions of a live series', () => {
+        expect(asksScope({ ...base, kind: 'occurrence' }, undefined)).toBe(
+            true,
+        );
+        expect(asksScope({ ...base, kind: 'exception' }, null)).toBe(false);
+        expect(asksScope({ ...makeTask(), kind: 'task' }, null)).toBe(false);
+    });
+
+    it('keys an occurrence and its exception alike', () => {
+        expect(
+            rowKey({ ...base, id: 's:2026-10-14', kind: 'occurrence' }),
+        ).toBe(rowKey({ ...base, id: 'row', kind: 'exception' }));
+        expect(rowKey({ ...makeTask(), id: 'plain', kind: 'task' })).toBe(
+            'plain',
+        );
     });
 });

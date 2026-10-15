@@ -20,8 +20,7 @@ export type ScopeAction = 'edit' | 'delete' | 'stop-repeating';
 const COPY: Record<ScopeAction, { title: string; description: string }> = {
     edit: {
         title: 'Edit recurring task',
-        description:
-            'Change only this task, or this one and every later one? Your choice applies to the rest of your changes until the task is closed.',
+        description: 'Change only this task, or this one and every later one?',
     },
     delete: {
         title: 'Delete recurring task',
@@ -34,8 +33,18 @@ const COPY: Record<ScopeAction, { title: string; description: string }> = {
     },
 };
 
+type AskOptions = {
+    /** The answer is kept for the next changes (the task dialog's edits). */
+    remembered?: boolean;
+};
+
 /** Asks which tasks a change applies to; `null` when the user cancels. */
-export type AskScope = (action: ScopeAction) => Promise<Scope | null>;
+export type AskScope = (
+    action: ScopeAction,
+    options?: AskOptions,
+) => Promise<Scope | null>;
+
+type Prompt = AskOptions & { action: ScopeAction };
 
 const ScopePromptContext = createContext<AskScope | null>(null);
 
@@ -44,33 +53,36 @@ const ScopePromptContext = createContext<AskScope | null>(null);
  * Mounted once by the planner page; `useScopePrompt()` asks.
  */
 export function ScopePromptProvider({ children }: { children: ReactNode }) {
-    const [action, setAction] = useState<ScopeAction | null>(null);
+    const [open, setOpen] = useState(false);
+    // Kept after closing, so the prompt keeps its text while it fades out.
+    const [prompt, setPrompt] = useState<Prompt | null>(null);
     const resolver = useRef<((scope: Scope | null) => void) | null>(null);
 
-    const ask = useCallback<AskScope>((next) => {
+    const ask = useCallback<AskScope>((action, options = {}) => {
         // A prompt still open is answered with "cancel".
         resolver.current?.(null);
 
         return new Promise((resolve) => {
             resolver.current = resolve;
-            setAction(next);
+            setPrompt({ action, ...options });
+            setOpen(true);
         });
     }, []);
 
     const answer = (scope: Scope | null) => {
         resolver.current?.(scope);
         resolver.current = null;
-        setAction(null);
+        setOpen(false);
     };
 
-    const copy = action ? COPY[action] : null;
-    const destructive = action === 'delete';
+    const copy = prompt ? COPY[prompt.action] : null;
+    const destructive = prompt?.action === 'delete';
 
     return (
         <ScopePromptContext value={ask}>
             {children}
             <AlertDialog
-                open={action !== null}
+                open={open}
                 onOpenChange={(open) => !open && answer(null)}
             >
                 {copy && (
@@ -79,6 +91,8 @@ export function ScopePromptProvider({ children }: { children: ReactNode }) {
                             <AlertDialogTitle>{copy.title}</AlertDialogTitle>
                             <AlertDialogDescription>
                                 {copy.description}
+                                {prompt?.remembered &&
+                                    ' Your answer applies to your other changes until you close the task.'}
                             </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
@@ -121,19 +135,25 @@ export function useScopePrompt(): AskScope {
 }
 
 /**
- * Asks the scope of a change to `item` only when it has one (see
- * `needsScope`): resolves with the chosen scope, `undefined` when there was
- * nothing to ask, or `null` when the user cancelled.
+ * Runs an action on `item`, first asking "Only this task / This and all
+ * future" when the item has a scope (see `needsScope`). Cancelling the prompt
+ * runs nothing; for a task without a scope, `run` gets `undefined`.
  */
-export function useScopeFor(): (
+export function useScopedAction(
     item: PlannerTask,
-    action: ScopeAction,
-) => Promise<Scope | null | undefined> {
+): (action: ScopeAction, run: (scope?: Scope) => unknown) => Promise<void> {
     const ask = useScopePrompt();
 
     return useCallback(
-        async (item, action) =>
-            (await needsScope(item)) ? ask(action) : undefined,
-        [ask],
+        async (action, run) => {
+            const scope = (await needsScope(item))
+                ? await ask(action)
+                : undefined;
+
+            if (scope !== null) {
+                run(scope);
+            }
+        },
+        [ask, item],
     );
 }

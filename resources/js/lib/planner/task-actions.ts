@@ -12,8 +12,10 @@ import {
 import type { MoveTaskInput, Scope } from '@/lib/db/tasks';
 import { SOMEDAY_COLUMNS } from '@/lib/db/types';
 import type { Task, TaskColor } from '@/lib/db/types';
+import { isRecurring } from '@/lib/recurrence/expand';
 import type { PlannerTask } from '@/lib/recurrence/expand';
 import { placementLabel } from './drop';
+import { asksScope } from './repeat';
 import { nextWeekOf, tomorrowOf } from './quick-moves';
 import { saveLocally } from './save-locally';
 
@@ -31,11 +33,7 @@ import { saveLocally } from './save-locally';
  * task, a series row or an orphaned exception has nothing to ask about.
  */
 export async function needsScope(item: PlannerTask): Promise<boolean> {
-    if (item.kind === 'occurrence') {
-        return true;
-    }
-
-    return item.kind === 'exception' && (await getSeries(item)) !== null;
+    return asksScope(item, isRecurring(item) ? await getSeries(item) : null);
 }
 
 /** Runs a write; on failure shows `error` and resolves with `undefined`. */
@@ -48,16 +46,12 @@ function settle<T>(write: Promise<T>, error: string): Promise<T | undefined> {
 }
 
 export function setTaskColor(
-    task: Task,
+    id: string,
     color: TaskColor,
     scope?: Scope,
 ): Promise<PlannerTask | undefined> {
-    if (color === task.color) {
-        return Promise.resolve(undefined);
-    }
-
     return settle(
-        updateTask(task.id, { color }, { scope }),
+        updateTask(id, { color }, { scope }),
         'Could not update the task.',
     );
 }

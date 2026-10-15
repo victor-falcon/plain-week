@@ -135,6 +135,27 @@ describe('Repeat picker', () => {
         );
     });
 
+    it('follows the task to its first date when the day of the month skips it', async () => {
+        const task = await createTask({ text: 'Rent', date: '2026-10-31' });
+        const { user, dialog } = await openDialog(task.id);
+
+        await user.click(
+            within(dialog).getByRole('button', { name: 'Repeat' }),
+        );
+        await user.click(await screen.findByRole('radio', { name: 'Monthly' }));
+        await user.click(
+            screen.getByRole('combobox', { name: 'Day of the month' }),
+        );
+        await user.click(await screen.findByRole('option', { name: '1' }));
+        screen.getByText('Starts on Sun, 1 Nov 2026.');
+        await user.click(screen.getByRole('button', { name: 'Apply' }));
+
+        await within(dialog).findByRole('button', {
+            name: 'Date: Sun, 1 Nov 2026',
+        });
+        expect(screen.getByRole('dialog', { name: 'Edit task' })).toBe(dialog);
+    });
+
     it('shows the current rule of an occurrence and changes it from there on', async () => {
         const { user, dialog, seriesId } = await openOccurrence();
 

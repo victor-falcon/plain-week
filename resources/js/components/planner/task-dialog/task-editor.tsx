@@ -1,10 +1,19 @@
-import { createContext, use, useCallback, useRef, useState } from 'react';
+import {
+    createContext,
+    use,
+    useCallback,
+    useLayoutEffect,
+    useMemo,
+    useRef,
+    useState,
+} from 'react';
 import { toast } from 'sonner';
 import { useScopePrompt } from '@/components/planner/scope-prompt';
 import type { ScopeAction } from '@/components/planner/scope-prompt';
 import { useSeries, useTask } from '@/hooks/use-tasks';
 import type { Scope } from '@/lib/db/tasks';
 import type { Task } from '@/lib/db/types';
+import { asksScope } from '@/lib/planner/repeat';
 import type { PlannerTask, SeriesItem } from '@/lib/recurrence/expand';
 
 type WriteOptions<T> = {
@@ -49,9 +58,7 @@ export type TaskEditor = {
     askScope: (action: ScopeAction) => Promise<Scope | null | undefined>;
 };
 
-const TaskEditorContext = createContext<TaskEditor | null>(null);
-
-export const TaskEditorProvider = TaskEditorContext;
+export const TaskEditorContext = createContext<TaskEditor | null>(null);
 
 /** The editor of the open task dialog. */
 export function useTaskEditor(): TaskEditor {
@@ -97,13 +104,18 @@ export function useTaskEditorSession(openedId: string): {
 
     const task = live ?? (live === null && pending === 0 ? null : kept);
     const series = useSeries(task);
-    const recurring =
-        task?.kind === 'occurrence' ||
-        (task?.kind === 'exception' && series !== null);
+    const recurring = task ? asksScope(task, series) : false;
 
     const latestId = useRef(openedId);
     const queue = useRef<Promise<void>>(Promise.resolve());
     const scopeChoice = useRef<Promise<Scope | null> | null>(null);
+    // `edit` reads it from a ref, so a callback kept from an earlier render
+    // (the subtasks flush on close) still asks when it has to.
+    const isRecurring = useRef(recurring);
+
+    useLayoutEffect(() => {
+        isRecurring.current = recurring;
+    }, [recurring]);
 
     const write = useCallback(
         <T,>(
@@ -111,6 +123,7 @@ export function useTaskEditorSession(openedId: string): {
             { follow = false, error, onSaved }: WriteOptions<T> = {},
         ) => {
             setPending((count) => count + 1);
+            // The tail never rejects, so one failure never blocks later writes.
             queue.current = queue.current
                 .then(() => run(latestId.current))
                 .then(
@@ -126,6 +139,7 @@ export function useTaskEditorSession(openedId: string): {
                         toast.error(error ?? 'Could not update the task.');
                     },
                 )
+                .catch(() => {})
                 .finally(() => setPending((count) => count - 1));
         },
         [],
@@ -133,20 +147,22 @@ export function useTaskEditorSession(openedId: string): {
 
     const edit = useCallback<TaskEditor['edit']>(
         (run, { onCancel } = {}) => {
-            if (!recurring) {
+            if (!isRecurring.current) {
                 write((current) => run(current), { follow: true });
 
                 return;
             }
 
             // Asked once; edits made while the question is open wait for it.
-            scopeChoice.current ??= ask('edit').then((scope) => {
-                if (scope === null) {
-                    scopeChoice.current = null;
-                }
+            scopeChoice.current ??= ask('edit', { remembered: true }).then(
+                (scope) => {
+                    if (scope === null) {
+                        scopeChoice.current = null;
+                    }
 
-                return scope;
-            });
+                    return scope;
+                },
+            );
 
             void scopeChoice.current.then((scope) => {
                 if (scope === null) {
@@ -156,7 +172,7 @@ export function useTaskEditorSession(openedId: string): {
                 }
             });
         },
-        [ask, recurring, write],
+        [ask, write],
     );
 
     const askScope = useCallback<TaskEditor['askScope']>(
@@ -164,10 +180,13 @@ export function useTaskEditorSession(openedId: string): {
         [ask, recurring],
     );
 
-    return {
-        task,
-        editor: task
-            ? { task, series, recurring, write, edit, askScope }
-            : undefined,
-    };
+    const editor = useMemo(
+        () =>
+            task
+                ? { task, series, recurring, write, edit, askScope }
+                : undefined,
+        [task, series, recurring, write, edit, askScope],
+    );
+
+    return { task, editor };
 }

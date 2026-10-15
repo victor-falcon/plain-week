@@ -251,8 +251,8 @@ Data rules are in [architecture.md](./architecture.md#recurring-tasks-client); t
 **Rows.** An occurrence or exception of a series shows a small `Repeat` icon (12px, 70 % opacity) between the time pill
 and the text, with a tooltip summarising the rule ("Every Mon, Wed", "Every day", "Monthly on day 31", plus ", until
 31 Dec"; `summarizeRecurrence` in `lib/planner/repeat.ts`). Its accessible name gets "(repeats)". An exception whose
-series is gone shows no icon. Rows are keyed by the view-model id, so an occurrence's row remounts once, when its first
-change turns it into an exception.
+series is gone shows no icon. Rows are keyed by `rowKey` (series id and generated date for occurrences and exceptions), so a
+row keeps focus when its first change turns the occurrence into an exception row with a new id.
 
 **Repeat picker** (`task-dialog/task-repeat-picker.tsx`). A round toolbar button with the `Repeat` icon, between Delete
 and Color; its label is "Repeat" or "Repeat: Every Mon, Wed". Disabled for a Someday task (it cannot repeat). The
@@ -268,12 +268,14 @@ popover (320px, `align="end"`) holds a draft that "Apply" writes:
 
 The rule starts on the task's date (for an occurrence, its own date: the series is split there). If that date did not
 match the rule the task would vanish from its own day, so the picker opens with that weekday (weekly) and day of the
-month (monthly) chosen, and the weekday cannot be deselected. "Never" on an occurrence asks the scope ("Stop
+month (monthly) chosen, and the weekday cannot be deselected. A monthly day other than the date's moves the task to
+the first matching date: the picker says "Starts on Sun, 1 Nov 2026." and the dialog follows the task there. A rule
+that would end before its first date cannot be applied. "Never" on an occurrence asks the scope ("Stop
 repeating": only this one becomes a one-off task, or the series ends here).
 
 **Scope prompt** (`scope-prompt.tsx`, `ScopePromptProvider` mounted once by the planner page, `useScopePrompt()` /
 `useScopeFor()`). An `AlertDialog` titled after the action ("Edit recurring task", "Delete recurring task", "Stop
-repeating") with Cancel, "This and all future" (outline) and "Only this task" (default, destructive for delete). It is
+repeating"; in the dialog the edit prompt adds that the answer applies until the task is closed) with Cancel, "This and all future" (outline) and "Only this task" (default, destructive for delete). It is
 asked only for an occurrence, or an exception whose series still exists.
 
 | Change                                                  | Asks?                                                                                    |

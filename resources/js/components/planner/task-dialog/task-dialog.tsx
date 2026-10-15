@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
 import { TaskColorPicker } from './task-color-picker';
 import { TaskDatePicker } from './task-date-picker';
 import {
-    TaskEditorProvider,
+    TaskEditorContext,
     useTaskEditor,
     useTaskEditorSession,
 } from './task-editor';
@@ -59,9 +59,9 @@ function TaskDialogSession({
             onOpenChange={(open) => !open && onClose()}
         >
             {editor && (
-                <TaskEditorProvider value={editor}>
+                <TaskEditorContext value={editor}>
                     <TaskDialogContent onClose={onClose} />
-                </TaskEditorProvider>
+                </TaskEditorContext>
             )}
         </Dialog>
     );
