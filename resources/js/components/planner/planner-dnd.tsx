@@ -8,7 +8,6 @@ import {
     closestCenter,
     pointerWithin,
     rectIntersection,
-    useDroppable,
     useSensor,
     useSensors,
 } from '@dnd-kit/core';
@@ -22,57 +21,37 @@ import type {
     ScreenReaderInstructions,
 } from '@dnd-kit/core';
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
-import {
-    createContext,
-    use,
-    useEffect,
-    useEffectEvent,
-    useRef,
-    useState,
-} from 'react';
+import { createContext, use, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { toast } from 'sonner';
+import { EdgeZone } from '@/components/planner/edge-zone';
 import { TaskLabel } from '@/components/planner/task-row';
 import { moveTask } from '@/lib/db/tasks';
-import type { TaskPlacement } from '@/lib/db/tasks';
-import type { Task } from '@/lib/db/types';
-import { placementLabel, resolveDrop } from '@/lib/planner/drop';
-import type { DropResult, DropTarget, WeekDirection } from '@/lib/planner/drop';
-import { cn } from '@/lib/utils';
+import type { MoveTaskInput } from '@/lib/db/tasks';
+import {
+    originalSpot,
+    placementKey,
+    placementLabel,
+    resolveDrop,
+} from '@/lib/planner/drop';
+import type {
+    DropData,
+    DropResult,
+    DropTarget,
+    TaskDragData,
+    WeekDirection,
+} from '@/lib/planner/drop';
 
-/** Hovering an edge zone this long shows the previous / next week. */
-export const EDGE_HOVER_DELAY_MS = 600;
+/** A mouse drag starts after this much movement, so a click still opens. */
+const MOUSE_DRAG_DISTANCE_PX = 5;
 
-/** Data attached to each draggable task row (`useSortable`). */
-export type TaskDragData = {
-    type: 'task';
-    task: Task;
-    placement: TaskPlacement;
-    tasks: Task[];
-};
-
-/** Data attached to each list (`useDroppable` on a day or Someday column). */
-export type ListDropData = {
-    type: 'list';
-    placement: TaskPlacement;
-    tasks: Task[];
-};
-
-type EdgeDropData = { type: 'edge'; direction: WeekDirection };
-
-type DropData = TaskDragData | ListDropData | EdgeDropData;
-
-/** Collision data: whether the probe is in the lower half of a task row. */
-type ProbeData = { below?: boolean };
+/** A touch drag starts after a long press; moving earlier scrolls instead. */
+const TOUCH_DRAG_DELAY_MS = 250;
+const TOUCH_DRAG_TOLERANCE_PX = 5;
 
 export function listDroppableId(listKey: string): string {
     return `list:${listKey}`;
 }
-
-const EDGE_IDS: Record<WeekDirection, string> = {
-    [-1]: 'edge:previous',
-    1: 'edge:next',
-};
 
 const PRIORITY: Record<DropData['type'], number> = {
     edge: 0,
@@ -96,11 +75,17 @@ function byPriority(collisions: Collision[]): Collision[] {
         );
 }
 
+/** Whether the drop goes below the task row hit, carried on the collision. */
+function isBelow(collision: Collision): boolean {
+    return (collision.data as { below?: boolean }).below === true;
+}
+
 /**
  * Pointer drags hit-test the pointer itself, so the drop lands between the
  * rows the pointer is between. Keyboard drags (no pointer) move the overlay
- * onto a row; the drop goes below it when that row is further down than where
- * the drag started, so stepping down or up swaps places like a sortable list.
+ * onto a row: within the task's own list it lands below the row when that row
+ * is further down than where the drag started (stepping swaps places like a
+ * sortable list); in another list it lands above it.
  */
 const collisionDetection: CollisionDetection = (args) => {
     const pointer = args.pointerCoordinates;
@@ -113,52 +98,55 @@ const collisionDetection: CollisionDetection = (args) => {
     }
 
     const first = collisions[0];
+    const data = first && dropDataOf(first);
 
-    if (!first) {
+    if (!first || !data) {
         return [];
     }
 
     const rect = args.droppableRects.get(first.id);
     let below = false;
 
-    if (rect && dropDataOf(first)?.type === 'task') {
+    if (rect && data.type === 'task') {
         if (pointer) {
             below = pointer.y > rect.top + rect.height / 2;
         } else {
+            // Empty once the source row has unmounted (week changed).
+            const placement = (
+                args.active.data.current as Partial<TaskDragData> | undefined
+            )?.placement;
             const initial = args.active.rect.current.initial;
-            below = initial !== null && rect.top > initial.top;
+            below =
+                placement !== undefined &&
+                initial !== null &&
+                placementKey(placement) === placementKey(data.placement) &&
+                rect.top > initial.top;
         }
     }
 
-    return [{ ...first, data: { ...first.data, below } satisfies ProbeData }];
+    return [{ ...first, data: { ...first.data, below } }];
 };
 
 function dropTargetOf(collision: Collision | undefined): DropTarget | null {
-    if (!collision) {
+    const data = collision && dropDataOf(collision);
+
+    if (!collision || !data) {
         return null;
     }
 
-    const data = dropDataOf(collision);
-
-    switch (data?.type) {
+    switch (data.type) {
         case 'edge':
-            return { type: 'edge', direction: data.direction };
+            return data;
         case 'list':
-            return {
-                type: 'list',
-                placement: data.placement,
-                tasks: data.tasks,
-            };
+            return data;
         case 'task':
             return {
                 type: 'task',
                 placement: data.placement,
                 tasks: data.tasks,
                 taskId: data.task.id,
-                below: Boolean((collision.data as ProbeData).below),
+                below: isBelow(collision),
             };
-        default:
-            return null;
     }
 }
 
@@ -166,10 +154,6 @@ const screenReaderInstructions: ScreenReaderInstructions = {
     draggable:
         'To move a task, press Space or Enter on its move button. Use the arrow keys to choose where it goes, Space or Enter to drop it, Escape to cancel.',
 };
-
-function taskOf(data: unknown): Task | undefined {
-    return (data as TaskDragData | undefined)?.task;
-}
 
 function overLabel(data: unknown): string | null {
     const over = data as DropData | undefined;
@@ -186,7 +170,7 @@ function overLabel(data: unknown): string | null {
 }
 
 type PlannerDndState = {
-    /** The task being dragged. */
+    /** The task being dragged, or just dropped and still being written. */
     activeId: string | null;
     /** Where the insertion line is drawn, if anywhere. */
     indicator: DropResult['indicator'];
@@ -203,65 +187,26 @@ export function usePlannerDnd(): PlannerDndState {
 }
 
 /**
- * A click right after a pointer drag (the button lands back where it was
- * pressed) must not open the task.
+ * The click that follows a pointer drag (the release over the button it was
+ * pressed on, also after Escape cancelled the drag) must not open the task.
+ * If no click comes, the next press or key disarms it.
  */
 function swallowNextClick(): void {
+    const options = { capture: true };
     const swallow = (event: MouseEvent) => {
         event.stopPropagation();
         event.preventDefault();
+        disarm();
+    };
+    const disarm = () => {
+        window.removeEventListener('click', swallow, options);
+        window.removeEventListener('pointerdown', disarm, options);
+        window.removeEventListener('keydown', disarm, options);
     };
 
-    window.addEventListener('click', swallow, { capture: true, once: true });
-    setTimeout(() =>
-        window.removeEventListener('click', swallow, { capture: true }),
-    );
-}
-
-function EdgeZone({
-    direction,
-    onHover,
-}: {
-    direction: WeekDirection;
-    onHover: (direction: WeekDirection) => void;
-}) {
-    const { setNodeRef, isOver } = useDroppable({
-        id: EDGE_IDS[direction],
-        data: { type: 'edge', direction } satisfies EdgeDropData,
-    });
-
-    const hover = useEffectEvent(() => onHover(direction));
-
-    // While hovered, flip the week every EDGE_HOVER_DELAY_MS.
-    useEffect(() => {
-        if (!isOver) {
-            return;
-        }
-
-        const timer = setInterval(() => hover(), EDGE_HOVER_DELAY_MS);
-
-        return () => clearInterval(timer);
-    }, [isOver]);
-
-    return (
-        <div
-            ref={setNodeRef}
-            data-edge-zone={direction === -1 ? 'previous' : 'next'}
-            aria-hidden
-            className={cn(
-                'pointer-events-none fixed inset-y-0 z-[5] flex w-4 items-center lg:w-6',
-                direction === -1 ? 'start-0' : 'end-0',
-            )}
-        >
-            <div
-                className={cn(
-                    'h-52 w-full bg-muted transition-colors',
-                    direction === -1 ? 'rounded-e-3xl' : 'rounded-s-3xl',
-                    isOver && 'bg-accent-foreground/20',
-                )}
-            />
-        </div>
-    );
+    window.addEventListener('click', swallow, options);
+    window.addEventListener('pointerdown', disarm, options);
+    window.addEventListener('keydown', disarm, options);
 }
 
 type Props = {
@@ -278,6 +223,11 @@ type Props = {
  * (start = previous, end = next, so RTL mirrors). A mouse drag starts after
  * 5px of movement, a touch drag after a long press, and the move button of a
  * row starts a keyboard drag. Drops are written with `moveTask` (local only).
+ *
+ * Rows use `@dnd-kit/sortable` for its keyboard coordinates and item
+ * registration, but are not shifted with its transforms: an insertion line
+ * shows where the task will land instead, since a task can also leave the
+ * list (or the week).
  */
 export function PlannerDnd({
     weekStart,
@@ -286,31 +236,41 @@ export function PlannerDnd({
     children,
 }: Props) {
     const sensors = useSensors(
-        useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+        useSensor(MouseSensor, {
+            activationConstraint: { distance: MOUSE_DRAG_DISTANCE_PX },
+        }),
         useSensor(TouchSensor, {
-            activationConstraint: { delay: 250, tolerance: 5 },
+            activationConstraint: {
+                delay: TOUCH_DRAG_DELAY_MS,
+                tolerance: TOUCH_DRAG_TOLERANCE_PX,
+            },
         }),
         useSensor(KeyboardSensor, {
             coordinateGetter: sortableKeyboardCoordinates,
         }),
     );
-    const [active, setActive] = useState<Task | null>(null);
+    // The drag data is kept in state: the source row unmounts when hovering
+    // an edge zone changes the shown week, and the drag goes on.
+    const [dragged, setDragged] = useState<TaskDragData | null>(null);
     const [result, setResult] = useState<DropResult | null>(null);
-    const lastTarget = useRef<DropTarget | null>(null);
+    // A dropped task stays dimmed until its write lands, so the row does not
+    // flash back in its old place for a frame.
+    const [settlingId, setSettlingId] = useState<string | null>(null);
+    const lastResult = useRef<DropResult | null>(null);
+    const draggedText = useRef('');
 
     const resolve = (target: DropTarget | null) =>
-        active && target ? resolveDrop(active, target, weekStart) : null;
+        dragged && target ? resolveDrop(dragged.task, target, weekStart) : null;
 
-    const handleDragStart = ({ active: dragged }: DragStartEvent) => {
-        setActive(taskOf(dragged.data.current) ?? null);
+    const handleDragStart = ({ active }: DragStartEvent) => {
+        setDragged((active.data.current as TaskDragData | undefined) ?? null);
         setResult(null);
-        lastTarget.current = null;
+        lastResult.current = null;
     };
 
     const handleDragMove = ({ collisions }: DragMoveEvent) => {
-        const target = dropTargetOf(collisions?.[0]);
-        const next = resolve(target);
-        lastTarget.current = target;
+        const next = resolve(dropTargetOf(collisions?.[0]));
+        lastResult.current = next;
 
         if (
             next?.indicator?.listKey !== result?.indicator?.listKey ||
@@ -320,48 +280,101 @@ export function PlannerDnd({
         }
     };
 
-    const reset = () => {
-        setActive(null);
-        setResult(null);
-        lastTarget.current = null;
-    };
-
-    const handleDragEnd = ({ collisions, activatorEvent }: DragEndEvent) => {
-        const target = dropTargetOf(collisions?.[0]) ?? lastTarget.current;
-        const drop = resolve(target);
-
-        if (active && drop) {
-            moveTask(active.id, drop.move).catch(() =>
-                toast.error('Could not move the task.'),
-            );
-        }
-
+    const finish = (activatorEvent: Event) => {
         if (!(activatorEvent instanceof KeyboardEvent)) {
             swallowNextClick();
         }
 
-        reset();
+        setDragged(null);
+        setResult(null);
+    };
+
+    const write = (id: string, move: MoveTaskInput) => {
+        setSettlingId(id);
+
+        return moveTask(id, move)
+            .catch((error: unknown) => {
+                toast.error('Could not move the task.');
+                throw error;
+            })
+            .finally(() =>
+                requestAnimationFrame(() =>
+                    setSettlingId((current) =>
+                        current === id ? null : current,
+                    ),
+                ),
+            );
+    };
+
+    const handleDragEnd = ({ collisions, activatorEvent }: DragEndEvent) => {
+        // Released outside every list and edge zone: nothing moves.
+        const drop = resolve(dropTargetOf(collisions?.[0]));
+        lastResult.current = drop;
+
+        if (dragged && drop) {
+            const { task } = dragged;
+            const undo = originalSpot(task, dragged);
+
+            write(task.id, drop.move)
+                .then(() => {
+                    // The task left the screen: say where it went.
+                    if (drop.indicator === null) {
+                        toast(`Moved to ${placementLabel(drop.move)}.`, {
+                            action: {
+                                label: 'Undo',
+                                onClick: () => void write(task.id, undo),
+                            },
+                        });
+                    }
+                })
+                .catch(() => {});
+        }
+
+        finish(activatorEvent);
+    };
+
+    const handleDragCancel = ({
+        activatorEvent,
+    }: {
+        activatorEvent: Event;
+    }) => {
+        lastResult.current = null;
+        finish(activatorEvent);
     };
 
     const handleEdgeHover = (direction: WeekDirection) =>
         direction === -1 ? onPreviousWeek() : onNextWeek();
 
+    // Announcements read the drag data from the event, which loses it when the
+    // source row unmounts mid-drag; keep the text from the start.
+    const textOf = (data: unknown) => {
+        const text = (data as Partial<TaskDragData> | undefined)?.task?.text;
+
+        if (text !== undefined) {
+            draggedText.current = text;
+        }
+
+        return draggedText.current;
+    };
+
     const announcements: Announcements = {
-        onDragStart: ({ active: dragged }) =>
-            `Picked up task ${taskOf(dragged.data.current)?.text ?? ''}.`,
+        onDragStart: ({ active }) =>
+            `Picked up task ${textOf(active.data.current)}.`,
         onDragOver: ({ over }) => {
             const label = overLabel(over?.data.current);
 
             return label ? `Over ${label}.` : 'Not over a list.';
         },
-        onDragEnd: ({ active: dragged, over }) => {
-            const label = overLabel(over?.data.current);
-            const text = taskOf(dragged.data.current)?.text ?? 'Task';
+        onDragEnd: ({ active }) => {
+            const drop = lastResult.current;
+            const text = textOf(active.data.current);
 
-            return label ? `Moved ${text} to ${label}.` : `${text} not moved.`;
+            return drop
+                ? `Moved ${text} to ${placementLabel(drop.move)}.`
+                : `${text} was not moved.`;
         },
-        onDragCancel: ({ active: dragged }) =>
-            `Cancelled. ${taskOf(dragged.data.current)?.text ?? 'The task'} was not moved.`,
+        onDragCancel: ({ active }) =>
+            `Cancelled. ${textOf(active.data.current)} was not moved.`,
     };
 
     return (
@@ -375,17 +388,17 @@ export function PlannerDnd({
             onDragStart={handleDragStart}
             onDragMove={handleDragMove}
             onDragEnd={handleDragEnd}
-            onDragCancel={reset}
+            onDragCancel={handleDragCancel}
         >
             <PlannerDndStateContext
                 value={{
-                    activeId: active?.id ?? null,
+                    activeId: dragged?.task.id ?? settlingId,
                     indicator: result?.indicator ?? null,
                 }}
             >
                 {children}
             </PlannerDndStateContext>
-            {active && (
+            {dragged && (
                 <>
                     <EdgeZone direction={-1} onHover={handleEdgeHover} />
                     <EdgeZone direction={1} onHover={handleEdgeHover} />
@@ -397,12 +410,12 @@ export function PlannerDnd({
               task being dragged.
             */}
             <DragOverlay dropAnimation={null} zIndex={10}>
-                {active && (
+                {dragged && (
                     <div
                         data-drag-overlay
                         className="flex h-row cursor-grabbing items-center rounded-md bg-background text-sm shadow-lg ring-1 ring-border max-lg:text-base"
                     >
-                        <TaskLabel task={active} />
+                        <TaskLabel task={dragged.task} />
                     </div>
                 )}
             </DragOverlay>

@@ -10,12 +10,12 @@ import {
     listDroppableId,
     usePlannerDnd,
 } from '@/components/planner/planner-dnd';
-import type { ListDropData } from '@/components/planner/planner-dnd';
 import { TaskRow } from '@/components/planner/task-row';
 import { createTask, toggleDone } from '@/lib/db/tasks';
 import type { TaskPlacement } from '@/lib/db/tasks';
 import type { Task } from '@/lib/db/types';
 import { placementKey } from '@/lib/planner/drop';
+import type { ListDropData } from '@/lib/planner/drop';
 import { parseSmartTime } from '@/lib/planner/smart-time';
 import { cn } from '@/lib/utils';
 

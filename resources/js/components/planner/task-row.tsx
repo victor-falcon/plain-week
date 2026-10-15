@@ -1,9 +1,10 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CircleCheck, GripVertical } from 'lucide-react';
-import type { TaskDragData } from '@/components/planner/planner-dnd';
+import { usePlannerDnd } from '@/components/planner/planner-dnd';
 import { Button } from '@/components/ui/button';
 import type { TaskPlacement } from '@/lib/db/tasks';
 import type { Task } from '@/lib/db/types';
+import type { TaskDragData } from '@/lib/planner/drop';
 import { TASK_COLOR_STYLES } from '@/lib/planner/task-colors';
 import { cn } from '@/lib/utils';
 
@@ -63,17 +64,19 @@ export function TaskRow({
     const label = [task.time, task.text, task.done ? '(done)' : null]
         .filter(Boolean)
         .join(' ');
-    const {
-        setNodeRef,
-        setActivatorNodeRef,
-        listeners,
-        attributes,
-        isDragging,
-    } = useSortable({
-        id: task.id,
-        data: { type: 'task', task, placement, tasks } satisfies TaskDragData,
-        attributes: { roleDescription: 'movable task' },
-    });
+    const { setNodeRef, setActivatorNodeRef, listeners, attributes } =
+        useSortable({
+            id: task.id,
+            data: {
+                type: 'task',
+                task,
+                placement,
+                tasks,
+            } satisfies TaskDragData,
+            attributes: { roleDescription: 'movable task' },
+        });
+    // Dimmed while dragged, and until the drop has been written.
+    const isDragging = usePlannerDnd().activeId === task.id;
 
     return (
         <div

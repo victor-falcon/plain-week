@@ -6,9 +6,12 @@ export type PlannerShortcuts = {
     goToToday: () => void;
 };
 
-/** Open dialogs, alert dialogs and menus suspend the planner shortcuts. */
+/**
+ * Open dialogs, alert dialogs and menus, and a task being dragged (its drag
+ * overlay), suspend the planner shortcuts.
+ */
 const OVERLAY_SELECTOR =
-    '[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"]';
+    '[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"], [data-drag-overlay]';
 
 function isEditable(target: EventTarget | null): boolean {
     return (
@@ -21,8 +24,8 @@ function isEditable(target: EventTarget | null): boolean {
 
 /**
  * Planner keyboard shortcuts: ← / → previous / next week (mirrored in RTL)
- * and T for today. They only run when focus is not in a text field and no
- * dialog or menu is open.
+ * and T for today. They only run when focus is not in a text field, no
+ * dialog or menu is open and no task is being dragged.
  */
 export function usePlannerShortcuts(shortcuts: PlannerShortcuts): void {
     const onKeyDown = useEffectEvent((event: KeyboardEvent) => {

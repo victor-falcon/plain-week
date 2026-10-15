@@ -13,11 +13,14 @@ export function addDays(date: Date, days: number): Date {
     return new Date(date.getFullYear(), date.getMonth(), date.getDate() + days);
 }
 
+/** Day of the week with Monday as 0 and Sunday as 6. */
+export function weekdayIndex(date: Date): number {
+    return (date.getDay() + 6) % 7;
+}
+
 /** The Monday (local midnight) of the week that contains `date`. */
 export function startOfWeek(date: Date): Date {
-    const daysSinceMonday = (date.getDay() + 6) % 7;
-
-    return addDays(date, -daysSinceMonday);
+    return addDays(date, -weekdayIndex(date));
 }
 
 export function addWeeks(weekStart: Date, weeks: number): Date {

@@ -117,7 +117,8 @@ Drag and drop (behaviour in [architecture.md](./architecture.md#drag-and-drop)):
 - Where it will land is a 2px `bg-primary` line between rows. Layers: edge zones (5) < drag overlay (10) < insertion
   line (11) < sticky mobile header (20), so the line shows through the dragged task.
 - While dragging, `bg-muted` zones (208px tall, `rounded-e-3xl` / `rounded-s-3xl`, 24px wide on desktop, 16px on
-  mobile) sit vertically centered on the start and end screen edges; a hovered zone darkens.
+  mobile) sit vertically centered on the start and end screen edges; a hovered zone darkens. Their hit area is the full
+  screen height, and 32px wide on mobile so a finger does not have to reach the system back-gesture edge.
 - Rows are `select-none` and suppress the iOS callout so a long press starts a drag. The move button that starts a
   keyboard drag is visually hidden until it has keyboard focus.
 

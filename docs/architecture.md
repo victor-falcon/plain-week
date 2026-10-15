@@ -230,11 +230,13 @@ writes the local database (`moveTask`); sync follows in the background.
 
 - Sensors: mouse after 5 px of movement (so a click still opens the task), touch after a 250 ms long press (a swipe
   scrolls), keyboard from the row's move button (Space or Enter, arrows, Space or Enter to drop, Escape to cancel).
-  A click fired right after a pointer drag is swallowed.
+  The click that follows a pointer drag (also one cancelled with Escape) is swallowed. Planner shortcuts are
+  suspended while a task is dragged.
 - Collision detection hit-tests the pointer: edge zones win over task rows, which win over the list they sit in. Over
   a row, the upper half drops above it and the lower half below it; over the rest of a list (its empty rows) the task
-  is appended. Keyboard drags have no pointer: the overlay steps onto a row and lands below it when that row is further
-  down than where the drag started, above it otherwise.
+  is appended; released anywhere else (gutters, headers) the drag is cancelled. Keyboard drags have no pointer: the
+  overlay steps onto a row; within the task's own list it lands below the row when that row is further down than where
+  the drag started (so stepping swaps places), in another list above it.
 - Days show timed tasks first by time, so only untimed tasks are positional there: the `beforeId`/`afterId` handed to
   `moveTask` are the closest untimed tasks around the drop point, and a timed task keeps its slot by time (moving it
   within its own day is a no-op). Someday columns are positional throughout. A drop that would not change anything
@@ -242,7 +244,9 @@ writes the local database (`moveTask`); sync follows in the background.
 - Edge zones (`start` = previous week, `end` = next week, so RTL mirrors) appear only while dragging. Hovering one
   for 600 ms changes the shown week, and keeps doing so while hovered, so the drag continues in the new week. Dropping
   on one moves the task to the same weekday of the week beyond the shown one (a Someday task goes to its Monday),
-  appended. The dragged task is kept in state, so the drag survives its source row unmounting on a week change.
+  appended, and a toast says where it went ("Moved to Wed 21 Oct.") with an Undo that puts it back. The dragged task is
+  kept in state, so the drag survives its source row unmounting on a week change.
+- A dropped task stays dimmed until its write has committed, so its row does not flash back in its old place.
 
 ## Offline app shell
 

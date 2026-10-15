@@ -4,7 +4,7 @@ import { placementOf } from '@/lib/db/queries';
 import type { MoveTaskInput, TaskPlacement } from '@/lib/db/tasks';
 import type { Task } from '@/lib/db/types';
 import { formatDay, formatWeekday } from '@/lib/planner/format';
-import { addWeeks } from '@/lib/planner/week';
+import { addDays, addWeeks, weekdayIndex } from '@/lib/planner/week';
 
 /**
  * Drag and drop of tasks, as pure functions: where a dragged task lands, given
@@ -15,6 +15,20 @@ import { addWeeks } from '@/lib/planner/week';
 
 /** -1 for the previous week, 1 for the next one. */
 export type WeekDirection = -1 | 1;
+
+/** A day or Someday column and its tasks in display order. */
+export type TaskListRef = { placement: TaskPlacement; tasks: Task[] };
+
+/** dnd-kit `data` of a draggable task row (`useSortable`). */
+export type TaskDragData = TaskListRef & { type: 'task'; task: Task };
+
+/** dnd-kit `data` of a list droppable (a day or Someday column). */
+export type ListDropData = TaskListRef & { type: 'list' };
+
+/** dnd-kit `data` of an edge-zone droppable. */
+export type EdgeDropData = { type: 'edge'; direction: WeekDirection };
+
+export type DropData = TaskDragData | ListDropData | EdgeDropData;
 
 /** What the dragged task is over. `tasks` is the list in display order. */
 export type DropTarget =
@@ -122,17 +136,30 @@ export function edgeDropDate(
     shownWeekStart: Date,
     direction: WeekDirection,
 ): string {
-    const target = addWeeks(shownWeekStart, direction);
     const weekday =
-        active.date === null ? 0 : (parseDateKey(active.date).getDay() + 6) % 7;
+        active.date === null ? 0 : weekdayIndex(parseDateKey(active.date));
 
-    return toDateKey(
-        new Date(
-            target.getFullYear(),
-            target.getMonth(),
-            target.getDate() + weekday,
-        ),
-    );
+    return toDateKey(addDays(addWeeks(shownWeekStart, direction), weekday));
+}
+
+/**
+ * The `moveTask` input that puts a task back where it was picked up (for
+ * undo): its list, between the positional tasks that surrounded it.
+ */
+export function originalSpot(
+    active: Task,
+    { placement, tasks }: TaskListRef,
+): MoveTaskInput {
+    const isDay = placement.date !== null;
+    const positional = (task: Task) =>
+        task.id !== active.id && (!isDay || task.time === null);
+    const index = tasks.findIndex((task) => task.id === active.id);
+
+    return {
+        ...placement,
+        afterId: tasks.slice(0, Math.max(index, 0)).findLast(positional)?.id,
+        beforeId: tasks.slice(index + 1).find(positional)?.id,
+    };
 }
 
 /** Where `active` lands when dropped on `target` (`null`: nowhere new). */

@@ -3,6 +3,7 @@ import { parseDateKey } from '@/lib/db/dates';
 import type { Task } from '@/lib/db/types';
 import {
     edgeDropDate,
+    originalSpot,
     placementKey,
     placementLabel,
     resolveDrop,
@@ -253,5 +254,28 @@ describe('placementKey and placementLabel', () => {
         expect(placementLabel({ date: null, someday_column: 0 })).toBe(
             'Someday column 1',
         );
+    });
+});
+
+describe('originalSpot', () => {
+    it('puts a task back between its positional neighbours', () => {
+        expect(
+            originalSpot(b, { placement: { date: MONDAY }, tasks: monday }),
+        ).toEqual({
+            date: MONDAY,
+            afterId: 'a',
+            beforeId: 'c',
+        });
+    });
+
+    it('skips timed tasks in a day', () => {
+        const timed = task('t', { time: '09:00' });
+
+        expect(
+            originalSpot(a, {
+                placement: { date: MONDAY },
+                tasks: [timed, a, b],
+            }),
+        ).toEqual({ date: MONDAY, afterId: undefined, beforeId: 'b' });
     });
 });
