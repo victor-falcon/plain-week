@@ -9,6 +9,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- **New logo, favicon and app icons.** The Laravel starter-kit mark is replaced by Plain Week's own: seven bars for the
+  days of the week, Monday to Friday in ink and the weekend in indigo. It shows in the sidebar, the auth pages, the
+  browser tab (with a dark variant) and the installed app icons.
 - **Narrower task context menu.** Its nine color swatches sit in two rows of five and four, like the task dialog's color
   picker, so the menu is as wide as that grid instead of one long row.
 
