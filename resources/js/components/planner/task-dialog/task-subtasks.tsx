@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { updateSubtasks } from '@/lib/db/tasks';
 import type { Subtask, Task } from '@/lib/db/types';
 import { cn } from '@/lib/utils';
-import { saveLocally } from './save-locally';
+import { saveLocally } from '@/lib/planner/save-locally';
 
 const FIELD_CLASS =
     'h-8 flex-1 rounded-none border-0 bg-transparent px-0 shadow-none focus-visible:ring-0 dark:bg-transparent';

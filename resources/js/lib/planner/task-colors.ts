@@ -1,3 +1,4 @@
+import { TASK_COLORS } from '@/lib/db/types';
 import type { TaskColor } from '@/lib/db/types';
 
 export type TaskColorStyle = {
@@ -61,3 +62,7 @@ export const TASK_COLOR_STYLES: Record<TaskColor, TaskColorStyle> = {
         swatch: 'bg-task-lilac',
     },
 };
+
+export function isTaskColor(value: string): value is TaskColor {
+    return (TASK_COLORS as readonly string[]).includes(value);
+}

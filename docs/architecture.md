@@ -263,8 +263,10 @@ writes the local database (`moveTask`); sync follows in the background.
 | `TaskRow`                                           | A sortable item carrying its task, `placement` and list; dims while dragged                                                         |
 | `lib/planner/drop.ts`                               | Pure functions: drop target → `moveTask` input and the insertion line (`resolveDrop`), edge-zone dates (`edgeDropDate`)             |
 
-- Sensors: mouse after 5 px of movement (so a click still opens the task), touch after a 250 ms long press (a swipe
-  scrolls), keyboard from the row's move button (Space or Enter, arrows, Space or Enter to drop, Escape to cancel).
+- Sensors: mouse after 5 px of movement (so a click still opens the task; the right button never drags), touch with a
+  press that holds 250 ms and then moves (a swipe scrolls, a still hold opens the task's context menu instead; see
+  [style.md](./style.md#touch-gestures-on-a-task-row)), keyboard from the row's move button (Space or Enter, arrows,
+  Space or Enter to drop, Escape to cancel).
   The click that follows a pointer drag (also one cancelled with Escape) is swallowed. Planner shortcuts are
   suspended while a task is dragged.
 - Collision detection hit-tests the pointer: edge zones win over task rows, which win over the list they sit in. Over

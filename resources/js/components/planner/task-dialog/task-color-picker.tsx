@@ -1,4 +1,4 @@
-import { Check } from 'lucide-react';
+import { TaskColorSwatch } from '@/components/planner/task-color-swatch';
 import { Button } from '@/components/ui/button';
 import {
     Popover,
@@ -6,17 +6,12 @@ import {
     PopoverTrigger,
 } from '@/components/ui/popover';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { updateTask } from '@/lib/db/tasks';
 import { TASK_COLORS } from '@/lib/db/types';
-import type { Task, TaskColor } from '@/lib/db/types';
-import { TASK_COLOR_STYLES } from '@/lib/planner/task-colors';
+import type { Task } from '@/lib/db/types';
+import { TASK_COLOR_STYLES, isTaskColor } from '@/lib/planner/task-colors';
 import { cn } from '@/lib/utils';
-import { saveLocally } from './save-locally';
+import { setTaskColor } from '@/lib/planner/task-actions';
 import { TOOLBAR_BUTTON_CLASS, ToolbarTooltip } from './toolbar-tooltip';
-
-function isTaskColor(value: string): value is TaskColor {
-    return (TASK_COLORS as readonly string[]).includes(value);
-}
 
 /**
  * Toolbar button showing the task's color as a dot. Its popover holds the
@@ -54,8 +49,8 @@ export function TaskColorPicker({ task }: { task: Task }) {
                     value={task.color}
                     onValueChange={(value) => {
                         // Radix sends '' when the current item is clicked again.
-                        if (isTaskColor(value) && value !== task.color) {
-                            saveLocally(updateTask(task.id, { color: value }));
+                        if (isTaskColor(value)) {
+                            setTaskColor(task, value);
                         }
                     }}
                     spacing={1}
@@ -66,17 +61,12 @@ export function TaskColorPicker({ task }: { task: Task }) {
                             key={color}
                             value={color}
                             aria-label={TASK_COLOR_STYLES[color].label}
-                            className="group/swatch size-9 rounded-full p-0 data-[state=on]:bg-transparent"
+                            className="size-9 rounded-full p-0 data-[state=on]:bg-transparent"
                         >
-                            <span
-                                className={cn(
-                                    'flex size-6 items-center justify-center rounded-full',
-                                    TASK_COLOR_STYLES[color].swatch,
-                                    TASK_COLOR_STYLES[color].pill,
-                                )}
-                            >
-                                <Check className="hidden size-3.5 group-data-[state=on]/swatch:block" />
-                            </span>
+                            <TaskColorSwatch
+                                color={color}
+                                checked={color === task.color}
+                            />
                         </ToggleGroupItem>
                     ))}
                 </ToggleGroup>

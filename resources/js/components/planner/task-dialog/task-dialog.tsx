@@ -1,16 +1,10 @@
 import { CircleCheck, Trash2 } from 'lucide-react';
 import { useEffect, useRef } from 'react';
-import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { useTask } from '@/hooks/use-tasks';
-import {
-    deleteTask,
-    restoreTask,
-    toggleDone,
-    updateTask,
-} from '@/lib/db/tasks';
+import { toggleDone, updateTask } from '@/lib/db/tasks';
 import type { Task } from '@/lib/db/types';
 import { cn } from '@/lib/utils';
 import { TaskColorPicker } from './task-color-picker';
@@ -18,7 +12,8 @@ import { TaskDatePicker } from './task-date-picker';
 import { TaskMoreMenu } from './task-more-menu';
 import { TaskSubtasks } from './task-subtasks';
 import { TaskTimePicker } from './task-time-picker';
-import { saveLocally } from './save-locally';
+import { saveLocally } from '@/lib/planner/save-locally';
+import { deleteWithUndo } from '@/lib/planner/task-actions';
 import { TOOLBAR_BUTTON_CLASS, ToolbarTooltip } from './toolbar-tooltip';
 
 type Props = {
@@ -67,24 +62,6 @@ function TaskDialogContent({
     const contentRef = useRef<HTMLDivElement>(null);
     const notesRef = useRef<HTMLTextAreaElement>(null);
 
-    const handleDelete = () => {
-        saveLocally(deleteTask(task.id), {
-            error: 'Could not delete the task.',
-            onSaved: () => {
-                onClose();
-                toast('Task deleted.', {
-                    action: {
-                        label: 'Undo',
-                        onClick: () =>
-                            saveLocally(restoreTask(task.id), {
-                                error: 'Could not restore the task.',
-                            }),
-                    },
-                });
-            },
-        });
-    };
-
     return (
         <DialogContent
             ref={contentRef}
@@ -122,7 +99,7 @@ function TaskDialogContent({
                             variant="ghost"
                             size="icon-sm"
                             aria-label="Delete"
-                            onClick={handleDelete}
+                            onClick={() => deleteWithUndo(task, onClose)}
                             className={TOOLBAR_BUTTON_CLASS}
                         >
                             <Trash2 />

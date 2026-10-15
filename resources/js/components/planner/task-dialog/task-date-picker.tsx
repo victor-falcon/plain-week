@@ -11,7 +11,7 @@ import { parseDateKey, toDateKey } from '@/lib/db/dates';
 import { moveTask } from '@/lib/db/tasks';
 import type { Task } from '@/lib/db/types';
 import { formatLongDate, formatShortDate } from '@/lib/planner/format';
-import { saveLocally } from './save-locally';
+import { saveLocally } from '@/lib/planner/save-locally';
 import { TOOLBAR_BUTTON_CLASS } from './toolbar-tooltip';
 
 /**

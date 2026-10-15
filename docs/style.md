@@ -93,6 +93,7 @@ Installed in `resources/js/components/ui/` and where they are used:
 | `calendar`                                                         | Task dialog date picker                                                              |
 | `toggle-group` (+ `toggle`)                                        | Task color picker                                                                    |
 | `dropdown-menu`                                                    | Task dialog "More" menu, planner account menu, app header user menu                  |
+| `context-menu`                                                     | Task row context menu (`task-context-menu.tsx`)                                      |
 | `tooltip`                                                          | Planner header buttons, account button, task dialog toolbar (`toolbar-tooltip.tsx`)  |
 | `sonner`                                                           | `AppToaster`; planner code calls `toast` from the `sonner` package                   |
 | `avatar`                                                           | Account button, app header, user info                                                |
@@ -113,6 +114,10 @@ Installed in `resources/js/components/ui/` and where they are used:
   Selecting a value writes to the local database at once.
 - **Dialogs.** `Dialog` + `DialogContent` with an `sr-only` `DialogTitle`. Edits save as they happen (no save button);
   focus goes to the dialog on open and back to the originating row on close (`onCloseAutoFocus`).
+- **Context menus.** `ContextMenu` with `ContextMenuTrigger asChild` around the element (see
+  [Task context menu](#task-context-menu)). The component takes the subject and one callback prop per action, so the
+  caller decides what each action does; items are `ContextMenuItem` with a trailing icon (`ms-auto`, directional icons
+  `rtl:rotate-180`), the destructive one last after a separator with `variant="destructive"`.
 - **Toasts.** `toast()` from `sonner`. Destructive actions do not ask for confirmation: they act and offer an "Undo"
   action in the toast (delete, drop on an edge zone). Write failures use `toast.error`.
 - **Drag and drop.** dnd-kit (`PlannerDnd`, `useSortable` per row); visuals are in [Planner layout](#planner-layout) and
@@ -179,8 +184,9 @@ Drag and drop (behaviour in [architecture.md](./architecture.md#drag-and-drop)):
 - While dragging, `bg-muted` zones (208px tall, `rounded-e-3xl` / `rounded-s-3xl`, 24px wide on desktop, 16px on
   mobile) sit vertically centered on the start and end screen edges; a hovered zone darkens. Their hit area is the full
   screen height, and 32px wide on mobile so a finger does not have to reach the system back-gesture edge.
-- Rows are `select-none` and suppress the iOS callout so a long press starts a drag. The move button that starts a
-  keyboard drag is visually hidden until it has keyboard focus.
+- Rows are `select-none` and suppress the iOS callout (`[-webkit-touch-callout:none]`), so a long press neither
+  selects text nor shows the system menu. The move button that starts a keyboard drag is visually hidden until it has
+  keyboard focus.
 
 Keyboard shortcuts (only when focus is not in a text field, no dialog or menu is open and no task is being dragged): ← / → previous / next week
 (mirrored in RTL), T current week. Held keys do not repeat.
@@ -210,6 +216,43 @@ popover or menu is open is filled (`aria-expanded:bg-foreground aria-expanded:te
 icon. Opening the dialog focuses the dialog itself, so no tooltip pops up and touch devices do not open the keyboard;
 closing it focuses the task's row again, wherever it moved. A tall dialog scrolls inside the viewport. Repeat,
 reminders, rich-text notes and attachments are not part of v0.0.1.
+
+## Task context menu
+
+Built in `resources/js/components/planner/task-context-menu.tsx` (shadcn `ContextMenu`) and wrapped around every task
+row, in the days and in Someday. The actions come in as props (`onColorChange`, `onMoveToTomorrow`,
+`onMoveToNextWeek`, `onMoveToSomeday`, `onDuplicate`, `onDelete`); `TaskRow` wires them to the shared task actions in
+`lib/planner/task-actions.ts`, which the task dialog uses too.
+
+| Part   | Behaviour                                                                                                                                   |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Colors | A row of the nine swatches (`TaskColorSwatch`, shared with the dialog's color picker), `menuitemradio` items with the current color checked |
+| Moves  | Tomorrow, Next week and Someday, as in the dialog's More menu; Someday is hidden for a task that is already in Someday                      |
+| Copy   | Duplicate (toast "Task duplicated.")                                                                                                        |
+| Delete | After a separator, `variant="destructive"` (the translucent preset menu shows it in the accent color); deletes at once with an "Undo" toast |
+
+It opens with a right click, with Shift+F10 or the context menu key while focus is in the row (anchored to the row's
+start corner), and with a still touch hold (below). A right click never starts a drag (the mouse sensor ignores the
+right button) and never opens the task dialog.
+
+### Touch gestures on a task row
+
+A press on a task row means three things on a touch screen, told apart by time and movement. The values live in
+`planner-dnd.tsx`:
+
+| Gesture                                                               | Result                                                                |
+| --------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| Tap                                                                   | Opens the task dialog                                                 |
+| Moving more than 5 px (`TOUCH_DRAG_TOLERANCE_PX`) in the first 250 ms | Scrolls the page; nothing is picked up                                |
+| Holding 250 ms (`TOUCH_DRAG_DELAY_MS`), then moving more than 8 px    | Drags the task (`TOUCH_HOLD_TOLERANCE_PX`); the menu does not open    |
+| Holding still for 500 ms (`TOUCH_MENU_DELAY_MS`)                      | Opens the context menu at the finger; moving afterwards does not drag |
+
+After 250 ms the dnd-kit touch sensor has activated, so the page no longer scrolls under the finger, but the drag stays
+invisible ("held": no dragged pill, no dimmed row, no edge zones, no auto-scroll) until the finger moves. Holding
+still until 500 ms cancels that drag and dispatches a `contextmenu` event at the touch point, which opens the Radix
+menu like a right click. Releasing a held task before it moved does nothing. Radix's own touch long press (700 ms,
+cancelled by any movement) stays as a fallback and only ever reopens the same menu; the row ignores `contextmenu` while
+it is being dragged, so a browser long-press event cannot open the menu mid-drag.
 
 ## Planner accent
 
