@@ -133,6 +133,7 @@ each browser. Back up while the app runs with SQLite's online backup:
 ```sh
 docker exec plainweek php -r '(new SQLite3("/app/storage/database/database.sqlite"))->backup($b = new SQLite3("/app/storage/backup.sqlite")); $b->close();'
 docker cp plainweek:/app/storage/backup.sqlite ./plain-week-$(date +%F).sqlite
+docker exec plainweek rm /app/storage/backup.sqlite
 ```
 
 Or stop the container and copy the whole volume:
