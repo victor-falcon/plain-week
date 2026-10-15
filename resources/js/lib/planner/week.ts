@@ -3,8 +3,13 @@ import { parseDateKey, toDateKey, weekDateKeys } from '@/lib/db/dates';
 /** Empty rows rendered per day on desktop (Monday to Friday). */
 export const WEEKDAY_ROWS = 10;
 
-/** Saturday and Sunday share the sixth column, so each gets half the rows. */
-export const WEEKEND_ROWS = 5;
+/**
+ * Saturday and Sunday share the sixth column. Sunday's header takes one row
+ * slot, so Sunday gets one row less and the column ends level with the
+ * weekdays (5 + 1 + 4 = 10).
+ */
+export const SATURDAY_ROWS = 5;
+export const SUNDAY_ROWS = WEEKDAY_ROWS - SATURDAY_ROWS - 1;
 
 /** Rows rendered per Someday column on desktop. */
 export const SOMEDAY_ROWS = 2;
@@ -74,7 +79,10 @@ export function weekColumns(weekStart: Date): PlannerDay[][] {
     const weekdays = days
         .slice(0, 5)
         .map((date) => [{ date, rows: WEEKDAY_ROWS }]);
-    const weekend = days.slice(5).map((date) => ({ date, rows: WEEKEND_ROWS }));
+    const weekend = [
+        { date: days[5], rows: SATURDAY_ROWS },
+        { date: days[6], rows: SUNDAY_ROWS },
+    ];
 
     return [...weekdays, weekend];
 }

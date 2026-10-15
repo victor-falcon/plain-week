@@ -94,7 +94,7 @@ describe('parseWeekParam', () => {
 });
 
 describe('weekColumns', () => {
-    it('gives Monday to Friday a column each and stacks the weekend', () => {
+    it('gives Monday to Friday a column each and stacks the weekend so it ends level with them', () => {
         expect(weekColumns(day('2026-10-12'))).toEqual([
             [{ date: '2026-10-12', rows: 10 }],
             [{ date: '2026-10-13', rows: 10 }],
@@ -103,7 +103,7 @@ describe('weekColumns', () => {
             [{ date: '2026-10-16', rows: 10 }],
             [
                 { date: '2026-10-17', rows: 5 },
-                { date: '2026-10-18', rows: 5 },
+                { date: '2026-10-18', rows: 4 },
             ],
         ]);
     });
