@@ -23,8 +23,12 @@ export function notifyOfflineVisits(): void {
         }
     });
 
-    router.on('networkError', () => {
+    router.on('networkError', (event) => {
         if (activeVisits > 0) {
+            // Handled: Inertia does not rethrow it as an uncaught error. Failed
+            // prefetches must keep the default, which clears Inertia's
+            // prefetch cache so a later click still sends a real visit.
+            event.preventDefault();
             toast.error("You're offline. This page needs a connection.", {
                 id: OFFLINE_VISIT_TOAST_ID,
             });

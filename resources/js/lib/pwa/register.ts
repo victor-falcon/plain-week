@@ -53,12 +53,16 @@ export function registerServiceWorker(): void {
  */
 function refreshShellOnSessionChange(): void {
     const sessionChanged = createSessionChangeDetector();
-
-    router.on('navigate', (event) => {
-        if (sessionChanged(event.detail.page.props.auth?.user)) {
+    const check = (user: unknown) => {
+        if (sessionChanged(user)) {
             navigator.serviceWorker?.controller?.postMessage({
                 type: REFRESH_SHELL_MESSAGE,
             });
         }
-    });
+    };
+
+    // `navigate` covers the first page and history; `success` also covers
+    // same-URL visits, such as the logout's visit to `/` from the planner.
+    router.on('navigate', (event) => check(event.detail.page.props.auth?.user));
+    router.on('success', (event) => check(event.detail.page.props.auth?.user));
 }
