@@ -1,35 +1,36 @@
-import { useEffect, useState } from 'react';
+import { router } from '@inertiajs/react';
+import { useEffect, useRef, useState } from 'react';
 import { parseDateKey, toDateKey } from '@/lib/db/dates';
-import { addWeeks, parseWeekParam, startOfWeek } from '@/lib/planner/week';
+import {
+    addWeeks,
+    canonicalWeekUrl,
+    startOfWeek,
+    weekFromUrl,
+} from '@/lib/planner/week';
 
-const WEEK_PARAM = 'week';
-
-function weekFromUrl(): Date {
-    const value = new URLSearchParams(window.location.search).get(WEEK_PARAM);
-
-    return parseWeekParam(value) ?? startOfWeek(new Date());
+/**
+ * Normalizes the URL the page was loaded with (an invalid or non-Monday
+ * `?week=`, or the current week). Inertia records the server URL in history
+ * asynchronously after the first render, so a plain `replaceState` here would
+ * be overwritten; a client-side Inertia visit goes through the same history
+ * queue (no request, works offline) and also keeps Inertia's page URL right.
+ */
+function normalizeLoadedUrl(canonical: URL, onDone: () => void): void {
+    router.replace({
+        url: `${canonical.pathname}${canonical.search}${canonical.hash}`,
+        preserveScroll: true,
+        preserveState: true,
+        onFinish: onDone,
+    });
 }
 
 /**
- * Writes the shown week to `?week=YYYY-MM-DD` (dropped for the current week)
- * with `history.replaceState`, so a reload keeps the position without any
- * server round trip. Inertia's history state is kept as is.
+ * Records a week change with `history.replaceState`: no server round trip and
+ * no new history entry. Inertia's history state is kept as is.
  */
-function writeWeekToUrl(weekStart: Date, isCurrentWeek: boolean): void {
-    const url = new URL(window.location.href);
-
-    if (isCurrentWeek) {
-        url.searchParams.delete(WEEK_PARAM);
-    } else {
-        url.searchParams.set(WEEK_PARAM, toDateKey(weekStart));
-    }
-
-    if (url.href === window.location.href) {
-        return;
-    }
-
+function replaceUrl(canonical: URL): void {
     try {
-        window.history.replaceState(window.history.state, '', url);
+        window.history.replaceState(window.history.state, '', canonical);
     } catch {
         // Browsers rate-limit history updates (Safari: 100 per 30 s). The URL
         // is only a convenience for reloads, so skipping one is harmless.
@@ -46,18 +47,40 @@ export type WeekNavigation = {
 };
 
 /**
- * The shown week, kept in the URL query. Works fully offline. `today` is the
- * local 'YYYY-MM-DD' key (see `useToday`). The planner is client-only: its
- * data lives in IndexedDB, so reading `window` on first render is fine.
+ * The shown week, kept in the URL as `?week=YYYY-MM-DD` (its Monday; dropped
+ * for the current week) so a reload keeps the position. Works fully offline.
+ * `today` is the local 'YYYY-MM-DD' key (see `useToday`). The planner is
+ * client-only (its data lives in IndexedDB), so reading `window` on the first
+ * render is fine.
  */
 export function useWeekNavigation(today: string): WeekNavigation {
-    const [weekStart, setWeekStart] = useState(weekFromUrl);
-    const currentWeek = startOfWeek(parseDateKey(today));
+    const todayDate = parseDateKey(today);
+    const [weekStart, setWeekStart] = useState(() =>
+        weekFromUrl(window.location.href, todayDate),
+    );
+    const currentWeek = startOfWeek(todayDate);
     const isCurrentWeek = toDateKey(weekStart) === toDateKey(currentWeek);
+    // True until Inertia has recorded the loaded page in history.
+    const loading = useRef(true);
 
     useEffect(() => {
-        writeWeekToUrl(weekStart, isCurrentWeek);
-    }, [weekStart, isCurrentWeek]);
+        const canonical = new URL(
+            canonicalWeekUrl(
+                window.location.href,
+                weekStart,
+                parseDateKey(today),
+            ),
+        );
+        if (canonical.href === window.location.href) {
+            loading.current = false;
+        } else if (loading.current) {
+            normalizeLoadedUrl(canonical, () => {
+                loading.current = false;
+            });
+        } else {
+            replaceUrl(canonical);
+        }
+    }, [weekStart, today]);
 
     return {
         weekStart,

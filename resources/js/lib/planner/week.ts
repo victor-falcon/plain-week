@@ -75,3 +75,36 @@ export function weekColumns(weekStart: Date): PlannerDay[][] {
 
     return [...weekdays, weekend];
 }
+
+export const WEEK_PARAM = 'week';
+
+/**
+ * The week a planner URL shows: its `?week=` (normalized to the Monday), or
+ * the week of `today` when the parameter is missing or invalid.
+ */
+export function weekFromUrl(href: string, today: Date): Date {
+    const value = new URL(href).searchParams.get(WEEK_PARAM);
+
+    return parseWeekParam(value) ?? startOfWeek(today);
+}
+
+/**
+ * The canonical planner URL for a week: `?week=` holds its Monday, and is
+ * dropped for the week of `today`. Other parameters and the hash are kept.
+ */
+export function canonicalWeekUrl(
+    href: string,
+    weekStart: Date,
+    today: Date,
+): string {
+    const url = new URL(href);
+    const monday = startOfWeek(weekStart);
+
+    if (toDateKey(monday) === toDateKey(startOfWeek(today))) {
+        url.searchParams.delete(WEEK_PARAM);
+    } else {
+        url.searchParams.set(WEEK_PARAM, toDateKey(monday));
+    }
+
+    return url.href;
+}

@@ -23,7 +23,8 @@ const navButton =
 
 /**
  * "October 2026 W42" with the account button and week navigation. The title
- * turns primary when another week is shown; clicking it returns to today.
+ * turns the planner accent when another week is shown; clicking it returns to
+ * today.
  */
 export function PlannerHeader({
     weekStart,
@@ -48,7 +49,8 @@ export function PlannerHeader({
                     }
                     className={cn(
                         'h-auto min-w-0 truncate rounded-md p-0 font-[inherit] text-3xl leading-[inherit] tracking-[inherit] hover:bg-transparent disabled:opacity-100 lg:text-4xl',
-                        !isCurrentWeek && 'text-primary hover:text-primary/80',
+                        !isCurrentWeek &&
+                            'text-planner-accent hover:text-planner-accent/80',
                     )}
                 >
                     <span className="lg:hidden">

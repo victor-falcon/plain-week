@@ -34,14 +34,14 @@ export function DayColumn({
             <h2
                 className={cn(
                     'flex items-baseline justify-between gap-2 border-b-2 border-foreground pb-3 text-lg leading-7 lg:text-xl',
-                    isToday && 'border-primary text-primary',
+                    isToday && 'border-planner-accent text-planner-accent',
                 )}
             >
                 <span className="font-bold tracking-tight">{dayLabel}</span>
                 <span
                     className={cn(
                         'text-muted-foreground/70',
-                        isToday && 'text-primary/60',
+                        isToday && 'text-planner-accent-muted',
                     )}
                 >
                     {weekday}

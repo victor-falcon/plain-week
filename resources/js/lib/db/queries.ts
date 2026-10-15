@@ -1,6 +1,6 @@
 import { db } from './database';
 import { parseDateKey, weekDateKeys } from './dates';
-import { compareTaskOrder } from './position';
+import { compareDayOrder, compareTaskOrder } from './position';
 import { SOMEDAY_COLUMNS } from './types';
 import type { SomedayColumn, Task } from './types';
 
@@ -25,9 +25,12 @@ function isLive(task: Task): boolean {
     return task.deleted_at === null;
 }
 
-/** Sorts live tasks into display order, dropping tombstones. */
-function ordered(tasks: Task[]): Task[] {
-    return tasks.filter(isLive).sort(compareTaskOrder);
+/** Sorts live tasks by position, dropping tombstones. */
+function ordered(
+    tasks: Task[],
+    compare: (a: Task, b: Task) => number = compareTaskOrder,
+): Task[] {
+    return tasks.filter(isLive).sort(compare);
 }
 
 /** Live tasks of one day or Someday column, in display order. */
@@ -46,7 +49,10 @@ export async function queryListTasks(
     return ordered(tasks);
 }
 
-/** Live tasks of the seven days starting at `firstDay`, grouped and sorted. */
+/**
+ * Live tasks of the seven days starting at `firstDay`, grouped and in display
+ * order: timed tasks first by time, then the rest by position.
+ */
 export async function queryWeekTasks(firstDay: string): Promise<WeekTasks> {
     const days = weekDateKeys(parseDateKey(firstDay));
     const tasks = await db.tasks
@@ -55,7 +61,13 @@ export async function queryWeekTasks(firstDay: string): Promise<WeekTasks> {
         .toArray();
 
     return Object.fromEntries(
-        days.map((day) => [day, ordered(tasks.filter((t) => t.date === day))]),
+        days.map((day) => [
+            day,
+            ordered(
+                tasks.filter((t) => t.date === day),
+                compareDayOrder,
+            ),
+        ]),
     );
 }
 

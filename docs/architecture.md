@@ -115,15 +115,20 @@ beats the version it replaces. After commit the mutation schedules a sync.
 Mutations on a missing or deleted task throw. Order inside a list is `position` (fractional-indexing key), then `id` as a
 tie-break (`compareTaskOrder` in `lib/db/position.ts`).
 
+Days are **displayed** in a different order: tasks with a `time` come first, earliest first, then the rest by position
+(`compareDayOrder`, applied by `queryWeekTasks` / `useWeekTasks`). The repository (`listTasksIn`, `createTask`,
+`moveTask`) keeps working in position order, so a timed task keeps its position and falls back into it if its time is
+cleared. Someday columns are shown in position order.
+
 ### Hooks
 
-| Hook                            | Returns                                                                                    |
-| ------------------------------- | ------------------------------------------------------------------------------------------ |
-| `useWeekTasks(weekStart: Date)` | `Record<'YYYY-MM-DD', Task[]>` for the 7 days from `weekStart` (every day present), sorted |
-| `useSomedayTasks()`             | `[Task[], Task[], Task[]]`, the three Someday columns, sorted                              |
-| `useTask(id)`                   | The task, or `null` if missing/deleted                                                     |
-| `useSyncStatus()`               | `'idle' \| 'syncing' \| 'offline' \| 'error'` (`idle` for guests)                          |
-| `usePendingChangeCount()`       | Number of local changes not accepted by the server yet (outbox size)                       |
+| Hook                            | Returns                                                                                         |
+| ------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `useWeekTasks(weekStart: Date)` | `Record<'YYYY-MM-DD', Task[]>` for the 7 days from `weekStart` (every day present), timed first |
+| `useSomedayTasks()`             | `[Task[], Task[], Task[]]`, the three Someday columns, sorted                                   |
+| `useTask(id)`                   | The task, or `null` if missing/deleted                                                          |
+| `useSyncStatus()`               | `'idle' \| 'syncing' \| 'offline' \| 'error'` (`idle` for guests)                               |
+| `usePendingChangeCount()`       | Number of local changes not accepted by the server yet (outbox size)                            |
 
 `usePendingChangeCount` (query `queryPendingChangeCount`) was added for the planner header: for a guest, a non-zero
 count means work that only lives on this device, so the account button turns into a "save" button that leads to
@@ -187,9 +192,14 @@ measurements in [style.md](./style.md#planner-layout)). It follows the offline-f
 - Data comes only from the live hooks (`useWeekTasks`, `useSomedayTasks`, `usePendingChangeCount`); writes go through
   the repository (`createTask`, `toggleDone`) without awaiting them. Write failures show a toast.
 - `SyncProvider` is mounted at the page root.
-- The shown week lives in the URL (`?week=YYYY-MM-DD`, the Monday; dropped for the current week). It is read on load and
-  written with `history.replaceState` (keeping Inertia's history state), never with an Inertia visit, so changing
-  weeks needs no server round trip and works offline (`hooks/use-week-navigation.ts`).
+- The shown week lives in the URL (`?week=YYYY-MM-DD`, the Monday; dropped for the current week), so changing weeks
+  needs no server round trip and works offline (`hooks/use-week-navigation.ts`, pure helpers `weekFromUrl` /
+  `canonicalWeekUrl` in `lib/planner/week.ts`).
+    - On load an invalid or non-Monday value is normalized at once. Inertia records the server URL in history
+      asynchronously after the first render, so this one write is an Inertia client visit (`router.replace`, no
+      request), which goes through Inertia's history queue and keeps its page URL canonical.
+    - Every week change after that uses `history.replaceState` directly (keeping Inertia's history state), never a
+      server visit; held arrow keys do not repeat and rate-limit errors are ignored.
 - Shortcuts (`hooks/use-planner-shortcuts.ts`) listen on `window` and skip events from text fields or while a dialog
   or menu (`role="dialog" | "alertdialog" | "menu" | "listbox"`) is open.
 - "Today" comes from `useToday()`, which rolls over at local midnight and when the tab becomes visible again.

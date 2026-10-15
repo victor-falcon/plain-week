@@ -87,10 +87,10 @@ follow Tweek; colors, radius and font come from the tokens.
 | --------------- | --------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
 | Page            | 24px side padding (`px-6`), 24px between columns (`gap-x-6`)                                                                            | 16px side padding (`px-4`)                                                 |
 | Header          | "October 2026" `text-4xl font-bold tracking-tighter` + "W42" `text-muted-foreground/50`; 40px round buttons (account, previous, next)   | Sticky, translucent background; abbreviated title ("Oct 2026", `text-3xl`) |
-| Title           | `text-primary` when the shown week is not the current one; clicking it returns to today                                                 | Same                                                                       |
+| Title           | `text-planner-accent` when the shown week is not the current one; clicking it returns to today                                          | Same                                                                       |
 | Week grid       | 6 equal columns: Monday to Friday, then Saturday stacked over Sunday                                                                    | One column, days one after another                                         |
 | Day header      | Date (`font-bold tracking-tight`) at the start, weekday (`text-muted-foreground/70`) at the end, `pb-3`, 2px `border-foreground` bottom | Same                                                                       |
-| Today           | Header text and border `primary`, weekday `primary/60`                                                                                  | Same                                                                       |
+| Today           | Header text and border `planner-accent`, weekday `planner-accent-muted`                                                                 | Same                                                                       |
 | Rows            | `h-row` (42px, `--spacing-row`), 1px `border-border` bottom                                                                             | Same                                                                       |
 | Empty rows      | Always filled up to 10 per weekday, 5 for Saturday and Sunday, 2 per Someday column (and at least one after the last task)              | Only one empty row after the tasks                                         |
 | Someday         | Below the week, full width, 3 columns of ruled rows; the "Someday" title sits above them                                                | The three columns stacked                                                  |
@@ -107,10 +107,23 @@ Row behaviour:
   seam for the task dialog) and the complete check.
 - Empty rows are keyed by their slot, so saving a task never unmounts the row the user moved to.
 - Done tasks are `text-muted-foreground` and `line-through`; a colored pill fades to 50 %.
-- A task with a time shows it first in a small outlined pill (`border-current`, `text-xs`, tabular numbers).
+- A task with a time shows it first in a small outlined pill (`border-current`, `text-xs`, tabular numbers), and timed
+  tasks are listed first in their day, earliest first.
 
 Keyboard shortcuts (only when focus is not in a text field and no dialog or menu is open): ← / → previous / next week
 (mirrored in RTL), T current week. Held keys do not repeat.
+
+## Planner accent
+
+Today's day header and the title of a week other than the current one use `--planner-accent` (text and the 2px
+border) and `--planner-accent-muted` (today's weekday), exposed as `text-planner-accent`, `border-planner-accent` and
+`text-planner-accent-muted`. They follow the preset's blue but are tuned per theme for contrast (WCAG AA for normal
+text, 4.5:1), because the dark-mode `--primary` is only 2.2:1 on the dark background.
+
+| Token                    | Light                                           | Dark                            |
+| ------------------------ | ----------------------------------------------- | ------------------------------- |
+| `--planner-accent`       | `oklch(0.488 0.243 264.376)` (= primary), 6.8:1 | `oklch(0.75 0.14 264.4)`, 8.7:1 |
+| `--planner-accent-muted` | `oklch(0.56 0.2 264.4)`, 4.9:1                  | `oklch(0.62 0.14 264.4)`, 5.3:1 |
 
 ## Task colors
 

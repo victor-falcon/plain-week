@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vite-plus/test';
 import { toDateKey } from '@/lib/db/dates';
 import {
     addWeeks,
+    canonicalWeekUrl,
     isoWeekNumber,
     parseWeekParam,
     startOfWeek,
     weekColumns,
+    weekFromUrl,
     weekThursday,
 } from './week';
 
@@ -103,5 +105,46 @@ describe('weekColumns', () => {
                 { date: '2026-10-18', rows: 5 },
             ],
         ]);
+    });
+});
+
+describe('planner URLs', () => {
+    const today = day('2026-10-15');
+    const base = 'https://plain.test/';
+
+    it.each([
+        ['', '2026-10-12'],
+        ['?week=garbage', '2026-10-12'],
+        ['?week=2026-02-30', '2026-10-12'],
+        ['?week=2026-11-04', '2026-11-02'],
+        ['?week=2026-11-02', '2026-11-02'],
+    ])('reads %s as the week of %s', (search, monday) => {
+        expect(toDateKey(weekFromUrl(`${base}${search}`, today))).toBe(monday);
+    });
+
+    it.each([
+        ['?week=garbage', base],
+        ['?week=2026-10-14', base],
+        ['?week=2026-10-12', base],
+        ['?week=2026-11-04', `${base}?week=2026-11-02`],
+        ['?week=2026-11-02', `${base}?week=2026-11-02`],
+        ['?week=2026-11-04&x=1#top', `${base}?week=2026-11-02&x=1#top`],
+        ['', base],
+    ])('normalizes %s to %s', (search, expected) => {
+        const href = `${base}${search}`;
+
+        expect(canonicalWeekUrl(href, weekFromUrl(href, today), today)).toBe(
+            expected,
+        );
+    });
+
+    it('drops the parameter once the shown week is the current one', () => {
+        expect(
+            canonicalWeekUrl(
+                `${base}?week=2026-11-02`,
+                day('2026-10-12'),
+                today,
+            ),
+        ).toBe(base);
     });
 });
