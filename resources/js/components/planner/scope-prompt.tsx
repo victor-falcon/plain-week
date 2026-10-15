@@ -16,7 +16,7 @@ import { needsScope } from '@/lib/planner/task-actions';
 import type { PlannerTask } from '@/lib/recurrence/expand';
 
 /** What the user is about to do to a recurring task. */
-export type ScopeAction = 'edit' | 'delete' | 'stop-repeating';
+export type ScopeAction = 'edit' | 'delete' | 'repeat' | 'stop-repeating';
 
 const COPY: Record<ScopeAction, { title: string; description: string }> = {
     edit: {
@@ -26,6 +26,11 @@ const COPY: Record<ScopeAction, { title: string; description: string }> = {
     delete: {
         title: 'Delete recurring task',
         description: 'Delete only this task, or this one and every later one?',
+    },
+    repeat: {
+        title: 'Change repeat',
+        description:
+            'Give only this task the new repeat (it leaves the series), or change the series from this task on?',
     },
     'stop-repeating': {
         title: 'Stop repeating',

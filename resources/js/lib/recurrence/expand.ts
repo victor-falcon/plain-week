@@ -154,6 +154,32 @@ export function occursOn(series: SeriesItem, date: string): boolean {
     );
 }
 
+/**
+ * The first date from `anchor` on that `rule` produces, or `null` when it
+ * ends before one (every rule matches within two months).
+ */
+export function firstRuleDate(rule: Recurrence, anchor: string): string | null {
+    for (let day = anchor, i = 0; i < 62; day = addDays(day, 1), i++) {
+        if (rule.until && day > rule.until) {
+            return null;
+        }
+
+        if (matchesRule(rule, day)) {
+            return day;
+        }
+    }
+
+    return null;
+}
+
+/**
+ * The date of a series' first occurrence: its anchor, or the first date after
+ * it that the rule matches. `null` when the rule ends before producing one.
+ */
+export function firstOccurrenceDate(series: SeriesItem): string | null {
+    return firstRuleDate(series.recurrence, series.date);
+}
+
 /** The occurrence of `series` on `date` (it does not check `occursOn`). */
 export function makeOccurrence(
     series: SeriesItem,

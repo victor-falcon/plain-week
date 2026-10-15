@@ -11,7 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - **Recurring tasks.** Repeat a task weekly on any weekdays or monthly on a day (the last day in shorter months), with
   an optional end date, from the new Repeat button in the task dialog. Recurring tasks show a repeat icon with the rule
-  in a tooltip. Changing one asks "Only this task" or "This and all future" (once per dialog for typing); completing or
+  in a tooltip. Changing one asks "Only this task" or "This and all future" (once per dialog for typing), and so does
+  changing its repeat from any but the first occurrence ("Only this task" starts a series of its own); completing or
   moving one only ever affects that one.
 - **Undo for quick moves.** Tomorrow, Next week and Someday, from the context menu or the task dialog, say where the
   task went ("Moved to Tue 13 Oct.") with an Undo.

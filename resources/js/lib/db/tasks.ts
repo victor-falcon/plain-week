@@ -1,6 +1,7 @@
 import { v7 as uuidv7 } from 'uuid';
 import { addDays } from '@/lib/recurrence/dates';
 import {
+    firstOccurrenceDate,
     makeOccurrence,
     normalizeRecurrence,
     occursOn,
@@ -292,7 +293,8 @@ function newSeries(task: Task, date: string, recurrence: Recurrence): Task {
 /**
  * Ends `series` before `from` ("this and all future"): its exceptions dated
  * `from` or later are deleted (except `keepId`), and it gets `until` the day
- * before, or is deleted when nothing would be left. `replacement`, a series
+ * before, or is deleted when nothing would be left (`from` is on or before its
+ * first occurrence). `replacement`, a series
  * row with a new id, takes over from `from`; when the old series would be
  * empty, the old row takes the replacement's content instead (same id).
  * Returns the rows to write and the series that now covers `from`.
@@ -308,7 +310,7 @@ async function splitSeries(
         .filter((row) => row.deleted_at === null && row.id !== keepId)
         .map(tombstone);
 
-    if (from <= series.date) {
+    if (from <= (firstOccurrenceDate(series) ?? series.date)) {
         if (replacement === null) {
             return { rows: [...rows, tombstone(series)], successor: null };
         }
@@ -658,8 +660,10 @@ export function duplicateTask(
  * - Occurrence or exception, scope 'future' (the default): the series ends the
  *   day before the occurrence; with a rule, a new series with this item's
  *   content starts on the occurrence's date; with `null`, this item becomes a
- *   plain task. Scope 'this' only works with `null`: this item leaves the
- *   series as a plain task and the rest of the series stays.
+ *   plain task. Scope 'this': this item leaves the series, which keeps going
+ *   with a deleted exception hiding its date; with a rule it starts a new,
+ *   independent series on the occurrence's date, with `null` it becomes a
+ *   plain task.
  *
  * Returns what now stands for the item: its occurrence on the anchor date when
  * the rule produces one, else the series row, or the plain task.
@@ -679,13 +683,25 @@ export function setRecurrence(
                 const from = linked.item.occurrenceDate;
 
                 if (recurrence !== null) {
+                    const rule = normalizeRecurrence(recurrence, from);
+
                     if (scope === 'this') {
-                        throw new Error(
-                            'A new repeat rule applies to this and all future occurrences.',
+                        // This item starts a series of its own; the old one
+                        // keeps going without it (a deleted exception hides
+                        // its date).
+                        const own = newSeries(item, from, rule);
+                        const hidden = tombstone(
+                            item.kind === 'exception'
+                                ? item
+                                : materialize(series, from),
                         );
+
+                        return {
+                            rows: [hidden, own],
+                            result: representative(own, from),
+                        };
                     }
 
-                    const rule = normalizeRecurrence(recurrence, from);
                     const { rows, successor } = await splitSeries(
                         series,
                         from,

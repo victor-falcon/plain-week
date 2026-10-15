@@ -1,6 +1,6 @@
 import type { IsoWeekday, Recurrence } from '@/lib/db/types';
-import { addDays, dayOfMonth, isoWeekday } from '@/lib/recurrence/dates';
-import { matchesRule } from '@/lib/recurrence/expand';
+import { dayOfMonth, isoWeekday } from '@/lib/recurrence/dates';
+import { firstOccurrenceDate } from '@/lib/recurrence/expand';
 import type { PlannerTask, SeriesItem } from '@/lib/recurrence/expand';
 import { LOCALE, formatShortDate } from './format';
 
@@ -62,6 +62,18 @@ export function asksScope(
 }
 
 /**
+ * Whether the item is its series' first occurrence (or comes before it): a
+ * change to the rule from there changes the whole series, so there is no
+ * scope to ask.
+ */
+export function startsSeries(item: PlannerTask, series: SeriesItem): boolean {
+    const anchor = repeatAnchor(item);
+    const first = firstOccurrenceDate(series) ?? series.date;
+
+    return anchor !== null && anchor <= first;
+}
+
+/**
  * A React key that survives an occurrence's first change, when it becomes an
  * exception row with a new id (focus and row state stay put).
  */
@@ -69,24 +81,6 @@ export function rowKey(item: PlannerTask): string {
     return item.kind === 'occurrence' || item.kind === 'exception'
         ? `${item.seriesId}:${item.occurrenceDate}`
         : item.id;
-}
-
-/**
- * The first date from `anchor` on that `rule` produces, or `null` when it
- * ends before one (every rule matches within two months).
- */
-export function firstRuleDate(rule: Recurrence, anchor: string): string | null {
-    for (let day = anchor, i = 0; i < 62; day = addDays(day, 1), i++) {
-        if (rule.until && day > rule.until) {
-            return null;
-        }
-
-        if (matchesRule(rule, day)) {
-            return day;
-        }
-    }
-
-    return null;
 }
 
 /** What the repeat picker edits; `kind: 'never'` means no rule. */

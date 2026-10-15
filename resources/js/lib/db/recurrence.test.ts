@@ -259,6 +259,14 @@ describe('changing one occurrence', () => {
                 (item) => item.kind,
             ),
         ).toEqual(['exception']);
+        // Only that date leaves the week; the series still expands.
+        expect(await twoWeeks()).toEqual([
+            `Gym@${MON}`,
+            `Gym@${TUE}`,
+            `Gym@${NEXT_MON}`,
+            `Gym@${NEXT_WED}`,
+            `Gym@${NEXT_FRI}`,
+        ]);
     });
 
     it('reorders around occurrences of the target day', async () => {
@@ -566,14 +574,72 @@ describe('this and all future', () => {
         expect(await twoWeeks()).toEqual([`Gym@${MON}`, `Gym@${NEXT_MON}`]);
     });
 
-    it('refuses a new rule for only one occurrence', async () => {
-        const series = await gym();
+    it('gives only one occurrence a new rule, as a series of its own', async () => {
+        const series = await gym({ type: 'weekly', weekdays: [1] });
+        const result = await setRecurrence(
+            occurrenceId(series.id, NEXT_MON),
+            MON_WED_FRI,
+            { scope: 'this' },
+        );
 
-        await expect(
-            setRecurrence(occurrenceId(series.id, FRI), MON_WED_FRI, {
-                scope: 'this',
-            }),
-        ).rejects.toThrow();
+        expect(result).toMatchObject({ kind: 'occurrence', date: NEXT_MON });
+        expect(result.id).not.toContain(series.id);
+        // The old series keeps its rule and only loses this date.
+        expect((await db.tasks.get(series.id))?.recurrence).toEqual({
+            type: 'weekly',
+            weekdays: [1],
+        });
+        expect(await twoWeeks()).toEqual([
+            `Gym@${MON}`,
+            `Gym@${NEXT_MON}`,
+            `Gym@${NEXT_WED}`,
+            `Gym@${NEXT_FRI}`,
+        ]);
+        expect(await queryTask(occurrenceId(series.id, NEXT_MON))).toBeNull();
+        expect((await queryWeekTasks('2026-10-26'))['2026-10-26']).toHaveLength(
+            2,
+        );
+    });
+
+    it('gives an exception a new rule with scope this, keeping its edits', async () => {
+        const series = await gym();
+        const renamed = await updateTask(occurrenceId(series.id, WED), {
+            text: 'Swim',
+        });
+        const result = await setRecurrence(
+            renamed.id,
+            { type: 'weekly', weekdays: [3] },
+            { scope: 'this' },
+        );
+
+        expect(result).toMatchObject({ kind: 'occurrence', text: 'Swim' });
+        expect(await twoWeeks()).toEqual([
+            `Gym@${MON}`,
+            `Swim@${WED}`,
+            `Gym@${FRI}`,
+            `Gym@${NEXT_MON}`,
+            `Gym@${NEXT_WED}`,
+            `Swim@${NEXT_WED}`,
+            `Gym@${NEXT_FRI}`,
+        ]);
+        expect((await db.tasks.get(renamed.id))?.deleted_at).not.toBeNull();
+    });
+
+    it('changes the rule in place from the first match of a later anchor', async () => {
+        // Anchored on a Tuesday, the series first occurs on Wednesday.
+        const task = await createTask({ text: 'Gym', date: TUE });
+
+        await setRecurrence(task.id, { type: 'weekly', weekdays: [3] });
+        await setRecurrence(occurrenceId(task.id, WED), MON_WED_FRI);
+
+        expect(await db.tasks.count()).toBe(1);
+        expect(await twoWeeks()).toEqual([
+            `Gym@${WED}`,
+            `Gym@${FRI}`,
+            `Gym@${NEXT_MON}`,
+            `Gym@${NEXT_WED}`,
+            `Gym@${NEXT_FRI}`,
+        ]);
     });
 
     it('stops repeating from an occurrence on, which becomes plain', async () => {
