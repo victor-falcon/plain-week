@@ -7,6 +7,8 @@ type Props = {
     label: string;
     /** Called with the trimmed text when the row is submitted. */
     onSubmit: (text: string, via: 'enter' | 'blur') => void;
+    /** Called when Esc cancels the row and leaves the list. */
+    onCancel?: () => void;
     className?: string;
 };
 
@@ -14,7 +16,13 @@ type Props = {
  * An empty ruled row that adds a task: type, then Enter (or leave the row)
  * to create it; Esc cancels.
  */
-export function NewTaskRow({ ref, label, onSubmit, className }: Props) {
+export function NewTaskRow({
+    ref,
+    label,
+    onSubmit,
+    onCancel,
+    className,
+}: Props) {
     const take = (input: HTMLInputElement): string => {
         const text = input.value.trim();
         input.value = '';
@@ -38,6 +46,7 @@ export function NewTaskRow({ ref, label, onSubmit, className }: Props) {
             event.preventDefault();
             event.currentTarget.value = '';
             event.currentTarget.blur();
+            onCancel?.();
         }
     };
 

@@ -1,10 +1,10 @@
 {
     "$schema": "https://www.schemastore.org/package.json",
+    "version": "0.0.1",
     "private": true,
     "type": "module",
     "scripts": {
         "build": "vp build",
-        "build:ssr": "vp build && vp build --ssr",
         "dev": "vp dev",
         "check": "vp check",
         "check:fix": "vp check --fix",

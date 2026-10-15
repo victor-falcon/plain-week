@@ -1,19 +1,34 @@
 # Plain Week
 
-A minimal, open-source weekly planner and to-do list. Free forever, MIT licensed, and easy to self-host on Coolify or
-any VPS.
+A minimal, open-source weekly planner and to-do list. Free forever, MIT licensed, offline-first and easy to self-host.
 
-> Work in progress.
+![Plain Week: the week view in light mode](./docs/images/desktop-light.png)
 
-## What it is
+## Features
 
-- **A weekly planner.** Your week at a glance, one column per day, plus a Someday list for everything without a date.
+- **Your week at a glance.** One column per day, Saturday and Sunday stacked in the last one, and a three-column
+  Someday list for everything without a date.
+- **Fast entry.** Click any empty row, type, press Enter, keep typing. "17:30 Gym" sets the time for you.
+- **Everything about a task in one dialog.** Date, time, nine colors, notes, subtasks, quick moves (tomorrow, next
+  week, Someday), duplicate, and delete with undo.
+- **Drag and drop.** Reorder within a day, move across days and to Someday, or drop on the screen edge to send a task
+  to another week. Mouse, touch and keyboard.
+- **Keyboard shortcuts.** ← / → to change weeks, T to jump back to today.
 - **Offline-first.** Your planner lives in your browser (IndexedDB). It loads and works without a connection, and
-  every action is instant.
+  every action is instant. Install it as an app (PWA).
 - **Optional account and sync.** Use it as a guest, fully local. Create an account to sync between devices; your local
-  work is kept.
+  work comes with you.
+- **Light and dark mode, RTL support.**
 - **Self-hostable.** A plain Laravel app with SQLite. No external services required.
 - **Free.** No premium tier; every feature is available to everyone.
+
+| Dark mode                                                     | Task dialog                                        |
+| ------------------------------------------------------------- | -------------------------------------------------- |
+| ![The week view in dark mode](./docs/images/desktop-dark.png) | ![The task dialog](./docs/images/dialog-light.png) |
+
+| Phone, light                                                              | Phone, dark                                                             |
+| ------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| <img src="./docs/images/mobile-light.png" alt="Phone, light" width="300"> | <img src="./docs/images/mobile-dark.png" alt="Phone, dark" width="300"> |
 
 ## Local development
 
@@ -26,18 +41,26 @@ composer setup      # install dependencies, create .env, generate key, migrate S
 composer run dev    # serve the app, queue worker, logs and Vite
 ```
 
-Then open the URL printed by `composer run dev` (by default http://127.0.0.1:8000).
+Then open http://127.0.0.1:8000.
 
-Checks:
+Before pushing, run what CI runs:
 
 ```sh
-composer test         # Pint, PHPStan and Pest
-bun run check         # lint and format (Vite+)
-bun run types:check   # TypeScript
-bun run build         # production assets
+composer ci:check   # JS lint/format, TS types, JS tests, Pint, PHPStan, Pest
+bun run build       # production assets
 ```
 
-See [docs/](./docs/README.md) for the stack, style guide, architecture and conventions.
+## Self-hosting
+
+Build the assets, point `DB_DATABASE` at a SQLite file on a persistent volume, run `php artisan migrate --force` and
+serve `public/` over HTTPS from the domain root. Mail and a queue worker are optional. The full checklist and the
+environment variables are in [docs/stack.md](./docs/stack.md#self-hosting). A Docker image and a Coolify template are
+planned.
+
+## Documentation
+
+See [docs/](./docs/README.md) for the architecture (offline-first and the sync contract), the style guide, the stack
+and the conventions, and [CHANGELOG.md](./CHANGELOG.md) for what changed in each release.
 
 ## License
 

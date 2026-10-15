@@ -3,14 +3,6 @@
 Plain Week is an open-source (MIT), free, self-hostable, offline-first weekly planner built with Laravel 13, Inertia v3,
 React 19, TypeScript, Tailwind v4 and shadcn/ui, using bun and SQLite.
 
-## Read first
-
-- [docs/README.md](./docs/README.md): documentation index
-- [docs/stack.md](./docs/stack.md): versions, commands, folder layout, shadcn, Wayfinder, Inertia
-- [docs/style.md](./docs/style.md): preset, tokens, dark mode, RTL, task colors
-- [docs/architecture.md](./docs/architecture.md): offline-first principle and the sync contract (canonical)
-- [docs/conventions.md](./docs/conventions.md): code style, naming, tests, commits and PRs
-
 ## Non-negotiables
 
 1. **Offline-first.** IndexedDB (Dexie) is the client's source of truth. The UI only reads and writes the local
@@ -20,6 +12,17 @@ React 19, TypeScript, Tailwind v4 and shadcn/ui, using bun and SQLite.
    `ms-/me-/ps-/pe-/start-/end-`.
 3. **English everywhere.** Code, identifiers, comments, docs, commits and pull requests.
 
+## Read first
+
+- [docs/README.md](./docs/README.md): documentation index
+- [docs/architecture.md](./docs/architecture.md): offline-first rule, data model, sync contract (canonical), client data
+  layer, offline shell, drag and drop
+- [docs/style.md](./docs/style.md): preset, tokens, dark mode, RTL, planner layout, task colors, component inventory,
+  patterns and the checklist for building a new component
+- [docs/stack.md](./docs/stack.md): versions, commands, local dev, testing (incl. browser QA), CI, folder layout,
+  self-hosting
+- [docs/conventions.md](./docs/conventions.md): code style, naming, tests, commits and PRs
+
 ## Before you push
 
 ```sh
@@ -27,4 +30,5 @@ composer ci:check   # JS lint/format, TS types, JS tests, Pint, PHPStan, Pest
 bun run build
 ```
 
-Keep `docs/` current with what you change. Never commit anything under `docs/research/`.
+UI changes also get a headless browser check ([stack.md](./docs/stack.md#testing)). Keep `docs/` and `CHANGELOG.md`
+current with what you change. Never commit anything under `docs/research/`.

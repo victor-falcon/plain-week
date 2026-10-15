@@ -21,7 +21,7 @@ export function WeekGrid({ weekStart, today, onOpenTask }: Props) {
             {weekColumns(weekStart).map((days) => (
                 <div
                     key={days[0].date}
-                    className="flex min-w-0 flex-col gap-10 lg:gap-8"
+                    className="flex min-w-0 flex-col gap-10 lg:gap-0"
                 >
                     {days.map(({ date, rows }) => (
                         <DayColumn

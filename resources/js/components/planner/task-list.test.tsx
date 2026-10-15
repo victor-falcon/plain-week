@@ -129,6 +129,17 @@ describe('TaskList', () => {
         expect(await listTasksIn({ date: DAY })).toEqual([]);
     });
 
+    it('leaves the list with Escape right after Enter', async () => {
+        const user = userEvent.setup();
+        render(<Day />);
+
+        await user.click(screen.getAllByLabelText(LABEL)[0]);
+        await user.keyboard('One{Enter}{Escape}');
+        await screen.findByRole('button', { name: 'One' });
+
+        expect(document.activeElement).toBe(document.body);
+    });
+
     it('creates the task when the row loses focus with text', async () => {
         const user = userEvent.setup();
         render(<Day />);
