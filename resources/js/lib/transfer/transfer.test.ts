@@ -13,10 +13,18 @@ import {
 import type { Task } from '@/lib/db/types';
 import { occurrenceId } from '@/lib/recurrence/expand';
 import { makeTask } from '@/test/fixtures';
-import { buildExport, exportableTasks } from './export';
+import { buildExport } from './export';
 import { EXPORT_FORMAT, EXPORT_VERSION, exportFileName } from './format';
 import type { ExportFile } from './format';
-import { ImportError, applyImport, parseImport, planImport } from './import';
+import {
+    ImportError,
+    MAX_IMPORT_BYTES,
+    applyImport,
+    parseImport,
+    planImport,
+    summarizeImport,
+} from './import';
+import { backupRows } from './rows';
 
 const MON = '2026-10-12';
 const TUE = '2026-10-13';
@@ -143,7 +151,7 @@ describe('export', () => {
         ];
 
         expect(
-            exportableTasks(rows)
+            backupRows(rows)
                 .map((row) => row.id)
                 .sort(),
         ).toEqual(
@@ -294,6 +302,29 @@ describe('planImport', () => {
         ]);
     });
 
+    it('drops the exceptions of a series deleted in the file', async () => {
+        const plan = await importText(
+            fileWith([
+                makeTask({
+                    id: 'series',
+                    recurrence: { type: 'weekly', weekdays: [1] },
+                    deleted_at: '2026-10-13T00:00:00.000Z',
+                }),
+                makeTask({
+                    id: 'exception',
+                    series_id: 'series',
+                    occurrence_date: MON,
+                }),
+                makeTask({ id: 'plain', text: 'Plain' }),
+            ]),
+        );
+
+        expect(plan).toMatchObject({ taskCount: 1, recurringCount: 0 });
+        expect((await db.tasks.toArray()).map((task) => task.text)).toEqual([
+            'Plain',
+        ]);
+    });
+
     it('counts series as recurring and exceptions as part of their series', async () => {
         const plan = await planImport(
             await parseImport(
@@ -314,6 +345,10 @@ describe('planImport', () => {
         );
 
         expect(plan).toMatchObject({ taskCount: 2, recurringCount: 1 });
+        expect(summarizeImport(await parseImport(fileWith([])))).toEqual({
+            taskCount: 0,
+            recurringCount: 0,
+        });
         expect(plan.tasks.map((task) => task.series_id)).toEqual([
             null,
             null,
@@ -406,6 +441,14 @@ describe('parseImport', () => {
 
         await expect(parseImport(fileWith([task]))).rejects.toThrow(
             new ImportError(message),
+        );
+    });
+
+    it('refuses a file that is too large', async () => {
+        await expect(
+            parseImport(new Blob(['x'.repeat(MAX_IMPORT_BYTES + 1)])),
+        ).rejects.toThrow(
+            'This file is too large to import (more than 50 MB).',
         );
     });
 

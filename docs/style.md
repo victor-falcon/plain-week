@@ -334,7 +334,8 @@ it is being dragged, so a browser long-press event cannot open the menu mid-drag
 "Export data" downloads `plain-week-export-YYYY-MM-DD.json` at once and confirms with a toast ("Exported 12 tasks").
 "Import data…" opens the file picker (`.json`), then an `AlertDialog` previews the file ("12 tasks (2 recurring) will be
 added. Your existing tasks will stay unchanged.") with Cancel / Import. While importing, a `Progress` bar fills and the
-dialog cannot be dismissed; it closes with a toast ("Imported 12 tasks"). An invalid file never opens the dialog: a
+dialog cannot be dismissed; it closes with a toast ("Imported 12 tasks"). The rows are planned when Import is pressed,
+so positions follow any task added while the preview was open; a second click does nothing. An invalid file never opens the dialog: a
 `toast.error` says why ("This is not a Plain Week export file."). Both work offline (see
 [architecture.md](./architecture.md#export-format)).
 

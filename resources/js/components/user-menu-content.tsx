@@ -1,6 +1,5 @@
 import { Link } from '@inertiajs/react';
 import { LogOut, Settings } from 'lucide-react';
-import type { ReactNode } from 'react';
 import {
     DropdownMenuGroup,
     DropdownMenuItem,
@@ -15,11 +14,9 @@ import type { User } from '@/types';
 
 type Props = {
     user: User;
-    /** Extra entries, shown in their own group above "Log out". */
-    children?: ReactNode;
 };
 
-export function UserMenuContent({ user, children }: Props) {
+export function UserMenuContent({ user }: Props) {
     const cleanup = useMobileNavigation();
 
     const handleLogout = useLogout(cleanup);
@@ -45,12 +42,6 @@ export function UserMenuContent({ user, children }: Props) {
                     </Link>
                 </DropdownMenuItem>
             </DropdownMenuGroup>
-            {children && (
-                <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuGroup>{children}</DropdownMenuGroup>
-                </>
-            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem
                 className="cursor-pointer"

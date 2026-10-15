@@ -7,9 +7,9 @@ import type { PlainWeekDatabase } from '@/lib/db/database';
 import { nextTimestamp } from '@/lib/db/dates';
 import { compareTaskOrder } from '@/lib/db/position';
 import type { Task } from '@/lib/db/types';
-import { winningException } from '@/lib/recurrence/expand';
 import { EXPORT_FORMAT, EXPORT_VERSION } from './format';
 import type { ExportFile } from './format';
+import { backupRows } from './rows';
 import { ImportError, validateTask } from './validate';
 
 export { ImportError } from './validate';
@@ -20,14 +20,20 @@ export { ImportError } from './validate';
  * in docs/architecture.md.
  */
 
-export type ImportPlan = {
-    /** The rows to write: series first, then plain tasks, then exceptions. */
-    tasks: Task[];
+export type ImportSummary = {
     /** Tasks the user will see added: plain tasks plus series. */
     taskCount: number;
     /** How many of `taskCount` repeat. */
     recurringCount: number;
 };
+
+export type ImportPlan = ImportSummary & {
+    /** The rows to write: series first, then plain tasks, then exceptions. */
+    tasks: Task[];
+};
+
+/** Far above any real planner (10 000 tasks are about 5 MB). */
+export const MAX_IMPORT_BYTES = 50 * 1024 * 1024;
 
 export type ApplyImportOptions = {
     database?: PlainWeekDatabase;
@@ -43,6 +49,14 @@ export type ApplyImportOptions = {
  * version or holds an invalid task.
  */
 export async function parseImport(input: Blob | string): Promise<ExportFile> {
+    const size = typeof input === 'string' ? input.length : input.size;
+
+    if (size > MAX_IMPORT_BYTES) {
+        throw new ImportError(
+            `This file is too large to import (more than ${MAX_IMPORT_BYTES / 1024 / 1024} MB).`,
+        );
+    }
+
     const text = typeof input === 'string' ? input : await input.text();
     let data: unknown;
 
@@ -139,45 +153,53 @@ async function lastPositions(
     return last;
 }
 
+/** What an import adds, for the preview (no database access). */
+export function summarizeImport(file: ExportFile): ImportSummary {
+    const rows = backupRows(file.tasks);
+    const series = new Set(
+        rows.filter((task) => task.recurrence !== null).map((task) => task.id),
+    );
+    // Exceptions of a series in the file are part of it; the others become
+    // plain tasks. Only exceptions of a series can be deleted here.
+    const visible = rows.filter(
+        (task) =>
+            task.deleted_at === null &&
+            (task.series_id === null || !series.has(task.series_id)),
+    );
+
+    return {
+        taskCount: visible.length,
+        recurringCount: series.size,
+    };
+}
+
 /**
  * Turns a parsed file into the rows to add: new UUID v7 ids, `series_id`
  * remapped to the new series (an exception whose series is not in the file
  * becomes a plain task), positions appended after the existing tasks of each
  * day / Someday column keeping the file's order, and fresh `created_at` /
  * `updated_at`. `done` and `done_at` are kept. Reads the database, never
- * writes it.
+ * writes it; call it right before `applyImport` so positions are current.
  */
 export async function planImport(
     file: ExportFile,
     database: PlainWeekDatabase = db,
 ): Promise<ImportPlan> {
-    const seriesIds = new Set(
-        file.tasks
-            .filter(
-                (task) => task.recurrence !== null && task.deleted_at === null,
-            )
-            .map((task) => task.id),
+    const kept = backupRows(file.tasks);
+    const series = new Set(
+        kept.filter((task) => task.recurrence !== null).map((task) => task.id),
     );
-
-    // Exceptions of a series in the file: one per occurrence (duplicates are
-    // settled like on screen). Without its series an exception is a plain
-    // task, unless it is deleted.
-    const exceptions = new Map<string, Task[]>();
-    const rows: Task[] = [];
-
-    file.tasks.forEach((task) => {
-        if (task.series_id !== null && seriesIds.has(task.series_id)) {
-            const key = `${task.series_id}|${task.occurrence_date}`;
-            const duplicates = exceptions.get(key) ?? [];
-            duplicates.push(task);
-            exceptions.set(key, duplicates);
-        } else if (task.deleted_at === null) {
-            rows.push({ ...task, series_id: null, occurrence_date: null });
-        }
-    });
-    exceptions.forEach((duplicates) => {
-        rows.push(winningException(duplicates) as Task);
-    });
+    const kindOrder = (task: Task) =>
+        task.recurrence !== null ? 0 : task.series_id === null ? 1 : 2;
+    // Series first, so their (time-ordered) ids are smaller and both a
+    // partial import and the sync push write a series before its exceptions.
+    const rows = kept
+        .map((task) =>
+            task.series_id === null || series.has(task.series_id)
+                ? task
+                : { ...task, series_id: null, occurrence_date: null },
+        )
+        .sort((a, b) => kindOrder(a) - kindOrder(b));
 
     const now = nextTimestamp();
     const newIds = new Map(rows.map((task) => [task.id, uuidv7()]));
@@ -203,10 +225,9 @@ export async function planImport(
         sorted.forEach((task, i) => positions.set(task.id, keys[i]));
     });
 
-    const kindOrder = (task: Task) =>
-        task.recurrence !== null ? 0 : task.series_id === null ? 1 : 2;
-    const tasks = rows
-        .map((task): Task => ({
+    return {
+        ...summarizeImport(file),
+        tasks: rows.map((task) => ({
             ...task,
             id: newIds.get(task.id) as string,
             position: positions.get(task.id) as string,
@@ -218,15 +239,7 @@ export async function planImport(
             created_at: now,
             updated_at: now,
             deleted_at: task.deleted_at === null ? null : now,
-        }))
-        .sort((a, b) => kindOrder(a) - kindOrder(b));
-    const visible = tasks.filter((task) => task.series_id === null);
-
-    return {
-        tasks,
-        taskCount: visible.length,
-        recurringCount: visible.filter((task) => task.recurrence !== null)
-            .length,
+        })),
     };
 }
 

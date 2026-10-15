@@ -1,4 +1,4 @@
-import { Download, Upload } from 'lucide-react';
+import { FileDown, FileUp } from 'lucide-react';
 import { useRef, useState } from 'react';
 import type { ChangeEvent, ReactNode } from 'react';
 import { toast } from 'sonner';
@@ -16,16 +16,30 @@ import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { Progress } from '@/components/ui/progress';
 import { buildExport } from '@/lib/transfer/export';
 import { exportFileName } from '@/lib/transfer/format';
+import type { ExportFile } from '@/lib/transfer/format';
 import {
     ImportError,
     applyImport,
     parseImport,
     planImport,
+    summarizeImport,
 } from '@/lib/transfer/import';
-import type { ImportPlan } from '@/lib/transfer/import';
+import type { ImportSummary } from '@/lib/transfer/import';
+
+/** How long the export's blob URL lives; some browsers start the download late. */
+const DOWNLOAD_URL_LIFETIME_MS = 30_000;
 
 function tasksLabel(count: number): string {
     return count === 1 ? '1 task' : `${count.toLocaleString()} tasks`;
+}
+
+function previewText({ taskCount, recurringCount }: ImportSummary): string {
+    const recurring =
+        recurringCount > 0
+            ? ` (${recurringCount.toLocaleString()} recurring)`
+            : '';
+
+    return `${tasksLabel(taskCount)}${recurring} will be added. Your existing tasks will stay unchanged.`;
 }
 
 function errorMessage(error: unknown, fallback: string): string {
@@ -50,9 +64,13 @@ async function exportData(): Promise<void> {
         const link = document.createElement('a');
         link.href = url;
         link.download = exportFileName();
+        document.body.append(link);
         link.click();
-        setTimeout(() => URL.revokeObjectURL(url), 0);
-        toast.success(`Exported ${tasksLabel(file.tasks.length)}`);
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), DOWNLOAD_URL_LIFETIME_MS);
+        toast.success(
+            `Exported ${tasksLabel(summarizeImport(file).taskCount)}`,
+        );
     } catch (error) {
         toast.error(errorMessage(error, 'Could not export your data.'));
     }
@@ -60,8 +78,13 @@ async function exportData(): Promise<void> {
 
 type ImportState =
     | { phase: 'closed' }
-    | { phase: 'preview'; plan: ImportPlan }
-    | { phase: 'importing'; plan: ImportPlan; written: number };
+    | { phase: 'preview'; file: ExportFile; summary: ImportSummary }
+    | {
+          phase: 'importing';
+          file: ExportFile;
+          summary: ImportSummary;
+          progress: number;
+      };
 
 export type DataTransfer = {
     exportData: () => void;
@@ -78,53 +101,77 @@ export type DataTransfer = {
  */
 export function useDataTransfer(): DataTransfer {
     const input = useRef<HTMLInputElement>(null);
+    const running = useRef(false);
     const [state, setState] = useState<ImportState>({ phase: 'closed' });
 
     async function onFileChosen(event: ChangeEvent<HTMLInputElement>) {
-        const file = event.target.files?.[0];
+        const chosen = event.target.files?.[0];
         event.target.value = '';
 
-        if (!file) {
+        if (!chosen) {
             return;
         }
 
         try {
-            const plan = await planImport(await parseImport(file));
+            const file = await parseImport(chosen);
+            const summary = summarizeImport(file);
 
-            if (plan.taskCount === 0) {
+            if (summary.taskCount === 0) {
                 toast.info('There are no tasks in this file.');
 
                 return;
             }
 
-            setState({ phase: 'preview', plan });
+            setState({ phase: 'preview', file, summary });
         } catch (error) {
             toast.error(errorMessage(error, 'Could not read this file.'));
         }
     }
 
-    async function confirmImport(plan: ImportPlan) {
-        setState({ phase: 'importing', plan, written: 0 });
+    async function confirmImport(file: ExportFile, summary: ImportSummary) {
+        // A second click (or Enter) before the re-render must not import twice.
+        if (running.current) {
+            return;
+        }
+
+        running.current = true;
+        setState({ phase: 'importing', file, summary, progress: 0 });
+        let written = 0;
+        let total = 0;
 
         try {
+            // Planned now, not at preview time, so positions follow the tasks
+            // added in the meantime.
+            const plan = await planImport(file);
+            total = plan.tasks.length;
             await applyImport(plan, {
-                onProgress: (written) =>
-                    setState({ phase: 'importing', plan, written }),
+                onProgress: (count) => {
+                    written = count;
+                    setState({
+                        phase: 'importing',
+                        file,
+                        summary,
+                        progress: (count / total) * 100,
+                    });
+                },
             });
-            toast.success(`Imported ${tasksLabel(plan.taskCount)}`);
+            toast.success(`Imported ${tasksLabel(summary.taskCount)}`);
         } catch (error) {
             toast.error(
-                errorMessage(
-                    error,
-                    'The import stopped before the end. Some tasks may have been added.',
-                ),
+                written > 0
+                    ? `The import stopped after ${written.toLocaleString()} of ${total.toLocaleString()} rows; those were added.`
+                    : errorMessage(error, 'Could not import this file.'),
             );
+
+            if (written > 0) {
+                console.error(error);
+            }
         } finally {
+            running.current = false;
             setState({ phase: 'closed' });
         }
     }
 
-    const plan = state.phase === 'closed' ? null : state.plan;
     const importing = state.phase === 'importing';
 
     const element = (
@@ -140,7 +187,7 @@ export function useDataTransfer(): DataTransfer {
                 onChange={onFileChosen}
             />
             <AlertDialog
-                open={plan !== null}
+                open={state.phase !== 'closed'}
                 onOpenChange={(open) => {
                     if (!open && !importing) {
                         setState({ phase: 'closed' });
@@ -151,16 +198,17 @@ export function useDataTransfer(): DataTransfer {
                     <AlertDialogHeader>
                         <AlertDialogTitle>Import data</AlertDialogTitle>
                         <AlertDialogDescription>
-                            {plan &&
-                                `${tasksLabel(plan.taskCount)}${plan.recurringCount > 0 ? ` (${plan.recurringCount.toLocaleString()} recurring)` : ''} will be added. Your existing tasks will stay unchanged.`}
+                            {state.phase === 'importing'
+                                ? `Importing ${tasksLabel(state.summary.taskCount)}…`
+                                : state.phase === 'preview' &&
+                                  previewText(state.summary)}
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     {state.phase === 'importing' && (
                         <Progress
-                            value={
-                                (state.written / state.plan.tasks.length) * 100
-                            }
+                            value={state.progress}
                             aria-label="Import progress"
+                            className="rtl:-scale-x-100"
                         />
                     )}
                     <AlertDialogFooter>
@@ -169,7 +217,14 @@ export function useDataTransfer(): DataTransfer {
                         </AlertDialogCancel>
                         <Button
                             disabled={importing}
-                            onClick={() => plan && confirmImport(plan)}
+                            onClick={() => {
+                                if (state.phase === 'preview') {
+                                    void confirmImport(
+                                        state.file,
+                                        state.summary,
+                                    );
+                                }
+                            }}
                         >
                             {importing ? 'Importing…' : 'Import'}
                         </Button>
@@ -199,7 +254,7 @@ export function DataTransferMenuItems({
                 onSelect={transfer.exportData}
                 data-test="export-data"
             >
-                <Download className="me-2" />
+                <FileDown className="me-2" />
                 Export data
             </DropdownMenuItem>
             <DropdownMenuItem
@@ -207,7 +262,7 @@ export function DataTransferMenuItems({
                 onSelect={transfer.chooseImportFile}
                 data-test="import-data"
             >
-                <Upload className="me-2" />
+                <FileUp className="me-2" />
                 Import data…
             </DropdownMenuItem>
         </>
