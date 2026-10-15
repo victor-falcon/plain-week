@@ -101,6 +101,11 @@ export function TaskList({
         }
     };
 
+    // Esc leaves the list, even right after Enter while the task still saves.
+    const handleCancel = () => {
+        focusAfterCreate.current = false;
+    };
+
     const handleToggleDone = (taskId: string) => {
         toggleDone(taskId).catch(() =>
             toast.error('Could not update the task.'),
@@ -148,6 +153,7 @@ export function TaskList({
                         }}
                         label={newTaskLabel}
                         onSubmit={handleSubmit}
+                        onCancel={handleCancel}
                         className={index > 0 ? 'max-lg:hidden' : undefined}
                     />
                 );
