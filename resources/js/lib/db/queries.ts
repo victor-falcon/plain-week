@@ -78,3 +78,11 @@ export async function queryTask(id: string): Promise<Task | null> {
 
     return task && isLive(task) ? task : null;
 }
+
+/**
+ * Number of local changes not yet accepted by the server. For guests it is
+ * the work that only lives on this device.
+ */
+export function queryPendingChangeCount(): Promise<number> {
+    return db.outbox.count();
+}

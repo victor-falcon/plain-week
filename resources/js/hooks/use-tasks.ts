@@ -1,6 +1,11 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { toDateKey } from '@/lib/db/dates';
-import { querySomedayTasks, queryTask, queryWeekTasks } from '@/lib/db/queries';
+import {
+    queryPendingChangeCount,
+    querySomedayTasks,
+    queryTask,
+    queryWeekTasks,
+} from '@/lib/db/queries';
 import type { SomedayTasks, WeekTasks } from '@/lib/db/queries';
 import type { Task } from '@/lib/db/types';
 
@@ -32,4 +37,12 @@ export function useTask(
         () => (id ? queryTask(id) : Promise.resolve(null)),
         [id],
     );
+}
+
+/**
+ * Live number of local changes the server has not accepted yet (for guests:
+ * everything they created on this device). `undefined` while loading.
+ */
+export function usePendingChangeCount(): number | undefined {
+    return useLiveQuery(() => queryPendingChangeCount(), []);
 }
