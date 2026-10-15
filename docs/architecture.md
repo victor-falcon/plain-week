@@ -218,6 +218,36 @@ Seams for later work:
 | `TaskList` (`placement`, `tasks`)                        | Drag and drop: wrap each list as a droppable; `placement` is what `moveTask` needs. |
 | `WeekGrid` / `SomedaySection` (`onOpenTask`)             | Drag and drop context around the whole planner.                                     |
 
+## Offline app shell
+
+The data layer only helps offline if the app itself loads offline. A service worker (`resources/js/sw.ts`, built by
+`vite-plugin-pwa` into `public/sw.js`, scope `/`) keeps the app shell available after the first visit:
+
+| Request                                                  | Strategy                                                             |
+| -------------------------------------------------------- | -------------------------------------------------------------------- |
+| Built JS/CSS/fonts under `/build/` (and `/offline.html`) | Precached on install (Workbox precache manifest)                     |
+| Full-page load of `/` (any `?week=`)                     | NetworkFirst (3 s timeout), fallback to the cached shell             |
+| Full-page load of any other page (settings, login, ...)  | Network only; offline it gets `/offline.html`                        |
+| `/build/` files missing from this worker's precache      | Any cache first (a waiting worker's precache), then CacheFirst cache |
+| Inertia visits (`X-Inertia` fetches), `/sync/*`, non-GET | Not handled: always the network                                      |
+
+- **The shell.** `/` is cached under one key (`plain-week-shell`), whatever its query string. Only plain `200`
+  responses are stored, never redirects. The worker also fetches `/` on install, because the very first visit loads
+  `/` before the worker controls the page. The cached HTML embeds that visit's Inertia page props (`auth.user`), so an
+  offline reload shows the planner as the user who last loaded it online; the planner itself only reads IndexedDB.
+- **Inertia asset versioning.** Inertia visits are `fetch` requests (never `navigate`), so the worker never answers
+  them and the server's `409` version-mismatch reloads keep working. A shell served offline may carry an older asset
+  version; the first visit after reconnecting gets a `409` and Inertia does a full reload, which refreshes the shell.
+- **Deploys.** All worker versions share the precache storage until the new one activates, and built files the page
+  loads outside the precache are cached at runtime, so a cached shell always finds the assets it references. A new
+  worker waits; the page shows a Sonner toast ("Update available" with "Reload") that activates it (`SKIP_WAITING`)
+  and reloads. Open tabs check for a new worker every hour while online.
+- **Registration** happens in `resources/js/lib/pwa/register.ts`, called from `app.tsx`. Under the Vite dev server it
+  is a no-op.
+- **Offline UX.** Nothing extra is shown while offline: the planner works from IndexedDB and the account button's sync
+  status covers connectivity. Only server pages need the network, and offline they get the static `/offline.html`
+  page with a link back to the planner.
+
 ## Server side
 
 Laravel provides:
