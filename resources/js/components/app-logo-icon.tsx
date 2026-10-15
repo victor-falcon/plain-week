@@ -4,7 +4,8 @@ import { cn } from '@/lib/utils';
 
 // Seven days as bars on a 32 grid: Monday to Friday in ink (currentColor),
 // the weekend in indigo after a slightly wider gap. Same geometry as
-// public/favicon.svg.
+// public/favicon.svg. The colors are the brand's, not theme tokens, so the
+// mark looks the same whatever the preset.
 const WEEKDAYS = [2, 6, 10, 14, 18];
 const WEEKEND = [24, 28];
 

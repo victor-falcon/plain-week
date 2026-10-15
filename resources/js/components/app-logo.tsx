@@ -8,7 +8,8 @@ export default function AppLogo() {
     return (
         <>
             <div className="flex aspect-square size-8 items-center justify-center">
-                <AppLogoIcon className="size-8" />
+                {/* Important: SidebarMenuButton shrinks every nested svg to size-4. */}
+                <AppLogoIcon className="size-8!" />
             </div>
             <div className="ms-1 grid flex-1 text-start text-sm">
                 <span className="mb-0.5 truncate leading-tight font-semibold">
