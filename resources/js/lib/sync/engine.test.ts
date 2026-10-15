@@ -281,6 +281,43 @@ describe('recurring tasks', () => {
         ]);
     });
 
+    it('always pushes the three recurrence keys', async () => {
+        await createTask({ text: 'Plain', date: '2026-10-12' });
+        await startAndSync();
+
+        const push = server.requests.find((r) => r.url === '/sync/push');
+        const [sent] = JSON.parse(push?.init?.body as string).tasks;
+
+        expect(sent).toMatchObject({
+            recurrence: null,
+            series_id: null,
+            occurrence_date: null,
+        });
+    });
+
+    it('shows one of two exceptions for the same occurrence', async () => {
+        const task = await createTask({ text: 'Gym', date: '2026-10-12' });
+
+        await setRecurrence(task.id, MON_WED);
+
+        const mine = await toggleDone(occurrenceId(task.id, '2026-10-14'));
+
+        // Another device changed the same occurrence offline, later.
+        server.seed({
+            ...(await db.tasks.get(mine.id))!,
+            id: 'ffffffff-0000-7000-8000-000000000000',
+            text: 'Theirs',
+            done: false,
+            updated_at: '2099-01-01T00:00:00.000Z',
+        });
+        await startAndSync();
+
+        expect(await mondayToSunday()).toEqual([
+            'Gym@2026-10-12',
+            'Theirs@2026-10-14',
+        ]);
+    });
+
     it('applies a newer remote series with last-write-wins', async () => {
         const series = makeTask({ text: 'Gym', recurrence: MON_WED });
 

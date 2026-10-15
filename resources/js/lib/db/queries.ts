@@ -4,6 +4,7 @@ import {
     occursOn,
     parseOccurrenceId,
     toItem,
+    winningException,
 } from '@/lib/recurrence/expand';
 import type { PlannerTask, SeriesItem } from '@/lib/recurrence/expand';
 import { db } from './database';
@@ -66,6 +67,44 @@ export function queryExceptions(
         .toArray();
 }
 
+/** Every exception row (deleted too) of a series. */
+export function queryAllExceptions(seriesId: string): Promise<Task[]> {
+    return queryExceptions(seriesId, '0000-01-01', '9999-12-31');
+}
+
+/**
+ * The exception row that counts for one occurrence (deleted too), or
+ * undefined. Duplicates can arrive through sync; see `winningException`.
+ */
+export async function queryException(
+    seriesId: string,
+    date: string,
+): Promise<Task | undefined> {
+    return winningException(await queryExceptions(seriesId, date, date));
+}
+
+/** False for an exception row that lost to a duplicate of its occurrence. */
+async function isShown(item: PlannerTask): Promise<boolean> {
+    if (item.kind !== 'exception') {
+        return true;
+    }
+
+    const winner = await queryException(item.seriesId, item.occurrenceDate);
+
+    return winner?.id === item.id;
+}
+
+/** Live rows as items, without series rows and losing duplicates. */
+async function shownItems(rows: Task[]): Promise<PlannerTask[]> {
+    const items = rows
+        .filter(isLive)
+        .map(toItem)
+        .filter((item) => item.kind !== 'series');
+    const shown = await Promise.all(items.map(isShown));
+
+    return items.filter((_, i) => shown[i]);
+}
+
 /**
  * Live items dated `rangeStart`–`rangeEnd` (inclusive), unsorted: plain
  * tasks, exceptions and the occurrences series generate there. Series rows
@@ -84,10 +123,7 @@ export async function queryRangeItems(
     ]);
     const items = new Map<string, PlannerTask>();
 
-    rows.filter(isLive)
-        .map(toItem)
-        .filter((item) => item.kind !== 'series')
-        .forEach((item) => items.set(item.id, item));
+    (await shownItems(rows)).forEach((item) => items.set(item.id, item));
 
     const generated = await Promise.all(
         series.map(async (item) =>
@@ -112,13 +148,13 @@ export async function queryListTasks(
     const items =
         placement.date !== null
             ? await queryRangeItems(placement.date, placement.date)
-            : (
+            : await shownItems(
                   await db.tasks
                       .where('someday_column')
                       .equals(placement.someday_column)
-                      .filter((task) => task.date === null && isLive(task))
-                      .toArray()
-              ).map(toItem);
+                      .filter((task) => task.date === null)
+                      .toArray(),
+              );
 
     return items.sort(compareTaskOrder);
 }
@@ -142,16 +178,17 @@ export async function queryWeekTasks(firstDay: string): Promise<WeekTasks> {
 
 /** Live tasks of the three Someday columns, each sorted. */
 export async function querySomedayTasks(): Promise<SomedayTasks> {
-    const tasks = await db.tasks
-        .where('someday_column')
-        .anyOf([...SOMEDAY_COLUMNS])
-        .filter((task) => task.date === null && isLive(task))
-        .toArray();
+    const items = await shownItems(
+        await db.tasks
+            .where('someday_column')
+            .anyOf([...SOMEDAY_COLUMNS])
+            .filter((task) => task.date === null)
+            .toArray(),
+    );
     const inColumn = (column: SomedayColumn) =>
-        tasks
-            .filter((task) => task.someday_column === column)
-            .sort(compareTaskOrder)
-            .map(toItem);
+        items
+            .filter((item) => item.someday_column === column)
+            .sort(compareTaskOrder);
 
     return [inColumn(0), inColumn(1), inColumn(2)];
 }
@@ -175,8 +212,9 @@ export async function queryTask(id: string): Promise<PlannerTask | null> {
 
     if (occurrence === null) {
         const row = await db.tasks.get(id);
+        const item = row && isLive(row) ? toItem(row) : null;
 
-        return row && isLive(row) ? toItem(row) : null;
+        return item && (await isShown(item)) ? item : null;
     }
 
     const series = await querySeries(occurrence.seriesId);
@@ -185,11 +223,7 @@ export async function queryTask(id: string): Promise<PlannerTask | null> {
         return null;
     }
 
-    const [exception] = await queryExceptions(
-        series.id,
-        occurrence.date,
-        occurrence.date,
-    );
+    const exception = await queryException(series.id, occurrence.date);
 
     if (exception) {
         return isLive(exception) ? toItem(exception) : null;

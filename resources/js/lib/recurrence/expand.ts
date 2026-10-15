@@ -1,3 +1,4 @@
+import { compareTimestamps } from '@/lib/db/dates';
 import type { Recurrence, Task } from '@/lib/db/types';
 import {
     addDays,
@@ -86,6 +87,53 @@ export function toItem(task: Task): PlannerTask {
     return { ...task, kind: 'task' };
 }
 
+const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Validates a rule and puts it in the contract's canonical form (weekdays
+ * unique and sorted, `until` only when set), so the server never refuses it.
+ * Throws on a rule that is invalid or would never produce an occurrence from
+ * `anchorDate` on.
+ */
+export function normalizeRecurrence(
+    recurrence: Recurrence,
+    anchorDate: string,
+): Recurrence {
+    const until = recurrence.until ?? null;
+
+    if (until !== null && (!DATE_KEY.test(until) || until < anchorDate)) {
+        throw new Error(`Invalid until date: ${until}.`);
+    }
+
+    const end = until === null ? {} : { until };
+
+    if (recurrence.type === 'weekly') {
+        const weekdays = [...new Set(recurrence.weekdays)].sort(
+            (a, b) => a - b,
+        );
+
+        if (
+            weekdays.length === 0 ||
+            weekdays.some((day) => !Number.isInteger(day) || day < 1 || day > 7)
+        ) {
+            throw new Error('A weekly rule needs ISO weekdays from 1 to 7.');
+        }
+
+        return { type: 'weekly', weekdays, ...end };
+    }
+
+    if (
+        recurrence.type !== 'monthly' ||
+        !Number.isInteger(recurrence.day) ||
+        recurrence.day < 1 ||
+        recurrence.day > 31
+    ) {
+        throw new Error('A monthly rule needs a day from 1 to 31.');
+    }
+
+    return { type: 'monthly', day: recurrence.day, ...end };
+}
+
 /** Whether `date` matches the rule, ignoring the start and `until`. */
 export function matchesRule(recurrence: Recurrence, date: string): boolean {
     if (recurrence.type === 'weekly') {
@@ -128,11 +176,54 @@ export function makeOccurrence(
 }
 
 /**
+ * The exception row that counts for one occurrence. The server does not keep
+ * (series_id, occurrence_date) unique, so two offline devices can each write
+ * one; the newest `updated_at` wins, then the greater id. A deleted winner
+ * hides the occurrence; the losers are never shown.
+ */
+export function winningException(rows: Task[]): Task | undefined {
+    return rows.reduce<Task | undefined>((winner, row) => {
+        if (winner === undefined) {
+            return row;
+        }
+
+        const order = compareTimestamps(row.updated_at, winner.updated_at);
+
+        return order > 0 || (order === 0 && row.id > winner.id) ? row : winner;
+    }, undefined);
+}
+
+/** The winning exception row of each occurrence date of a series. */
+export function winningExceptions(
+    seriesId: string,
+    exceptions: Task[],
+): Map<string, Task> {
+    const byDate = new Map<string, Task[]>();
+
+    exceptions.forEach((row) => {
+        if (row.series_id === seriesId && row.occurrence_date !== null) {
+            byDate.set(row.occurrence_date, [
+                ...(byDate.get(row.occurrence_date) ?? []),
+                row,
+            ]);
+        }
+    });
+
+    return new Map(
+        [...byDate].map(([date, rows]) => [
+            date,
+            winningException(rows) as Task,
+        ]),
+    );
+}
+
+/**
  * What a series contributes to the dates `rangeStart`–`rangeEnd` (inclusive):
  * its generated occurrences, except those an exception row replaces, plus its
  * live exceptions that sit in the range. A deleted exception hides its
- * occurrence. `exceptions` may contain rows of other series; they are ignored.
- * The result is not sorted.
+ * occurrence; of duplicate exceptions only the winner counts
+ * (`winningException`). `exceptions` may contain rows of other series; they
+ * are ignored. The result is not sorted.
  */
 export function expandSeries(
     series: SeriesItem,
@@ -144,19 +235,18 @@ export function expandSeries(
         return [];
     }
 
-    const own = exceptions.filter((row) => row.series_id === series.id);
-    const replaced = new Set(own.map((row) => row.occurrence_date));
+    const winners = winningExceptions(series.id, exceptions);
     const items: Array<OccurrenceItem | ExceptionItem> = [];
     const first = maxDateKey(series.date, rangeStart);
     const last = minDateKey(series.recurrence.until ?? rangeEnd, rangeEnd);
 
     for (let date = first; date <= last; date = addDays(date, 1)) {
-        if (matchesRule(series.recurrence, date) && !replaced.has(date)) {
+        if (matchesRule(series.recurrence, date) && !winners.has(date)) {
             items.push(makeOccurrence(series, date));
         }
     }
 
-    own.forEach((row) => {
+    winners.forEach((row) => {
         const item = toItem(row);
 
         if (

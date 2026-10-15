@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vite-plus/test';
 import { occurrenceId } from '@/lib/recurrence/expand';
 import type { Recurrence, Task } from './types';
 import { db, wipeLocalDatabase } from './database';
+import { nextTimestamp } from './dates';
 import { getSeries, queryTask, queryWeekTasks } from './queries';
 import {
     createTask,
@@ -319,6 +320,58 @@ describe('changing one occurrence', () => {
     });
 });
 
+describe('duplicate exceptions from sync', () => {
+    it('lists and resolves only the winner, and edits it', async () => {
+        const series = await gym();
+        const id = occurrenceId(series.id, WED);
+        const mine = await toggleDone(id);
+        // Another device changed the same occurrence offline, later.
+        const theirs: Task = {
+            ...(await db.tasks.get(mine.id))!,
+            id: 'ffffffff-0000-7000-8000-000000000000',
+            text: 'Theirs',
+            date: TUE,
+            done: false,
+            updated_at: nextTimestamp(),
+        };
+
+        await db.tasks.put(theirs);
+
+        expect((await twoWeeks()).slice(0, 4)).toEqual([
+            `Gym@${MON}`,
+            `Theirs@${TUE}`,
+            `Gym@${FRI}`,
+            `Gym@${NEXT_MON}`,
+        ]);
+        expect((await queryTask(id))?.id).toBe(theirs.id);
+        expect(await queryTask(mine.id)).toBeNull();
+
+        await updateTask(id, { text: 'Edited' });
+
+        expect((await db.tasks.get(theirs.id))?.text).toBe('Edited');
+        expect(
+            (await rows()).filter((row) => row.series_id === series.id),
+        ).toHaveLength(2);
+    });
+
+    it('hides the occurrence when the winning duplicate is deleted', async () => {
+        const series = await gym();
+        const mine = await toggleDone(occurrenceId(series.id, WED));
+
+        const later = nextTimestamp();
+
+        await db.tasks.put({
+            ...(await db.tasks.get(mine.id))!,
+            id: 'ffffffff-0000-7000-8000-000000000000',
+            updated_at: later,
+            deleted_at: later,
+        });
+
+        expect(await queryTask(occurrenceId(series.id, WED))).toBeNull();
+        expect((await queryWeekTasks(MON))[WED]).toEqual([]);
+    });
+});
+
 describe('this and all future', () => {
     it('splits the series when editing from an occurrence', async () => {
         const series = await gym();
@@ -412,6 +465,36 @@ describe('this and all future', () => {
                 `Yoga@${NEXT_FRI}`,
             ]),
         );
+    });
+
+    it('keeps the earlier edits of an exception in the new series', async () => {
+        const series = await gym();
+        const renamed = await updateTask(occurrenceId(series.id, FRI), {
+            text: 'Yoga',
+        });
+
+        await updateTask(renamed.id, { color: 'pink' }, { scope: 'future' });
+
+        const successor = (await rows()).find(
+            (row) => row.recurrence !== null && row.id !== series.id,
+        );
+
+        expect(successor).toMatchObject({ text: 'Yoga', color: 'pink' });
+    });
+
+    it('refuses invalid rules before writing', async () => {
+        const task = await createTask({ text: 'A', date: MON });
+
+        await expect(
+            setRecurrence(task.id, { type: 'weekly', weekdays: [] }),
+        ).rejects.toThrow();
+        expect(await db.tasks.get(task.id)).toMatchObject({ recurrence: null });
+
+        await setRecurrence(task.id, { type: 'weekly', weekdays: [3, 1, 1] });
+        expect((await db.tasks.get(task.id))?.recurrence).toEqual({
+            type: 'weekly',
+            weekdays: [1, 3],
+        });
     });
 
     it('splits from an exception at its original date', async () => {
@@ -601,6 +684,28 @@ describe('monthly series', () => {
 });
 
 describe('undo', () => {
+    it('brings back an occurrence after undoing its first change', async () => {
+        const series = await gym();
+        const id = occurrenceId(series.id, WED);
+
+        for (const change of [
+            (undo: ReturnType<typeof createUndoLog>) =>
+                toggleDone(id, { undo }),
+            (undo: ReturnType<typeof createUndoLog>) =>
+                moveTask(id, { date: TUE }, { undo }),
+            (undo: ReturnType<typeof createUndoLog>) =>
+                duplicateTask(id, { undo }),
+        ]) {
+            const before = await twoWeeks();
+            const undo = createUndoLog();
+
+            await change(undo);
+            await undoChanges(undo);
+
+            expect(await twoWeeks()).toEqual(before);
+        }
+    });
+
     it('reverts a change that touched several rows', async () => {
         const series = await gym();
 

@@ -210,7 +210,14 @@ monthly: day `day`, or the last day of a shorter month), minus the dates an exce
 live exceptions dated in the range. A deleted exception hides its occurrence. `queryRangeItems` combines the rows dated
 in the range (plain and exceptions; series rows skipped) with the expansion of every live series that overlaps it
 (found through the `recurrence.type` index; their exceptions through `[series_id+occurrence_date]`). Someday holds only
-plain tasks and exceptions moved there.
+plain tasks and exceptions moved there. An exception whose series is gone (for example, deleted on another device
+before this exception synced) still shows, as a plain-looking task.
+
+**Duplicate exceptions.** The server does not keep `(series_id, occurrence_date)` unique, so two offline devices can
+each write an exception for the same occurrence. Locally an occurrence id always resolves to its existing exception, so
+the repository never writes a second one; duplicates that arrive through sync are settled by `winningException`: the
+newest `updated_at` wins, then the greater `id`. Only the winner is shown or resolved (a losing row's own id resolves to
+`null`), and a deleted winner hides the occurrence.
 
 **Resolving ids.** `queryTask` / `useTask` accept an occurrence id. Once that occurrence has an exception row, the id
 resolves to the row (which has its own id), and to `null` if the exception is deleted, so an id taken from the screen
@@ -229,24 +236,36 @@ keeps working after the first change.
 
 A split also deletes the series' exceptions dated D or later. When D is the series' first date there is nothing to keep,
 so the series row itself takes the new content or rule (same id) instead of ending. `done` never reaches a series: a
-`'future'` patch applies its other fields. Scope is ignored for plain tasks.
+`'future'` patch applies its other fields; the new series takes this item's content (an exception's earlier edits
+included). Scope is ignored for plain tasks.
+
+`setRecurrence` validates the rule and stores it in canonical form (`normalizeRecurrence`: weekdays unique and sorted,
+`day` 1–31, `until` not before the anchor) and throws otherwise, so the server never refuses it. The anchor date does
+not have to match the rule: the series then starts at the next matching date and the item disappears from the anchor
+day, so the UI should preselect the anchor's weekday or day of the month.
 
 On rows: `setRecurrence` on a plain dated task makes it the series (its `date` is the anchor; Someday tasks cannot
 repeat). On a series row, `updateTask` edits every occurrence without an exception, `setRecurrence` replaces the rule
-(`null` makes it a plain task and deletes its exceptions), `deleteTask` deletes it with its exceptions, and `moveTask`
+(existing exceptions stay; `null` makes it a plain task and deletes its exceptions), `deleteTask` deletes it with its exceptions, and `moveTask`
 throws.
 
 **What to show after a change.** The mutations return the item that now stands for what the user acted on: the
 exception for a `'this'` edit, the new series' occurrence on D for a `'future'` edit or rule change (the series itself
 when its rule skips D), the plain task when repeating stops. The occurrence id the UI held may then resolve to `null`
-(its series ended), so a dialog should switch to the returned id.
+(its series ended), so a dialog should switch to the returned id. The first change of an occurrence also changes its
+`id` (occurrence id to exception row id), which UI keys and drag ids need to tolerate.
+
+Occurrences take the series' `position`, which can tie with a plain task's position in the same day (`compareTaskOrder`
+then orders by id). Placing a task between two tied neighbours puts it after both.
 
 **Undo.** `restoreTask(occurrenceId)` restores a deleted occurrence. Changes that touch several rows (`'future'` scope)
 are undone with an `UndoLog`: `const undo = createUndoLog(); await deleteTask(id, { scope: 'future', undo });` and later
-`undoChanges(undo)`, which writes the previous versions back as newer changes.
+`undoChanges(undo)`, which writes the previous versions back as newer changes. A row the logged mutations created is
+deleted, except an exception: deleting it would hide its occurrence, so it goes back to the series' content instead.
 
 **Sync.** Nothing special: the three fields are columns of the record, pushed and pulled with last-write-wins like the
-rest (`toTask` defaults them to `null`).
+rest. Every pushed record carries all three keys (`null` when unset; the server refuses partial keys), and `toTask`
+defaults them to `null` on pull.
 
 ### Sync lifecycle (`lib/sync`)
 

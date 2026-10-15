@@ -2,6 +2,7 @@ import { v7 as uuidv7 } from 'uuid';
 import { addDays } from '@/lib/recurrence/dates';
 import {
     makeOccurrence,
+    normalizeRecurrence,
     occursOn,
     parseOccurrenceId,
     toItem,
@@ -18,6 +19,8 @@ import { nextTimestamp } from './dates';
 import { positionBetween } from './position';
 import {
     placementOf,
+    queryAllExceptions,
+    queryException,
     queryExceptions,
     queryListTasks,
     querySeries,
@@ -228,6 +231,13 @@ function tombstone(task: Task): Task {
     return { ...toRow(task), updated_at: now, deleted_at: now };
 }
 
+/** Tombstones of the live exception rows of a series. */
+async function tombstonedExceptions(seriesId: string): Promise<Task[]> {
+    return (await queryAllExceptions(seriesId))
+        .filter((row) => row.deleted_at === null)
+        .map(tombstone);
+}
+
 /** A new row: fresh id and timestamps. */
 function fresh(task: Task): Task {
     const now = nextTimestamp();
@@ -404,7 +414,7 @@ function edit(
             if (linked && scope === 'future') {
                 const { series } = linked;
                 const from = linked.item.occurrenceDate;
-                const content = patched(series, seriesPatch(patch));
+                const content = patched(item, seriesPatch(patch));
                 const { rows, successor } = await splitSeries(
                     series,
                     from,
@@ -502,22 +512,10 @@ export function deleteTask(
             }
 
             if (item.kind === 'series') {
-                const exceptions = await queryExceptions(
-                    item.id,
-                    '0000-01-01',
-                    '9999-12-31',
-                );
                 const row = tombstone(item);
 
                 return {
-                    rows: [
-                        ...exceptions
-                            .filter(
-                                (exception) => exception.deleted_at === null,
-                            )
-                            .map(tombstone),
-                        row,
-                    ],
+                    rows: [...(await tombstonedExceptions(item.id)), row],
                     result: row,
                 };
             }
@@ -540,13 +538,7 @@ export function restoreTask(id: string): Promise<PlannerTask> {
     return write(async () => {
         const occurrence = parseOccurrenceId(id);
         const task = occurrence
-            ? (
-                  await queryExceptions(
-                      occurrence.seriesId,
-                      occurrence.date,
-                      occurrence.date,
-                  )
-              )[0]
+            ? await queryException(occurrence.seriesId, occurrence.date)
             : await db.tasks.get(id);
 
         if (!task) {
@@ -685,7 +677,6 @@ export function setRecurrence(
             if (linked) {
                 const { series } = linked;
                 const from = linked.item.occurrenceDate;
-                const isException = linked.item.kind === 'exception';
 
                 if (recurrence !== null) {
                     if (scope === 'this') {
@@ -694,10 +685,11 @@ export function setRecurrence(
                         );
                     }
 
+                    const rule = normalizeRecurrence(recurrence, from);
                     const { rows, successor } = await splitSeries(
                         series,
                         from,
-                        newSeries(item, from, recurrence),
+                        newSeries(item, from, rule),
                     );
 
                     return {
@@ -706,7 +698,10 @@ export function setRecurrence(
                     };
                 }
 
-                const plain = isException ? detached(item) : plainCopy(item);
+                const plain =
+                    item.kind === 'exception'
+                        ? detached(item)
+                        : plainCopy(item);
 
                 if (scope === 'this') {
                     // A deleted exception keeps the occurrence from coming back.
@@ -722,31 +717,19 @@ export function setRecurrence(
 
             if (item.kind === 'series') {
                 if (recurrence !== null) {
-                    const row = { ...toRow(item), recurrence };
-                    const next = {
-                        ...row,
+                    const next: Task = {
+                        ...toRow(item),
+                        recurrence: normalizeRecurrence(recurrence, item.date),
                         updated_at: nextTimestamp(item.updated_at),
                     };
 
                     return { rows: [next], result: toItem(next) };
                 }
 
-                const exceptions = await queryExceptions(
-                    item.id,
-                    '0000-01-01',
-                    '9999-12-31',
-                );
                 const plain = detached(item);
 
                 return {
-                    rows: [
-                        ...exceptions
-                            .filter(
-                                (exception) => exception.deleted_at === null,
-                            )
-                            .map(tombstone),
-                        plain,
-                    ],
+                    rows: [...(await tombstonedExceptions(item.id)), plain],
                     result: toItem(plain),
                 };
             }
@@ -762,7 +745,7 @@ export function setRecurrence(
             // A plain task, or an exception whose series is gone.
             const row: Task = {
                 ...detached(item),
-                recurrence,
+                recurrence: normalizeRecurrence(recurrence, item.date),
                 done: false,
                 done_at: null,
             };
@@ -783,25 +766,52 @@ export function createUndoLog(): UndoLog {
  */
 export function undoChanges(log: UndoLog): Promise<void> {
     return write(async () => {
-        const ids = [...log.before.keys()];
-        const current = await db.tasks.bulkGet(ids);
-        const rows = ids.flatMap((id, i) => {
-            const before = log.before.get(id);
-            const now = current[i];
+        const rows: Task[] = [];
+
+        for (const [id, before] of log.before) {
+            const now = await db.tasks.get(id);
 
             if (!now) {
-                return [];
+                continue;
             }
 
-            if (!before) {
-                return now.deleted_at === null ? [tombstone(now)] : [];
+            if (before) {
+                rows.push({
+                    ...before,
+                    updated_at: nextTimestamp(now.updated_at),
+                });
+            } else {
+                rows.push(...(await unwritten(now)));
             }
-
-            return [{ ...before, updated_at: nextTimestamp(now.updated_at) }];
-        });
+        }
 
         log.before.clear();
 
         return { rows, result: undefined };
     });
+}
+
+/**
+ * Undoes the creation of `row`. A new exception cannot simply be deleted: a
+ * deleted exception hides its occurrence. It goes back to the series' content
+ * instead, which shows the occurrence as it was.
+ */
+async function unwritten(row: Task): Promise<Task[]> {
+    const series =
+        row.series_id !== null && row.occurrence_date !== null
+            ? await querySeries(row.series_id)
+            : null;
+
+    if (series && row.occurrence_date !== null) {
+        return [
+            {
+                ...materialize(series, row.occurrence_date),
+                id: row.id,
+                created_at: row.created_at,
+                updated_at: nextTimestamp(row.updated_at),
+            },
+        ];
+    }
+
+    return row.deleted_at === null ? [tombstone(row)] : [];
 }

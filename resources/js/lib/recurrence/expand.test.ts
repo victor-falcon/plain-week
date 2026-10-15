@@ -6,9 +6,11 @@ import {
     expandSeries,
     isRecurring,
     matchesRule,
+    normalizeRecurrence,
     occurrenceId,
     parseOccurrenceId,
     toItem,
+    winningException,
 } from './expand';
 import type { SeriesItem } from './expand';
 
@@ -293,6 +295,100 @@ describe('expandSeries', () => {
                 '2026-10-18',
             ),
         ).toEqual([]);
+    });
+});
+
+describe('duplicate exceptions', () => {
+    const older = exception('2026-10-14', {
+        id: 'a',
+        text: 'older',
+        updated_at: '2026-10-13T10:00:00.000Z',
+    });
+    const newer = exception('2026-10-14', {
+        id: 'b',
+        text: 'newer',
+        date: '2026-10-15',
+        updated_at: '2026-10-13T11:00:00.000Z',
+    });
+
+    it('shows only the newest one', () => {
+        const items = expandSeries(
+            series(WEEKDAYS),
+            [newer, older],
+            '2026-10-12',
+            '2026-10-18',
+        );
+
+        expect(items.map((item) => item.text)).toEqual(['Gym', 'Gym', 'newer']);
+        expect(winningException([older, newer])?.id).toBe('b');
+    });
+
+    it('breaks a timestamp tie by id', () => {
+        const tie = { ...newer, updated_at: older.updated_at };
+
+        expect(winningException([tie, older])?.id).toBe('b');
+        expect(winningException([older, tie])?.id).toBe('b');
+    });
+
+    it('hides the occurrence when the winner is deleted', () => {
+        const deleted = {
+            ...newer,
+            deleted_at: '2026-10-13T11:00:00.000Z',
+        };
+
+        expect(
+            dates(
+                expandSeries(
+                    series(WEEKDAYS),
+                    [older, deleted],
+                    '2026-10-12',
+                    '2026-10-18',
+                ),
+            ),
+        ).toEqual(['2026-10-12', '2026-10-16']);
+    });
+});
+
+describe('normalizeRecurrence', () => {
+    it('sorts and dedupes weekdays and drops an empty until', () => {
+        expect(
+            normalizeRecurrence(
+                { type: 'weekly', weekdays: [5, 1, 5, 3], until: null },
+                '2026-10-12',
+            ),
+        ).toEqual({ type: 'weekly', weekdays: [1, 3, 5] });
+        expect(
+            normalizeRecurrence(
+                { type: 'monthly', day: 31, until: '2026-12-31' },
+                '2026-10-12',
+            ),
+        ).toEqual({ type: 'monthly', day: 31, until: '2026-12-31' });
+    });
+
+    it('refuses rules the server would refuse', () => {
+        const anchor = '2026-10-12';
+
+        expect(() =>
+            normalizeRecurrence({ type: 'weekly', weekdays: [] }, anchor),
+        ).toThrow();
+        expect(() =>
+            normalizeRecurrence(
+                { type: 'weekly', weekdays: [8 as never] },
+                anchor,
+            ),
+        ).toThrow();
+        expect(() =>
+            normalizeRecurrence({ type: 'monthly', day: 0 }, anchor),
+        ).toThrow();
+        expect(() =>
+            normalizeRecurrence({ type: 'monthly', day: 32 }, anchor),
+        ).toThrow();
+        expect(() =>
+            normalizeRecurrence(
+                { type: 'monthly', day: 1, until: '2026-10-11' },
+                anchor,
+            ),
+        ).toThrow();
     });
 });
 
