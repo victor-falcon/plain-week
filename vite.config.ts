@@ -4,8 +4,18 @@ import babel from '@rolldown/plugin-babel';
 import tailwindcss from '@tailwindcss/vite';
 import react, { reactCompilerPreset } from '@vitejs/plugin-react';
 import laravel from 'laravel-vite-plugin';
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { VitePWA } from 'vite-plugin-pwa';
 import { defineConfig, lazyPlugins } from 'vite-plus';
+
+/** Revision of a static file in `public/` for the service worker precache. */
+function revisionOf(publicPath: string): string {
+    return createHash('md5')
+        .update(readFileSync(new URL(`./public${publicPath}`, import.meta.url)))
+        .digest('hex');
+}
 
 export default defineConfig({
     // Unit tests (Vitest) only need the `@/` alias, not the Laravel and
@@ -26,6 +36,62 @@ export default defineConfig({
                   tailwindcss(),
                   wayfinder({
                       formVariants: true,
+                  }),
+                  // Offline app shell (docs/architecture.md). The worker goes
+                  // to `public/` so it is served from `/sw.js` and its scope
+                  // covers the whole app; the web manifest stays in
+                  // `public/build/`.
+                  VitePWA({
+                      strategies: 'injectManifest',
+                      srcDir: 'resources/js',
+                      filename: 'sw.ts',
+                      outDir: 'public',
+                      buildBase: '/',
+                      scope: '/',
+                      registerType: 'prompt',
+                      injectRegister: false,
+                      manifest: {
+                          id: '/',
+                          name: 'Plain Week',
+                          short_name: 'Plain Week',
+                          description:
+                              'A minimal, offline-first weekly planner.',
+                          start_url: '/',
+                          scope: '/',
+                          display: 'standalone',
+                          // --background in resources/css/app.css.
+                          theme_color: '#ffffff',
+                          background_color: '#ffffff',
+                          icons: [
+                              {
+                                  src: '/pwa-192x192.png',
+                                  sizes: '192x192',
+                                  type: 'image/png',
+                              },
+                              {
+                                  src: '/pwa-512x512.png',
+                                  sizes: '512x512',
+                                  type: 'image/png',
+                              },
+                              {
+                                  src: '/maskable-icon-512x512.png',
+                                  sizes: '512x512',
+                                  type: 'image/png',
+                                  purpose: 'maskable',
+                              },
+                          ],
+                      },
+                      injectManifest: {
+                          globDirectory: 'public/build',
+                          globPatterns: ['**/*.{js,css,woff2,woff,svg,png}'],
+                          modifyURLPrefix: { '': '/build/' },
+                          additionalManifestEntries: [
+                              {
+                                  url: '/offline.html',
+                                  revision: revisionOf('/offline.html'),
+                              },
+                          ],
+                      },
                   }),
               ],
     ),

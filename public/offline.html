@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Offline - Plain Week</title>
+        <!--
+            Served by the service worker when a server-only page (settings, login, ...) is opened offline.
+            Self-contained on purpose. Colors mirror the tokens in resources/css/app.css.
+        -->
+        <style>
+            :root {
+                color-scheme: light dark;
+                --background: oklch(1 0 0);
+                --foreground: oklch(0.147 0.004 49.25);
+                --muted-foreground: oklch(0.553 0.013 58.071);
+                --primary: oklch(0.488 0.243 264.376);
+                --primary-foreground: oklch(0.97 0.014 254.604);
+            }
+
+            @media (prefers-color-scheme: dark) {
+                :root {
+                    --background: oklch(0.147 0.004 49.25);
+                    --foreground: oklch(0.985 0.001 106.423);
+                    --muted-foreground: oklch(0.709 0.01 56.259);
+                    --primary: oklch(0.424 0.199 265.638);
+                }
+            }
+
+            * {
+                box-sizing: border-box;
+            }
+
+            body {
+                display: grid;
+                min-height: 100vh;
+                margin: 0;
+                padding: 1.5rem;
+                place-items: center;
+                background: var(--background);
+                color: var(--foreground);
+                font-family:
+                    'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+                -webkit-font-smoothing: antialiased;
+            }
+
+            main {
+                max-width: 24rem;
+                text-align: center;
+            }
+
+            h1 {
+                margin: 0 0 0.5rem;
+                font-size: 1.25rem;
+                font-weight: 600;
+            }
+
+            p {
+                margin: 0 0 1.5rem;
+                color: var(--muted-foreground);
+                font-size: 0.875rem;
+                line-height: 1.5;
+            }
+
+            a {
+                display: inline-flex;
+                height: 2.25rem;
+                align-items: center;
+                padding-inline: 1rem;
+                border-radius: 9999px;
+                background: var(--primary);
+                color: var(--primary-foreground);
+                font-size: 0.875rem;
+                font-weight: 500;
+                text-decoration: none;
+            }
+        </style>
+    </head>
+    <body>
+        <main>
+            <h1>You're offline</h1>
+            <p>
+                This page needs a connection. Your planner works offline and
+                syncs when you're back online.
+            </p>
+            <a href="/">Open the planner</a>
+        </main>
+    </body>
+</html>
