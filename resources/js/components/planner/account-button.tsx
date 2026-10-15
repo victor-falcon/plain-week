@@ -124,7 +124,7 @@ function GuestSaveButton() {
                 >
                     <span
                         aria-hidden
-                        className="absolute -inset-1.5 animate-ping rounded-full border-2 border-primary/40 motion-reduce:animate-none"
+                        className="absolute -inset-1 animate-pulse rounded-full border-2 border-primary/50 motion-reduce:animate-none"
                     />
                     <Download className="size-5" />
                 </Link>

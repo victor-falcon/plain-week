@@ -108,8 +108,8 @@ Wayfinder generates typed TypeScript helpers for Laravel routes and controller a
 hard-coded URLs:
 
 ```ts
-import { login } from "@/routes";
-import { update } from "@/actions/App/Http/Controllers/Settings/ProfileController";
+import { login } from '@/routes';
+import { update } from '@/actions/App/Http/Controllers/Settings/ProfileController';
 ```
 
 Note: Wayfinder 0.1.x does not know the `QUERY` HTTP verb that Laravel 13 adds to `Route::any()`/`Route::redirect()`,
