@@ -33,12 +33,8 @@ async function stored(id: string): Promise<Task | undefined> {
     return db.tasks.get(id);
 }
 
-async function open(overrides: Partial<Parameters<typeof createTask>[0]> = {}) {
-    const task = await createTask({
-        text: 'Plan trip',
-        date: DAY,
-        ...overrides,
-    });
+async function open(fields: { notes?: string } = {}) {
+    const task = await createTask({ text: 'Plan trip', date: DAY, ...fields });
     const user = userEvent.setup();
 
     render(<Harness taskId={task.id} />);
