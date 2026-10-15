@@ -91,7 +91,9 @@ bunx --bun shadcn@latest add <component>
 
 The files land in `resources/js/components/ui/`. Import them from `@/components/ui/<component>`. Those files are
 excluded from lint/format, so keep local edits there to a minimum; prefer composing them in `resources/js/components/`.
-If the CLI rewrites an import to something other than `@/lib/utils` (it has emitted `from "cn"` before), fix it.
+If the CLI rewrites an import to something other than `@/lib/utils` (it has emitted `from "cn"` before), fix it, and
+remove the unrelated `cn` npm package it installs along with it (`bun remove cn`). When it asks to overwrite an
+existing file such as `button.tsx`, answer no.
 
 ## Inertia
 

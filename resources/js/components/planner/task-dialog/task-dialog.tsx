@@ -91,7 +91,7 @@ function TaskDialogContent({
                 event.preventDefault();
                 contentRef.current?.focus();
             }}
-            className="gap-4 bg-secondary p-4 text-secondary-foreground max-sm:top-4 max-sm:translate-y-0 sm:max-w-lg sm:p-6"
+            className="top-4 translate-y-0 gap-4 bg-secondary p-4 text-secondary-foreground sm:top-16 sm:max-w-lg sm:p-6"
         >
             <DialogTitle className="sr-only">Edit task</DialogTitle>
             <div className="-mx-2 -mt-1 flex flex-wrap items-center gap-1">
