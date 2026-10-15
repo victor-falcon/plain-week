@@ -343,8 +343,15 @@ edit, drag, color, timed tasks first, right click, a weekly series on Friday, So
 
 ## Export format
 
-A JSON backup of the local database, written and read entirely on the client (`lib/transfer`), so it works offline and
-for guests. The account menu's "Export data" and "Import data…" entries use it ([style.md](./style.md#account-menu)).
+A JSON backup of the local database, for registered users, on the Settings › Data page (`/settings/data`,
+[style.md](./style.md#settings--data)). The page is a server-rendered Inertia page, but export and import run entirely on
+the client (`lib/transfer`) against IndexedDB, so they work offline once the page is loaded.
+
+The planner's `SyncProvider` is not mounted on settings pages, so the Data page mounts its own, and both actions first
+call `prepareLocalData(userId)` (`lib/sync`): it claims the local database for the signed-in user, exactly like a sync
+run (`claimDatabaseFor`: another user's data is wiped, guest data kept), so a later run never wipes what the import
+wrote, then waits for one sync when online, so an export includes the latest server data. Imported rows are pushed by
+that page's engine right away, or by the planner's on the next visit.
 
 ```json
 {
@@ -384,8 +391,7 @@ Import **adds** tasks; it never changes or removes existing ones (importing the 
   column's last key), keeping the file's relative order.
 - `created_at` and `updated_at` are now (one `nextTimestamp()`); `done`, `done_at` and subtasks (with their ids) are kept;
   kept exception tombstones get `deleted_at` = now.
-- The outbox entries make a signed-in user's sync push the new rows like any other local change; a guest's import
-  stays local (and turns the account button into "save").
+- The outbox entries make the sync push the new rows like any other local change.
 
 ## Planner UI
 
@@ -499,12 +505,13 @@ Laravel provides:
 
 ### Routes and access
 
-| Route             | Name        | Access                                                   |
-| ----------------- | ----------- | -------------------------------------------------------- |
-| `GET /`           | `home`      | Public. Renders the Inertia page `planner` for everyone. |
-| `POST /sync/push` | `sync.push` | `auth` (session + CSRF). `SyncController@push`.          |
-| `GET /sync/pull`  | `sync.pull` | `auth` (session). `SyncController@pull`.                 |
-| `/settings/*`     |             | `auth`.                                                  |
+| Route                | Name        | Access                                                                  |
+| -------------------- | ----------- | ----------------------------------------------------------------------- |
+| `GET /`              | `home`      | Public. Renders the Inertia page `planner` for everyone.                |
+| `POST /sync/push`    | `sync.push` | `auth` (session + CSRF). `SyncController@push`.                         |
+| `GET /sync/pull`     | `sync.pull` | `auth` (session). `SyncController@pull`.                                |
+| `/settings/*`        |             | `auth`.                                                                 |
+| `GET /settings/data` | `data.edit` | `auth`. Inertia page `settings/data` (export / import run client-side). |
 
 After login, registration and email verification Fortify redirects to `/` (`config/fortify.php` → `home`).
 

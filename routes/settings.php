@@ -21,6 +21,9 @@ Route::middleware(['auth'])->group(function () {
         ->name('user-password.update');
 
     Route::inertia('settings/appearance', 'settings/appearance')->name('appearance.edit');
+
+    // Export and import run in the browser against IndexedDB; the server only serves the page.
+    Route::inertia('settings/data', 'settings/data')->name('data.edit');
 });
 
 Route::get('.well-known/passkey-endpoints', function () {

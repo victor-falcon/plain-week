@@ -1,5 +1,5 @@
-import { db, wipeLocalDatabase } from '@/lib/db/database';
-import { SyncEngine } from './engine';
+import { allTables, db, wipeLocalDatabase } from '@/lib/db/database';
+import { SyncEngine, claimDatabaseFor } from './engine';
 import { withSyncLock } from './lock';
 import { fetchTransport, requestLogout } from './transport';
 
@@ -7,6 +7,22 @@ export type { SyncStatus } from './engine';
 
 /** The app-wide sync engine. Started by `SyncProvider`. */
 export const syncEngine = new SyncEngine({ db, transport: fetchTransport });
+
+/**
+ * Gets the local database ready for the signed-in user outside the planner
+ * (Settings › Data): claims it like a sync run does, so a later run never
+ * wipes what is written now, then waits for one sync while the engine runs
+ * and the browser is online, so reads include the latest server data.
+ * Offline it only claims.
+ */
+export async function prepareLocalData(userId: string | number): Promise<void> {
+    await withSyncLock(() =>
+        db.transaction('rw', allTables(db), () =>
+            claimDatabaseFor(db, String(userId)),
+        ),
+    );
+    await syncEngine.sync();
+}
 
 const LOGOUT_CHANNEL = 'plain-week-session';
 

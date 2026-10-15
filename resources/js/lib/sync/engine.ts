@@ -86,6 +86,26 @@ function toTask(remote: Task): Task {
  * with last-write-wins. It never blocks the UI; the UI keeps reading Dexie.
  * See docs/architecture.md for the full lifecycle.
  */
+/**
+ * Binds the local database to `userId`: data of a different user is wiped,
+ * data without an owner (guest work) is kept, except untouched demo tasks,
+ * which are deleted (they never reach the server). Call it inside a read-write
+ * transaction over `allTables()`.
+ */
+export async function claimDatabaseFor(
+    db: PlainWeekDatabase,
+    userId: string,
+): Promise<void> {
+    const owner = await db.meta.get('user_id');
+
+    if (owner && String(owner.value) !== userId) {
+        await clearAllTables(db);
+    }
+
+    await purgeDemoTasks(db);
+    await db.meta.put({ key: 'user_id', value: userId });
+}
+
 export class SyncEngine {
     private readonly db: PlainWeekDatabase;
     private readonly transport: SyncTransport;
@@ -323,15 +343,7 @@ export class SyncEngine {
 
         await db.transaction('rw', allTables(db), async () => {
             this.assertCurrent(generation);
-
-            const owner = await db.meta.get('user_id');
-
-            if (owner && String(owner.value) !== this.userId) {
-                await clearAllTables(db);
-            }
-
-            await purgeDemoTasks(db);
-            await db.meta.put({ key: 'user_id', value: this.userId as string });
+            await claimDatabaseFor(db, this.userId as string);
         });
     }
 

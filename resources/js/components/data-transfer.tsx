@@ -1,4 +1,3 @@
-import { FileDown, FileUp } from 'lucide-react';
 import { useRef, useState } from 'react';
 import type { ChangeEvent, ReactNode } from 'react';
 import { toast } from 'sonner';
@@ -12,7 +11,6 @@ import {
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
-import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { Progress } from '@/components/ui/progress';
 import { buildExport } from '@/lib/transfer/export';
 import { exportFileName } from '@/lib/transfer/format';
@@ -53,8 +51,9 @@ function errorMessage(error: unknown, fallback: string): string {
 }
 
 /** Saves the local database as a JSON file (works offline). */
-async function exportData(): Promise<void> {
+async function exportData(prepare: () => Promise<void>): Promise<void> {
     try {
+        await prepare();
         const file = await buildExport();
         const url = URL.createObjectURL(
             new Blob([JSON.stringify(file, null, 2)], {
@@ -88,21 +87,36 @@ type ImportState =
 
 export type DataTransfer = {
     exportData: () => void;
+    /** True while the export file is being built. */
+    exporting: boolean;
     /** Opens the file picker; the preview dialog follows. */
     chooseImportFile: () => void;
     /** The hidden file input and the import dialog; render it once. */
     element: ReactNode;
 };
 
+export type DataTransferOptions = {
+    /**
+     * Runs before the local database is read or written, for example to bind
+     * it to the signed-in user (`prepareLocalData`).
+     */
+    prepare?: () => Promise<void>;
+};
+
+const noPreparation = () => Promise.resolve();
+
 /**
  * Export and import of a JSON backup (docs/architecture.md, "Export
  * format"). Everything runs against the local database, so it works offline;
  * imported tasks sync like any other local change.
  */
-export function useDataTransfer(): DataTransfer {
+export function useDataTransfer({
+    prepare = noPreparation,
+}: DataTransferOptions = {}): DataTransfer {
     const input = useRef<HTMLInputElement>(null);
     const running = useRef(false);
     const [state, setState] = useState<ImportState>({ phase: 'closed' });
+    const [exporting, setExporting] = useState(false);
 
     async function onFileChosen(event: ChangeEvent<HTMLInputElement>) {
         const chosen = event.target.files?.[0];
@@ -113,6 +127,7 @@ export function useDataTransfer(): DataTransfer {
         }
 
         try {
+            await prepare();
             const file = await parseImport(chosen);
             const summary = summarizeImport(file);
 
@@ -235,36 +250,16 @@ export function useDataTransfer(): DataTransfer {
     );
 
     return {
-        exportData: () => void exportData(),
+        exportData: () => {
+            if (exporting) {
+                return;
+            }
+
+            setExporting(true);
+            void exportData(prepare).finally(() => setExporting(false));
+        },
+        exporting,
         chooseImportFile: () => input.current?.click(),
         element,
     };
-}
-
-/** The "Export data" and "Import data…" entries of the account menu. */
-export function DataTransferMenuItems({
-    transfer,
-}: {
-    transfer: DataTransfer;
-}) {
-    return (
-        <>
-            <DropdownMenuItem
-                className="cursor-pointer"
-                onSelect={transfer.exportData}
-                data-test="export-data"
-            >
-                <FileDown className="me-2" />
-                Export data
-            </DropdownMenuItem>
-            <DropdownMenuItem
-                className="cursor-pointer"
-                onSelect={transfer.chooseImportFile}
-                data-test="import-data"
-            >
-                <FileUp className="me-2" />
-                Import data…
-            </DropdownMenuItem>
-        </>
-    );
 }

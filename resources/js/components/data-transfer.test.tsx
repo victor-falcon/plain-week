@@ -2,7 +2,7 @@
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
-import { useDataTransfer } from '@/components/planner/data-transfer';
+import { useDataTransfer } from '@/components/data-transfer';
 import { Toaster } from '@/components/ui/sonner';
 import { db, wipeLocalDatabase } from '@/lib/db/database';
 import { createTask } from '@/lib/db/tasks';
