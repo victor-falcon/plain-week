@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Requests\Sync\SyncFormat;
+use App\Actions\Sync\SyncFormat;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
@@ -86,9 +86,9 @@ function wireTask(array $overrides = []): array
  *
  * @param  list<array<string, mixed>>  $tasks
  */
-function push(array $tasks, ?int $format = SyncFormat::DAILY_RULES): TestResponse
+function push(array $tasks, ?SyncFormat $format = SyncFormat::DailyRules): TestResponse
 {
-    $headers = $format === null ? [] : [SyncFormat::HEADER => (string) $format];
+    $headers = $format === null ? [] : [SyncFormat::HEADER => (string) $format->value];
 
     return test()->postJson(route('sync.push'), ['tasks' => $tasks], $headers);
 }

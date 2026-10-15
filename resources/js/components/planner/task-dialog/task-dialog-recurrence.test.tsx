@@ -160,7 +160,18 @@ describe('Repeat picker', () => {
             screen.getByText('Enter a number of days from 1 to 365.');
         }
 
-        await user.type(days, '21');
+        // Switching away and back keeps the field usable.
+        await user.click(screen.getByRole('radio', { name: 'Weekly' }));
+        await user.click(screen.getByRole('radio', { name: 'Daily' }));
+        const again = screen.getByRole('spinbutton', {
+            name: 'Number of days',
+        }) as HTMLInputElement;
+        expect(again.value).toBe('');
+        expect(again.getAttribute('aria-describedby')).toBe(
+            screen.getByText('Enter a number of days from 1 to 365.').id,
+        );
+
+        await user.type(again, '21');
         expect(apply.hasAttribute('disabled')).toBe(false);
         await user.click(apply);
 

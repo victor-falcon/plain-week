@@ -2,7 +2,6 @@
 
 namespace App\Actions\Sync;
 
-use App\Http\Requests\Sync\SyncFormat;
 use App\Models\Task;
 use App\Models\User;
 use Carbon\CarbonImmutable;
@@ -21,7 +20,7 @@ class PushTasks
      * @param  list<array<string, mixed>>  $records  Validated wire records.
      * @return array{applied: list<string>, rejected: list<string>, cursor: int}
      */
-    public function handle(User $user, array $records, int $format): array
+    public function handle(User $user, array $records, SyncFormat $format): array
     {
         $applied = [];
         $rejected = [];
@@ -75,13 +74,13 @@ class PushTasks
      *
      * @param  array<string, mixed>  $record
      */
-    private function isLegacyWrite(array $record, Task $task, int $format): bool
+    private function isLegacyWrite(array $record, Task $task, SyncFormat $format): bool
     {
         if (! array_key_exists('recurrence', $record)) {
             return $task->recurrence !== null || $task->series_id !== null;
         }
 
-        return ! SyncFormat::understandsDailyRules($format) && ($task->recurrence['type'] ?? null) === 'daily';
+        return ! $format->understandsDailyRules() && ($task->recurrence['type'] ?? null) === 'daily';
     }
 
     /**

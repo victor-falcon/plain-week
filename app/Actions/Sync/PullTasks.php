@@ -2,7 +2,6 @@
 
 namespace App\Actions\Sync;
 
-use App\Http\Requests\Sync\SyncFormat;
 use App\Models\Task;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Collection;
@@ -12,24 +11,30 @@ class PullTasks
     /**
      * Return the user's tasks changed after the cursor, oldest version first, tombstones included.
      *
-     * Clients that do not understand daily rules never get a daily series: v0.0.3 crashes on one. Their exceptions
-     * still come, and those clients show them as one-off tasks.
+     * Clients that do not understand daily rules get a daily series as a tombstone (v0.0.3 crashes on a live one), so
+     * it also disappears there when a weekly or monthly series they hold becomes daily. Its exceptions still come, and
+     * those clients show them as one-off tasks. The rows are only changed in the response, never stored.
      *
      * @return array{tasks: Collection<int, Task>, cursor: int, has_more: bool}
      */
-    public function handle(User $user, int $cursor, int $limit, int $format): array
+    public function handle(User $user, int $cursor, int $limit, SyncFormat $format): array
     {
         $tasks = $user->tasks()
             ->where('version', '>', $cursor)
-            ->unless(SyncFormat::understandsDailyRules($format), fn ($query) => $query->where(
-                fn ($query) => $query->whereNull('recurrence')->orWhere('recurrence->type', '!=', 'daily'),
-            ))
             ->orderBy('version')
             ->limit($limit + 1)
             ->get();
 
         $hasMore = $tasks->count() > $limit;
         $tasks = $tasks->take($limit);
+
+        if (! $format->understandsDailyRules()) {
+            $tasks->each(function (Task $task) {
+                if (($task->recurrence['type'] ?? null) === 'daily') {
+                    $task->deleted_at ??= $task->updated_at;
+                }
+            });
+        }
 
         return [
             'tasks' => $tasks,

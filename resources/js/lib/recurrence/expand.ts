@@ -91,6 +91,15 @@ export function toItem(task: Task): PlannerTask {
 
 const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/;
 
+/** Whether `value` is a valid `every` of a daily rule: 1 to 365 days. */
+export function isValidEvery(value: unknown): value is number {
+    return (
+        Number.isInteger(value) &&
+        (value as number) >= 1 &&
+        (value as number) <= MAX_EVERY_DAYS
+    );
+}
+
 /**
  * Validates a rule and puts it in the contract's canonical form (weekdays
  * unique and sorted, `until` only when set), so the server never refuses it.
@@ -110,11 +119,7 @@ export function normalizeRecurrence(
     const end = until === null ? {} : { until };
 
     if (recurrence.type === 'daily') {
-        if (
-            !Number.isInteger(recurrence.every) ||
-            recurrence.every < 1 ||
-            recurrence.every > MAX_EVERY_DAYS
-        ) {
+        if (!isValidEvery(recurrence.every)) {
             throw new Error(
                 `A daily rule needs a number of days from 1 to ${MAX_EVERY_DAYS}.`,
             );

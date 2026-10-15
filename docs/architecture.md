@@ -64,7 +64,8 @@ last day of a shorter month. A virtual occurrence has the id `${series.id}:${YYY
 `position`, and is not done. An exception row for `(series_id, occurrence_date)` suppresses that occurrence and is shown
 at its own `date` instead, or not at all if it is a tombstone. The series row itself is never rendered, and Someday
 never holds series or virtual occurrences. Any change to an occurrence materializes an exception; "this and all future"
-edits end the series with `until` = the day before and start a new series. The client data layer owns the details (see
+edits end the series with `until` = the day before and start a new series anchored on that occurrence (so a new daily
+`every` counts from there). The client data layer owns the details (see
 [Client data layer](#client-data-layer)).
 
 The server treats the three fields as plain synced columns (same LWW, same push/pull):
@@ -76,10 +77,11 @@ The server treats the three fields as plain synced columns (same LWW, same push/
   cannot represent it. Pull always returns the keys, `null` when unset.
 - Clients from v0.0.3 and older know only weekly and monthly rules. v0.0.3 drops an unknown rule from its planner, but
   it crashes rendering an exception whose series has one (its rule summary reads `weekdays`). So the server tells
-  clients apart by the `X-Sync-Format` header (see [Sync endpoints](#sync-endpoints)): a request without it (or below
-  `2`) never pulls a daily series row, tombstones included, and a push from it to a stored daily series is rejected,
-  like the pre-v0.0.2 rule above. The exceptions of a daily series still reach those clients, which show them as
-  one-off tasks; a v0.0.3 client never had the series, so it cannot push it back changed.
+  clients apart by the `X-Sync-Format` header (see [Sync endpoints](#sync-endpoints)). A pull without it (or below `2`)
+  gets every daily series row as a tombstone (`deleted_at` set to its `updated_at`, in the response only), so it also
+  disappears from those clients when a weekly or monthly series they hold turns daily. A push from such a client to a
+  stored daily series is rejected, like the pre-v0.0.2 rule above, so it can never overwrite or delete one. The
+  exceptions of a daily series still reach those clients, which show them as one-off tasks.
 - `series_id` is not a foreign key: an exception may arrive before its series (any order across batches). It is
   indexed with `user_id`. Pull only ever returns the user's own rows, so a `series_id` pointing at someone else's task
   exposes nothing. Uniqueness of `(series_id, occurrence_date)` is not enforced by the server either: the client keeps
@@ -92,7 +94,7 @@ Web routes with session auth and CSRF, JSON in and out. All require authenticati
 Both take an optional `X-Sync-Format: <int>` header that says what the client understands: none (or `1`) is a client
 up to v0.0.3; `2` adds daily rules. A missing or malformed header counts as `1`; a higher one as the newest the server
 knows. The client sends `2` (`SYNC_FORMAT` in `lib/sync/transport.ts`); the server's side is
-`App\Http\Requests\Sync\SyncFormat`. What changes for an older format is in [Recurring tasks](#recurring-tasks).
+`App\Actions\Sync\SyncFormat`. What changes for an older format is in [Recurring tasks](#recurring-tasks).
 
 ### `POST /sync/push`
 
@@ -124,7 +126,7 @@ a `422` (it is not clamped).
   applied, because the server would refuse it anyway. See [Sync lifecycle](#sync-lifecycle-libsync).)
 - The cursor is persisted in the Dexie `meta` table (key `cursor`), with the sync format it was pulled with
   (`cursor_format`). A cursor from another format (or none: v0.0.3 did not store it) is dropped once and the client
-  pulls from `0`, because the server held back rows that format could not read. Re-applying the rest is harmless (LWW). The `user_id` is stored there too; if a different
+  pulls from `0`, because the server sent rows that format could not read as tombstones. Re-applying the rest is harmless (LWW). The `user_id` is stored there too; if a different
   user logs in, the local database is wiped first.
 - Guest to account: guest data is already in the outbox, so the first authenticated sync pushes it and guest work is
   kept. Untouched demo tasks are deleted first and never pushed ([Guest onboarding](#guest-onboarding-demo-tasks)).

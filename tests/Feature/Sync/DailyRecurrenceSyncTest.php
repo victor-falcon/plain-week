@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Requests\Sync\SyncFormat;
+use App\Actions\Sync\SyncFormat;
 use App\Models\Task;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -27,9 +27,9 @@ function wireDailySeries(array $overrides = []): array
  *
  * @param  array<string, int>  $query
  */
-function pull(array $query = [], ?int $format = SyncFormat::DAILY_RULES): TestResponse
+function pull(array $query = [], ?SyncFormat $format = SyncFormat::DailyRules): TestResponse
 {
-    $headers = $format === null ? [] : [SyncFormat::HEADER => (string) $format];
+    $headers = $format === null ? [] : [SyncFormat::HEADER => (string) $format->value];
 
     return test()->getJson(route('sync.pull', $query), $headers);
 }
@@ -55,35 +55,45 @@ test('every can be changed and the series ended', function () {
     expect(Task::find($series['id'])->recurrence)->toBe($changed['recurrence']);
 });
 
-test('clients without the header (v0.0.3) never pull a daily series', function () {
+test('clients without the header (v0.0.3) pull a daily series as a tombstone', function () {
     $daily = wireDailySeries();
     $exception = wireTask(['series_id' => $daily['id'], 'occurrence_date' => '2026-11-05']);
     $weekly = wireTask(['recurrence' => ['type' => 'weekly', 'weekdays' => [1]]]);
     $plain = wireTask();
     push([$daily, $exception, $weekly, $plain]);
 
-    pull([], null)->assertExactJson(['tasks' => [$exception, $weekly, $plain], 'cursor' => 4, 'has_more' => false]);
-    pull(['limit' => 1], null)->assertExactJson(['tasks' => [$exception], 'cursor' => 2, 'has_more' => true]);
-    pull([], SyncFormat::LEGACY)->assertJsonCount(3, 'tasks');
+    $hidden = [...$daily, 'deleted_at' => $daily['updated_at']];
 
-    // Its tombstone is not sent either.
+    pull([], null)->assertExactJson(['tasks' => [$hidden, $exception, $weekly, $plain], 'cursor' => 4, 'has_more' => false]);
+    pull([], SyncFormat::Legacy)->assertJsonPath('tasks.0', $hidden);
+    pull()->assertJsonPath('tasks.0', $daily);
+
+    expect(Task::find($daily['id'])->deleted_at)->toBeNull();
+
+    // A weekly series that turns daily disappears from those clients too.
+    $turned = [...$weekly, 'recurrence' => ['type' => 'daily', 'every' => 3], 'updated_at' => '2026-10-16T00:00:00.000Z'];
+    push([$turned]);
+    pull(['cursor' => 4], null)->assertExactJson([
+        'tasks' => [[...$turned, 'deleted_at' => $turned['updated_at']]], 'cursor' => 5, 'has_more' => false,
+    ]);
+
+    // A real tombstone keeps its own deletion time.
     $deletedAt = '2026-10-18T00:00:00.000Z';
-    push([[...$daily, 'updated_at' => $deletedAt, 'deleted_at' => $deletedAt]]);
-    pull(['cursor' => 4], null)->assertExactJson(['tasks' => [], 'cursor' => 4, 'has_more' => false]);
-
-    pull()->assertJsonCount(4, 'tasks');
+    $deleted = [...$daily, 'updated_at' => $deletedAt, 'deleted_at' => $deletedAt];
+    push([$deleted]);
+    pull(['cursor' => 5], null)->assertJsonPath('tasks', [$deleted]);
 });
 
 test('a malformed header counts as a legacy client', function (string $header) {
     push([wireDailySeries()]);
 
-    $this->getJson(route('sync.pull'), [SyncFormat::HEADER => $header])->assertJsonCount(0, 'tasks');
+    $this->getJson(route('sync.pull'), [SyncFormat::HEADER => $header])->assertJsonPath('tasks.0.deleted_at', '2026-10-15T08:35:00.123Z');
 })->with(['', 'two', '-2', '1']);
 
 test('a newer format still gets daily series', function () {
     push([wireDailySeries()]);
 
-    pull([], 3)->assertJsonCount(1, 'tasks');
+    $this->getJson(route('sync.pull'), [SyncFormat::HEADER => '3'])->assertJsonPath('tasks.0.deleted_at', null);
 });
 
 test('clients without the header (v0.0.3) cannot change a stored daily series', function () {

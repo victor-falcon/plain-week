@@ -1,4 +1,5 @@
 import { MAX_EVERY_DAYS, SOMEDAY_COLUMNS, TASK_COLORS } from '@/lib/db/types';
+import { isValidEvery } from '@/lib/recurrence/expand';
 import type {
     IsoWeekday,
     Recurrence,
@@ -221,9 +222,7 @@ function parseRecurrence(v: RowValidator, value: unknown): Recurrence | null {
         if (
             Object.hasOwn(value, 'weekdays') ||
             Object.hasOwn(value, 'day') ||
-            !Number.isInteger(every) ||
-            (every as number) < 1 ||
-            (every as number) > MAX_EVERY_DAYS
+            !isValidEvery(every)
         ) {
             v.fail(
                 'recurrence.every',

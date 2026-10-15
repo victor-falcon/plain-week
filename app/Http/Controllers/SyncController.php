@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Actions\Sync\PullTasks;
 use App\Actions\Sync\PushTasks;
+use App\Actions\Sync\SyncFormat;
 use App\Http\Requests\Sync\PullRequest;
 use App\Http\Requests\Sync\PushRequest;
 use App\Http\Resources\TaskResource;
@@ -16,7 +17,7 @@ class SyncController extends Controller
      */
     public function push(PushRequest $request, PushTasks $pushTasks): JsonResponse
     {
-        return response()->json($pushTasks->handle($request->user(), $request->records(), $request->syncFormat()));
+        return response()->json($pushTasks->handle($request->user(), $request->records(), SyncFormat::fromRequest($request)));
     }
 
     /**
@@ -24,7 +25,7 @@ class SyncController extends Controller
      */
     public function pull(PullRequest $request, PullTasks $pullTasks): JsonResponse
     {
-        $result = $pullTasks->handle($request->user(), $request->cursor(), $request->limit(), $request->syncFormat());
+        $result = $pullTasks->handle($request->user(), $request->cursor(), $request->limit(), SyncFormat::fromRequest($request));
 
         return response()->json([
             'tasks' => TaskResource::collection($result['tasks']),

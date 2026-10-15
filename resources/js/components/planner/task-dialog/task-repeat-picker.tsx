@@ -1,5 +1,5 @@
 import { Repeat, X } from 'lucide-react';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Input } from '@/components/ui/input';
@@ -36,6 +36,7 @@ import { isoWeekday } from '@/lib/recurrence/dates';
 import {
     firstRuleDate,
     isRecurring,
+    isValidEvery,
     occurrenceId,
 } from '@/lib/recurrence/expand';
 import { cn } from '@/lib/utils';
@@ -166,17 +167,13 @@ export function TaskRepeatPicker() {
 }
 
 function repeatsAtLeastOnce(draft: RepeatDraft, anchor: string): boolean {
-    if (draft.kind === 'daily' && !isEveryDays(draft.every)) {
+    if (draft.kind === 'daily' && !isValidEvery(draft.every)) {
         return false;
     }
 
     const rule = draftToRecurrence(draft);
 
     return rule === null || firstRuleDate(rule, anchor) !== null;
-}
-
-function isEveryDays(value: number): boolean {
-    return Number.isInteger(value) && value >= 1 && value <= MAX_EVERY_DAYS;
 }
 
 /**
@@ -191,7 +188,7 @@ function StartNote({ anchor, draft }: { anchor: string; draft: RepeatDraft }) {
     if (
         !rule ||
         first === anchor ||
-        (rule.type === 'daily' && !isEveryDays(rule.every))
+        (rule.type === 'daily' && !isValidEvery(rule.every))
     ) {
         return null;
     }
@@ -373,8 +370,10 @@ function EveryDays({
     every: number;
     onChange: (every: number) => void;
 }) {
-    const [text, setText] = useState(String(every));
-    const valid = isEveryDays(every);
+    // Coming back to Daily after typing an invalid number starts empty.
+    const [text, setText] = useState(Number.isNaN(every) ? '' : String(every));
+    const valid = isValidEvery(every);
+    const errorId = useId();
 
     return (
         <div className="flex flex-col gap-2">
@@ -388,20 +387,21 @@ function EveryDays({
                     step={1}
                     aria-label="Number of days"
                     aria-invalid={!valid}
+                    aria-describedby={valid ? undefined : errorId}
                     value={text}
                     onChange={(event) => {
                         const value = event.target.value;
                         const days = /^\d+$/.test(value) ? Number(value) : NaN;
 
                         setText(value);
-                        onChange(isEveryDays(days) ? days : NaN);
+                        onChange(isValidEvery(days) ? days : NaN);
                     }}
                     className="h-8 w-20 tabular-nums"
                 />
                 <span>{every === 1 ? 'day' : 'days'}</span>
             </div>
             {!valid && (
-                <p className="text-xs text-destructive">
+                <p id={errorId} className="text-xs text-destructive">
                     Enter a number of days from 1 to {MAX_EVERY_DAYS}.
                 </p>
             )}

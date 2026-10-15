@@ -20,8 +20,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   browser tab (with a dark variant) and the installed app icons.
 - **Narrower task context menu.** Its nine color swatches sit in two rows of five and four, like the task dialog's color
   picker, so the menu is as wide as that grid instead of one long row.
-- Sync requests send `X-Sync-Format: 2`. Clients without it (v0.0.3 and older) never receive "every N days" series,
-  which they cannot show, and cannot overwrite them; after updating, a client pulls everything once to get them.
+- Sync requests send `X-Sync-Format: 2`. Clients without it (v0.0.3 and older) receive "every N days" series as
+  deleted, since they cannot show them, and cannot overwrite them; after updating, a client pulls everything once to
+  get them back.
 
 ## [0.0.3] - 2026-10-15
 

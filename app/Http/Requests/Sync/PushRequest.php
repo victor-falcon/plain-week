@@ -159,14 +159,6 @@ class PushRequest extends FormRequest
     }
 
     /**
-     * What the client understands (see SyncFormat).
-     */
-    public function syncFormat(): int
-    {
-        return SyncFormat::of($this);
-    }
-
-    /**
      * The validated wire records.
      *
      * @return list<array<string, mixed>>
