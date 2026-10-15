@@ -115,14 +115,24 @@ beats the version it replaces. After commit the mutation schedules a sync.
 Mutations on a missing or deleted task throw. Order inside a list is `position` (fractional-indexing key), then `id` as a
 tie-break (`compareTaskOrder` in `lib/db/position.ts`).
 
+Days are **displayed** in a different order: tasks with a `time` come first, earliest first, then the rest by position
+(`compareDayOrder`, applied by `queryWeekTasks` / `useWeekTasks`). The repository (`listTasksIn`, `createTask`,
+`moveTask`) keeps working in position order, so a timed task keeps its position and falls back into it if its time is
+cleared. Someday columns are shown in position order.
+
 ### Hooks
 
-| Hook                            | Returns                                                                                    |
-| ------------------------------- | ------------------------------------------------------------------------------------------ |
-| `useWeekTasks(weekStart: Date)` | `Record<'YYYY-MM-DD', Task[]>` for the 7 days from `weekStart` (every day present), sorted |
-| `useSomedayTasks()`             | `[Task[], Task[], Task[]]`, the three Someday columns, sorted                              |
-| `useTask(id)`                   | The task, or `null` if missing/deleted                                                     |
-| `useSyncStatus()`               | `'idle' \| 'syncing' \| 'offline' \| 'error'` (`idle` for guests)                          |
+| Hook                            | Returns                                                                                         |
+| ------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `useWeekTasks(weekStart: Date)` | `Record<'YYYY-MM-DD', Task[]>` for the 7 days from `weekStart` (every day present), timed first |
+| `useSomedayTasks()`             | `[Task[], Task[], Task[]]`, the three Someday columns, sorted                                   |
+| `useTask(id)`                   | The task, or `null` if missing/deleted                                                          |
+| `useSyncStatus()`               | `'idle' \| 'syncing' \| 'offline' \| 'error'` (`idle` for guests)                               |
+| `usePendingChangeCount()`       | Number of local changes not accepted by the server yet (outbox size)                            |
+
+`usePendingChangeCount` (query `queryPendingChangeCount`) was added for the planner header: for a guest, a non-zero
+count means work that only lives on this device, so the account button turns into a "save" button that leads to
+registration. The UI may not read the outbox table itself, hence the query.
 
 The data hooks return `undefined` only during the first local read. Dates are local calendar days
 (`toDateKey`/`weekDateKeys` in `lib/db/dates.ts`). The queries behind the hooks are plain async functions in
@@ -173,6 +183,37 @@ application/json` and the `X-XSRF-TOKEN` header from Laravel's `XSRF-TOKEN` cook
    entity in `SyncEngine.push` and apply the new collection in `SyncEngine.applyRemote` with the same LWW rule.
 4. Add the new table to `allTables()` in `lib/db/database.ts` so every wipe and sync transaction includes it.
 5. Cover it with Vitest tests (repository + engine against `test/fake-sync-server.ts`).
+
+## Planner UI
+
+`resources/js/pages/planner.tsx` composes the components in `resources/js/components/planner/` (layout and
+measurements in [style.md](./style.md#planner-layout)). It follows the offline-first rule:
+
+- Data comes only from the live hooks (`useWeekTasks`, `useSomedayTasks`, `usePendingChangeCount`); writes go through
+  the repository (`createTask`, `toggleDone`) without awaiting them. Write failures show a toast.
+- `SyncProvider` is mounted at the page root.
+- The shown week lives in the URL (`?week=YYYY-MM-DD`, the Monday; dropped for the current week), so changing weeks
+  needs no server round trip and works offline (`hooks/use-week-navigation.ts`, pure helpers `weekFromUrl` /
+  `canonicalWeekUrl` in `lib/planner/week.ts`).
+    - On load an invalid or non-Monday value is normalized at once. Inertia records the server URL in history
+      asynchronously after the first render, so this one write is an Inertia client visit (`router.replace`, no
+      request), which goes through Inertia's history queue and keeps its page URL canonical.
+    - Every week change after that uses `history.replaceState` directly (keeping Inertia's history state), never a
+      server visit; held arrow keys do not repeat and rate-limit errors are ignored.
+- Shortcuts (`hooks/use-planner-shortcuts.ts`) listen on `window` and skip events from text fields or while a dialog
+  or menu (`role="dialog" | "alertdialog" | "menu" | "listbox"`) is open.
+- "Today" comes from `useToday()`, which rolls over at local midnight and when the tab becomes visible again.
+- Pure logic lives in `lib/planner/` with unit tests: ISO week math and the desktop column layout (`week.ts`), smart
+  time (`smart-time.ts`), date labels (`format.ts`) and task color styles (`task-colors.ts`).
+
+Seams for later work:
+
+| Seam                                                     | Meant for                                                                           |
+| -------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `openTask(taskId)` in `pages/planner.tsx` → `onOpenTask` | The task dialog: replace the stub with dialog state; every row already calls it.    |
+| `TaskRow` (one task, `onOpen`, `onToggleDone`)           | Drag and drop: wrap each row as a sortable item (`data-task-id` is set).            |
+| `TaskList` (`placement`, `tasks`)                        | Drag and drop: wrap each list as a droppable; `placement` is what `moveTask` needs. |
+| `WeekGrid` / `SomedaySection` (`onOpenTask`)             | Drag and drop context around the whole planner.                                     |
 
 ## Server side
 

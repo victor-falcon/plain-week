@@ -1,6 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vite-plus/test';
 import { wipeLocalDatabase } from './database';
-import { querySomedayTasks, queryTask, queryWeekTasks } from './queries';
+import {
+    queryListTasks,
+    queryPendingChangeCount,
+    querySomedayTasks,
+    queryTask,
+    queryWeekTasks,
+} from './queries';
 import { createTask, deleteTask } from './tasks';
 
 beforeEach(async () => {
@@ -66,5 +72,47 @@ describe('queries', () => {
         await deleteTask(task.id);
         expect(await queryTask(task.id)).toBeNull();
         expect(await queryTask('missing')).toBeNull();
+    });
+
+    it('counts the pending local changes', async () => {
+        expect(await queryPendingChangeCount()).toBe(0);
+
+        const task = await createTask({ text: 'a', date: '2026-10-12' });
+        await createTask({ text: 'b', date: null, someday_column: 1 });
+        await deleteTask(task.id);
+
+        expect(await queryPendingChangeCount()).toBe(2);
+    });
+
+    it('shows timed tasks first in a day, by time, then the rest by position', async () => {
+        await createTask({ text: 'first untimed', date: '2026-10-12' });
+        await createTask({ text: 'late', date: '2026-10-12', time: '18:00' });
+        await createTask({ text: 'second untimed', date: '2026-10-12' });
+        await createTask({ text: 'early', date: '2026-10-12', time: '07:30' });
+        await createTask({
+            text: 'early too',
+            date: '2026-10-12',
+            time: '07:30',
+        });
+
+        const week = await queryWeekTasks('2026-10-12');
+
+        expect(week['2026-10-12'].map((task) => task.text)).toEqual([
+            'early',
+            'early too',
+            'late',
+            'first untimed',
+            'second untimed',
+        ]);
+        // The repository order (used to place tasks) stays by position.
+        expect(
+            (await queryListTasks({ date: '2026-10-12' })).map((t) => t.text),
+        ).toEqual([
+            'first untimed',
+            'late',
+            'second untimed',
+            'early',
+            'early too',
+        ]);
     });
 });
