@@ -16,9 +16,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   included, as a JSON backup (`plain-week-export-YYYY-MM-DD.json`). "Import data…" previews a backup and adds its tasks
   next to the ones you have, leaving those unchanged. Both run in the browser on your local data; imported tasks sync
   like any other change.
+- **Docker image.** `ghcr.io/victor-falcon/plain-week` (amd64 and arm64): one FrankenPHP container on port 8080 running
+  as a non-root user, with SQLite on the `/app/storage` volume. It migrates on start, refuses to start without a valid
+  `APP_KEY` and trusts the reverse proxy's forwarded headers. CI publishes `X.Y.Z`, `X.Y` and `latest` on release tags
+  and `edge` on `main`.
+- **Coolify one-click template** (`deploy/coolify/plain-week.yaml`), a `docker-compose.yml` example and a self-hosting
+  guide (`docs/self-hosting.md`).
+- **`APP_NOINDEX`.** When `true`, every response carries `X-Robots-Tag: noindex, nofollow`, the page has a robots meta
+  tag and `/robots.txt` disallows all crawlers.
 
 ### Changed
 
+- `/robots.txt` is served by the app instead of a static file (same content unless `APP_NOINDEX` is on).
 - The guest "save your tasks" button uses a cloud upload icon instead of a download icon.
 
 ## [0.0.2] - 2026-10-15

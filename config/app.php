@@ -56,6 +56,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Search Engine Indexing
+    |--------------------------------------------------------------------------
+    |
+    | When enabled, every response carries "X-Robots-Tag: noindex, nofollow",
+    | the HTML document a robots meta tag, and /robots.txt disallows all
+    | crawlers. Useful for private or staging instances.
+    |
+    */
+
+    'noindex' => (bool) env('APP_NOINDEX', false),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Timezone
     |--------------------------------------------------------------------------
     |

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\AddRobotsTag;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
 use Illuminate\Foundation\Application;
@@ -15,6 +16,8 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->append(AddRobotsTag::class);
+
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
 
         // Sync payloads must round-trip byte for byte (empty notes, leading spaces).

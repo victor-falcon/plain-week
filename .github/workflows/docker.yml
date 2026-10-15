@@ -1,0 +1,165 @@
+name: docker
+
+# Builds the production image (Dockerfile) for linux/amd64 and linux/arm64 on
+# native runners and publishes it to GHCR: `X.Y.Z`, `X.Y` and `latest` for
+# `v*` tags, `edge` and `sha-<short>` for main. Pull requests only build.
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docker-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  IMAGE: ghcr.io/victor-falcon/plain-week
+
+jobs:
+  build:
+    name: build (${{ matrix.platform }})
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write
+
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-24.04
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Platform slug
+        run: echo "PLATFORM_SLUG=${PLATFORM//\//-}" >> "$GITHUB_ENV"
+        env:
+          PLATFORM: ${{ matrix.platform }}
+
+      - name: Image metadata
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ env.IMAGE }}
+          labels: |
+            org.opencontainers.image.title=Plain Week
+            org.opencontainers.image.description=A minimal, offline-first, self-hostable weekly planner.
+            org.opencontainers.image.documentation=https://github.com/${{ github.repository }}/blob/main/docs/self-hosting.md
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build (and push by digest)
+        id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: ${{ matrix.platform }}
+          labels: ${{ steps.meta.outputs.labels }}
+          outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=${{ github.event_name != 'pull_request' }}
+          cache-from: type=gha,scope=${{ env.PLATFORM_SLUG }}
+          cache-to: type=gha,scope=${{ env.PLATFORM_SLUG }},mode=max
+
+      - name: Export digest
+        if: github.event_name != 'pull_request'
+        run: |
+          mkdir -p "$RUNNER_TEMP/digests"
+          touch "$RUNNER_TEMP/digests/${DIGEST#sha256:}"
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+
+      - name: Upload digest
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: digests-${{ env.PLATFORM_SLUG }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    name: publish
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          path: ${{ runner.temp }}/digests
+          pattern: digests-*
+          merge-multiple: true
+
+      - name: Image metadata
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        env:
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: index
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=edge,enable={{is_default_branch}}
+            type=sha,prefix=sha-,format=short,enable={{is_default_branch}}
+          flavor: |
+            latest=auto
+          labels: |
+            org.opencontainers.image.title=Plain Week
+            org.opencontainers.image.description=A minimal, offline-first, self-hostable weekly planner.
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Log in to GHCR
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create the multi-arch manifest
+        working-directory: ${{ runner.temp }}/digests
+        run: |
+          tags=$(jq -r '.tags | map("--tag " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON")
+          readarray -t annotations < <(jq -r '.annotations[]' <<< "$DOCKER_METADATA_OUTPUT_JSON")
+          annotation_args=()
+          for annotation in "${annotations[@]}"; do
+            annotation_args+=(--annotation "$annotation")
+          done
+          # shellcheck disable=SC2086
+          docker buildx imagetools create $tags "${annotation_args[@]}" \
+            $(printf "$IMAGE@sha256:%s " *)
+
+      - name: Inspect
+        run: docker buildx imagetools inspect "$IMAGE:$VERSION"
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}

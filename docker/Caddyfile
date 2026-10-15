@@ -1,0 +1,28 @@
+# FrankenPHP configuration for the Plain Week image. TLS is terminated by the
+# reverse proxy in front of the container (Coolify's Traefik, Caddy, nginx...).
+{
+	skip_install_trust
+	auto_https off
+	admin off
+
+	frankenphp
+}
+
+{$SERVER_NAME::8080} {
+	root /app/public
+	encode zstd br gzip
+
+	# Hashed build output never changes; the worker and the web manifest must
+	# be revalidated so browsers pick up new versions (docs/stack.md, PWA).
+	@hashed path /build/assets/*
+	header @hashed Cache-Control "public, max-age=31536000, immutable"
+	@revalidate path /sw.js /build/manifest.webmanifest /offline.html
+	header @revalidate Cache-Control "no-cache"
+
+	# APP_NOINDEX also covers static files; PHP responses get it from the
+	# AddRobotsTag middleware.
+	@noindex expression `{env.APP_NOINDEX} in ["1", "true", "TRUE", "on", "yes"]`
+	header @noindex >X-Robots-Tag "noindex, nofollow"
+
+	php_server
+}
