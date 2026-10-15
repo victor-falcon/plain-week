@@ -33,7 +33,9 @@ titles and descriptions.
   PHPUnit-style classes; when adding a case to one of those files, follow the file's existing style.
 - Client logic (the Dexie data layer, the sync engine) gets Vitest unit tests next to the code
   (`resources/js/**/*.test.ts`), run with `bun run test:js`. IndexedDB is provided by `fake-indexeddb` and the network
-  by a mocked `fetch` (`resources/js/test/fake-sync-server.ts` implements the sync contract in memory).
+  by a mocked `fetch` (`resources/js/test/fake-sync-server.ts` implements the sync contract in memory). The tests import
+  Wayfinder route helpers, so generate them first (`bun run build`, `composer run dev` or
+  `php artisan wayfinder:generate --with-form`); CI does this in `composer setup`.
 - Every bug fix comes with a test that fails without the fix.
 - Before pushing, run what CI runs: `composer ci:check` (JS lint/format, TS types, JS tests, Pint, PHPStan, Pest). `bun run build`
   must also succeed.
