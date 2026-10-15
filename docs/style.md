@@ -50,8 +50,8 @@ a token does not already cover the case.
 ## RTL
 
 The `<html>` element gets `dir="rtl"` for the locales listed in `config('app.rtl_locales')` (`ar`, `fa`, `he`, `ur`)
-and `dir="ltr"` otherwise. The app is wrapped in shadcn's `DirectionProvider` (`resources/js/app.tsx`), which reads that
-attribute and passes the direction to Radix components.
+and `dir="ltr"` otherwise. `resources/js/app.tsx` reads that attribute and passes it to shadcn's `DirectionProvider`,
+which hands the direction to Radix components.
 
 Always use logical utilities so layouts mirror correctly:
 
@@ -67,45 +67,105 @@ Use `rtl:` variants (for example `rtl:rotate-180` on directional icons) when a l
 
 ## Components: shadcn only
 
-- Use existing shadcn components (`Button`, `Input`, `Textarea`, `Checkbox`, `Dialog`, `Popover`, `Calendar`,
-  `DropdownMenu`, `Tooltip`, `Sonner`, `ToggleGroup`, `Separator`, `Sheet`, …). Add missing ones with
-  `bunx --bun shadcn@latest add <component>` (see [stack.md](./stack.md)).
+- Use existing shadcn components. Add missing ones with `bunx --bun shadcn@latest add <component>` (see
+  [stack.md](./stack.md#adding-a-shadcn-component)).
 - Compose, don't reinvent: build app components in `resources/js/components/` out of shadcn components and style them
-  with tokens and Tailwind classes. Do not hand-roll a primitive that shadcn already provides.
+  with tokens and Tailwind classes. Do not hand-roll a primitive that shadcn already provides. The one exception is drag
+  and drop (`@dnd-kit`), because shadcn has none.
 - The whole app is wrapped in `DirectionProvider` and `TooltipProvider` and renders a single `<AppToaster />`
-  (`resources/js/app.tsx`; it also turns Laravel flash toasts into Sonner toasts). Don't add more providers or toasters
-  per page.
+  (`resources/js/app.tsx`; Sonner, bottom right, it also turns Laravel flash toasts into Sonner
+  toasts). Don't add more providers or toasters per page.
 - Keep app behaviour out of `resources/js/components/ui/*` so components can be re-added with the CLI; put wrappers in
   `resources/js/components/` (see `app-toaster.tsx`).
+
+### Inventory
+
+Installed in `resources/js/components/ui/` and where they are used:
+
+| Component                                                          | Used in                                                                              |
+| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
+| `button`                                                           | Everywhere: planner header, task rows, task dialog toolbar, auth and settings pages  |
+| `input`                                                            | Empty task rows (`new-task-row.tsx`), subtasks, time picker, auth and settings forms |
+| `textarea`                                                         | Task dialog title and notes                                                          |
+| `checkbox`                                                         | Subtasks, "Remember me" on login                                                     |
+| `dialog`                                                           | Task dialog; account deletion, passkeys and 2FA setup in settings                    |
+| `popover`                                                          | Task dialog date, time and color pickers                                             |
+| `calendar`                                                         | Task dialog date picker                                                              |
+| `toggle-group` (+ `toggle`)                                        | Task color picker                                                                    |
+| `dropdown-menu`                                                    | Task dialog "More" menu, planner account menu, app header user menu                  |
+| `tooltip`                                                          | Planner header buttons, account button, task dialog toolbar (`toolbar-tooltip.tsx`)  |
+| `sonner`                                                           | `AppToaster`; planner code calls `toast` from the `sonner` package                   |
+| `avatar`                                                           | Account button, app header, user info                                                |
+| `direction`                                                        | `app.tsx` (RTL)                                                                      |
+| `alert`, `card`, `label`, `spinner`, `input-otp`, `separator`      | Auth and settings pages (from the Laravel starter kit)                               |
+| `sidebar` (+ `skeleton`), `sheet`, `navigation-menu`, `breadcrumb` | Starter kit app shell around the settings pages                                      |
+| `badge`, `collapsible`, `select`                                   | Installed, not used yet                                                              |
+
+`icon.tsx` and `placeholder-pattern.tsx` in the same folder are starter kit helpers, not shadcn components.
+
+### Patterns
+
+- **Icon buttons.** `Button variant="ghost"` with `size="icon"`/`"icon-sm"`, `rounded-full`, an `aria-label`, and a
+  `Tooltip` with the same text (for example the planner header and the task dialog toolbar). The header's previous and
+  next buttons are 40px (`size-10`) and filled (`bg-foreground text-background`); the account button is 40px and round.
+- **Popovers.** `Popover` + `PopoverTrigger asChild` around a toolbar `Button`, content aligned to the trigger's start
+  (`align="start"`); the trigger is filled while open (`aria-expanded:bg-foreground aria-expanded:text-background`).
+  Selecting a value writes to the local database at once.
+- **Dialogs.** `Dialog` + `DialogContent` with an `sr-only` `DialogTitle`. Edits save as they happen (no save button);
+  focus goes to the dialog on open and back to the originating row on close (`onCloseAutoFocus`).
+- **Toasts.** `toast()` from `sonner`. Destructive actions do not ask for confirmation: they act and offer an "Undo"
+  action in the toast (delete, drop on an edge zone). Write failures use `toast.error`.
+- **Drag and drop.** dnd-kit (`PlannerDnd`, `useSortable` per row); visuals are in [Planner layout](#planner-layout) and
+  behaviour in [architecture.md](./architecture.md#drag-and-drop).
+- **Responsive.** One breakpoint matters: `lg` (1024px) switches between the desktop grid and the stacked mobile
+  layout; `sm` (640px) is used inside the dialog. Mouse-only affordances (show on hover) use `pointer-fine:`.
+
+### Building a new component
+
+1. Search the shadcn registry first (<https://ui.shadcn.com/docs/components>) and the inventory above. If a component
+   fits, use it.
+2. Missing? `bunx --bun shadcn@latest add <component>`; check the generated imports and do not overwrite existing files.
+3. Compose it in `resources/js/components/` (planner pieces in `components/planner/`); keep `components/ui/` untouched.
+4. Style with tokens only (`bg-background`, `text-muted-foreground`, `border-border`, `bg-task-*` through
+   `TASK_COLOR_STYLES`, …), never raw colors, and with logical classes (`ms-`, `pe-`, `start-`, `text-start`, …).
+5. Data comes from the live hooks and writes go through the repository in `lib/db/tasks.ts`, never through `fetch`
+   (see [architecture.md](./architecture.md#offline-first-permanent-rule)).
+6. Accessible by default: labels on icon buttons, keyboard operable, focus visible, works in RTL and dark mode.
+7. Test it: a Testing Library test (`*.test.tsx`, happy-dom, real local database) and a headless browser check on a
+   phone and a desktop viewport, light and dark (see [stack.md](./stack.md#testing)).
+8. Update this document (measurements, inventory, patterns) in the same pull request.
 
 ## Planner layout
 
 Built in `resources/js/pages/planner.tsx` from the components in `resources/js/components/planner/`. Measurements
 follow Tweek; colors, radius and font come from the tokens.
 
-| Element         | Desktop (≥1024px, `lg:`)                                                                                                                | Mobile/tablet (<1024px)                                                    |
-| --------------- | --------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| Page            | 24px side padding (`px-6`), 24px between columns (`gap-x-6`)                                                                            | 16px side padding (`px-4`)                                                 |
-| Header          | "October 2026" `text-4xl font-bold tracking-tighter` + "W42" `text-muted-foreground/50`; 40px round buttons (account, previous, next)   | Sticky, translucent background; abbreviated title ("Oct 2026", `text-3xl`) |
-| Title           | `text-planner-accent` when the shown week is not the current one; clicking it returns to today                                          | Same                                                                       |
-| Week grid       | 6 equal columns: Monday to Friday, then Saturday stacked over Sunday                                                                    | One column, days one after another                                         |
-| Day header      | Date (`font-bold tracking-tight`) at the start, weekday (`text-muted-foreground/70`) at the end, `pb-3`, 2px `border-foreground` bottom | Same                                                                       |
-| Today           | Header text and border `planner-accent`, weekday `planner-accent-muted`                                                                 | Same                                                                       |
-| Rows            | `h-row` (42px, `--spacing-row`), 1px `border-border` bottom                                                                             | Same                                                                       |
-| Empty rows      | Always filled up to 10 per weekday, 5 for Saturday and Sunday, 2 per Someday column (and at least one after the last task)              | Only one empty row after the tasks                                         |
-| Someday         | Below the week, full width, 3 columns of ruled rows; the "Someday" title sits above them                                                | The three columns stacked                                                  |
-| Task text       | `text-sm`                                                                                                                               | `text-base`                                                                |
-| Complete button | Check icon at the row end, shown on hover or keyboard focus with a mouse (always on touch screens and when done)                        | Always shown                                                               |
+| Element         | Desktop (≥1024px, `lg:`)                                                                                                                                                            | Mobile/tablet (<1024px)                                                    |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| Page            | 24px side padding (`px-6`), 24px between columns (`gap-x-6`)                                                                                                                        | 16px side padding (`px-4`)                                                 |
+| Header          | "October 2026" `text-4xl font-bold tracking-tighter` + "W42" `text-muted-foreground/50`; 40px round buttons (account, previous, next)                                               | Sticky, translucent background; abbreviated title ("Oct 2026", `text-3xl`) |
+| Title           | `text-planner-accent` when the shown week is not the current one; clicking it returns to today                                                                                      | Same                                                                       |
+| Week grid       | 6 equal columns: Monday to Friday, then Saturday stacked directly over Sunday; Sunday's header takes one row slot, so the column ends level with the weekdays (5 + 1 + 4 = 10 rows) | One column, days one after another (40px apart)                            |
+| Day header      | Date (`font-bold tracking-tight`) at the start, weekday (`text-muted-foreground/70`) at the end, `pb-3`, 2px `border-foreground` bottom                                             | Same                                                                       |
+| Today           | Header text and border `planner-accent`, weekday `planner-accent-muted`                                                                                                             | Same                                                                       |
+| Rows            | `h-row` (42px, `--spacing-row`), 1px `border-border` bottom                                                                                                                         | Same                                                                       |
+| Empty rows      | Always filled up to 10 per weekday, 5 for Saturday, 4 for Sunday, 2 per Someday column (and at least one after the last task)                                                       | Only one empty row after the tasks                                         |
+| Someday         | Below the week, full width, 3 columns of ruled rows; the "Someday" title sits above them                                                                                            | The three columns stacked                                                  |
+| Task text       | `text-sm`                                                                                                                                                                           | `text-base`                                                                |
+| Complete button | Check icon at the row end, shown on hover or keyboard focus with a mouse (always on touch screens and when done)                                                                    | Always shown                                                               |
 
 Row behaviour:
 
 - Every empty row is an `Input` that adds a task: Enter creates it and keeps focus on the first empty row (right below
-  the new task), Esc cancels, leaving the row with text also creates it. A leading 24-hour time becomes the task time
+  the new task), Esc cancels and leaves the list (blurs, also right after an Enter), leaving the row with text also
+  creates it. A leading 24-hour time becomes the task time
   ("17:30 Gym" → time `17:30`, text "Gym"; `lib/planner/smart-time.ts`).
 - The row being typed in lifts with `shadow-md`, a background and extra horizontal padding.
 - A task row holds sibling `Button`s: the text (click, Enter or Space opens the task through `onOpen(taskId)`, the
   seam for the task dialog), the move button for keyboard drag and drop (hidden until focused) and the complete check.
 - Empty rows are keyed by their slot, so saving a task never unmounts the row the user moved to.
+- The keyboard focus ring of a task row spans the whole row (drawn by an `after:` overlay of the text button), not just
+  the text.
 - Done tasks are `text-muted-foreground` and `line-through`; a colored pill fades to 50 %.
 - A task with a time shows it first in a small outlined pill (`border-current`, `text-xs`, tabular numbers), and timed
   tasks are listed first in their day, earliest first.
@@ -135,16 +195,16 @@ a click outside closes it.
 | Part     | Components                                  | Behaviour                                                                                                                                                                                                                                                              |
 | -------- | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Surface  | `Dialog` (`DialogContent`)                  | `bg-secondary`, `sm:max-w-lg` (512px), the preset's `rounded-4xl`; 64px from the top on desktop, 16px on mobile, full width minus the 16px gutters on phones                                                                                                           |
-| Date     | `Popover` + `Calendar`                      | "Mon, 12 Oct 2026" or "Someday"; weeks start on Monday; picking a day moves the task to the end of that day                                                                                                                                                            |
+| Date     | `Popover` + `Calendar`                      | "Mon, 12 Oct 2026" ("Mon, 12 Oct" on phones) or "Someday"; weeks start on Monday; picking a day moves the task to the end of that day                                                                                                                                  |
 | Time     | `Popover` + `Input type="time"` + `Button`  | Clock icon, plus the time once set ('HH:mm', 24-hour in storage); "Clear" (or emptying the field) removes it                                                                                                                                                           |
 | Delete   | `Button` + `Tooltip`, Sonner toast          | Deletes at once and closes; the toast's "Undo" restores the same task (`restoreTask`). No confirmation                                                                                                                                                                 |
 | Color    | `Popover` + `ToggleGroup` + `Tooltip`       | The icon is a dot of the current color; the nine swatches come from `TASK_COLOR_STYLES`, the current one checked                                                                                                                                                       |
-| More     | `DropdownMenu` + `Tooltip`                  | Tomorrow (day after the task's date), Next week (+7 days), Someday (first column; disabled when already there), Duplicate. For a Someday task, Tomorrow and Next week count from today                                                                                 |
+| More     | `DropdownMenu` + `Tooltip`                  | Tomorrow (day after the task's date), Next week (+7 days), Someday (first column; disabled for a Someday task), Duplicate. For a Someday task, Tomorrow and Next week count from today                                                                                 |
 | Title    | `Textarea` (`field-sizing-content`)         | `text-2xl`, grows with the text, 1px `border-foreground/30` underline; Enter moves to the notes and pasted line breaks become spaces; an emptied title is put back on blur. The check at the end completes the task (done: muted and `line-through`)                   |
 | Notes    | `Textarea`                                  | Plain text, "Add some extra notes here…"                                                                                                                                                                                                                               |
 | Subtasks | `Checkbox` + `Input` + `Button` per subtask | Round checkbox, editable text, delete button (shown on hover/focus with a mouse, always on touch); "Add subtask..." adds on Enter and keeps focus, and also adds what was typed when it loses focus or the dialog closes; Enter in a subtask moves to "Add subtask..." |
 
-Toolbar icon buttons are `ghost` `icon-sm` round buttons with a tooltip on hover (not on focus: focus returns to a
+The toolbar stays on one line at every width. Toolbar icon buttons are `ghost` `icon-sm` round buttons with a tooltip on hover (not on focus: focus returns to a
 trigger when its popover closes, and an open tooltip would take the next Esc meant for the dialog); the one whose
 popover or menu is open is filled (`aria-expanded:bg-foreground aria-expanded:text-background`), like Tweek's active
 icon. Opening the dialog focuses the dialog itself, so no tooltip pops up and touch devices do not open the keyboard;

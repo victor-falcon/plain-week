@@ -55,10 +55,11 @@ every existing version.
 Response `200`: `{ "applied": [ids], "rejected": [ids], "cursor": <max version for this user> }`.
 Validation errors return `422` in Laravel's standard shape.
 
-### `GET /sync/pull?cursor=<int, default 0>&limit=<int, default 500, max 1000>`
+### `GET /sync/pull?cursor=<int, default 0>&limit=<int 1–1000, default 500>`
 
 Response `200`: `{ "tasks": [<Task>, ...], "cursor": <version of the last returned row, or the input cursor>, "has_more": bool }`,
-with tasks ordered by `version` ascending. Tombstones (`deleted_at` not null) are included.
+with tasks ordered by `version` ascending. Tombstones (`deleted_at` not null) are included. A `limit` outside 1–1000 is
+a `422` (it is not clamped).
 
 ## Client sync engine
 
@@ -248,13 +249,13 @@ writes the local database (`moveTask`); sync follows in the background.
 The data layer only helps offline if the app itself loads offline. A service worker (`resources/js/sw.ts`, built by
 `vite-plugin-pwa` into `public/sw.js`, scope `/`) keeps the app shell available after the first visit:
 
-| Request                                                  | Strategy                                                                    |
-| -------------------------------------------------------- | --------------------------------------------------------------------------- |
-| Built JS/CSS/fonts under `/build/` (and `/offline.html`) | Precached on install (Workbox precache manifest)                            |
-| Full-page load of `/` (any `?week=`)                     | NetworkFirst (3 s timeout); the cached shell on network errors and on `5xx` |
-| Full-page load of any other page (settings, login, ...)  | Network only; offline it gets `/offline.html`                               |
-| `/build/` files missing from this worker's precache      | Any cache first (a waiting worker's precache), then a CacheFirst cache      |
-| Inertia visits (`X-Inertia` fetches), `/sync/*`, non-GET | Not handled: always the network                                             |
+| Request                                                                         | Strategy                                                                                      |
+| ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| Built JS/CSS/fonts/images under `/build/`, the web manifest and `/offline.html` | Precached on install (Workbox precache manifest)                                              |
+| Full-page load of `/` (any `?week=`)                                            | NetworkFirst (3 s timeout); the cached shell on network errors and on `5xx`                   |
+| Full-page load of any other page (settings, login, ...)                         | Network only; offline it gets `/offline.html`                                                 |
+| `/build/` files missing from this worker's precache                             | Any cache first (a waiting worker's precache), then a CacheFirst cache (200 entries, 30 days) |
+| Inertia visits (`X-Inertia` fetches), `/sync/*`, non-GET                        | Not handled: always the network                                                               |
 
 - **The shell.** `/` is cached under one key (`plain-week-shell`), whatever its query string. Only plain `200`
   responses are stored, never redirects. The worker also fetches `/` on install, because the very first visit loads
@@ -370,7 +371,8 @@ instead of failing.
 Validation (`App\Http\Requests\Sync\PushRequest`) rejects the whole batch with `422` if any record is invalid:
 `tasks` must be a list of at most 500 records; every field of the contract must be present; `id` a UUID; `date`
 `YYYY-MM-DD` or `null`; `someday_column` `0`–`2` and required when `date` is `null`; `color` one of the nine values;
-`time` `HH:mm` or `null`; `done` and subtask `done` real booleans; `subtasks` a list of `{ id, text, done }`;
+`time` `HH:mm` or `null`; `done` and subtask `done` real booleans; `subtasks` a list of `{ id, text, done }` (subtask
+`id` a string of at most 255 characters);
 timestamps exactly `YYYY-MM-DDTHH:mm:ss.sssZ` (what `Date.prototype.toISOString()` produces); `id` must be lowercase
 (the primary key is case sensitive). `text`, `notes` and subtask `text` have no length limit; `position` is at most
 255 characters.

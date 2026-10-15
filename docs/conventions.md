@@ -1,5 +1,9 @@
 # Conventions
 
+The three non-negotiables (offline-first, shadcn components only, English everywhere) are listed in
+[AGENTS.md](../AGENTS.md#non-negotiables) and explained in [architecture.md](./architecture.md) and
+[style.md](./style.md).
+
 ## Language
 
 Everything in the repository is written in English: code, identifiers, comments, docs, commit messages, pull request
@@ -15,7 +19,8 @@ titles and descriptions.
 | TS/TSX/CSS formatting | Oxfmt through Vite+ (`vite.config.ts` → `fmt`: 4 spaces, single quotes, semicolons, 80 cols, sorted Tailwind classes) | `bun run check:fix`                     |
 | TS types              | `tsc --noEmit`                                                                                                        | `bun run types:check`                   |
 
-`resources/js/components/ui/*` (shadcn) and the Wayfinder output are excluded from lint and formatting.
+`resources/js/components/ui/*` (shadcn) is excluded from lint and formatting, and the generated Wayfinder output
+(gitignored) from lint.
 `.editorconfig` sets the basics (UTF-8, LF, 4 spaces, final newline).
 
 ## Naming
@@ -50,4 +55,6 @@ titles and descriptions.
 - One task per pull request against `main`; title and description in English, describing what changed, why, and how it
   was verified.
 - CI must be green before merging.
-- Update the docs in `docs/` in the same pull request when a change affects them.
+- Update the docs in `docs/` in the same pull request when a change affects them, and add user-visible changes to the
+  `Unreleased` section of `CHANGELOG.md` ([Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions follow
+  [SemVer](https://semver.org/); the version lives in `package.json`).
