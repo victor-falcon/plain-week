@@ -95,7 +95,9 @@ export function TaskRow({
                 variant="ghost"
                 aria-label={label}
                 onClick={() => onOpen(task.id)}
-                className="h-full min-w-0 flex-1 justify-start gap-0 rounded-none px-0 text-base font-normal text-inherit hover:bg-transparent hover:text-inherit focus-visible:rounded-sm active:not-aria-[haspopup]:translate-y-0 lg:text-sm"
+                // The focus ring is drawn over the whole row (the row is the
+                // positioned parent), not just the text button.
+                className="h-full min-w-0 flex-1 justify-start gap-0 rounded-none px-0 text-base font-normal text-inherit after:pointer-events-none after:absolute after:inset-0 after:rounded-sm after:border after:border-transparent hover:bg-transparent hover:text-inherit focus-visible:border-transparent focus-visible:ring-0 focus-visible:after:border-ring focus-visible:after:ring-3 focus-visible:after:ring-ring/30 active:not-aria-[haspopup]:translate-y-0 lg:text-sm"
             >
                 <TaskLabel task={task} />
             </Button>
