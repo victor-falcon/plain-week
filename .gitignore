@@ -1,0 +1,18 @@
+# Private product research (not distributed)
+docs/research/
+
+# Playwright MCP artifacts
+.playwright-mcp/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# Dependencies and builds
+node_modules/
+dist/
+build/
+.env
+.env.*
+!.env.example
