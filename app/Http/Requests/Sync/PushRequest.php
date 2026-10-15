@@ -16,6 +16,11 @@ class PushRequest extends FormRequest
      */
     public const int MAX_RECORDS = 500;
 
+    /**
+     * The largest `every` of a daily rule.
+     */
+    public const int MAX_EVERY_DAYS = 365;
+
     private const string SERIES_IS_NOT_EXCEPTION = 'A recurring task cannot be an exception of a series.';
 
     /**
@@ -48,9 +53,13 @@ class PushRequest extends FormRequest
             // The recurrence keys are optional (all three or none) so clients from before v0.0.2 keep syncing plain
             // tasks; PushTasks refuses their writes to a series or an exception. Cross-field invariants are in after().
             'tasks.*.recurrence' => [
-                'present_with:tasks.*.series_id,tasks.*.occurrence_date', 'nullable', 'array:type,weekdays,day,until', 'required_array_keys:type',
+                'present_with:tasks.*.series_id,tasks.*.occurrence_date', 'nullable', 'array:type,every,weekdays,day,until', 'required_array_keys:type',
             ],
-            'tasks.*.recurrence.type' => ['required_with:tasks.*.recurrence', 'string', 'in:weekly,monthly'],
+            'tasks.*.recurrence.type' => ['required_with:tasks.*.recurrence', 'string', 'in:daily,weekly,monthly'],
+            'tasks.*.recurrence.every' => [
+                'required_if:tasks.*.recurrence.type,daily', 'prohibited_unless:tasks.*.recurrence.type,daily',
+                'integer:strict', 'between:1,'.self::MAX_EVERY_DAYS,
+            ],
             'tasks.*.recurrence.weekdays' => [
                 'required_if:tasks.*.recurrence.type,weekly', 'prohibited_unless:tasks.*.recurrence.type,weekly', 'list',
                 'min:1', 'max:7',
@@ -112,7 +121,7 @@ class PushRequest extends FormRequest
      */
     private function recurrenceViolations(array $record): array
     {
-        /** @var array{type: string, weekdays?: list<int>, day?: int, until?: string|null}|null $recurrence */
+        /** @var array{type: string, every?: int, weekdays?: list<int>, day?: int, until?: string|null}|null $recurrence */
         $recurrence = $record['recurrence'] ?? null;
         $seriesId = $record['series_id'] ?? null;
         $occurrenceDate = $record['occurrence_date'] ?? null;
@@ -147,6 +156,14 @@ class PushRequest extends FormRequest
         }
 
         return true;
+    }
+
+    /**
+     * What the client understands (see SyncFormat).
+     */
+    public function syncFormat(): int
+    {
+        return SyncFormat::of($this);
     }
 
     /**

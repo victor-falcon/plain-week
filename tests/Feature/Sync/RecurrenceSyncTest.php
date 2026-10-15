@@ -184,10 +184,20 @@ test('push rejects invalid recurrence fields with 422', function (array $overrid
 
     expect(Task::count())->toBe(0);
 })->with([
-    'unknown type' => [['recurrence' => ['type' => 'daily']], 'recurrence.type'],
+    'unknown type' => [['recurrence' => ['type' => 'yearly']], 'recurrence.type'],
     'empty recurrence' => [['recurrence' => []], 'recurrence'],
     'missing type' => [['recurrence' => ['weekdays' => [1]]], 'recurrence.type'],
-    'unknown key' => [['recurrence' => ['type' => 'monthly', 'day' => 1, 'every' => 2]], 'recurrence'],
+    'unknown key' => [['recurrence' => ['type' => 'monthly', 'day' => 1, 'interval' => 2]], 'recurrence'],
+    'daily without every' => [['recurrence' => ['type' => 'daily']], 'recurrence.every'],
+    'daily every zero' => [['recurrence' => ['type' => 'daily', 'every' => 0]], 'recurrence.every'],
+    'daily every 366' => [['recurrence' => ['type' => 'daily', 'every' => 366]], 'recurrence.every'],
+    'daily every as string' => [['recurrence' => ['type' => 'daily', 'every' => '21']], 'recurrence.every'],
+    'daily every as float' => [['recurrence' => ['type' => 'daily', 'every' => 2.5]], 'recurrence.every'],
+    'daily with weekdays' => [['recurrence' => ['type' => 'daily', 'every' => 2, 'weekdays' => [1]]], 'recurrence.weekdays'],
+    'daily with day' => [['recurrence' => ['type' => 'daily', 'every' => 2, 'day' => 1]], 'recurrence.day'],
+    'weekly with every' => [['recurrence' => ['type' => 'weekly', 'weekdays' => [1], 'every' => 2]], 'recurrence.every'],
+    'monthly with every' => [['recurrence' => ['type' => 'monthly', 'day' => 1, 'every' => 2]], 'recurrence.every'],
+    'daily until before date' => [['recurrence' => ['type' => 'daily', 'every' => 2, 'until' => '2026-10-14']], 'recurrence.until'],
     'recurrence not an object' => [['recurrence' => 'weekly'], 'recurrence'],
     'weekly without weekdays' => [['recurrence' => ['type' => 'weekly']], 'recurrence.weekdays'],
     'weekly with empty weekdays' => [['recurrence' => ['type' => 'weekly', 'weekdays' => []]], 'recurrence.weekdays'],

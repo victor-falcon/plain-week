@@ -2,6 +2,7 @@ import { Repeat, X } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
+import { Input } from '@/components/ui/input';
 import {
     Popover,
     PopoverContent,
@@ -17,6 +18,7 @@ import {
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { parseDateKey, toDateKey } from '@/lib/db/dates';
 import { setRecurrence } from '@/lib/db/tasks';
+import { MAX_EVERY_DAYS } from '@/lib/db/types';
 import type { IsoWeekday } from '@/lib/db/types';
 import { formatLongDate } from '@/lib/planner/format';
 import {
@@ -47,8 +49,9 @@ const SELECTED_CLASS =
     'data-[state=on]:bg-foreground data-[state=on]:text-background';
 
 /**
- * The Repeat toolbar button. Its popover picks "Never", "Weekly" on some
- * weekdays or "Monthly" on a day, and an optional end date; "Apply" writes it.
+ * The Repeat toolbar button. Its popover picks "Never", "Daily" every N days,
+ * "Weekly" on some weekdays or "Monthly" on a day, and an optional end date;
+ * "Apply" writes it.
  * A new rule starts on the task's date (an occurrence: its own date, and the
  * series from there on), so that date's weekday always stays selected.
  */
@@ -163,9 +166,17 @@ export function TaskRepeatPicker() {
 }
 
 function repeatsAtLeastOnce(draft: RepeatDraft, anchor: string): boolean {
+    if (draft.kind === 'daily' && !isEveryDays(draft.every)) {
+        return false;
+    }
+
     const rule = draftToRecurrence(draft);
 
     return rule === null || firstRuleDate(rule, anchor) !== null;
+}
+
+function isEveryDays(value: number): boolean {
+    return Number.isInteger(value) && value >= 1 && value <= MAX_EVERY_DAYS;
 }
 
 /**
@@ -176,7 +187,12 @@ function StartNote({ anchor, draft }: { anchor: string; draft: RepeatDraft }) {
     const rule = draftToRecurrence(draft);
     const first = rule && firstRuleDate(rule, anchor);
 
-    if (!rule || first === anchor) {
+    // An invalid number of days has its own message.
+    if (
+        !rule ||
+        first === anchor ||
+        (rule.type === 'daily' && !isEveryDays(rule.every))
+    ) {
         return null;
     }
 
@@ -213,6 +229,7 @@ function RepeatForm({
                     // Radix sends '' when the current item is clicked again.
                     if (
                         value === 'never' ||
+                        value === 'daily' ||
                         value === 'weekly' ||
                         value === 'monthly'
                     ) {
@@ -228,6 +245,12 @@ function RepeatForm({
                     Never
                 </ToggleGroupItem>
                 <ToggleGroupItem
+                    value="daily"
+                    className={cn('flex-1', SELECTED_CLASS)}
+                >
+                    Daily
+                </ToggleGroupItem>
+                <ToggleGroupItem
                     value="weekly"
                     className={cn('flex-1', SELECTED_CLASS)}
                 >
@@ -240,6 +263,13 @@ function RepeatForm({
                     Monthly
                 </ToggleGroupItem>
             </ToggleGroup>
+
+            {draft.kind === 'daily' && (
+                <EveryDays
+                    every={draft.every}
+                    onChange={(every) => onChange({ ...draft, every })}
+                />
+            )}
 
             {draft.kind === 'weekly' && (
                 <div className="flex flex-col gap-2">
@@ -328,6 +358,54 @@ function RepeatForm({
                 />
             )}
         </>
+    );
+}
+
+/**
+ * "Every [N] days". The text is kept as typed, so the field can be cleared
+ * while typing; anything but a whole number from 1 to 365 reaches the draft
+ * as NaN, which keeps "Apply" disabled.
+ */
+function EveryDays({
+    every,
+    onChange,
+}: {
+    every: number;
+    onChange: (every: number) => void;
+}) {
+    const [text, setText] = useState(String(every));
+    const valid = isEveryDays(every);
+
+    return (
+        <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2 text-sm">
+                <span>Every</span>
+                <Input
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    max={MAX_EVERY_DAYS}
+                    step={1}
+                    aria-label="Number of days"
+                    aria-invalid={!valid}
+                    value={text}
+                    onChange={(event) => {
+                        const value = event.target.value;
+                        const days = /^\d+$/.test(value) ? Number(value) : NaN;
+
+                        setText(value);
+                        onChange(isEveryDays(days) ? days : NaN);
+                    }}
+                    className="h-8 w-20 tabular-nums"
+                />
+                <span>{every === 1 ? 'day' : 'days'}</span>
+            </div>
+            {!valid && (
+                <p className="text-xs text-destructive">
+                    Enter a number of days from 1 to {MAX_EVERY_DAYS}.
+                </p>
+            )}
+        </div>
     );
 }
 

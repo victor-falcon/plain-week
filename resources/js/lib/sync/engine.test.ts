@@ -190,6 +190,45 @@ describe('pull', () => {
         expect(server.requests.at(-1)?.url).toContain('cursor=3');
     });
 
+    it('says which sync format it understands', async () => {
+        await createTask({ text: 'A', date: '2026-10-12' });
+        await startAndSync();
+
+        expect(
+            new Set(server.requests.map((r) => r.url.split('?')[0])),
+        ).toEqual(new Set(['/sync/push', '/sync/pull']));
+        server.requests.forEach(({ init }) =>
+            expect(new Headers(init?.headers).get('X-Sync-Format')).toBe('2'),
+        );
+    });
+
+    it('pulls everything again once after an update from an older format', async () => {
+        const daily = makeTask({
+            text: 'Water plants',
+            recurrence: { type: 'daily', every: 21 },
+        });
+
+        server.seed(daily);
+        server.seed(makeTask({ text: 'B' }));
+        // A v0.0.3 cursor: the server held the daily series back from it.
+        await db.meta.put({ key: 'cursor', value: 2 });
+
+        await startAndSync();
+
+        expect(
+            server.requests.find((r) => r.url.startsWith('/sync/pull'))?.url,
+        ).toContain('cursor=0');
+        expect((await db.tasks.get(daily.id))?.recurrence).toEqual({
+            type: 'daily',
+            every: 21,
+        });
+        expect((await db.meta.get('cursor_format'))?.value).toBe(2);
+
+        await engine.sync();
+
+        expect(server.requests.at(-1)?.url).toContain('cursor=2');
+    });
+
     it('applies remote records with last-write-wins', async () => {
         const local = makeTask({
             text: 'local',

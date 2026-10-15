@@ -16,7 +16,7 @@ class SyncController extends Controller
      */
     public function push(PushRequest $request, PushTasks $pushTasks): JsonResponse
     {
-        return response()->json($pushTasks->handle($request->user(), $request->records()));
+        return response()->json($pushTasks->handle($request->user(), $request->records(), $request->syncFormat()));
     }
 
     /**
@@ -24,7 +24,7 @@ class SyncController extends Controller
      */
     public function pull(PullRequest $request, PullTasks $pullTasks): JsonResponse
     {
-        $result = $pullTasks->handle($request->user(), $request->cursor(), $request->limit());
+        $result = $pullTasks->handle($request->user(), $request->cursor(), $request->limit(), $request->syncFormat());
 
         return response()->json([
             'tasks' => TaskResource::collection($result['tasks']),

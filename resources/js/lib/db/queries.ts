@@ -41,7 +41,7 @@ async function querySeriesInRange(
 ): Promise<SeriesItem[]> {
     const rows = await db.tasks
         .where('recurrence.type')
-        .anyOf(['weekly', 'monthly'])
+        .anyOf(['daily', 'weekly', 'monthly'])
         .toArray();
 
     return rows

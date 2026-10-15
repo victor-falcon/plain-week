@@ -7,6 +7,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **Repeat every N days.** The repeat picker has a "Daily" option with a number of days from 1 to 365 ("Every day",
+  "Every 21 days"), counted from the task's date. Like the other rules it can end on a date, and single occurrences can
+  be changed, moved or deleted, or the rule changed for this and all future occurrences. Export and import carry it.
+
 ### Changed
 
 - **New logo, favicon and app icons.** The Laravel starter-kit mark is replaced by Plain Week's own: seven bars for the
@@ -14,6 +20,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   browser tab (with a dark variant) and the installed app icons.
 - **Narrower task context menu.** Its nine color swatches sit in two rows of five and four, like the task dialog's color
   picker, so the menu is as wide as that grid instead of one long row.
+- Sync requests send `X-Sync-Format: 2`. Clients without it (v0.0.3 and older) never receive "every N days" series,
+  which they cannot show, and cannot overwrite them; after updating, a client pulls everything once to get them.
 
 ## [0.0.3] - 2026-10-15
 

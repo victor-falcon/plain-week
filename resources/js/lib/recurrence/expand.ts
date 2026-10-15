@@ -1,8 +1,10 @@
 import { compareTimestamps } from '@/lib/db/dates';
+import { MAX_EVERY_DAYS } from '@/lib/db/types';
 import type { Recurrence, Task } from '@/lib/db/types';
 import {
     addDays,
     dayOfMonth,
+    daysBetween,
     daysInMonth,
     isoWeekday,
     maxDateKey,
@@ -107,6 +109,20 @@ export function normalizeRecurrence(
 
     const end = until === null ? {} : { until };
 
+    if (recurrence.type === 'daily') {
+        if (
+            !Number.isInteger(recurrence.every) ||
+            recurrence.every < 1 ||
+            recurrence.every > MAX_EVERY_DAYS
+        ) {
+            throw new Error(
+                `A daily rule needs a number of days from 1 to ${MAX_EVERY_DAYS}.`,
+            );
+        }
+
+        return { type: 'daily', every: recurrence.every, ...end };
+    }
+
     if (recurrence.type === 'weekly') {
         const weekdays = [...new Set(recurrence.weekdays)].sort(
             (a, b) => a - b,
@@ -134,8 +150,22 @@ export function normalizeRecurrence(
     return { type: 'monthly', day: recurrence.day, ...end };
 }
 
-/** Whether `date` matches the rule, ignoring the start and `until`. */
-export function matchesRule(recurrence: Recurrence, date: string): boolean {
+/**
+ * Whether `date` matches the rule of a series anchored at `anchor`, ignoring
+ * the start and `until`. Only a daily rule counts from the anchor; it never
+ * matches before it.
+ */
+export function matchesRule(
+    recurrence: Recurrence,
+    anchor: string,
+    date: string,
+): boolean {
+    if (recurrence.type === 'daily') {
+        const days = daysBetween(anchor, date);
+
+        return days >= 0 && days % recurrence.every === 0;
+    }
+
     if (recurrence.type === 'weekly') {
         return recurrence.weekdays.includes(isoWeekday(date));
     }
@@ -150,13 +180,14 @@ export function occursOn(series: SeriesItem, date: string): boolean {
     return (
         date >= series.date &&
         (until === null || date <= until) &&
-        matchesRule(series.recurrence, date)
+        matchesRule(series.recurrence, series.date, date)
     );
 }
 
 /**
  * The first date from `anchor` on that `rule` produces, or `null` when it
- * ends before one (every rule matches within two months).
+ * ends before one (a daily rule matches the anchor itself; the others match
+ * within two months).
  */
 export function firstRuleDate(rule: Recurrence, anchor: string): string | null {
     for (let day = anchor, i = 0; i < 62; day = addDays(day, 1), i++) {
@@ -164,7 +195,7 @@ export function firstRuleDate(rule: Recurrence, anchor: string): string | null {
             return null;
         }
 
-        if (matchesRule(rule, day)) {
+        if (matchesRule(rule, anchor, day)) {
             return day;
         }
     }
@@ -270,7 +301,10 @@ export function expandSeries(
     const last = minDateKey(series.recurrence.until ?? rangeEnd, rangeEnd);
 
     for (let date = first; date <= last; date = addDays(date, 1)) {
-        if (matchesRule(series.recurrence, date) && !winners.has(date)) {
+        if (
+            matchesRule(series.recurrence, series.date, date) &&
+            !winners.has(date)
+        ) {
             items.push(makeOccurrence(series, date));
         }
     }

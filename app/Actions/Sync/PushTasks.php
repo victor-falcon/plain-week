@@ -2,6 +2,7 @@
 
 namespace App\Actions\Sync;
 
+use App\Http\Requests\Sync\SyncFormat;
 use App\Models\Task;
 use App\Models\User;
 use Carbon\CarbonImmutable;
@@ -13,19 +14,20 @@ class PushTasks
      * Upsert client records for the user with last-write-wins on `updated_at`.
      *
      * Records whose id belongs to another user are rejected, and so are records without the recurrence keys (clients
-     * from before v0.0.2) for a stored series or exception, which those clients cannot represent. Records older than
+     * from before v0.0.2) for a stored series or exception, and records from clients that do not understand daily
+     * rules (v0.0.3 and older) for a stored daily series: those clients cannot represent them. Records older than
      * the stored row are skipped silently (they are neither applied nor rejected). Every applied record gets a fresh, globally increasing version.
      *
      * @param  list<array<string, mixed>>  $records  Validated wire records.
      * @return array{applied: list<string>, rejected: list<string>, cursor: int}
      */
-    public function handle(User $user, array $records): array
+    public function handle(User $user, array $records, int $format): array
     {
         $applied = [];
         $rejected = [];
 
         if ($records !== []) {
-            DB::transaction(function () use ($user, $records, &$applied, &$rejected) {
+            DB::transaction(function () use ($user, $records, $format, &$applied, &$rejected) {
                 $nextVersion = $this->reserveVersions(count($records));
 
                 /** @var array<string, Task> $stored */
@@ -39,7 +41,7 @@ class PushTasks
                     $id = $record['id'];
                     $task = $stored[$id] ?? null;
 
-                    if ($task !== null && ($task->user_id !== $user->id || $this->isLegacyWriteToRecurrenceRow($record, $task))) {
+                    if ($task !== null && ($task->user_id !== $user->id || $this->isLegacyWrite($record, $task, $format))) {
                         $rejected[] = $id;
 
                         continue;
@@ -69,12 +71,17 @@ class PushTasks
     }
 
     /**
+     * Whether an old client writes to a row it cannot represent.
+     *
      * @param  array<string, mixed>  $record
      */
-    private function isLegacyWriteToRecurrenceRow(array $record, Task $task): bool
+    private function isLegacyWrite(array $record, Task $task, int $format): bool
     {
-        return ! array_key_exists('recurrence', $record)
-            && ($task->recurrence !== null || $task->series_id !== null);
+        if (! array_key_exists('recurrence', $record)) {
+            return $task->recurrence !== null || $task->series_id !== null;
+        }
+
+        return ! SyncFormat::understandsDailyRules($format) && ($task->recurrence['type'] ?? null) === 'daily';
     }
 
     /**

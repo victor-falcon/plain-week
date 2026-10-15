@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Requests\Sync\SyncFormat;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
@@ -81,9 +82,13 @@ function wireTask(array $overrides = []): array
 }
 
 /**
+ * Pushes like the current client; a null format sends no `X-Sync-Format` header, like v0.0.3 and older.
+ *
  * @param  list<array<string, mixed>>  $tasks
  */
-function push(array $tasks): TestResponse
+function push(array $tasks, ?int $format = SyncFormat::DAILY_RULES): TestResponse
 {
-    return test()->postJson(route('sync.push'), ['tasks' => $tasks]);
+    $headers = $format === null ? [] : [SyncFormat::HEADER => (string) $format];
+
+    return test()->postJson(route('sync.push'), ['tasks' => $tasks], $headers);
 }

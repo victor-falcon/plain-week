@@ -135,6 +135,56 @@ describe('Repeat picker', () => {
         );
     });
 
+    it('repeats every N days, refusing numbers out of range', async () => {
+        const task = await createTask({ text: 'Water plants', date: MONDAY });
+        const { user, dialog } = await openDialog(task.id);
+
+        await user.click(
+            within(dialog).getByRole('button', { name: 'Repeat' }),
+        );
+        await user.click(await screen.findByRole('radio', { name: 'Daily' }));
+
+        const days = screen.getByRole('spinbutton', {
+            name: 'Number of days',
+        });
+        expect((days as HTMLInputElement).value).toBe('2');
+
+        const apply = screen.getByRole('button', { name: 'Apply' });
+
+        for (const invalid of ['0', '366', '']) {
+            await user.clear(days);
+            if (invalid) {
+                await user.type(days, invalid);
+            }
+            expect(apply.hasAttribute('disabled')).toBe(true);
+            screen.getByText('Enter a number of days from 1 to 365.');
+        }
+
+        await user.type(days, '21');
+        expect(apply.hasAttribute('disabled')).toBe(false);
+        await user.click(apply);
+
+        await waitFor(async () =>
+            expect((await db.tasks.get(task.id))?.recurrence).toEqual({
+                type: 'daily',
+                every: 21,
+            }),
+        );
+        await user.click(
+            await within(dialog).findByRole('button', {
+                name: 'Repeat: Every 21 days',
+            }),
+        );
+        // Editing starts from the stored number.
+        expect(
+            (
+                (await screen.findByRole('spinbutton', {
+                    name: 'Number of days',
+                })) as HTMLInputElement
+            ).value,
+        ).toBe('21');
+    });
+
     it('follows the task to its first date when the day of the month skips it', async () => {
         const task = await createTask({ text: 'Rent', date: '2026-10-31' });
         const { user, dialog } = await openDialog(task.id);

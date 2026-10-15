@@ -27,7 +27,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string|null $time
  * @property string $notes
  * @property list<array{id: string, text: string, done: bool}> $subtasks
- * @property array{type: 'weekly'|'monthly', weekdays?: list<int>, day?: int, until?: string|null}|null $recurrence
+ * @property array{type: 'daily'|'weekly'|'monthly', every?: int, weekdays?: list<int>, day?: int, until?: string|null}|null $recurrence
  * @property string|null $series_id
  * @property string|null $occurrence_date
  * @property CarbonImmutable $created_at

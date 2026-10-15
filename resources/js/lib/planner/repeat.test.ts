@@ -17,6 +17,7 @@ describe('repeatDraft', () => {
         // 2026-10-14 is a Wednesday.
         expect(repeatDraft('2026-10-14', null)).toEqual({
             kind: 'never',
+            every: 2,
             weekdays: [3],
             day: 14,
             until: null,
@@ -32,12 +33,16 @@ describe('repeatDraft', () => {
             }),
         ).toEqual({
             kind: 'weekly',
+            every: 2,
             weekdays: [1, 3],
             day: 14,
             until: '2026-12-31',
         });
         expect(repeatDraft('2026-10-31', { type: 'monthly', day: 31 })).toEqual(
-            { kind: 'monthly', weekdays: [6], day: 31, until: null },
+            { kind: 'monthly', every: 2, weekdays: [6], day: 31, until: null },
+        );
+        expect(repeatDraft('2026-10-14', { type: 'daily', every: 21 })).toEqual(
+            { kind: 'daily', every: 21, weekdays: [3], day: 14, until: null },
         );
     });
 });
@@ -47,6 +52,7 @@ describe('draftToRecurrence', () => {
         expect(
             draftToRecurrence({
                 kind: 'weekly',
+                every: 2,
                 weekdays: [5, 1, 3],
                 day: 1,
                 until: '2026-12-31',
@@ -55,6 +61,7 @@ describe('draftToRecurrence', () => {
         expect(
             draftToRecurrence({
                 kind: 'monthly',
+                every: 2,
                 weekdays: [1],
                 day: 31,
                 until: null,
@@ -63,11 +70,21 @@ describe('draftToRecurrence', () => {
         expect(
             draftToRecurrence({
                 kind: 'never',
+                every: 2,
                 weekdays: [1],
                 day: 1,
                 until: null,
             }),
         ).toBeNull();
+        expect(
+            draftToRecurrence({
+                kind: 'daily',
+                every: 21,
+                weekdays: [1],
+                day: 1,
+                until: '2026-12-31',
+            }),
+        ).toEqual({ type: 'daily', every: 21, until: '2026-12-31' });
     });
 });
 
@@ -87,6 +104,24 @@ describe('sameRecurrence', () => {
         ).toBe(false);
         expect(sameRecurrence(null, { type: 'monthly', day: 3 })).toBe(false);
         expect(sameRecurrence(null, null)).toBe(true);
+        expect(
+            sameRecurrence(
+                { type: 'daily', every: 21 },
+                { type: 'daily', every: 21, until: null },
+            ),
+        ).toBe(true);
+        expect(
+            sameRecurrence(
+                { type: 'daily', every: 21 },
+                { type: 'daily', every: 7 },
+            ),
+        ).toBe(false);
+        expect(
+            sameRecurrence(
+                { type: 'daily', every: 1 },
+                { type: 'weekly', weekdays: [1, 2, 3, 4, 5, 6, 7] },
+            ),
+        ).toBe(false);
     });
 });
 
@@ -101,6 +136,21 @@ describe('summarizeRecurrence', () => {
                 TODAY,
             ),
         ).toBe('Every day');
+    });
+
+    it('describes daily rules', () => {
+        expect(summarizeRecurrence({ type: 'daily', every: 1 }, TODAY)).toBe(
+            'Every day',
+        );
+        expect(summarizeRecurrence({ type: 'daily', every: 21 }, TODAY)).toBe(
+            'Every 21 days',
+        );
+        expect(
+            summarizeRecurrence(
+                { type: 'daily', every: 21, until: '2026-12-31' },
+                TODAY,
+            ),
+        ).toBe('Every 21 days, until 31 Dec');
     });
 
     it('describes monthly rules and the end date', () => {

@@ -241,6 +241,32 @@ describe('round trip', () => {
         ).toBe(true);
     });
 
+    it('round-trips a series that repeats every N days', async () => {
+        const water = await createTask({ text: 'Water plants', date: MON });
+        await setRecurrence(water.id, { type: 'daily', every: 3 });
+        await updateTask(occurrenceId(water.id, '2026-10-15'), {
+            color: 'green',
+        });
+
+        const before = await snapshot();
+        const exported = await buildExport();
+
+        expect(
+            exported.tasks.find((task) => task.id === water.id)?.recurrence,
+        ).toEqual({ type: 'daily', every: 3 });
+
+        await roundTrip();
+
+        expect(await snapshot()).toEqual(before);
+        expect(before).toEqual(
+            expect.arrayContaining([
+                `Water plants@${MON}:none`,
+                'Water plants@2026-10-15:green',
+                'Water plants@2026-10-18:none',
+            ]),
+        );
+    });
+
     it('adds to the existing tasks and leaves them unchanged', async () => {
         const task = await createTask({ text: 'Mine', date: MON });
         const file = JSON.stringify(await buildExport());
@@ -418,12 +444,32 @@ describe('parseImport', () => {
             'Task 1: "recurrence.weekdays" must be a sorted list of unique weekdays from 1 to 7.',
         ],
         [
+            { recurrence: { type: 'yearly' } },
+            'Task 1: "recurrence.type" must be "daily", "weekly" or "monthly".',
+        ],
+        [
+            { recurrence: { type: 'monthly', day: 1, interval: 2 } },
+            'Task 1: "recurrence" has an unknown key "interval".',
+        ],
+        [
             { recurrence: { type: 'daily' } },
-            'Task 1: "recurrence.type" must be "weekly" or "monthly".',
+            'Task 1: "recurrence.every" must be a number of days from 1 to 365.',
+        ],
+        [
+            { recurrence: { type: 'daily', every: 366 } },
+            'Task 1: "recurrence.every" must be a number of days from 1 to 365.',
+        ],
+        [
+            { recurrence: { type: 'daily', every: 2.5 } },
+            'Task 1: "recurrence.every" must be a number of days from 1 to 365.',
+        ],
+        [
+            { recurrence: { type: 'daily', every: 2, day: 1 } },
+            'Task 1: "recurrence.every" must be a number of days from 1 to 365.',
         ],
         [
             { recurrence: { type: 'monthly', day: 1, every: 2 } },
-            'Task 1: "recurrence" has an unknown key "every".',
+            'Task 1: "recurrence.day" must be a day of the month from 1 to 31.',
         ],
         [
             {

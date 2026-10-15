@@ -749,6 +749,89 @@ describe('monthly series', () => {
     });
 });
 
+describe('series every N days', () => {
+    const EVERY_3: Recurrence = { type: 'daily', every: 3 };
+
+    it('repeats every N days from its date', async () => {
+        await gym(EVERY_3);
+
+        expect(await twoWeeks()).toEqual([
+            `Gym@${MON}`,
+            'Gym@2026-10-15',
+            'Gym@2026-10-18',
+            'Gym@2026-10-21',
+            'Gym@2026-10-24',
+        ]);
+    });
+
+    it('keeps the cadence when this and all future are edited', async () => {
+        const series = await gym(EVERY_3);
+
+        await updateTask(
+            occurrenceId(series.id, '2026-10-18'),
+            { text: 'Run' },
+            { scope: 'future' },
+        );
+
+        expect(await twoWeeks()).toEqual([
+            `Gym@${MON}`,
+            'Gym@2026-10-15',
+            'Run@2026-10-18',
+            'Run@2026-10-21',
+            'Run@2026-10-24',
+        ]);
+        expect((await db.tasks.get(series.id))?.recurrence).toEqual({
+            ...EVERY_3,
+            until: '2026-10-17',
+        });
+    });
+
+    it('changes N for this and all future from an occurrence', async () => {
+        const series = await gym(EVERY_3);
+
+        await setRecurrence(
+            occurrenceId(series.id, '2026-10-15'),
+            { type: 'daily', every: 5 },
+            { scope: 'future' },
+        );
+
+        expect(await twoWeeks()).toEqual([
+            `Gym@${MON}`,
+            'Gym@2026-10-15',
+            'Gym@2026-10-20',
+            'Gym@2026-10-25',
+        ]);
+    });
+
+    it('changes N for the whole series from its first occurrence', async () => {
+        const series = await gym(EVERY_3);
+
+        await setRecurrence(occurrenceId(series.id, MON), {
+            type: 'daily',
+            every: 21,
+        });
+
+        expect(await twoWeeks()).toEqual([`Gym@${MON}`]);
+        expect((await queryWeekTasks('2026-11-02'))['2026-11-02']).toEqual([
+            expect.objectContaining({ kind: 'occurrence', text: 'Gym' }),
+        ]);
+    });
+
+    it('moves and deletes single occurrences', async () => {
+        const series = await gym(EVERY_3);
+
+        await moveTask(occurrenceId(series.id, '2026-10-15'), { date: FRI });
+        await deleteTask(occurrenceId(series.id, '2026-10-21'));
+
+        expect(await twoWeeks()).toEqual([
+            `Gym@${MON}`,
+            `Gym@${FRI}`,
+            'Gym@2026-10-18',
+            'Gym@2026-10-24',
+        ]);
+    });
+});
+
 describe('undo', () => {
     it('brings back an occurrence after undoing its first change', async () => {
         const series = await gym();

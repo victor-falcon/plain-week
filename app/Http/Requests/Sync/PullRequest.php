@@ -33,4 +33,12 @@ class PullRequest extends FormRequest
     {
         return $this->integer('limit', self::DEFAULT_LIMIT);
     }
+
+    /**
+     * What the client understands (see SyncFormat).
+     */
+    public function syncFormat(): int
+    {
+        return SyncFormat::of($this);
+    }
 }
