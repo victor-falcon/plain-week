@@ -1,4 +1,3 @@
-import { useFlashToast } from '@/hooks/use-flash-toast';
 import { useAppearance } from '@/hooks/use-appearance';
 import { CircleCheckIcon, InfoIcon, TriangleAlertIcon, OctagonXIcon, Loader2Icon } from "lucide-react"
 import { Toaster as Sonner, type ToasterProps } from "sonner"
@@ -6,13 +5,10 @@ import { Toaster as Sonner, type ToasterProps } from "sonner"
 const Toaster = ({ ...props }: ToasterProps) => {
   const { appearance } = useAppearance()
 
-  useFlashToast()
-
   return (
     <Sonner
       theme={appearance}
       className="toaster group"
-      position="bottom-right"
       icons={{
         success: (
           <CircleCheckIcon className="size-4" />

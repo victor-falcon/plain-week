@@ -27,8 +27,10 @@ titles and descriptions.
 
 ## Tests
 
-- Backend behaviour gets Pest feature tests in `tests/Feature` (HTTP in, response/DB out). Pure logic gets unit tests
-  in `tests/Unit`.
+- Tests run with Pest. Backend behaviour gets feature tests in `tests/Feature` (HTTP in, response/DB out); pure logic
+  gets unit tests in `tests/Unit`.
+- New test files use Pest's functional syntax (`test()` / `it()` with `expect()`). The starter kit's tests are
+  PHPUnit-style classes; when adding a case to one of those files, follow the file's existing style.
 - Every bug fix comes with a test that fails without the fix.
 - Before pushing, run what CI runs: `composer ci:check` (JS lint/format, TS types, Pint, PHPStan, Pest). `bun run build`
   must also succeed.

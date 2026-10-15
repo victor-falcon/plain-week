@@ -43,13 +43,15 @@ To change the look, change the tokens, not individual components.
 
 Dark mode is class based (`@custom-variant dark (&:is(.dark *))`). The user's choice (light, dark, system) is stored by
 `resources/js/hooks/use-appearance.tsx` (localStorage + cookie) and applied before first paint by the inline script in
-`resources/views/app.blade.php`, so there is no flash. Use `dark:` variants only when a token does not already cover
-the case.
+`resources/views/app.blade.php`, so there is no flash. That file also hard-codes the light and dark `--background`
+values for the pre-hydration page background; keep them in sync when the tokens change. Use `dark:` variants only when
+a token does not already cover the case.
 
 ## RTL
 
-The `<html>` element gets `dir="rtl"` for RTL locales (`ar`, `fa`, `he`, `ur`) and `dir="ltr"` otherwise, and the app is
-wrapped in shadcn's `DirectionProvider` (`resources/js/app.tsx`), which Radix components read.
+The `<html>` element gets `dir="rtl"` for the locales listed in `config('app.rtl_locales')` (`ar`, `fa`, `he`, `ur`)
+and `dir="ltr"` otherwise. The app is wrapped in shadcn's `DirectionProvider` (`resources/js/app.tsx`), which reads that
+attribute and passes the direction to Radix components.
 
 Always use logical utilities so layouts mirror correctly:
 
@@ -70,8 +72,11 @@ Use `rtl:` variants (for example `rtl:rotate-180` on directional icons) when a l
   `bunx --bun shadcn@latest add <component>` (see [stack.md](./stack.md)).
 - Compose, don't reinvent: build app components in `resources/js/components/` out of shadcn components and style them
   with tokens and Tailwind classes. Do not hand-roll a primitive that shadcn already provides.
-- The whole app is wrapped in `TooltipProvider` and renders a single `<Toaster />` (`resources/js/app.tsx`); don't add
-  more providers or toasters per page.
+- The whole app is wrapped in `DirectionProvider` and `TooltipProvider` and renders a single `<AppToaster />`
+  (`resources/js/app.tsx`; it also turns Laravel flash toasts into Sonner toasts). Don't add more providers or toasters
+  per page.
+- Keep app behaviour out of `resources/js/components/ui/*` so components can be re-added with the CLI; put wrappers in
+  `resources/js/components/` (see `app-toaster.tsx`).
 
 ## Task colors
 

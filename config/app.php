@@ -13,7 +13,7 @@ return [
     |
     */
 
-    'name' => env('APP_NAME', 'Laravel'),
+    'name' => env('APP_NAME', 'Plain Week'),
 
     /*
     |--------------------------------------------------------------------------
@@ -79,6 +79,18 @@ return [
     */
 
     'locale' => env('APP_LOCALE', 'en'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Right-to-left Locales
+    |--------------------------------------------------------------------------
+    |
+    | Locales rendered with dir="rtl" on the root <html> element. The React
+    | app reads that attribute to configure the shadcn DirectionProvider.
+    |
+    */
+
+    'rtl_locales' => ['ar', 'fa', 'he', 'ur'],
 
     'fallback_locale' => env('APP_FALLBACK_LOCALE', 'en'),
 
