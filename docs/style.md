@@ -122,7 +122,7 @@ Drag and drop (behaviour in [architecture.md](./architecture.md#drag-and-drop)):
 - Rows are `select-none` and suppress the iOS callout so a long press starts a drag. The move button that starts a
   keyboard drag is visually hidden until it has keyboard focus.
 
-Keyboard shortcuts (only when focus is not in a text field and no dialog or menu is open): ← / → previous / next week
+Keyboard shortcuts (only when focus is not in a text field, no dialog or menu is open and no task is being dragged): ← / → previous / next week
 (mirrored in RTL), T current week. Held keys do not repeat.
 
 ## Task dialog
