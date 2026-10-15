@@ -81,9 +81,10 @@ function openFromKeyboard(event: KeyboardEvent<HTMLElement>): void {
 /**
  * The context menu of a task row: right click on desktop, Shift+F10 or the
  * context menu key on a focused row, and a still long press on touch screens
- * (opened by `PlannerDnd`, see planner-dnd.tsx). A row of the nine color
- * swatches, the quick moves, Duplicate and Delete. The actions are props so
- * callers decide what each one does.
+ * (opened by `PlannerDnd`, see planner-dnd.tsx). The nine color swatches in
+ * two rows (five and four, like the dialog's color picker), the quick moves,
+ * Duplicate and Delete. The actions are props so callers decide what each one
+ * does.
  */
 export function TaskContextMenu({
     task,
@@ -126,7 +127,8 @@ export function TaskContextMenu({
                         row.focus();
                     }
                 }}
-                className="min-w-56"
+                // As wide as the swatch grid: the items fit inside it.
+                className="min-w-0"
             >
                 <ContextMenuRadioGroup
                     aria-label="Task color"
@@ -136,7 +138,7 @@ export function TaskContextMenu({
                             onColorChange(value);
                         }
                     }}
-                    className="flex flex-wrap justify-between gap-0.5 px-1 pb-1"
+                    className="grid grid-cols-5 justify-items-center gap-1 px-1 pb-1"
                 >
                     {TASK_COLORS.map((color) => (
                         <ContextMenuRadioItem
