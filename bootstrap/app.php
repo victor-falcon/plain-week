@@ -17,6 +17,11 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
 
+        // Sync payloads must round-trip byte for byte (empty notes, leading spaces).
+        $isSync = fn (Request $request) => $request->is('sync/*');
+        $middleware->trimStrings(except: [$isSync]);
+        $middleware->convertEmptyStringsToNull(except: [$isSync]);
+
         $middleware->web(append: [
             HandleAppearance::class,
             HandleInertiaRequests::class,
@@ -25,6 +30,6 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
-            fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
+            fn (Request $request) => $request->is('api/*', 'sync/*') || $request->expectsJson(),
         );
     })->create();

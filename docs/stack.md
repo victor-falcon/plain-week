@@ -85,9 +85,9 @@ If the CLI rewrites an import to something other than `@/lib/utils` (it has emit
 ## Inertia
 
 Laravel controllers return `Inertia::render('<page>', $props)`; the page component lives in
-`resources/js/pages/<page>.tsx`. Layouts are assigned in `resources/js/app.tsx` by page name (`auth/*` → auth layout,
-`settings/*` → app + settings layouts, everything else → app layout). Shared props (for example `auth.user`, `name`)
-come from `app/Http/Middleware/HandleInertiaRequests.php`.
+`resources/js/pages/<page>.tsx`. Layouts are assigned in `resources/js/app.tsx` by page name (`planner` → no layout,
+`auth/*` → auth layout, `settings/*` → app + settings layouts, everything else → app layout). Shared props (for
+example `auth.user`, `name`) come from `app/Http/Middleware/HandleInertiaRequests.php`.
 
 ## Wayfinder
 
@@ -97,8 +97,8 @@ Wayfinder generates typed TypeScript helpers for Laravel routes and controller a
 hard-coded URLs:
 
 ```ts
-import { login } from '@/routes';
-import { update } from '@/actions/App/Http/Controllers/Settings/ProfileController';
+import { login } from "@/routes";
+import { update } from "@/actions/App/Http/Controllers/Settings/ProfileController";
 ```
 
 Note: Wayfinder 0.1.x does not know the `QUERY` HTTP verb that Laravel 13 adds to `Route::any()`/`Route::redirect()`,
