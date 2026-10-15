@@ -58,27 +58,48 @@ test('plain tasks return null recurrence fields', function () {
         ->assertJsonPath('tasks.0.occurrence_date', null);
 });
 
-test('records without the recurrence keys (clients before v0.0.2) are accepted and keep stored values', function () {
-    $series = wireSeries();
-    push([$series]);
+test('records without the recurrence keys (clients before v0.0.2) still sync plain tasks', function () {
+    $task = wireTask();
+    push([$task]);
 
-    $legacy = $series;
+    $legacy = $task;
     unset($legacy['recurrence'], $legacy['series_id'], $legacy['occurrence_date']);
-    push([[...$legacy, 'text' => 'Renamed', 'updated_at' => '2026-10-16T00:00:00.000Z']])
+    $new = [...$legacy, 'id' => (string) Str::uuid7()];
+
+    push([[...$legacy, 'text' => 'Renamed', 'updated_at' => '2026-10-16T00:00:00.000Z'], $new])
         ->assertOk()
-        ->assertJsonPath('applied', [$series['id']]);
+        ->assertJsonPath('applied', [$task['id'], $new['id']]);
 
-    $new = wireTask();
-    unset($new['recurrence'], $new['series_id'], $new['occurrence_date']);
-    push([$new])->assertOk();
-
-    expect(Task::find($series['id']))
-        ->text->toBe('Renamed')
-        ->recurrence->toBe($series['recurrence'])
-        ->and(Task::find($new['id']))
-        ->recurrence->toBeNull()
-        ->series_id->toBeNull();
+    expect(Task::find($task['id']))->text->toBe('Renamed')
+        ->and(Task::find($new['id']))->recurrence->toBeNull()->series_id->toBeNull()->occurrence_date->toBeNull();
 });
+
+test('records without the recurrence keys cannot change a series or an exception', function () {
+    $series = wireSeries();
+    $exception = wireException($series);
+    push([$series, $exception]);
+
+    $legacy = array_map(function (array $row) {
+        unset($row['recurrence'], $row['series_id'], $row['occurrence_date']);
+
+        return [...$row, 'date' => null, 'someday_column' => 0, 'updated_at' => '2026-10-16T00:00:00.000Z'];
+    }, [$series, $exception]);
+
+    push($legacy)
+        ->assertOk()
+        ->assertJsonPath('applied', [])
+        ->assertJsonPath('rejected', [$series['id'], $exception['id']]);
+
+    expect(Task::find($series['id']))->date->toBe('2026-10-15')->recurrence->toBe($series['recurrence'])
+        ->and(Task::find($exception['id']))->series_id->toBe($series['id']);
+});
+
+test('the recurrence keys must be sent together', function (string $missing) {
+    $row = wireSeries();
+    unset($row[$missing]);
+
+    push([$row])->assertUnprocessable()->assertJsonValidationErrors("tasks.0.{$missing}");
+})->with(['recurrence', 'series_id', 'occurrence_date']);
 
 test('an exception is accepted before its series arrives', function () {
     $series = wireSeries();
@@ -164,6 +185,7 @@ test('push rejects invalid recurrence fields with 422', function (array $overrid
     expect(Task::count())->toBe(0);
 })->with([
     'unknown type' => [['recurrence' => ['type' => 'daily']], 'recurrence.type'],
+    'empty recurrence' => [['recurrence' => []], 'recurrence'],
     'missing type' => [['recurrence' => ['weekdays' => [1]]], 'recurrence.type'],
     'unknown key' => [['recurrence' => ['type' => 'monthly', 'day' => 1, 'every' => 2]], 'recurrence'],
     'recurrence not an object' => [['recurrence' => 'weekly'], 'recurrence'],

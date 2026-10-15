@@ -70,8 +70,9 @@ The server treats the three fields as plain synced columns (same LWW, same push/
 
 - Push validates the `recurrence` shape and the row kinds (`422` otherwise). Tombstones (`deleted_at` set) skip the
   row-kind and `until` checks, so deleting a row is never refused.
-- The three keys are optional on push for clients from before v0.0.2: a missing key leaves the stored value untouched
-  (new rows get `null`). Pull always returns them, `null` when unset.
+- The three keys are optional on push, all together or none, for clients from before v0.0.2. Such a record is applied
+  only to a new or plain row (new rows get `null`); for a stored series or exception it is rejected, since those clients
+  cannot represent it. Pull always returns the keys, `null` when unset.
 - `series_id` is not a foreign key: an exception may arrive before its series (any order across batches). It is
   indexed with `user_id`. Pull only ever returns the user's own rows, so a `series_id` pointing at someone else's task
   exposes nothing. Uniqueness of `(series_id, occurrence_date)` is not enforced by the server either: the client keeps

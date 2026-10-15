@@ -16,6 +16,8 @@ class PushRequest extends FormRequest
      */
     public const int MAX_RECORDS = 500;
 
+    private const string SERIES_IS_NOT_EXCEPTION = 'A recurring task cannot be an exception of a series.';
+
     /**
      * Get the validation rules that apply to the request.
      *
@@ -43,9 +45,11 @@ class PushRequest extends FormRequest
             'tasks.*.subtasks.*.id' => ['required', 'string', 'max:255'],
             'tasks.*.subtasks.*.text' => ['present', 'string'],
             'tasks.*.subtasks.*.done' => ['required', 'boolean:strict'],
-            // Recurrence fields are optional so clients from before v0.0.2 keep syncing; a missing key leaves the stored
-            // value untouched. Cross-field invariants are checked in after().
-            'tasks.*.recurrence' => ['sometimes', 'nullable', 'array:type,weekdays,day,until'],
+            // The recurrence keys are optional (all three or none) so clients from before v0.0.2 keep syncing plain
+            // tasks; PushTasks refuses their writes to a series or an exception. Cross-field invariants are in after().
+            'tasks.*.recurrence' => [
+                'present_with:tasks.*.series_id,tasks.*.occurrence_date', 'nullable', 'array:type,weekdays,day,until', 'required_array_keys:type',
+            ],
             'tasks.*.recurrence.type' => ['required_with:tasks.*.recurrence', 'string', 'in:weekly,monthly'],
             'tasks.*.recurrence.weekdays' => [
                 'required_if:tasks.*.recurrence.type,weekly', 'prohibited_unless:tasks.*.recurrence.type,weekly', 'list',
@@ -57,8 +61,12 @@ class PushRequest extends FormRequest
                 'integer:strict', 'between:1,31',
             ],
             'tasks.*.recurrence.until' => ['sometimes', 'nullable', 'date_format:Y-m-d'],
-            'tasks.*.series_id' => ['sometimes', 'nullable', 'string', 'uuid', 'lowercase', 'different:tasks.*.id'],
-            'tasks.*.occurrence_date' => ['sometimes', 'nullable', 'date_format:Y-m-d'],
+            'tasks.*.series_id' => [
+                'present_with:tasks.*.recurrence,tasks.*.occurrence_date', 'nullable', 'string', 'uuid', 'lowercase', 'different:tasks.*.id',
+            ],
+            'tasks.*.occurrence_date' => [
+                'present_with:tasks.*.recurrence,tasks.*.series_id', 'nullable', 'date_format:Y-m-d',
+            ],
             'tasks.*.created_at' => ['required', $timestamp],
             'tasks.*.updated_at' => ['required', $timestamp],
             'tasks.*.deleted_at' => ['present', 'nullable', $timestamp],
@@ -112,8 +120,8 @@ class PushRequest extends FormRequest
         if ($recurrence !== null) {
             return array_filter([
                 'date' => $record['date'] === null ? 'A recurring task needs a date.' : null,
-                'series_id' => $seriesId !== null ? 'A recurring task cannot be an exception of a series.' : null,
-                'occurrence_date' => $occurrenceDate !== null ? 'A recurring task cannot be an exception of a series.' : null,
+                'series_id' => $seriesId !== null ? self::SERIES_IS_NOT_EXCEPTION : null,
+                'occurrence_date' => $occurrenceDate !== null ? self::SERIES_IS_NOT_EXCEPTION : null,
                 'recurrence.weekdays' => isset($recurrence['weekdays']) && ! $this->isStrictlyAscending($recurrence['weekdays'])
                     ? 'The weekdays must be unique and sorted.' : null,
                 'recurrence.until' => isset($recurrence['until']) && $record['date'] !== null && $recurrence['until'] < $record['date']

@@ -12,8 +12,9 @@ class PushTasks
     /**
      * Upsert client records for the user with last-write-wins on `updated_at`.
      *
-     * Records whose id belongs to another user are rejected. Records older than the stored row are skipped silently
-     * (they are neither applied nor rejected). Every applied record gets a fresh, globally increasing version.
+     * Records whose id belongs to another user are rejected, and so are records without the recurrence keys (clients
+     * from before v0.0.2) for a stored series or exception, which those clients cannot represent. Records older than
+     * the stored row are skipped silently (they are neither applied nor rejected). Every applied record gets a fresh, globally increasing version.
      *
      * @param  list<array<string, mixed>>  $records  Validated wire records.
      * @return array{applied: list<string>, rejected: list<string>, cursor: int}
@@ -38,7 +39,7 @@ class PushTasks
                     $id = $record['id'];
                     $task = $stored[$id] ?? null;
 
-                    if ($task !== null && $task->user_id !== $user->id) {
+                    if ($task !== null && ($task->user_id !== $user->id || $this->isLegacyWriteToRecurrenceRow($record, $task))) {
                         $rejected[] = $id;
 
                         continue;
@@ -65,6 +66,15 @@ class PushTasks
             'rejected' => array_values(array_unique($rejected)),
             'cursor' => (int) $user->tasks()->max('version'),
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $record
+     */
+    private function isLegacyWriteToRecurrenceRow(array $record, Task $task): bool
+    {
+        return ! array_key_exists('recurrence', $record)
+            && ($task->recurrence !== null || $task->series_id !== null);
     }
 
     /**
