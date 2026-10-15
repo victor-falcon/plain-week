@@ -2,6 +2,7 @@ import { onLocalChange } from '@/lib/db/changes';
 import { allTables, clearAllTables } from '@/lib/db/database';
 import type { PlainWeekDatabase } from '@/lib/db/database';
 import { compareTimestamps } from '@/lib/db/dates';
+import { purgeDemoTasks } from '@/lib/db/demo';
 import type { OutboxEntry, Task } from '@/lib/db/types';
 import { withSyncLock } from './lock';
 import { SyncHttpError } from './transport';
@@ -314,7 +315,8 @@ export class SyncEngine {
 
     /**
      * Binds the local database to the current user. Data from a different user
-     * is wiped; data without an owner (guest work) is kept and pushed.
+     * is wiped; data without an owner (guest work) is kept and pushed, except
+     * the demo tasks the guest never touched, which are deleted.
      */
     private async claimDatabase(generation: number): Promise<void> {
         const { db } = this;
@@ -328,6 +330,7 @@ export class SyncEngine {
                 await clearAllTables(db);
             }
 
+            await purgeDemoTasks(db);
             await db.meta.put({ key: 'user_id', value: this.userId as string });
         });
     }

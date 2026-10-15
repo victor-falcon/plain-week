@@ -1,4 +1,5 @@
-import { db, wipeLocalDatabase } from '@/lib/db/database';
+import { allTables, clearAllTables, db } from '@/lib/db/database';
+import { markDemoSeeded } from '@/lib/db/demo';
 import { SyncEngine } from './engine';
 import { withSyncLock } from './lock';
 import { fetchTransport, requestLogout } from './transport';
@@ -36,7 +37,7 @@ export type LogOutOptions = {
  * 2. asks before discarding any that could not be pushed,
  * 3. ends the server session,
  * 4. only then wipes the local database (privacy on shared devices) and tells
- *    other tabs to stop syncing.
+ *    other tabs to stop syncing. Only the `demo_seeded` flag is kept.
  * Resolves with the URL to visit next, or null if the user cancelled.
  * Rejects if the server session could not be ended; local data is kept.
  */
@@ -74,7 +75,14 @@ export async function logOut({
         throw error;
     }
 
-    await withSyncLock(() => wipeLocalDatabase());
+    // The device stays marked as onboarded, so the guest it turns back into
+    // never gets the demo tasks again.
+    await withSyncLock(() =>
+        db.transaction('rw', allTables(db), async () => {
+            await clearAllTables(db);
+            await markDemoSeeded(db);
+        }),
+    );
 
     const channel = logoutChannel();
 
