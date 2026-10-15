@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\RobotsController;
 use App\Http\Middleware\AddRobotsTag;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
@@ -8,12 +9,15 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         web: __DIR__.'/../routes/web.php',
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
+        // Outside the web group: crawlers get no session or cookies. Dynamic so APP_NOINDEX can close the instance.
+        then: fn () => Route::get('robots.txt', RobotsController::class)->name('robots'),
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->append(AddRobotsTag::class);

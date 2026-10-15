@@ -22,6 +22,12 @@ if ! php -r '
     exit 1
 fi
 
+if [ ! -w storage ] || [ ! -w bootstrap/cache ]; then
+    echo "plain-week: /app/storage is not writable by uid $(id -u). If you bind mount a host directory," >&2
+    echo "  run: chown -R $(id -u):$(id -g) <that directory>" >&2
+    exit 1
+fi
+
 # A fresh volume (or a bind mount) starts empty: recreate Laravel's layout.
 mkdir -p \
     storage/app/private \
@@ -34,12 +40,6 @@ mkdir -p \
 if [ "${DB_CONNECTION:-sqlite}" = "sqlite" ]; then
     mkdir -p "$(dirname "$DB_DATABASE")"
     [ -f "$DB_DATABASE" ] || touch "$DB_DATABASE"
-fi
-
-if [ ! -w storage/framework ] || [ ! -w bootstrap/cache ]; then
-    echo "plain-week: /app/storage is not writable by uid $(id -u). If you bind mount a host directory," >&2
-    echo "  run: chown -R $(id -u):$(id -g) <that directory>" >&2
-    exit 1
 fi
 
 php artisan migrate --force --no-interaction

@@ -13,7 +13,8 @@ test('instances are indexable by default', function () {
     $this->get(route('robots'))
         ->assertOk()
         ->assertHeader('Content-Type', 'text/plain; charset=UTF-8')
-        ->assertContent("User-agent: *\nDisallow:\n");
+        ->assertContent("User-agent: *\nDisallow:\n")
+        ->assertCookieMissing(config('session.cookie'));
 });
 
 test('APP_NOINDEX closes the instance to crawlers', function () {

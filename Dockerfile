@@ -49,9 +49,12 @@ ENV SERVER_NAME=:8080 \
     LOG_CHANNEL=stderr \
     DB_CONNECTION=sqlite \
     DB_DATABASE=/app/storage/database/database.sqlite \
-    TRUSTED_PROXIES=*
+    TRUSTED_PROXIES=127.0.0.0/8,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,::1,fc00::/7
 
+# Port 8080 needs no privileges: drop the capability so the binary also runs
+# with all capabilities dropped (cap_drop: ALL).
 RUN useradd --create-home --uid 1000 ${USER} \
+    && setcap -r /usr/local/bin/frankenphp \
     && chown -R ${USER}:${USER} /config/caddy /data/caddy
 
 COPY docker/php.ini /usr/local/etc/php/conf.d/zz-plain-week.ini

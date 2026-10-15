@@ -84,6 +84,33 @@ jobs:
           cache-from: type=gha,scope=${{ env.PLATFORM_SLUG }}
           cache-to: type=gha,scope=${{ env.PLATFORM_SLUG }},mode=max
 
+      # Runs the image built above (from the cache) the way a self-hoster
+      # would: fresh volume, generated key, health check, noindex.
+      - name: Load the image for the smoke test
+        if: matrix.platform == 'linux/amd64'
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: ${{ matrix.platform }}
+          load: true
+          tags: plain-week:ci
+          cache-from: type=gha,scope=${{ env.PLATFORM_SLUG }}
+
+      - name: Smoke test
+        if: matrix.platform == 'linux/amd64'
+        run: |
+          docker run -d --name plainweek -p 8080:8080 \
+            -e APP_KEY="base64:$(openssl rand -base64 32)" -e APP_NOINDEX=true plain-week:ci
+          for _ in $(seq 1 30); do
+            [ "$(docker inspect -f '{{.State.Health.Status}}' plainweek)" = healthy ] && break
+            sleep 2
+          done
+          docker logs plainweek
+          [ "$(docker inspect -f '{{.State.Health.Status}}' plainweek)" = healthy ]
+          curl -fsS http://127.0.0.1:8080/ | grep -q '<meta name="robots" content="noindex, nofollow">'
+          curl -fsS http://127.0.0.1:8080/robots.txt | grep -qx 'Disallow: /'
+          curl -fsSI http://127.0.0.1:8080/sw.js | grep -qi '^x-robots-tag: noindex, nofollow'
+
       - name: Export digest
         if: github.event_name != 'pull_request'
         run: |

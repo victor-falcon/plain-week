@@ -21,7 +21,7 @@
 
 	# APP_NOINDEX also covers static files; PHP responses get it from the
 	# AddRobotsTag middleware.
-	@noindex expression `{env.APP_NOINDEX} in ["1", "true", "TRUE", "on", "yes"]`
+	@noindex expression `{env.APP_NOINDEX}.matches("(?i)^\\(?(1|true|on|yes)\\)?$")`
 	header @noindex >X-Robots-Tag "noindex, nofollow"
 
 	php_server

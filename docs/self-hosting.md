@@ -8,7 +8,7 @@ The image is `ghcr.io/victor-falcon/plain-week`, built for `linux/amd64` and `li
 
 | Tag            | What it is                                      |
 | -------------- | ----------------------------------------------- |
-| `latest`       | The latest release                              |
+| `latest`       | The latest release (from v0.0.3 on)             |
 | `X.Y.Z`, `X.Y` | A release (`0.0.3`) or its latest patch (`0.0`) |
 | `edge`         | The latest commit on `main`                     |
 | `sha-<short>`  | A specific commit on `main`                     |
@@ -25,8 +25,9 @@ Plain Week ships a Coolify service template: [`deploy/coolify/plain-week.yaml`](
 
 Coolify generates `APP_KEY` (`SERVICE_REALBASE64_32_APPKEY`, 32 random bytes in base64) and `APP_URL`
 (`SERVICE_URL_PLAINWEEK`) on the first deploy and keeps them, creates the `plainweek-storage` volume and routes the
-domain to port 8080 through its proxy, which terminates TLS. Change the optional variables (`APP_NOINDEX`, mail) in the
-service's **Environment Variables** and redeploy.
+domain to port 8080 through its proxy, which terminates TLS. Set `APP_NOINDEX=true` in the service's **Environment
+Variables** to keep search engines out; to send email, set `MAIL_MAILER=smtp` and add the `MAIL_*` variables from
+[Configuration](#configuration). Redeploy after changing them.
 
 ## Deploy with Docker
 
@@ -45,18 +46,18 @@ signs everyone out.
 echo "base64:$(openssl rand -base64 32)"
 ```
 
-| Variable                | Default                                 | Description                                                                                                                                                                     |
-| ----------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `APP_KEY`               | (required)                              | `base64:` plus 32 random bytes in base64. The container refuses to start without a valid key                                                                                    |
-| `APP_URL`               | `http://localhost`                      | The public URL, for example `https://plan.example.com`. Used in emails and generated links                                                                                      |
-| `APP_NAME`              | `Plain Week`                            | Shown in the page title and emails                                                                                                                                              |
-| `APP_NOINDEX`           | `false`                                 | `true` asks search engines not to index the instance (see [Noindex](#noindex))                                                                                                  |
-| `DB_DATABASE`           | `/app/storage/database/database.sqlite` | The SQLite file. Keep it under `/app/storage` so it lives on the volume                                                                                                         |
-| `TRUSTED_PROXIES`       | `*`                                     | Proxies whose `X-Forwarded-*` headers are trusted. A comma-separated list of IPs/CIDRs, or `*` (any caller)                                                                     |
-| `SESSION_SECURE_COOKIE` | (unset)                                 | `true` when the app is served over HTTPS, so the session cookie is never sent over plain HTTP                                                                                   |
-| `MAIL_MAILER`           | `log`                                   | `log` writes emails to the logs. Set `smtp` plus `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM_ADDRESS` to send verification and password reset emails |
-| `LOG_CHANNEL`           | `stderr`                                | Logs go to the container output (`docker logs`)                                                                                                                                 |
-| `LOG_LEVEL`             | `debug`                                 | `warning` keeps the logs quiet                                                                                                                                                  |
+| Variable                | Default                                 | Description                                                                                                                                                                                                                                                                 |
+| ----------------------- | --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `APP_KEY`               | (required)                              | `base64:` plus 32 random bytes in base64. The container refuses to start without a valid key                                                                                                                                                                                |
+| `APP_URL`               | `http://localhost`                      | The public URL, for example `https://plan.example.com`. Used in emails and generated links                                                                                                                                                                                  |
+| `APP_NAME`              | `Plain Week`                            | Shown in the page title and emails                                                                                                                                                                                                                                          |
+| `APP_NOINDEX`           | `false`                                 | `true` asks search engines not to index the instance (see [Noindex](#noindex))                                                                                                                                                                                              |
+| `DB_DATABASE`           | `/app/storage/database/database.sqlite` | The SQLite file. Keep it under `/app/storage` so it lives on the volume                                                                                                                                                                                                     |
+| `TRUSTED_PROXIES`       | private ranges                          | Proxies whose `X-Forwarded-*` headers are trusted: comma-separated IPs/CIDRs, or `*` (any caller). The default trusts loopback and private networks (`127.0.0.0/8,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,::1,fc00::/7`), which covers Coolify and a proxy on the same host |
+| `SESSION_SECURE_COOKIE` | on when `APP_URL` is `https://`         | Only send the session cookie over HTTPS. Set `false` if `APP_URL` says `https://` but users reach the app over plain HTTP                                                                                                                                                   |
+| `MAIL_MAILER`           | `log`                                   | `log` writes emails to the logs. Set `smtp` plus `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM_ADDRESS` to send verification and password reset emails                                                                                             |
+| `LOG_CHANNEL`           | `stderr`                                | Logs go to the container output (`docker logs`)                                                                                                                                                                                                                             |
+| `LOG_LEVEL`             | `debug`                                 | `warning` keeps the logs quiet                                                                                                                                                                                                                                              |
 
 Any other Laravel setting (`config/*.php`) can be set the same way. Email verification never blocks the app, so an
 instance without mail works.
@@ -70,7 +71,7 @@ caches the configuration, routes and views. Then FrankenPHP serves the app on po
 ```sh
 docker volume create plainweek-storage
 docker run -d --name plainweek --restart unless-stopped \
-  -p 8080:8080 \
+  -p 127.0.0.1:8080:8080 \
   -v plainweek-storage:/app/storage \
   -e APP_KEY="base64:..." \
   -e APP_URL="http://localhost:8080" \
@@ -98,7 +99,6 @@ Use the same file and point `APP_URL` at your domain, then send the domain to `1
 ```sh
 cat >> .env <<'ENV'
 APP_URL=https://plan.example.com
-SESSION_SECURE_COOKIE=true
 ENV
 docker compose up -d
 ```
@@ -113,8 +113,9 @@ plan.example.com {
 
 The proxy must pass `X-Forwarded-Proto` and `X-Forwarded-Host` (Caddy and Traefik do by default; with nginx add
 `proxy_set_header X-Forwarded-Proto $scheme;` and `proxy_set_header X-Forwarded-Host $host;`). The image trusts them
-from any caller (`TRUSTED_PROXIES=*`), which is safe as long as port 8080 is only reachable through the proxy (the
-compose file binds it to `127.0.0.1`); otherwise set `TRUSTED_PROXIES` to the proxy's address.
+from loopback and private networks (`TRUSTED_PROXIES`); keep port 8080 reachable only through the proxy (the compose
+file binds it to `127.0.0.1`), or set `TRUSTED_PROXIES` to the proxy's address. With an `https://` `APP_URL` the
+session cookie is marked secure.
 
 Serve Plain Week from the root of its domain (not a sub-path): the service worker and the offline shell assume `/`.
 
@@ -169,7 +170,7 @@ Plain Week is a regular Laravel app: see [stack.md](./stack.md#self-hosting-with
 
     ```sh
     docker build -t plain-week .
-    docker run --rm -p 8080:8080 -e APP_KEY="base64:$(openssl rand -base64 32)" plain-week
+    docker run --rm -p 127.0.0.1:8080:8080 -e APP_KEY="base64:$(openssl rand -base64 32)" plain-week
     ```
 
 - Releases are published by CI only: pushing a `vX.Y.Z` tag publishes `X.Y.Z`, `X.Y` and `latest`; every push to

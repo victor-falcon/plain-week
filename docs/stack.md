@@ -239,7 +239,7 @@ one database file, no external services. Deploy it like any Laravel app.
     | `DB_BUSY_TIMEOUT`               | Optional, milliseconds a writer waits for the SQLite lock (default `5000`)                                                        |
     | `SESSION_DRIVER`, `CACHE_STORE` | `database` (the defaults; stored in SQLite)                                                                                       |
     | `MAIL_MAILER`                   | `log` (default) without a mail server; set SMTP variables to send verification and password reset emails                          |
-    | `TRUSTED_PROXIES`               | `*` or the proxy's IPs when a reverse proxy terminates TLS, so URLs and cookies use `https`                                       |
+    | `TRUSTED_PROXIES`               | The reverse proxy's IPs (or `*`) when it terminates TLS, so URLs use `https`. Sessions are secure when `APP_URL` is `https://`    |
     | `APP_NOINDEX`                   | `true` to keep search engines out (`X-Robots-Tag`, robots meta and `/robots.txt`)                                                 |
 
 3. Migrate on every deploy: `php artisan migrate --force` (creates the SQLite file's tables; `touch` the file first if

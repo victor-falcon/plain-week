@@ -19,18 +19,11 @@ services:
             - APP_KEY=base64:${SERVICE_REALBASE64_32_APPKEY}
             - APP_NOINDEX=${APP_NOINDEX:-false}
             - DB_CONNECTION=sqlite
-            - SESSION_SECURE_COOKIE=${SESSION_SECURE_COOKIE:-true}
             - LOG_CHANNEL=stderr
-            - LOG_LEVEL=${LOG_LEVEL:-warning}
             - MAIL_MAILER=${MAIL_MAILER:-log}
-            - MAIL_HOST=${MAIL_HOST}
-            - MAIL_PORT=${MAIL_PORT:-587}
-            - MAIL_USERNAME=${MAIL_USERNAME}
-            - MAIL_PASSWORD=${MAIL_PASSWORD}
-            - MAIL_FROM_ADDRESS=${MAIL_FROM_ADDRESS:-hello@example.com}
-            - MAIL_FROM_NAME=${MAIL_FROM_NAME:-Plain Week}
         healthcheck:
             test: ['CMD', 'curl', '-fsS', 'http://127.0.0.1:8080/up']
             interval: 10s
             timeout: 5s
             retries: 5
+            start_period: 30s

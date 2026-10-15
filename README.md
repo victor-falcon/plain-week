@@ -55,7 +55,7 @@ bun run build       # production assets
 One container, SQLite on a volume, no other services:
 
 ```sh
-docker run -d -p 8080:8080 -v plainweek-storage:/app/storage \
+docker run -d -p 127.0.0.1:8080:8080 -v plainweek-storage:/app/storage \
   -e APP_KEY="base64:$(openssl rand -base64 32)" ghcr.io/victor-falcon/plain-week:latest
 ```
 
