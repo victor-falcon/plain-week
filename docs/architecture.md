@@ -122,16 +122,20 @@ a `422` (it is not clamped).
 Everything lives in `resources/js/lib/db` (local data), `resources/js/lib/sync` (sync engine) and `resources/js/hooks`.
 The UI imports the repository functions and the hooks; it never talks to `fetch` or to Dexie tables directly.
 
-### IndexedDB schema (Dexie database `plain-week`, version 1)
+### IndexedDB schema (Dexie database `plain-week`, version 2)
 
-| Table    | Primary key | Indexes                                                                 | Content                                                             |
-| -------- | ----------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| `tasks`  | `id`        | `date`, `[date+position]`, `someday_column`, `updated_at`, `deleted_at` | `Task` records, tombstones included                                 |
-| `outbox` | `task_id`   |                                                                         | `{ task_id, revision, failed_revision? }`: pending changes          |
-| `meta`   | `key`       |                                                                         | `cursor` (last pulled version), `user_id` (owner of the local data) |
+| Table    | Primary key | Indexes                                                                                                                   | Content                                                             |
+| -------- | ----------- | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| `tasks`  | `id`        | `date`, `[date+position]`, `someday_column`, `updated_at`, `deleted_at`, `recurrence.type`, `[series_id+occurrence_date]` | `Task` records, tombstones included                                 |
+| `outbox` | `task_id`   |                                                                                                                           | `{ task_id, revision, failed_revision? }`: pending changes          |
+| `meta`   | `key`       |                                                                                                                           | `cursor` (last pulled version), `user_id` (owner of the local data) |
 
-Types are in `lib/db/types.ts`: `Task` (exactly the contract shape), `TaskColor` and `TASK_COLORS` (colour ids only; the
-UI owns the swatches), `SomedayColumn`, `Subtask`. Schema changes need a new `this.version(n)` in
+IndexedDB leaves a row out of an index when the indexed value is null, so `recurrence.type` lists series rows only and
+`[series_id+occurrence_date]` exception rows only. Version 2 added both indexes and an upgrade that sets `recurrence`,
+`series_id` and `occurrence_date` to `null` on existing rows.
+
+Types are in `lib/db/types.ts`: `Task` (exactly the contract shape), `Recurrence`, `TaskColor` and `TASK_COLORS`
+(colour ids only; the UI owns the swatches), `SomedayColumn`, `Subtask`. Schema changes need a new `this.version(n)` in
 `lib/db/database.ts`; never edit a released version.
 
 ### Repository API (`lib/db/tasks.ts`)
@@ -145,16 +149,18 @@ beats the version it replaces. After commit the mutation schedules a sync.
 | Function                                                                                                         | Notes                                                                                                                             |
 | ---------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
 | `createTask({ text, date, someday_column?, afterPosition?, beforePosition?, color?, time?, notes?, subtasks? })` | `date: null` requires `someday_column`. Without positions it is appended at the end.                                              |
-| `updateTask(id, patch)`                                                                                          | Only `text`, `done`, `color`, `time`, `notes`, `subtasks`; `undefined` values are ignored. Changing `done` sets/clears `done_at`. |
-| `toggleDone(id)`                                                                                                 |                                                                                                                                   |
-| `deleteTask(id)`                                                                                                 | Tombstone (`deleted_at`); the record stays and syncs.                                                                             |
-| `restoreTask(id)`                                                                                                | Undo of `deleteTask`: clears `deleted_at` with a newer `updated_at`, so the restore also wins on other devices.                   |
-| `updateSubtasks(id, update)`                                                                                     | Replaces `subtasks` with `update(current)` in one transaction, so quick successive subtask edits never overwrite each other.      |
-| `moveTask(id, { date, someday_column?, beforeId?, afterId? })`                                                   | Lands right before `beforeId` and/or right after `afterId`; a neighbour not in the target list is ignored; with none, at the end. |
-| `duplicateTask(id)`                                                                                              | Copy (content and done state) with new ids for the task and subtasks, right after the original.                                   |
-| `listTasksIn({ date } \| { date: null, someday_column })`                                                        | Sorted, non-deleted tasks of one list (useful to compute neighbours).                                                             |
+| `updateTask(id, patch, { scope?, undo? })`                                                                       | Only `text`, `done`, `color`, `time`, `notes`, `subtasks`; `undefined` values are ignored. Changing `done` sets/clears `done_at`. |
+| `toggleDone(id, { undo? })`                                                                                      | On an occurrence: always only that one.                                                                                           |
+| `deleteTask(id, { scope?, undo? })`                                                                              | Tombstone (`deleted_at`); the record stays and syncs.                                                                             |
+| `restoreTask(id)`                                                                                                | Undo of a single-row `deleteTask`: clears `deleted_at` with a newer `updated_at`, so the restore also wins on other devices.      |
+| `updateSubtasks(id, update, { scope?, undo? })`                                                                  | Replaces `subtasks` with `update(current)` in one transaction, so quick successive subtask edits never overwrite each other.      |
+| `moveTask(id, { date, someday_column?, beforeId?, afterId? }, { undo? })`                                        | Lands right before `beforeId` and/or right after `afterId`; a neighbour not in the target list is ignored; with none, at the end. |
+| `duplicateTask(id, { undo? })`                                                                                   | Copy (content and done state) with new ids for the task and subtasks, right after the original. Always a plain task.              |
+| `setRecurrence(id, recurrence \| null, { scope?, undo? })`                                                       | Makes a task repeat, changes or removes the rule (see [Recurring tasks](#recurring-tasks-client)).                                |
+| `createUndoLog()` / `undoChanges(log)`                                                                           | Pass `{ undo: log }` to mutations, then `undoChanges(log)` puts back every row they overwrote and deletes the rows they created.  |
+| `listTasksIn({ date } \| { date: null, someday_column })`                                                        | Sorted, non-deleted items of one list, occurrences included (useful to compute neighbours).                                       |
 
-Mutations on a missing or deleted task throw. Order inside a list is `position` (fractional-indexing key), then `id` as a
+Every function that takes an `id` also accepts an occurrence id; mutations on a missing or deleted task throw. Order inside a list is `position` (fractional-indexing key), then `id` as a
 tie-break (`compareTaskOrder` in `lib/db/position.ts`).
 
 Days are **displayed** in a different order: tasks with a `time` come first, earliest first, then the rest by position
@@ -164,13 +170,14 @@ cleared. Someday columns are shown in position order.
 
 ### Hooks
 
-| Hook                            | Returns                                                                                         |
-| ------------------------------- | ----------------------------------------------------------------------------------------------- |
-| `useWeekTasks(weekStart: Date)` | `Record<'YYYY-MM-DD', Task[]>` for the 7 days from `weekStart` (every day present), timed first |
-| `useSomedayTasks()`             | `[Task[], Task[], Task[]]`, the three Someday columns, sorted                                   |
-| `useTask(id)`                   | The task, `null` if missing/deleted, `undefined` while loading (also right after `id` changes)  |
-| `useSyncStatus()`               | `'idle' \| 'syncing' \| 'offline' \| 'error'` (`idle` for guests)                               |
-| `usePendingChangeCount()`       | Number of local changes not accepted by the server yet (outbox size)                            |
+| Hook                            | Returns                                                                                                                       |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `useWeekTasks(weekStart: Date)` | `Record<'YYYY-MM-DD', PlannerTask[]>` for the 7 days from `weekStart` (every day present), occurrences included, timed first  |
+| `useSomedayTasks()`             | `[PlannerTask[], PlannerTask[], PlannerTask[]]`, the three Someday columns, sorted                                            |
+| `useTask(id)`                   | The item (`id` may be an occurrence id), `null` if missing/deleted, `undefined` while loading (also right after `id` changes) |
+| `useSeries(item)`               | The live series of an occurrence or exception (a series: itself), `null` for a plain task                                     |
+| `useSyncStatus()`               | `'idle' \| 'syncing' \| 'offline' \| 'error'` (`idle` for guests)                                                             |
+| `usePendingChangeCount()`       | Number of local changes not accepted by the server yet (outbox size)                                                          |
 
 `usePendingChangeCount` (query `queryPendingChangeCount`) was added for the planner header: for a guest, a non-zero
 count means work that only lives on this device, so the account button turns into a "save" button that leads to
@@ -179,6 +186,67 @@ registration. The UI may not read the outbox table itself, hence the query.
 The data hooks return `undefined` only during the first local read. Dates are local calendar days
 (`toDateKey`/`weekDateKeys` in `lib/db/dates.ts`). The queries behind the hooks are plain async functions in
 `lib/db/queries.ts`.
+
+### Recurring tasks (client)
+
+The rows and their invariants (plain, series, exception) are in [Data model](#data-model-task). The client never stores
+occurrences: `lib/recurrence/expand.ts` generates them, as pure functions on `'YYYY-MM-DD'` keys with UTC arithmetic
+(`lib/recurrence/dates.ts`), so time zones and DST never shift a day.
+
+**View model.** Queries and hooks return `PlannerTask`, a `Task` plus a `kind`:
+
+| `kind`       | What it is                                                                                               | Extra fields                 |
+| ------------ | -------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| `task`       | A plain row.                                                                                             |                              |
+| `occurrence` | Generated from a series, no row. `id` is `${seriesId}:${YYYY-MM-DD}`; content from the series; not done. | `seriesId`, `occurrenceDate` |
+| `exception`  | A row that overrides one occurrence (changed, moved, done). `date` is where it is now.                   | `seriesId`, `occurrenceDate` |
+| `series`     | A series row. Never listed by the queries; `useTask(seriesId)` and some mutations return it.             |                              |
+
+`isRecurring(item)` is true for everything but `task`; `getSeries(item)` (and `useSeries`) gives the series.
+
+**Expansion.** `expandSeries(series, exceptions, rangeStart, rangeEnd)` returns the occurrences on every date from
+`max(series.date, rangeStart)` to `min(until, rangeEnd)` that matches the rule (weekly: ISO weekday in `weekdays`;
+monthly: day `day`, or the last day of a shorter month), minus the dates an exception row replaces, plus that series'
+live exceptions dated in the range. A deleted exception hides its occurrence. `queryRangeItems` combines the rows dated
+in the range (plain and exceptions; series rows skipped) with the expansion of every live series that overlaps it
+(found through the `recurrence.type` index; their exceptions through `[series_id+occurrence_date]`). Someday holds only
+plain tasks and exceptions moved there.
+
+**Resolving ids.** `queryTask` / `useTask` accept an occurrence id. Once that occurrence has an exception row, the id
+resolves to the row (which has its own id), and to `null` if the exception is deleted, so an id taken from the screen
+keeps working after the first change.
+
+**Mutations on an occurrence** (all in one transaction, one outbox entry per written row):
+
+| Change                          | Scope `'this'` (default for edits)                                                  | Scope `'future'` (edits, delete, rule)                                                                 |
+| ------------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `updateTask` / `updateSubtasks` | Writes an exception row (new UUID v7) with the change.                              | Split at the occurrence date D: the series gets `until = D-1`, a new series with the edit starts on D. |
+| `toggleDone`, `moveTask`        | Always `'this'`: writes or updates the exception.                                   |                                                                                                        |
+| `deleteTask`                    | A deleted exception row.                                                            | `until = D-1`; when D is the series' first date, the series and its exceptions are deleted.            |
+| `setRecurrence(id, rule)`       | Refused (a rule cannot apply to one occurrence).                                    | Default. Split at D; the new series has this item's content and the new rule.                          |
+| `setRecurrence(id, null)`       | This item becomes a plain task; a deleted exception keeps its date hidden.          | Default. `until = D-1`; this item becomes a plain task (an exception row keeps its id).                |
+| `duplicateTask`                 | The copy is a plain task right after the source; the source gets its exception row. |                                                                                                        |
+
+A split also deletes the series' exceptions dated D or later. When D is the series' first date there is nothing to keep,
+so the series row itself takes the new content or rule (same id) instead of ending. `done` never reaches a series: a
+`'future'` patch applies its other fields. Scope is ignored for plain tasks.
+
+On rows: `setRecurrence` on a plain dated task makes it the series (its `date` is the anchor; Someday tasks cannot
+repeat). On a series row, `updateTask` edits every occurrence without an exception, `setRecurrence` replaces the rule
+(`null` makes it a plain task and deletes its exceptions), `deleteTask` deletes it with its exceptions, and `moveTask`
+throws.
+
+**What to show after a change.** The mutations return the item that now stands for what the user acted on: the
+exception for a `'this'` edit, the new series' occurrence on D for a `'future'` edit or rule change (the series itself
+when its rule skips D), the plain task when repeating stops. The occurrence id the UI held may then resolve to `null`
+(its series ended), so a dialog should switch to the returned id.
+
+**Undo.** `restoreTask(occurrenceId)` restores a deleted occurrence. Changes that touch several rows (`'future'` scope)
+are undone with an `UndoLog`: `const undo = createUndoLog(); await deleteTask(id, { scope: 'future', undo });` and later
+`undoChanges(undo)`, which writes the previous versions back as newer changes.
+
+**Sync.** Nothing special: the three fields are columns of the record, pushed and pulled with last-write-wins like the
+rest (`toTask` defaults them to `null`).
 
 ### Sync lifecycle (`lib/sync`)
 

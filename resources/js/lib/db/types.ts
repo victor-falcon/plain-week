@@ -27,6 +27,17 @@ export type Subtask = {
     done: boolean;
 };
 
+/** ISO weekday: 1 is Monday, 7 is Sunday. */
+export type IsoWeekday = 1 | 2 | 3 | 4 | 5 | 6 | 7;
+
+/**
+ * The repeat rule of a series row. `until` is the last date (inclusive) that
+ * can produce an occurrence.
+ */
+export type Recurrence =
+    | { type: 'weekly'; weekdays: IsoWeekday[]; until?: string | null }
+    | { type: 'monthly'; day: number; until?: string | null };
+
 /**
  * A task, with exactly the shape of the sync contract (docs/architecture.md).
  * Keys are snake_case in Dexie and on the wire.
@@ -50,6 +61,12 @@ export type Task = {
     created_at: string;
     updated_at: string;
     deleted_at: string | null;
+    /** Only on a series row: its repeat rule (`date` is the anchor). */
+    recurrence: Recurrence | null;
+    /** Only on an exception row: the series it overrides. */
+    series_id: string | null;
+    /** Only on an exception row: the generated date it replaces. */
+    occurrence_date: string | null;
 };
 
 /**

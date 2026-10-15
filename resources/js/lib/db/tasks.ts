@@ -1,17 +1,46 @@
 import { v7 as uuidv7 } from 'uuid';
+import { addDays } from '@/lib/recurrence/dates';
+import {
+    makeOccurrence,
+    occursOn,
+    parseOccurrenceId,
+    toItem,
+} from '@/lib/recurrence/expand';
+import type {
+    ExceptionItem,
+    OccurrenceItem,
+    PlannerTask,
+    SeriesItem,
+} from '@/lib/recurrence/expand';
 import { notifyLocalChange } from './changes';
 import { db } from './database';
 import { nextTimestamp } from './dates';
 import { positionBetween } from './position';
-import { placementOf, queryListTasks, queryTask } from './queries';
+import {
+    placementOf,
+    queryExceptions,
+    queryListTasks,
+    querySeries,
+    queryTask,
+} from './queries';
 import type { TaskPlacement } from './queries';
-import type { SomedayColumn, Subtask, Task, TaskColor } from './types';
+import type {
+    Recurrence,
+    SomedayColumn,
+    Subtask,
+    Task,
+    TaskColor,
+} from './types';
 
 /**
  * The task repository. Every function only touches IndexedDB: none of them
- * waits on the network. Each mutation reads, changes and writes the record and
- * its outbox entry in one transaction, bumps `updated_at`, and wakes the sync
- * engine.
+ * waits on the network. Each mutation reads, changes and writes its records
+ * and their outbox entries in one transaction, bumps `updated_at`, and wakes
+ * the sync engine.
+ *
+ * Every function that takes an id also accepts the id of a generated
+ * occurrence (`${seriesId}:${date}`). Changing an occurrence writes an
+ * exception row for it; see docs/architecture.md for the recurrence rules.
  */
 
 export type { TaskPlacement } from './queries';
@@ -48,37 +77,110 @@ export type MoveTaskInput = TaskPlacement & {
 };
 
 /**
- * Runs `build` and writes the task it returns, plus its outbox entry, in one
- * read-write transaction, then wakes the sync engine.
+ * For an occurrence or exception: change only this one, or this one and every
+ * later one of its series. Ignored for plain tasks.
  */
-async function write(build: () => Promise<Task>): Promise<Task> {
-    const task = await db.transaction('rw', db.tasks, db.outbox, async () => {
-        const next = await build();
-        const entry = await db.outbox.get(next.id);
+export type Scope = 'this' | 'future';
 
-        await db.tasks.put(next);
-        await db.outbox.put({
-            task_id: next.id,
-            revision: (entry?.revision ?? 0) + 1,
-        });
+/**
+ * Records what a mutation overwrote, so `undoChanges` can put it back. Pass
+ * the same log to one or more mutations, then undo them all at once.
+ */
+export type UndoLog = { before: Map<string, Task | null> };
 
-        return next;
-    });
+export type MutationOptions = { undo?: UndoLog };
 
-    notifyLocalChange();
+export type ScopedMutationOptions = MutationOptions & { scope?: Scope };
 
-    return task;
+/** Keeps only the stored fields (drops the view-model ones). */
+function toRow(task: Task): Task {
+    return {
+        id: task.id,
+        text: task.text,
+        date: task.date,
+        someday_column: task.someday_column,
+        position: task.position,
+        done: task.done,
+        done_at: task.done_at,
+        color: task.color,
+        time: task.time,
+        notes: task.notes,
+        subtasks: task.subtasks,
+        created_at: task.created_at,
+        updated_at: task.updated_at,
+        deleted_at: task.deleted_at,
+        recurrence: task.recurrence,
+        series_id: task.series_id,
+        occurrence_date: task.occurrence_date,
+    };
 }
 
-/** Reads a live task inside the current transaction or throws. */
-async function getLive(id: string): Promise<Task> {
-    const task = await queryTask(id);
+/**
+ * Runs `build` and writes the rows it returns, plus an outbox entry for each,
+ * in one read-write transaction, then wakes the sync engine.
+ */
+async function write<T>(
+    build: () => Promise<{ rows: Task[]; result: T }>,
+    options: MutationOptions = {},
+): Promise<T> {
+    let written = 0;
+    const result = await db.transaction('rw', db.tasks, db.outbox, async () => {
+        const built = await build();
+        const rows = [
+            ...new Map(built.rows.map((row) => [row.id, toRow(row)])).values(),
+        ];
+        const ids = rows.map((row) => row.id);
+        const [previous, entries] = await Promise.all([
+            db.tasks.bulkGet(ids),
+            db.outbox.bulkGet(ids),
+        ]);
 
-    if (!task) {
+        rows.forEach((row, i) => {
+            if (options.undo && !options.undo.before.has(row.id)) {
+                options.undo.before.set(row.id, previous[i] ?? null);
+            }
+        });
+
+        await db.tasks.bulkPut(rows);
+        await db.outbox.bulkPut(
+            rows.map((row, i) => ({
+                task_id: row.id,
+                revision: (entries[i]?.revision ?? 0) + 1,
+            })),
+        );
+
+        written = rows.length;
+
+        return built.result;
+    });
+
+    if (written > 0) {
+        notifyLocalChange();
+    }
+
+    return result;
+}
+
+/** Reads a live item inside the current transaction or throws. */
+async function getLive(id: string): Promise<PlannerTask> {
+    const item = await queryTask(id);
+
+    if (!item) {
         throw new Error(`Task ${id} does not exist.`);
     }
 
-    return task;
+    return item;
+}
+
+/** The live series of an occurrence (it always has one). */
+async function seriesOfOccurrence(item: OccurrenceItem): Promise<SeriesItem> {
+    const series = await querySeries(item.seriesId);
+
+    if (!series) {
+        throw new Error(`Series ${item.seriesId} does not exist.`);
+    }
+
+    return series;
 }
 
 function normalizePlacement(placement: TaskPlacement): {
@@ -90,14 +192,17 @@ function normalizePlacement(placement: TaskPlacement): {
         : { date: placement.date, someday_column: null };
 }
 
-/** Live tasks of a day or Someday column, in display order. */
-export function listTasksIn(placement: TaskPlacement): Promise<Task[]> {
+/** Live items of a day or Someday column, in position order. */
+export function listTasksIn(placement: TaskPlacement): Promise<PlannerTask[]> {
     return queryListTasks(placement);
 }
 
 /** Applies `patch` to `task`, keeping `done_at` consistent with `done`. */
 function patched(task: Task, patch: TaskPatch): Task {
-    const next: Task = { ...task, updated_at: nextTimestamp(task.updated_at) };
+    const next: Task = {
+        ...toRow(task),
+        updated_at: nextTimestamp(task.updated_at),
+    };
 
     PATCHABLE_FIELDS.forEach((field) => {
         if (patch[field] !== undefined) {
@@ -112,6 +217,140 @@ function patched(task: Task, patch: TaskPatch): Task {
     return next;
 }
 
+/** A series is never done: its occurrences are, one by one. */
+function seriesPatch(patch: TaskPatch): TaskPatch {
+    return { ...patch, done: undefined };
+}
+
+function tombstone(task: Task): Task {
+    const now = nextTimestamp(task.updated_at);
+
+    return { ...toRow(task), updated_at: now, deleted_at: now };
+}
+
+/** A new row: fresh id and timestamps. */
+function fresh(task: Task): Task {
+    const now = nextTimestamp();
+
+    return {
+        ...toRow(task),
+        id: uuidv7(),
+        created_at: now,
+        updated_at: now,
+        deleted_at: null,
+    };
+}
+
+/** The exception row of an occurrence, with nothing changed yet. */
+function materialize(series: SeriesItem, date: string): Task {
+    return fresh(makeOccurrence(series, date));
+}
+
+/** A new plain row with the content of `task`. */
+function plainCopy(task: Task): Task {
+    return {
+        ...fresh(task),
+        recurrence: null,
+        series_id: null,
+        occurrence_date: null,
+    };
+}
+
+/** `task` turned into a plain row (same id). */
+function detached(task: Task): Task {
+    return {
+        ...toRow(task),
+        recurrence: null,
+        series_id: null,
+        occurrence_date: null,
+        updated_at: nextTimestamp(task.updated_at),
+    };
+}
+
+/** A new series row anchored at `date` with the content of `task`. */
+function newSeries(task: Task, date: string, recurrence: Recurrence): Task {
+    return {
+        ...plainCopy(task),
+        date,
+        someday_column: null,
+        done: false,
+        done_at: null,
+        recurrence,
+    };
+}
+
+/**
+ * Ends `series` before `from` ("this and all future"): its exceptions dated
+ * `from` or later are deleted (except `keepId`), and it gets `until` the day
+ * before, or is deleted when nothing would be left. `replacement`, a series
+ * row with a new id, takes over from `from`; when the old series would be
+ * empty, the old row takes the replacement's content instead (same id).
+ * Returns the rows to write and the series that now covers `from`.
+ */
+async function splitSeries(
+    series: SeriesItem,
+    from: string,
+    replacement: Task | null,
+    keepId?: string,
+): Promise<{ rows: Task[]; successor: Task | null }> {
+    const later = await queryExceptions(series.id, from, '9999-12-31');
+    const rows = later
+        .filter((row) => row.deleted_at === null && row.id !== keepId)
+        .map(tombstone);
+
+    if (from <= series.date) {
+        if (replacement === null) {
+            return { rows: [...rows, tombstone(series)], successor: null };
+        }
+
+        const successor: Task = {
+            ...replacement,
+            id: series.id,
+            created_at: series.created_at,
+            updated_at: nextTimestamp(series.updated_at),
+        };
+
+        return { rows: [...rows, successor], successor };
+    }
+
+    const ended: Task = {
+        ...toRow(series),
+        recurrence: { ...series.recurrence, until: addDays(from, -1) },
+        updated_at: nextTimestamp(series.updated_at),
+    };
+
+    return {
+        rows: [...rows, ended, ...(replacement ? [replacement] : [])],
+        successor: replacement,
+    };
+}
+
+/**
+ * What stands for the task the user acted on after a change to its series:
+ * the series' occurrence on `date` when it has one, else the series itself.
+ */
+function representative(seriesRow: Task, date: string): PlannerTask {
+    const item = toItem(seriesRow);
+
+    return item.kind === 'series' && occursOn(item, date)
+        ? makeOccurrence(item, date)
+        : item;
+}
+
+/** The series of an occurrence or exception, when it is still live. */
+async function liveSeriesOf(item: PlannerTask): Promise<{
+    series: SeriesItem;
+    item: OccurrenceItem | ExceptionItem;
+} | null> {
+    if (item.kind !== 'occurrence' && item.kind !== 'exception') {
+        return null;
+    }
+
+    const series = await querySeries(item.seriesId);
+
+    return series ? { series, item } : null;
+}
+
 export function createTask(input: CreateTaskInput): Promise<Task> {
     return write(async () => {
         const hasBounds =
@@ -123,8 +362,7 @@ export function createTask(input: CreateTaskInput): Promise<Task> {
                   null,
               );
         const now = nextTimestamp();
-
-        return {
+        const task: Task = {
             id: uuidv7(),
             text: input.text,
             ...normalizePlacement(input),
@@ -138,51 +376,84 @@ export function createTask(input: CreateTaskInput): Promise<Task> {
             created_at: now,
             updated_at: now,
             deleted_at: null,
+            recurrence: null,
+            series_id: null,
+            occurrence_date: null,
         };
-    });
-}
 
-/** Changes `text`, `done`, `color`, `time`, `notes` or `subtasks`. */
-export function updateTask(id: string, patch: TaskPatch): Promise<Task> {
-    return write(async () => patched(await getLive(id), patch));
-}
-
-export function toggleDone(id: string): Promise<Task> {
-    return write(async () => {
-        const task = await getLive(id);
-
-        return patched(task, { done: !task.done });
-    });
-}
-
-/** Soft-deletes the task (a tombstone that syncs like any other change). */
-export function deleteTask(id: string): Promise<Task> {
-    return write(async () => {
-        const task = await getLive(id);
-        const now = nextTimestamp(task.updated_at);
-
-        return { ...task, updated_at: now, deleted_at: now };
+        return { rows: [task], result: task };
     });
 }
 
 /**
- * Brings back a soft-deleted task (undo of `deleteTask`). The restore is a
- * newer change, so it also wins over the tombstone on other devices.
+ * Edits an item. On an occurrence, scope 'this' writes an exception and
+ * 'future' splits the series at the occurrence's date. `done` only ever
+ * applies to the one item.
  */
-export function restoreTask(id: string): Promise<Task> {
-    return write(async () => {
-        const task = await db.tasks.get(id);
+function edit(
+    id: string,
+    change: (item: PlannerTask) => TaskPatch,
+    { scope = 'this', undo }: ScopedMutationOptions,
+): Promise<PlannerTask> {
+    return write(
+        async () => {
+            const item = await getLive(id);
+            const patch = change(item);
+            const linked = await liveSeriesOf(item);
 
-        if (!task) {
-            throw new Error(`Task ${id} does not exist.`);
-        }
+            if (linked && scope === 'future') {
+                const { series } = linked;
+                const from = linked.item.occurrenceDate;
+                const content = patched(series, seriesPatch(patch));
+                const { rows, successor } = await splitSeries(
+                    series,
+                    from,
+                    newSeries(content, from, series.recurrence),
+                );
 
-        return {
-            ...task,
-            updated_at: nextTimestamp(task.updated_at),
-            deleted_at: null,
-        };
-    });
+                return {
+                    rows,
+                    result: representative(successor as Task, from),
+                };
+            }
+
+            let row: Task;
+
+            if (item.kind === 'occurrence') {
+                const series = await seriesOfOccurrence(item);
+
+                row = patched(materialize(series, item.occurrenceDate), patch);
+            } else if (item.kind === 'series') {
+                row = patched(item, seriesPatch(patch));
+            } else {
+                row = patched(item, patch);
+            }
+
+            return { rows: [row], result: toItem(row) };
+        },
+        { undo },
+    );
+}
+
+/**
+ * Changes `text`, `done`, `color`, `time`, `notes` or `subtasks`. Returns
+ * the item that now shows the change: an exception row for an occurrence
+ * edited with scope 'this', the new series' occurrence for 'future'.
+ */
+export function updateTask(
+    id: string,
+    patch: TaskPatch,
+    options: ScopedMutationOptions = {},
+): Promise<PlannerTask> {
+    return edit(id, () => patch, options);
+}
+
+/** Toggles done; on an occurrence it only ever affects that one. */
+export function toggleDone(
+    id: string,
+    options: MutationOptions = {},
+): Promise<PlannerTask> {
+    return edit(id, (item) => ({ done: !item.done }), options);
 }
 
 /**
@@ -192,24 +463,126 @@ export function restoreTask(id: string): Promise<Task> {
 export function updateSubtasks(
     id: string,
     update: (subtasks: Subtask[]) => Subtask[],
-): Promise<Task> {
-    return write(async () => {
-        const task = await getLive(id);
+    options: ScopedMutationOptions = {},
+): Promise<PlannerTask> {
+    return edit(id, (item) => ({ subtasks: update(item.subtasks) }), options);
+}
 
-        return patched(task, { subtasks: update(task.subtasks) });
+/**
+ * Soft-deletes (a tombstone that syncs like any other change). On an
+ * occurrence, scope 'this' writes a deleted exception and 'future' ends the
+ * series the day before (deleting it when it starts that day). Deleting a
+ * series row deletes it with all its exceptions. Returns the tombstone, or the
+ * ended series for 'future'.
+ */
+export function deleteTask(
+    id: string,
+    { scope = 'this', undo }: ScopedMutationOptions = {},
+): Promise<Task> {
+    return write(
+        async () => {
+            const item = await getLive(id);
+            const linked = await liveSeriesOf(item);
+
+            if (linked && scope === 'future') {
+                const { rows } = await splitSeries(
+                    linked.series,
+                    linked.item.occurrenceDate,
+                    null,
+                );
+
+                return { rows, result: rows[rows.length - 1] };
+            }
+
+            if (item.kind === 'occurrence') {
+                const series = await seriesOfOccurrence(item);
+                const row = tombstone(materialize(series, item.occurrenceDate));
+
+                return { rows: [row], result: row };
+            }
+
+            if (item.kind === 'series') {
+                const exceptions = await queryExceptions(
+                    item.id,
+                    '0000-01-01',
+                    '9999-12-31',
+                );
+                const row = tombstone(item);
+
+                return {
+                    rows: [
+                        ...exceptions
+                            .filter(
+                                (exception) => exception.deleted_at === null,
+                            )
+                            .map(tombstone),
+                        row,
+                    ],
+                    result: row,
+                };
+            }
+
+            const row = tombstone(item);
+
+            return { rows: [row], result: row };
+        },
+        { undo },
+    );
+}
+
+/**
+ * Brings back a soft-deleted task (undo of a single `deleteTask`). With an
+ * occurrence id it restores that occurrence's exception. The restore is a
+ * newer change, so it also wins over the tombstone on other devices. To undo
+ * a change that touched several rows, use an `UndoLog`.
+ */
+export function restoreTask(id: string): Promise<PlannerTask> {
+    return write(async () => {
+        const occurrence = parseOccurrenceId(id);
+        const task = occurrence
+            ? (
+                  await queryExceptions(
+                      occurrence.seriesId,
+                      occurrence.date,
+                      occurrence.date,
+                  )
+              )[0]
+            : await db.tasks.get(id);
+
+        if (!task) {
+            throw new Error(`Task ${id} does not exist.`);
+        }
+
+        const row: Task = {
+            ...task,
+            updated_at: nextTimestamp(task.updated_at),
+            deleted_at: null,
+        };
+
+        return { rows: [row], result: toItem(row) };
     });
 }
 
 /**
  * Moves a task to a day or Someday column. It lands right before `beforeId`
  * and/or right after `afterId`; a neighbour that is not in the target list is
- * ignored, and with no usable neighbour the task goes to the end.
+ * ignored, and with no usable neighbour the task goes to the end. Moving an
+ * occurrence writes an exception for it (a series row cannot be moved).
  */
-export function moveTask(id: string, input: MoveTaskInput): Promise<Task> {
+export function moveTask(
+    id: string,
+    input: MoveTaskInput,
+    options: MutationOptions = {},
+): Promise<PlannerTask> {
     return write(async () => {
-        const task = await getLive(id);
+        const item = await getLive(id);
+
+        if (item.kind === 'series') {
+            throw new Error('Move an occurrence, not its series.');
+        }
+
         const siblings = (await queryListTasks(input)).filter(
-            (sibling) => sibling.id !== id,
+            (sibling) => sibling.id !== id && sibling.id !== item.id,
         );
         const indexOf = (siblingId: string | null | undefined) =>
             siblingId ? siblings.findIndex((s) => s.id === siblingId) : -1;
@@ -226,40 +599,209 @@ export function moveTask(id: string, input: MoveTaskInput): Promise<Task> {
             afterIndex = beforeIndex - 1;
         }
 
-        return {
-            ...task,
+        const base =
+            item.kind === 'occurrence'
+                ? materialize(
+                      await seriesOfOccurrence(item),
+                      item.occurrenceDate,
+                  )
+                : item;
+        const row: Task = {
+            ...toRow(base),
             ...normalizePlacement(input),
             position: positionBetween(
                 siblings[afterIndex]?.position,
                 siblings[beforeIndex]?.position,
             ),
-            updated_at: nextTimestamp(task.updated_at),
+            updated_at: nextTimestamp(base.updated_at),
         };
-    });
+
+        return { rows: [row], result: toItem(row) };
+    }, options);
 }
 
 /**
  * Copies a task right after the original: same content and done state, new
- * ids for the task and its subtasks.
+ * ids for the task and its subtasks. The copy is always a plain task; a
+ * generated occurrence used as the source gets its exception row.
  */
-export function duplicateTask(id: string): Promise<Task> {
+export function duplicateTask(
+    id: string,
+    options: MutationOptions = {},
+): Promise<Task> {
     return write(async () => {
-        const task = await getLive(id);
-        const siblings = await queryListTasks(placementOf(task));
-        const next = siblings[siblings.findIndex((s) => s.id === id) + 1];
-        const now = nextTimestamp();
-
-        return {
-            ...task,
-            id: uuidv7(),
-            position: positionBetween(task.position, next?.position),
-            subtasks: task.subtasks.map((subtask) => ({
+        const item = await getLive(id);
+        const siblings = await queryListTasks(placementOf(item));
+        const next = siblings[siblings.findIndex((s) => s.id === item.id) + 1];
+        const source =
+            item.kind === 'occurrence'
+                ? materialize(
+                      await seriesOfOccurrence(item),
+                      item.occurrenceDate,
+                  )
+                : item;
+        const copy: Task = {
+            ...plainCopy(source),
+            position: positionBetween(item.position, next?.position),
+            subtasks: item.subtasks.map((subtask) => ({
                 ...subtask,
                 id: uuidv7(),
             })),
-            created_at: now,
-            updated_at: now,
-            deleted_at: null,
         };
+
+        return {
+            rows: item.kind === 'occurrence' ? [source, copy] : [copy],
+            result: copy,
+        };
+    }, options);
+}
+
+/**
+ * Sets or removes the repeat rule.
+ *
+ * - Plain task: `recurrence` turns it into a series anchored at its date (a
+ *   Someday task cannot repeat); `null` does nothing.
+ * - Series row: replaces the rule; `null` turns it into a plain task and
+ *   deletes its exceptions.
+ * - Occurrence or exception, scope 'future' (the default): the series ends the
+ *   day before the occurrence; with a rule, a new series with this item's
+ *   content starts on the occurrence's date; with `null`, this item becomes a
+ *   plain task. Scope 'this' only works with `null`: this item leaves the
+ *   series as a plain task and the rest of the series stays.
+ *
+ * Returns what now stands for the item: its occurrence on the anchor date when
+ * the rule produces one, else the series row, or the plain task.
+ */
+export function setRecurrence(
+    id: string,
+    recurrence: Recurrence | null,
+    { scope = 'future', undo }: ScopedMutationOptions = {},
+): Promise<PlannerTask> {
+    return write(
+        async () => {
+            const item = await getLive(id);
+            const linked = await liveSeriesOf(item);
+
+            if (linked) {
+                const { series } = linked;
+                const from = linked.item.occurrenceDate;
+                const isException = linked.item.kind === 'exception';
+
+                if (recurrence !== null) {
+                    if (scope === 'this') {
+                        throw new Error(
+                            'A new repeat rule applies to this and all future occurrences.',
+                        );
+                    }
+
+                    const { rows, successor } = await splitSeries(
+                        series,
+                        from,
+                        newSeries(item, from, recurrence),
+                    );
+
+                    return {
+                        rows,
+                        result: representative(successor as Task, from),
+                    };
+                }
+
+                const plain = isException ? detached(item) : plainCopy(item);
+
+                if (scope === 'this') {
+                    // A deleted exception keeps the occurrence from coming back.
+                    const hidden = tombstone(materialize(series, from));
+
+                    return { rows: [plain, hidden], result: toItem(plain) };
+                }
+
+                const { rows } = await splitSeries(series, from, null, item.id);
+
+                return { rows: [...rows, plain], result: toItem(plain) };
+            }
+
+            if (item.kind === 'series') {
+                if (recurrence !== null) {
+                    const row = { ...toRow(item), recurrence };
+                    const next = {
+                        ...row,
+                        updated_at: nextTimestamp(item.updated_at),
+                    };
+
+                    return { rows: [next], result: toItem(next) };
+                }
+
+                const exceptions = await queryExceptions(
+                    item.id,
+                    '0000-01-01',
+                    '9999-12-31',
+                );
+                const plain = detached(item);
+
+                return {
+                    rows: [
+                        ...exceptions
+                            .filter(
+                                (exception) => exception.deleted_at === null,
+                            )
+                            .map(tombstone),
+                        plain,
+                    ],
+                    result: toItem(plain),
+                };
+            }
+
+            if (recurrence === null) {
+                return { rows: [], result: item };
+            }
+
+            if (item.date === null) {
+                throw new Error('A Someday task cannot repeat.');
+            }
+
+            // A plain task, or an exception whose series is gone.
+            const row: Task = {
+                ...detached(item),
+                recurrence,
+                done: false,
+                done_at: null,
+            };
+
+            return { rows: [row], result: representative(row, item.date) };
+        },
+        { undo },
+    );
+}
+
+export function createUndoLog(): UndoLog {
+    return { before: new Map() };
+}
+
+/**
+ * Puts back every row the mutations logged in `log` overwrote, and deletes
+ * the rows they created, as newer changes so the undo also syncs.
+ */
+export function undoChanges(log: UndoLog): Promise<void> {
+    return write(async () => {
+        const ids = [...log.before.keys()];
+        const current = await db.tasks.bulkGet(ids);
+        const rows = ids.flatMap((id, i) => {
+            const before = log.before.get(id);
+            const now = current[i];
+
+            if (!now) {
+                return [];
+            }
+
+            if (!before) {
+                return now.deleted_at === null ? [tombstone(now)] : [];
+            }
+
+            return [{ ...before, updated_at: nextTimestamp(now.updated_at) }];
+        });
+
+        log.before.clear();
+
+        return { rows, result: undefined };
     });
 }

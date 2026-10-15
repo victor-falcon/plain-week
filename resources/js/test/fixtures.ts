@@ -16,6 +16,9 @@ export function makeTask(overrides: Partial<Task> = {}): Task {
         created_at: '2026-10-12T10:00:00.000Z',
         updated_at: '2026-10-12T10:00:00.000Z',
         deleted_at: null,
+        recurrence: null,
+        series_id: null,
+        occurrence_date: null,
         ...overrides,
     };
 }

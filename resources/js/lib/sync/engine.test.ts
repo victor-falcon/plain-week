@@ -7,7 +7,15 @@ import {
     vi,
 } from 'vite-plus/test';
 import { db, wipeLocalDatabase } from '@/lib/db/database';
-import { createTask, updateTask } from '@/lib/db/tasks';
+import { queryWeekTasks } from '@/lib/db/queries';
+import {
+    createTask,
+    setRecurrence,
+    toggleDone,
+    updateTask,
+} from '@/lib/db/tasks';
+import type { Task } from '@/lib/db/types';
+import { occurrenceId } from '@/lib/recurrence/expand';
 import { createFakeSyncServer } from '@/test/fake-sync-server';
 import { makeTask } from '@/test/fixtures';
 import { SyncEngine } from './engine';
@@ -225,6 +233,90 @@ describe('pull', () => {
 
         expect((await db.tasks.get(task.id))?.text).toBe('pending');
         expect(server.rows.get(task.id)?.text).toBe('pending');
+    });
+});
+
+describe('recurring tasks', () => {
+    const MON_WED: Task['recurrence'] = { type: 'weekly', weekdays: [1, 3] };
+
+    async function mondayToSunday() {
+        const week = await queryWeekTasks('2026-10-12');
+
+        return Object.entries(week).flatMap(([day, items]) =>
+            items.map((item) => `${item.text}${item.done ? '✓' : ''}@${day}`),
+        );
+    }
+
+    it('round-trips series and exceptions to another device', async () => {
+        const task = await createTask({ text: 'Gym', date: '2026-10-12' });
+
+        await setRecurrence(task.id, MON_WED);
+
+        const exception = await toggleDone(occurrenceId(task.id, '2026-10-14'));
+
+        await startAndSync();
+
+        expect(server.rows.get(task.id)).toMatchObject({
+            recurrence: MON_WED,
+            series_id: null,
+            occurrence_date: null,
+        });
+        expect(server.rows.get(exception.id)).toMatchObject({
+            recurrence: null,
+            series_id: task.id,
+            occurrence_date: '2026-10-14',
+        });
+
+        // Another device: an empty database pulls everything.
+        engine.stop();
+        await wipeLocalDatabase();
+        await startAndSync();
+
+        expect(await db.tasks.get(task.id)).toMatchObject({
+            recurrence: MON_WED,
+        });
+        expect(await mondayToSunday()).toEqual([
+            'Gym@2026-10-12',
+            'Gym✓@2026-10-14',
+        ]);
+    });
+
+    it('applies a newer remote series with last-write-wins', async () => {
+        const series = makeTask({ text: 'Gym', recurrence: MON_WED });
+
+        await db.tasks.put(series);
+        server.seed({
+            ...series,
+            recurrence: { ...MON_WED, until: '2026-10-13' },
+            updated_at: '2026-10-12T12:00:00.000Z',
+        });
+        server.seed(
+            makeTask({
+                text: 'Gym (moved)',
+                date: '2026-10-15',
+                series_id: series.id,
+                occurrence_date: '2026-10-12',
+            }),
+        );
+        await startAndSync();
+
+        expect(await mondayToSunday()).toEqual(['Gym (moved)@2026-10-15']);
+    });
+
+    it('treats remote records without the recurrence fields as plain', async () => {
+        const legacy: Partial<Task> = makeTask({ text: 'Old' });
+
+        delete legacy.recurrence;
+        delete legacy.series_id;
+        delete legacy.occurrence_date;
+        server.seed(legacy as Task);
+        await startAndSync();
+
+        expect(await db.tasks.get(legacy.id as string)).toMatchObject({
+            recurrence: null,
+            series_id: null,
+            occurrence_date: null,
+        });
     });
 });
 

@@ -74,6 +74,9 @@ function toTask(remote: Task): Task {
         created_at: remote.created_at,
         updated_at: remote.updated_at,
         deleted_at: remote.deleted_at ?? null,
+        recurrence: remote.recurrence ?? null,
+        series_id: remote.series_id ?? null,
+        occurrence_date: remote.occurrence_date ?? null,
     };
 }
 

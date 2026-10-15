@@ -15,6 +15,24 @@ export class PlainWeekDatabase extends Dexie {
             outbox: 'task_id',
             meta: 'key',
         });
+
+        // Recurring tasks. Rows whose indexed value is null (or missing) stay
+        // out of an index, so `recurrence.type` lists series rows only and
+        // `[series_id+occurrence_date]` exception rows only.
+        this.version(2)
+            .stores({
+                tasks: 'id, date, [date+position], someday_column, updated_at, deleted_at, recurrence.type, [series_id+occurrence_date]',
+            })
+            .upgrade((tx) =>
+                tx
+                    .table<Task, string>('tasks')
+                    .toCollection()
+                    .modify((task) => {
+                        task.recurrence ??= null;
+                        task.series_id ??= null;
+                        task.occurrence_date ??= null;
+                    }),
+            );
     }
 }
 
