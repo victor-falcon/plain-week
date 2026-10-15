@@ -134,6 +134,11 @@ IndexedDB leaves a row out of an index when the indexed value is null, so `recur
 `[series_id+occurrence_date]` exception rows only. Version 2 added both indexes and an upgrade that sets `recurrence`,
 `series_id` and `occurrence_date` to `null` on existing rows.
 
+Helpers that run inside a caller's transaction (`clearAllTables`, `purgeDemoTasks`) return Dexie promises, not native
+ones from an `async` function: awaiting a native promise from a nested async helper can resume outside the transaction
+zone, and Dexie then commits early (`PrematureCommitError`) before the caller's next operation. In the browser this
+made the first sync of a fresh login fail.
+
 Types are in `lib/db/types.ts`: `Task` (exactly the contract shape), `Recurrence`, `TaskColor` and `TASK_COLORS`
 (colour ids only; the UI owns the swatches), `SomedayColumn`, `Subtask`. Schema changes need a new `this.version(n)` in
 `lib/db/database.ts`; never edit a released version.
@@ -371,6 +376,8 @@ the claim wipes another user's leftover local data (which only exists after a se
   `occurrence_date` included. Left out: tombstones, exceptions of a deleted series, and losing duplicate exceptions
   (only the `winningException` of each occurrence is kept). One kind of tombstone is kept on purpose: the deleted
   exception of a live series, because it is what hides a deleted occurrence; without it the occurrence would come back.
+  Demo tasks ([Guest onboarding](#guest-onboarding-demo-tasks), `meta.demo_ids`) are never exported: `buildExport`
+  skips them, and `prepareLocalData`'s claim already purges the untouched ones, like the first sync of a new account.
 - `version` changes only for incompatible changes. A newer version is refused with a message to update Plain Week.
 
 | Function (`lib/transfer`)                      | What it does                                                                                                                                                                                                                                                                                                                         |

@@ -43,11 +43,18 @@ export function allTables(database: PlainWeekDatabase) {
     return [database.tasks, database.outbox, database.meta];
 }
 
-/** Clears every table. Call it inside a transaction over `allTables()`. */
-export async function clearAllTables(
-    database: PlainWeekDatabase,
-): Promise<void> {
-    await Promise.all(allTables(database).map((table) => table.clear()));
+/**
+ * Clears every table. Call it inside a transaction over `allTables()`.
+ *
+ * Helpers that run inside a caller's transaction return a Dexie promise, not
+ * a native one (no `async`): awaiting a native promise from a nested async
+ * function can resume outside the transaction's zone, and Dexie then commits
+ * early (PrematureCommitError) before the caller's next operation.
+ */
+export function clearAllTables(database: PlainWeekDatabase): Promise<void> {
+    return Dexie.Promise.all(
+        allTables(database).map((table) => table.clear()),
+    ).then(() => undefined);
 }
 
 /**

@@ -1,4 +1,4 @@
-import { allTables, db, wipeLocalDatabase } from '@/lib/db/database';
+import { db, wipeLocalDatabase } from '@/lib/db/database';
 import { SyncEngine, claimDatabaseFor } from './engine';
 import { withSyncLock } from './lock';
 import { fetchTransport, requestLogout } from './transport';
@@ -19,11 +19,7 @@ export const syncEngine = new SyncEngine({ db, transport: fetchTransport });
 export async function prepareLocalData(
     userId: string | number,
 ): Promise<boolean> {
-    await withSyncLock(() =>
-        db.transaction('rw', allTables(db), () =>
-            claimDatabaseFor(db, String(userId)),
-        ),
-    );
+    await withSyncLock(() => claimDatabaseFor(db, String(userId)));
     await syncEngine.sync({ force: true });
 
     return syncEngine.isStarted && syncEngine.getStatus() === 'idle';

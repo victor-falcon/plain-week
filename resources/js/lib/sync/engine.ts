@@ -82,23 +82,28 @@ function toTask(remote: Task): Task {
 }
 
 /**
- * Binds the local database to `userId`: data of a different user is wiped,
- * data without an owner (guest work) is kept, except untouched demo tasks,
- * which are deleted (they never reach the server). Call it inside a read-write
- * transaction over `allTables()`.
+ * Binds the local database to `userId` in one transaction over every table:
+ * data of a different user is wiped, data without an owner (guest work) is
+ * kept, except untouched demo tasks, which are deleted (they never reach the
+ * server). `check` runs first inside the transaction and may throw to cancel.
  */
-export async function claimDatabaseFor(
+export function claimDatabaseFor(
     db: PlainWeekDatabase,
     userId: string,
+    check: () => void = () => {},
 ): Promise<void> {
-    const owner = await db.meta.get('user_id');
+    return db.transaction('rw', allTables(db), async () => {
+        check();
 
-    if (owner && String(owner.value) !== userId) {
-        await clearAllTables(db);
-    }
+        const owner = await db.meta.get('user_id');
 
-    await purgeDemoTasks(db);
-    await db.meta.put({ key: 'user_id', value: userId });
+        if (owner && String(owner.value) !== userId) {
+            await clearAllTables(db);
+        }
+
+        await purgeDemoTasks(db);
+        await db.meta.put({ key: 'user_id', value: userId });
+    });
 }
 
 /**
@@ -341,10 +346,9 @@ export class SyncEngine {
     private async claimDatabase(generation: number): Promise<void> {
         const { db } = this;
 
-        await db.transaction('rw', allTables(db), async () => {
-            this.assertCurrent(generation);
-            await claimDatabaseFor(db, this.userId as string);
-        });
+        await claimDatabaseFor(db, this.userId as string, () =>
+            this.assertCurrent(generation),
+        );
     }
 
     private async push(generation: number): Promise<void> {

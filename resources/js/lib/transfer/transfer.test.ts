@@ -101,6 +101,15 @@ describe('export', () => {
         });
     });
 
+    it('leaves out demo tasks', async () => {
+        const mine = await createTask({ text: 'Mine', date: MON });
+        await createTask({ text: 'Demo', date: MON }, { demo: true });
+
+        expect((await buildExport()).tasks.map((task) => task.id)).toEqual([
+            mine.id,
+        ]);
+    });
+
     it('names the file after the local date', () => {
         expect(exportFileName(new Date(2026, 9, 5, 23, 30))).toBe(
             'plain-week-export-2026-10-05.json',

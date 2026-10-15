@@ -12,6 +12,7 @@ import {
 } from 'vite-plus/test';
 import { Toaster } from '@/components/ui/sonner';
 import { db, wipeLocalDatabase } from '@/lib/db/database';
+import { createTask } from '@/lib/db/tasks';
 import { buildExport } from '@/lib/transfer/export';
 import { makeTask } from '@/test/fixtures';
 import Data from './data';
@@ -135,5 +136,20 @@ describe('Settings › Data', () => {
             await screen.findByText('There are no tasks to export.'),
         ).toBeTruthy();
         expect(createObjectURL).not.toHaveBeenCalled();
+    });
+
+    it('drops untouched demo tasks before exporting', async () => {
+        URL.createObjectURL = vi.fn(() => 'blob:export');
+        URL.revokeObjectURL = vi.fn();
+        await createTask({ text: 'Mine', date: '2026-10-12' });
+        await createTask({ text: 'Demo', date: '2026-10-12' }, { demo: true });
+        const user = renderPage();
+
+        await user.click(screen.getByRole('button', { name: 'Export data' }));
+
+        expect(await screen.findByText('Exported 1 task')).toBeTruthy();
+        expect((await db.tasks.toArray()).map((task) => task.text)).toEqual([
+            'Mine',
+        ]);
     });
 });
