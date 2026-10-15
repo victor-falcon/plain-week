@@ -4,8 +4,8 @@ import { SomedaySection } from '@/components/planner/someday-section';
 import { WeekGrid } from '@/components/planner/week-grid';
 import { SyncProvider } from '@/components/sync-provider';
 import { usePlannerShortcuts } from '@/hooks/use-planner-shortcuts';
+import { useToday } from '@/hooks/use-today';
 import { useWeekNavigation } from '@/hooks/use-week-navigation';
-import { toDateKey } from '@/lib/db/dates';
 
 /**
  * Opens a task. Seam for the task dialog (T5); until it lands, opening a task
@@ -20,7 +20,8 @@ function openTask(taskId: string): void {
  * the background for signed-in users.
  */
 export default function Planner() {
-    const navigation = useWeekNavigation();
+    const today = useToday();
+    const navigation = useWeekNavigation(today);
 
     usePlannerShortcuts(navigation);
 
@@ -38,7 +39,7 @@ export default function Planner() {
                 <main className="flex flex-col gap-10 px-4 pt-6 pb-12 lg:gap-12 lg:px-6 lg:pt-14">
                     <WeekGrid
                         weekStart={navigation.weekStart}
-                        today={toDateKey(new Date())}
+                        today={today}
                         onOpenTask={openTask}
                     />
                     <SomedaySection onOpenTask={openTask} />

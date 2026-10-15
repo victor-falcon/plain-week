@@ -38,16 +38,28 @@ export function usePlannerShortcuts(shortcuts: PlannerShortcuts): void {
         }
 
         const rtl = document.documentElement.dir === 'rtl';
-        const action = {
-            ArrowLeft: rtl ? shortcuts.nextWeek : shortcuts.previousWeek,
-            ArrowRight: rtl ? shortcuts.previousWeek : shortcuts.nextWeek,
-            t: shortcuts.goToToday,
-            T: shortcuts.goToToday,
-        }[event.key];
+        let action: (() => void) | null = null;
 
-        if (action) {
+        switch (event.key) {
+            case 'ArrowLeft':
+                action = rtl ? shortcuts.nextWeek : shortcuts.previousWeek;
+                break;
+            case 'ArrowRight':
+                action = rtl ? shortcuts.previousWeek : shortcuts.nextWeek;
+                break;
+            case 't':
+            case 'T':
+                action = shortcuts.goToToday;
+                break;
+        }
+
+        if (action !== null) {
             event.preventDefault();
-            action();
+
+            // Holding a key repeats it: one week per press is enough.
+            if (!event.repeat) {
+                action();
+            }
         }
     });
 

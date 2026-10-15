@@ -6,6 +6,7 @@ import {
     TooltipContent,
     TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { formatMonthTitle, formatWeekNumber } from '@/lib/planner/format';
 import { isoWeekNumber, weekThursday } from '@/lib/planner/week';
 import { cn } from '@/lib/utils';
 
@@ -16,15 +17,6 @@ type Props = {
     onNextWeek: () => void;
     onToday: () => void;
 };
-
-const longTitle = new Intl.DateTimeFormat('en-GB', {
-    month: 'long',
-    year: 'numeric',
-});
-const shortTitle = new Intl.DateTimeFormat('en-GB', {
-    month: 'short',
-    year: 'numeric',
-});
 
 const navButton =
     'size-10 rounded-full bg-foreground text-background hover:bg-foreground/80';
@@ -60,15 +52,15 @@ export function PlannerHeader({
                     )}
                 >
                     <span className="lg:hidden">
-                        {shortTitle.format(thursday)}
+                        {formatMonthTitle(thursday, 'short')}
                     </span>
                     <span className="max-lg:hidden">
-                        {longTitle.format(thursday)}
+                        {formatMonthTitle(thursday, 'long')}
                     </span>
                 </Button>
                 <span className="shrink-0 text-muted-foreground/50">
                     <abbr title={`Week ${week}`} className="no-underline">
-                        W{String(week).padStart(2, '0')}
+                        {formatWeekNumber(week)}
                     </abbr>
                 </span>
             </h1>

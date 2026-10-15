@@ -1,5 +1,4 @@
 import { CircleCheck } from 'lucide-react';
-import type { KeyboardEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import type { Task } from '@/lib/db/types';
 import { TASK_COLOR_STYLES } from '@/lib/planner/task-colors';
@@ -7,49 +6,38 @@ import { cn } from '@/lib/utils';
 
 type Props = {
     task: Task;
-    /** Opens the task (single click, Enter or Space). */
+    /** Opens the task (click, Enter or Space on its text). */
     onOpen: (taskId: string) => void;
     onToggleDone: (taskId: string) => void;
     className?: string;
 };
 
 /**
- * One ruled row showing a task. Clicking the row opens it; the check button at
- * the end toggles completion (on hover or focus on desktop, always on touch
- * layouts).
+ * One ruled row showing a task: a button with the text that opens it, and a
+ * check button at the end that toggles completion (on hover or focus with a
+ * mouse on desktop, always on mobile and touch screens).
  */
 export function TaskRow({ task, onOpen, onToggleDone, className }: Props) {
     const color = TASK_COLOR_STYLES[task.color];
-
-    const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-        if (
-            event.target === event.currentTarget &&
-            (event.key === 'Enter' || event.key === ' ')
-        ) {
-            event.preventDefault();
-            onOpen(task.id);
-        }
-    };
+    const label = [task.time, task.text, task.done ? '(done)' : null]
+        .filter(Boolean)
+        .join(' ');
 
     return (
         <div
-            role="button"
-            tabIndex={0}
             data-task-id={task.id}
-            aria-label={task.time ? `${task.time} ${task.text}` : task.text}
-            onClick={() => onOpen(task.id)}
-            onKeyDown={handleKeyDown}
             className={cn(
-                'group/task flex h-row cursor-pointer items-center gap-1 border-b border-border text-base outline-none focus-visible:ring-3 focus-visible:ring-ring/30 lg:text-sm',
+                'group/task flex h-row items-center gap-1 border-b border-border',
                 task.done && 'text-muted-foreground',
                 className,
             )}
         >
-            <span
-                className={cn(
-                    'flex min-w-0 flex-1 items-center truncate',
-                    task.done && 'line-through',
-                )}
+            <Button
+                type="button"
+                variant="ghost"
+                aria-label={label}
+                onClick={() => onOpen(task.id)}
+                className="h-full min-w-0 flex-1 justify-start gap-0 rounded-none px-0 text-base font-normal text-inherit hover:bg-transparent hover:text-inherit focus-visible:rounded-sm active:not-aria-[haspopup]:translate-y-0 lg:text-sm"
             >
                 {task.time && (
                     <span className="ms-1.5 shrink-0 rounded-full border border-current px-1.5 text-xs leading-5 tabular-nums">
@@ -60,26 +48,25 @@ export function TaskRow({ task, onOpen, onToggleDone, className }: Props) {
                     className={cn(
                         'truncate rounded-full px-1.5 leading-6',
                         color.pill,
+                        task.done && 'line-through',
                         task.done && color.pill && 'opacity-50',
                     )}
                 >
                     {task.text}
                 </span>
-            </span>
+            </Button>
             <Button
                 type="button"
                 variant="ghost"
                 size="icon-sm"
                 aria-label={task.done ? 'Mark as not done' : 'Mark as done'}
                 aria-pressed={task.done}
-                onClick={(event) => {
-                    event.stopPropagation();
-                    onToggleDone(task.id);
-                }}
-                onKeyDown={(event) => event.stopPropagation()}
+                onClick={() => onToggleDone(task.id)}
                 className={cn(
-                    'shrink-0 rounded-full hover:bg-transparent focus-visible:opacity-100 lg:opacity-0 lg:group-hover/task:opacity-100 lg:group-focus-visible/task:opacity-100',
-                    task.done && 'lg:opacity-100',
+                    // Hidden until hover only for mouse users on desktop; touch
+                    // screens of any size always show it.
+                    'shrink-0 rounded-full hover:bg-transparent lg:pointer-fine:opacity-0 lg:pointer-fine:group-hover/task:opacity-100 lg:pointer-fine:focus-visible:opacity-100',
+                    task.done && 'lg:pointer-fine:opacity-100',
                 )}
             >
                 <CircleCheck

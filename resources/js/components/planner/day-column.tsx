@@ -1,6 +1,6 @@
 import { TaskList } from '@/components/planner/task-list';
-import { parseDateKey } from '@/lib/db/dates';
 import type { Task } from '@/lib/db/types';
+import { formatDay, formatWeekday } from '@/lib/planner/format';
 import { cn } from '@/lib/utils';
 
 type Props = {
@@ -13,12 +13,6 @@ type Props = {
     className?: string;
 };
 
-const dayFormat = new Intl.DateTimeFormat('en-GB', {
-    day: 'numeric',
-    month: 'short',
-});
-const weekdayFormat = new Intl.DateTimeFormat('en-GB', { weekday: 'short' });
-
 /** One day: its header ("12 Oct … Mon") over its ruled task list. */
 export function DayColumn({
     date,
@@ -28,9 +22,8 @@ export function DayColumn({
     onOpenTask,
     className,
 }: Props) {
-    const day = parseDateKey(date);
-    const dayLabel = dayFormat.format(day);
-    const weekday = weekdayFormat.format(day);
+    const dayLabel = formatDay(date);
+    const weekday = formatWeekday(date);
 
     return (
         <section

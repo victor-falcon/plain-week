@@ -17,14 +17,20 @@ import { createTask, listTasksIn } from '@/lib/db/tasks';
 const DAY = '2026-10-12';
 const LABEL = 'New task for Mon 12 Oct';
 
-function Day({ onOpenTask = () => {} }: { onOpenTask?: (id: string) => void }) {
+function Day({
+    onOpenTask = () => {},
+    rows = 10,
+}: {
+    onOpenTask?: (id: string) => void;
+    rows?: number;
+}) {
     const tasks = useLiveQuery(() => listTasksIn({ date: DAY }), []);
 
     return (
         <TaskList
             placement={{ date: DAY }}
             tasks={tasks}
-            rows={10}
+            rows={rows}
             newTaskLabel={LABEL}
             onOpenTask={onOpenTask}
         />
@@ -63,7 +69,11 @@ describe('TaskList', () => {
         const emptyRows = screen.getAllByLabelText(LABEL);
         expect(emptyRows).toHaveLength(9);
         expect(document.activeElement).toBe(emptyRows[0]);
-        expect(row.nextElementSibling?.contains(emptyRows[0])).toBe(true);
+        expect(
+            row
+                .closest('[data-task-id]')
+                ?.nextElementSibling?.contains(emptyRows[0]),
+        ).toBe(true);
 
         await user.keyboard('Read{Enter}');
         await screen.findByRole('button', { name: 'Read' });
@@ -72,6 +82,38 @@ describe('TaskList', () => {
             'Gym',
             'Read',
         ]);
+    });
+
+    it('keeps focus in the row the user moved to while the previous one saves', async () => {
+        const user = userEvent.setup();
+        render(<Day rows={5} />);
+
+        await user.click(screen.getAllByLabelText(LABEL)[0]);
+        await user.keyboard('First');
+        const lastRow = screen.getAllByLabelText(LABEL)[4];
+        await user.click(lastRow);
+
+        await screen.findByRole('button', { name: 'First' });
+        expect(lastRow.isConnected).toBe(true);
+        expect(document.activeElement).toBe(lastRow);
+
+        await user.keyboard('Second{Enter}');
+        await screen.findByRole('button', { name: 'Second' });
+    });
+
+    it('keeps typing after Enter when the list is full', async () => {
+        const user = userEvent.setup();
+        render(<Day rows={1} />);
+
+        await user.click(screen.getByLabelText(LABEL));
+        await user.keyboard('One{Enter}');
+        await screen.findByRole('button', { name: 'One' });
+
+        await waitFor(() =>
+            expect(document.activeElement).toBe(screen.getByLabelText(LABEL)),
+        );
+        await user.keyboard('Two{Enter}');
+        await screen.findByRole('button', { name: 'Two' });
     });
 
     it('cancels with Escape', async () => {
@@ -139,6 +181,7 @@ describe('TaskList', () => {
             expect((await listTasksIn({ date: DAY }))[0].done).toBe(true);
         });
         await screen.findByRole('button', { name: 'Mark as not done' });
+        await screen.findByRole('button', { name: 'Finish (done)' });
         expect(onOpenTask).not.toHaveBeenCalled();
     });
 });

@@ -50,7 +50,10 @@ export function NewTaskRow({ ref, label, onSubmit, className }: Props) {
     };
 
     return (
-        <div className={cn('h-row border-b border-border', className)}>
+        <div
+            data-new-task-row
+            className={cn('h-row border-b border-border', className)}
+        >
             <Input
                 ref={ref}
                 type="text"

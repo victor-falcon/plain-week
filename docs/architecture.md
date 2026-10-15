@@ -192,8 +192,9 @@ measurements in [style.md](./style.md#planner-layout)). It follows the offline-f
   weeks needs no server round trip and works offline (`hooks/use-week-navigation.ts`).
 - Shortcuts (`hooks/use-planner-shortcuts.ts`) listen on `window` and skip events from text fields or while a dialog
   or menu (`role="dialog" | "alertdialog" | "menu" | "listbox"`) is open.
+- "Today" comes from `useToday()`, which rolls over at local midnight and when the tab becomes visible again.
 - Pure logic lives in `lib/planner/` with unit tests: ISO week math and the desktop column layout (`week.ts`), smart
-  time (`smart-time.ts`) and task color styles (`task-colors.ts`).
+  time (`smart-time.ts`), date labels (`format.ts`) and task color styles (`task-colors.ts`).
 
 Seams for later work:
 

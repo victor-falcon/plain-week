@@ -95,7 +95,7 @@ follow Tweek; colors, radius and font come from the tokens.
 | Empty rows      | Always filled up to 10 per weekday, 5 for Saturday and Sunday, 2 per Someday column (and at least one after the last task)              | Only one empty row after the tasks                                         |
 | Someday         | Below the week, full width, 3 columns of ruled rows; the "Someday" title sits above them                                                | The three columns stacked                                                  |
 | Task text       | `text-sm`                                                                                                                               | `text-base`                                                                |
-| Complete button | Check icon at the row end, shown on hover or keyboard focus (always shown when done)                                                    | Always shown                                                               |
+| Complete button | Check icon at the row end, shown on hover or keyboard focus with a mouse (always on touch screens and when done)                        | Always shown                                                               |
 
 Row behaviour:
 
@@ -103,13 +103,14 @@ Row behaviour:
   the new task), Esc cancels, leaving the row with text also creates it. A leading 24-hour time becomes the task time
   ("17:30 Gym" → time `17:30`, text "Gym"; `lib/planner/smart-time.ts`).
 - The row being typed in lifts with `shadow-md`, a background and extra horizontal padding.
-- A task row is a focusable `role="button"`: click, Enter or Space opens the task (`onOpen(taskId)`, the seam for the
-  task dialog). The complete button stops propagation, so it never opens the task.
+- A task row holds two sibling `Button`s: the text (click, Enter or Space opens the task through `onOpen(taskId)`, the
+  seam for the task dialog) and the complete check.
+- Empty rows are keyed by their slot, so saving a task never unmounts the row the user moved to.
 - Done tasks are `text-muted-foreground` and `line-through`; a colored pill fades to 50 %.
 - A task with a time shows it first in a small outlined pill (`border-current`, `text-xs`, tabular numbers).
 
 Keyboard shortcuts (only when focus is not in a text field and no dialog or menu is open): ← / → previous / next week
-(mirrored in RTL), T current week.
+(mirrored in RTL), T current week. Held keys do not repeat.
 
 ## Task colors
 

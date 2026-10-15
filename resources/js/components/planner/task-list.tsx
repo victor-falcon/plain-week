@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useLayoutEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { NewTaskRow } from '@/components/planner/new-task-row';
 import { TaskRow } from '@/components/planner/task-row';
@@ -22,9 +22,10 @@ type Props = {
 };
 
 /**
- * A ruled list: the tasks, then empty rows that add new ones. Creating with
- * Enter keeps focus on the first empty row, which lands right below the new
- * task, so typing can go on.
+ * A ruled list: the tasks, then empty rows that add new ones. Empty rows are
+ * keyed by their slot (row position), so adding a task only unmounts the row
+ * it replaces and an input the user is in stays put. Creating with Enter moves
+ * focus to the empty row right below the new task, so typing can go on.
  */
 export function TaskList({
     placement,
@@ -34,19 +35,36 @@ export function TaskList({
     onOpenTask,
     className,
 }: Props) {
-    const firstEmptyRow = useRef<HTMLInputElement>(null);
+    const emptyInputs = useRef(new Map<number, HTMLInputElement>());
+    const focusAfterCreate = useRef(false);
     const taskCount = tasks?.length ?? 0;
     const emptyRows = Math.max(rows, taskCount + 1) - taskCount;
+
+    // When the row that had focus was replaced by its task (no empty row was
+    // left below it), continue in the first empty row.
+    useLayoutEffect(() => {
+        if (!focusAfterCreate.current) {
+            return;
+        }
+
+        focusAfterCreate.current = false;
+
+        if (!document.activeElement?.closest('[data-new-task-row]')) {
+            emptyInputs.current.get(taskCount)?.focus();
+        }
+    }, [taskCount]);
 
     const handleSubmit = (input: string, via: 'enter' | 'blur') => {
         const { text, time } = parseSmartTime(input);
 
         createTask({ ...placement, text, time }).catch(() =>
-            toast.error('Could not save the task.'),
+            toast.error(`Could not save "${input}".`),
         );
 
         if (via === 'enter') {
-            firstEmptyRow.current?.focus();
+            // The new task takes the first empty slot; the next one stays.
+            focusAfterCreate.current = true;
+            emptyInputs.current.get(taskCount + 1)?.focus();
         }
     };
 
@@ -66,15 +84,27 @@ export function TaskList({
                     onToggleDone={handleToggleDone}
                 />
             ))}
-            {Array.from({ length: emptyRows }, (_, index) => (
-                <NewTaskRow
-                    key={`new-${index}`}
-                    ref={index === 0 ? firstEmptyRow : undefined}
-                    label={newTaskLabel}
-                    onSubmit={handleSubmit}
-                    className={index > 0 ? 'max-lg:hidden' : undefined}
-                />
-            ))}
+            {Array.from({ length: emptyRows }, (_, index) => {
+                const slot = taskCount + index;
+
+                return (
+                    <NewTaskRow
+                        key={`new-${slot}`}
+                        ref={(input) => {
+                            if (input) {
+                                emptyInputs.current.set(slot, input);
+                            }
+
+                            return () => {
+                                emptyInputs.current.delete(slot);
+                            };
+                        }}
+                        label={newTaskLabel}
+                        onSubmit={handleSubmit}
+                        className={index > 0 ? 'max-lg:hidden' : undefined}
+                    />
+                );
+            })}
         </div>
     );
 }

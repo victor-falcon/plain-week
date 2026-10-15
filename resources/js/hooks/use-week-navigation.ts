@@ -1,14 +1,11 @@
 import { useEffect, useState } from 'react';
-import { toDateKey } from '@/lib/db/dates';
+import { parseDateKey, toDateKey } from '@/lib/db/dates';
 import { addWeeks, parseWeekParam, startOfWeek } from '@/lib/planner/week';
 
 const WEEK_PARAM = 'week';
 
 function weekFromUrl(): Date {
-    const value =
-        typeof window === 'undefined'
-            ? null
-            : new URLSearchParams(window.location.search).get(WEEK_PARAM);
+    const value = new URLSearchParams(window.location.search).get(WEEK_PARAM);
 
     return parseWeekParam(value) ?? startOfWeek(new Date());
 }
@@ -18,10 +15,8 @@ function weekFromUrl(): Date {
  * with `history.replaceState`, so a reload keeps the position without any
  * server round trip. Inertia's history state is kept as is.
  */
-function writeWeekToUrl(weekStart: Date): void {
+function writeWeekToUrl(weekStart: Date, isCurrentWeek: boolean): void {
     const url = new URL(window.location.href);
-    const isCurrentWeek =
-        toDateKey(weekStart) === toDateKey(startOfWeek(new Date()));
 
     if (isCurrentWeek) {
         url.searchParams.delete(WEEK_PARAM);
@@ -29,8 +24,15 @@ function writeWeekToUrl(weekStart: Date): void {
         url.searchParams.set(WEEK_PARAM, toDateKey(weekStart));
     }
 
-    if (url.href !== window.location.href) {
+    if (url.href === window.location.href) {
+        return;
+    }
+
+    try {
         window.history.replaceState(window.history.state, '', url);
+    } catch {
+        // Browsers rate-limit history updates (Safari: 100 per 30 s). The URL
+        // is only a convenience for reloads, so skipping one is harmless.
     }
 }
 
@@ -43,20 +45,25 @@ export type WeekNavigation = {
     goToToday: () => void;
 };
 
-/** The shown week, kept in the URL query. Works fully offline. */
-export function useWeekNavigation(): WeekNavigation {
+/**
+ * The shown week, kept in the URL query. Works fully offline. `today` is the
+ * local 'YYYY-MM-DD' key (see `useToday`). The planner is client-only: its
+ * data lives in IndexedDB, so reading `window` on first render is fine.
+ */
+export function useWeekNavigation(today: string): WeekNavigation {
     const [weekStart, setWeekStart] = useState(weekFromUrl);
-    const currentWeek = startOfWeek(new Date());
+    const currentWeek = startOfWeek(parseDateKey(today));
+    const isCurrentWeek = toDateKey(weekStart) === toDateKey(currentWeek);
 
     useEffect(() => {
-        writeWeekToUrl(weekStart);
-    }, [weekStart]);
+        writeWeekToUrl(weekStart, isCurrentWeek);
+    }, [weekStart, isCurrentWeek]);
 
     return {
         weekStart,
-        isCurrentWeek: toDateKey(weekStart) === toDateKey(currentWeek),
+        isCurrentWeek,
         previousWeek: () => setWeekStart((week) => addWeeks(week, -1)),
         nextWeek: () => setWeekStart((week) => addWeeks(week, 1)),
-        goToToday: () => setWeekStart(startOfWeek(new Date())),
+        goToToday: () => setWeekStart(currentWeek),
     };
 }
