@@ -33,10 +33,14 @@ export function useSomedayTasks(): SomedayTasks | undefined {
 export function useTask(
     id: string | null | undefined,
 ): Task | null | undefined {
-    return useLiveQuery(
-        () => (id ? queryTask(id) : Promise.resolve(null)),
+    // Right after `id` changes, useLiveQuery still returns the previous
+    // query's result; tagging it with its id keeps that stale value out.
+    const result = useLiveQuery(
+        async () => ({ id, task: id ? await queryTask(id) : null }),
         [id],
     );
+
+    return result !== undefined && result.id === id ? result.task : undefined;
 }
 
 /**

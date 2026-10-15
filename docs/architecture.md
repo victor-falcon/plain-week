@@ -108,6 +108,8 @@ beats the version it replaces. After commit the mutation schedules a sync.
 | `updateTask(id, patch)`                                                                                          | Only `text`, `done`, `color`, `time`, `notes`, `subtasks`; `undefined` values are ignored. Changing `done` sets/clears `done_at`. |
 | `toggleDone(id)`                                                                                                 |                                                                                                                                   |
 | `deleteTask(id)`                                                                                                 | Tombstone (`deleted_at`); the record stays and syncs.                                                                             |
+| `restoreTask(id)`                                                                                                | Undo of `deleteTask`: clears `deleted_at` with a newer `updated_at`, so the restore also wins on other devices.                   |
+| `updateSubtasks(id, update)`                                                                                     | Replaces `subtasks` with `update(current)` in one transaction, so quick successive subtask edits never overwrite each other.      |
 | `moveTask(id, { date, someday_column?, beforeId?, afterId? })`                                                   | Lands right before `beforeId` and/or right after `afterId`; a neighbour not in the target list is ignored; with none, at the end. |
 | `duplicateTask(id)`                                                                                              | Copy (content and done state) with new ids for the task and subtasks, right after the original.                                   |
 | `listTasksIn({ date } \| { date: null, someday_column })`                                                        | Sorted, non-deleted tasks of one list (useful to compute neighbours).                                                             |
@@ -126,7 +128,7 @@ cleared. Someday columns are shown in position order.
 | ------------------------------- | ----------------------------------------------------------------------------------------------- |
 | `useWeekTasks(weekStart: Date)` | `Record<'YYYY-MM-DD', Task[]>` for the 7 days from `weekStart` (every day present), timed first |
 | `useSomedayTasks()`             | `[Task[], Task[], Task[]]`, the three Someday columns, sorted                                   |
-| `useTask(id)`                   | The task, or `null` if missing/deleted                                                          |
+| `useTask(id)`                   | The task, `null` if missing/deleted, `undefined` while loading (also right after `id` changes)  |
 | `useSyncStatus()`               | `'idle' \| 'syncing' \| 'offline' \| 'error'` (`idle` for guests)                               |
 | `usePendingChangeCount()`       | Number of local changes not accepted by the server yet (outbox size)                            |
 
@@ -190,7 +192,8 @@ application/json` and the `X-XSRF-TOKEN` header from Laravel's `XSRF-TOKEN` cook
 measurements in [style.md](./style.md#planner-layout)). It follows the offline-first rule:
 
 - Data comes only from the live hooks (`useWeekTasks`, `useSomedayTasks`, `usePendingChangeCount`); writes go through
-  the repository (`createTask`, `toggleDone`) without awaiting them. Write failures show a toast.
+  the repository (`createTask`, `toggleDone`, and in the task dialog `updateTask`, `updateSubtasks`, `moveTask`,
+  `duplicateTask`, `deleteTask` / `restoreTask`) without awaiting them. Write failures show a toast.
 - `SyncProvider` is mounted at the page root.
 - The shown week lives in the URL (`?week=YYYY-MM-DD`, the Monday; dropped for the current week), so changing weeks
   needs no server round trip and works offline (`hooks/use-week-navigation.ts`, pure helpers `weekFromUrl` /

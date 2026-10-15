@@ -7,7 +7,9 @@ import {
     duplicateTask,
     listTasksIn,
     moveTask,
+    restoreTask,
     toggleDone,
+    updateSubtasks,
     updateTask,
 } from './tasks';
 
@@ -98,6 +100,34 @@ describe('task repository', () => {
         expect(await texts(DAY)).toEqual([]);
         expect(await db.outbox.get(task.id)).toBeDefined();
         await expect(updateTask(task.id, { text: 'B' })).rejects.toThrow();
+    });
+
+    it('restores a deleted task with a newer change', async () => {
+        const task = await createTask({ text: 'A', date: DAY });
+        const deleted = await deleteTask(task.id);
+        const restored = await restoreTask(task.id);
+
+        expect(restored.deleted_at).toBeNull();
+        expect(restored.updated_at > deleted.updated_at).toBe(true);
+        expect(await texts(DAY)).toEqual(['A']);
+        expect((await db.outbox.get(task.id))?.revision).toBe(3);
+    });
+
+    it('keeps every one of several quick subtask edits', async () => {
+        const task = await createTask({ text: 'A', date: DAY });
+
+        await Promise.all(
+            ['one', 'two', 'three'].map((text) =>
+                updateSubtasks(task.id, (subtasks) => [
+                    ...subtasks,
+                    { id: text, text, done: false },
+                ]),
+            ),
+        );
+
+        expect(
+            (await db.tasks.get(task.id))?.subtasks.map((s) => s.text),
+        ).toEqual(['one', 'two', 'three']);
     });
 
     it('keeps both of two concurrent edits', async () => {

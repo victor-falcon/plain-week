@@ -113,6 +113,32 @@ Row behaviour:
 Keyboard shortcuts (only when focus is not in a text field and no dialog or menu is open): ← / → previous / next week
 (mirrored in RTL), T current week. Held keys do not repeat.
 
+## Task dialog
+
+Opened by clicking a task row (or Enter / Space on it); built in `resources/js/components/planner/task-dialog/` and
+mounted once by the planner page with the open task id. Layout and behaviour follow Tweek; every surface comes from the
+tokens. Every edit is written to the local database as it happens (no save button, nothing waits on the network); Esc or
+a click outside closes it.
+
+| Part     | Components                                  | Behaviour                                                                                                                                                                                                                                                              |
+| -------- | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Surface  | `Dialog` (`DialogContent`)                  | `bg-secondary`, `sm:max-w-lg` (512px), the preset's `rounded-4xl`; 64px from the top on desktop, 16px on mobile, full width minus the 16px gutters on phones                                                                                                           |
+| Date     | `Popover` + `Calendar`                      | "Mon, 12 Oct 2026" or "Someday"; weeks start on Monday; picking a day moves the task to the end of that day                                                                                                                                                            |
+| Time     | `Popover` + `Input type="time"` + `Button`  | Clock icon, plus the time once set ('HH:mm', 24-hour in storage); "Clear" (or emptying the field) removes it                                                                                                                                                           |
+| Delete   | `Button` + `Tooltip`, Sonner toast          | Deletes at once and closes; the toast's "Undo" restores the same task (`restoreTask`). No confirmation                                                                                                                                                                 |
+| Color    | `Popover` + `ToggleGroup` + `Tooltip`       | The icon is a dot of the current color; the nine swatches come from `TASK_COLOR_STYLES`, the current one checked                                                                                                                                                       |
+| More     | `DropdownMenu` + `Tooltip`                  | Tomorrow (day after the task's date), Next week (+7 days), Someday (first column; disabled when already there), Duplicate. For a Someday task, Tomorrow and Next week count from today                                                                                 |
+| Title    | `Textarea` (`field-sizing-content`)         | `text-2xl`, grows with the text, 1px `border-foreground/30` underline; Enter moves to the notes and pasted line breaks become spaces; an emptied title is put back on blur. The check at the end completes the task (done: muted and `line-through`)                   |
+| Notes    | `Textarea`                                  | Plain text, "Add some extra notes here…"                                                                                                                                                                                                                               |
+| Subtasks | `Checkbox` + `Input` + `Button` per subtask | Round checkbox, editable text, delete button (shown on hover/focus with a mouse, always on touch); "Add subtask..." adds on Enter and keeps focus, and also adds what was typed when it loses focus or the dialog closes; Enter in a subtask moves to "Add subtask..." |
+
+Toolbar icon buttons are `ghost` `icon-sm` round buttons with a tooltip on hover (not on focus: focus returns to a
+trigger when its popover closes, and an open tooltip would take the next Esc meant for the dialog); the one whose
+popover or menu is open is filled (`aria-expanded:bg-foreground aria-expanded:text-background`), like Tweek's active
+icon. Opening the dialog focuses the dialog itself, so no tooltip pops up and touch devices do not open the keyboard;
+closing it focuses the task's row again, wherever it moved. A tall dialog scrolls inside the viewport. Repeat,
+reminders, rich-text notes and attachments are not part of v0.0.1.
+
 ## Planner accent
 
 Today's day header and the title of a week other than the current one use `--planner-accent` (text and the 2px
