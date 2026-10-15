@@ -7,6 +7,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **Guest onboarding.** A first-time guest finds a few demo tasks in the current week that show how the planner works.
+  They stay on the device: the untouched ones are dropped when the guest creates an account or logs in, the ones the
+  guest changed are kept and synced. They never come back once seeded.
+
+### Changed
+
+- The guest "save your tasks" button uses a cloud upload icon instead of a download icon.
+
 ## [0.0.2] - 2026-10-15
 
 ### Added
@@ -20,16 +30,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   task went ("Moved to Tue 13 Oct.") with an Undo.
 - **Recurring tasks: sync.** Tasks carry `recurrence`, `series_id` and `occurrence_date`, validated and synced by the
   server so recurring tasks and their per-day changes reach every device.
-- **Guest onboarding.** A first-time guest finds a few demo tasks in the current week that show how the planner works.
-  They stay on the device: the untouched ones are dropped when the guest creates an account or logs in, the ones the
-  guest changed are kept and synced. They never come back once seeded.
 - **Task context menu.** Right click a task (or press Shift+F10 / the context menu key on it) to change its color, move
   it to tomorrow, next week or Someday, duplicate it or delete it with undo. On touch screens, press and hold still to
   open it; press, hold and move still drags the task.
-
-### Changed
-
-- The guest "save your tasks" button uses a cloud upload icon instead of a download icon.
 
 ## [0.0.1] - 2026-10-15
 
