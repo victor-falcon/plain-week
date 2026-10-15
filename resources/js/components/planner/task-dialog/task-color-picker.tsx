@@ -7,15 +7,11 @@ import {
 } from '@/components/ui/popover';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { TASK_COLORS } from '@/lib/db/types';
-import type { Task, TaskColor } from '@/lib/db/types';
-import { TASK_COLOR_STYLES } from '@/lib/planner/task-colors';
+import type { Task } from '@/lib/db/types';
+import { TASK_COLOR_STYLES, isTaskColor } from '@/lib/planner/task-colors';
 import { cn } from '@/lib/utils';
 import { setTaskColor } from '@/lib/planner/task-actions';
 import { TOOLBAR_BUTTON_CLASS, ToolbarTooltip } from './toolbar-tooltip';
-
-function isTaskColor(value: string): value is TaskColor {
-    return (TASK_COLORS as readonly string[]).includes(value);
-}
 
 /**
  * Toolbar button showing the task's color as a dot. Its popover holds the

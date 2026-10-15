@@ -5,6 +5,7 @@ import {
     Copy,
     Trash2,
 } from 'lucide-react';
+import { useRef } from 'react';
 import type { KeyboardEvent, ReactElement } from 'react';
 import { TaskColorSwatch } from '@/components/planner/task-color-swatch';
 import {
@@ -18,7 +19,7 @@ import {
 } from '@/components/ui/context-menu';
 import { TASK_COLORS } from '@/lib/db/types';
 import type { Task, TaskColor } from '@/lib/db/types';
-import { TASK_COLOR_STYLES } from '@/lib/planner/task-colors';
+import { TASK_COLOR_STYLES, isTaskColor } from '@/lib/planner/task-colors';
 
 export type TaskContextMenuActions = {
     onColorChange: (color: TaskColor) => void;
@@ -36,8 +37,23 @@ type Props = TaskContextMenuActions & {
     children: ReactElement;
 };
 
-function isTaskColor(value: string): value is TaskColor {
-    return (TASK_COLORS as readonly string[]).includes(value);
+/**
+ * Opens the context menu of the trigger containing `element` at a point, with
+ * the same `contextmenu` event a right click sends.
+ */
+export function openContextMenuAt(
+    element: Element,
+    x: number,
+    y: number,
+): void {
+    element.dispatchEvent(
+        new MouseEvent('contextmenu', {
+            bubbles: true,
+            cancelable: true,
+            clientX: x,
+            clientY: y,
+        }),
+    );
 }
 
 /**
@@ -55,23 +71,17 @@ function openFromKeyboard(event: KeyboardEvent<HTMLElement>): void {
     }
 
     event.preventDefault();
-    const rect = event.currentTarget.getBoundingClientRect();
-    const isRtl = getComputedStyle(event.currentTarget).direction === 'rtl';
+    const row = event.currentTarget;
+    const rect = row.getBoundingClientRect();
+    const isRtl = getComputedStyle(row).direction === 'rtl';
 
-    event.currentTarget.dispatchEvent(
-        new MouseEvent('contextmenu', {
-            bubbles: true,
-            cancelable: true,
-            clientX: isRtl ? rect.right : rect.left,
-            clientY: rect.bottom,
-        }),
-    );
+    openContextMenuAt(row, isRtl ? rect.right : rect.left, rect.bottom);
 }
 
 /**
  * The context menu of a task row: right click on desktop, Shift+F10 or the
  * context menu key on a focused row, and a still long press on touch screens
- * (opened by `TouchHoldSensor`, see planner-dnd.tsx). A row of the nine color
+ * (opened by `PlannerDnd`, see planner-dnd.tsx). A row of the nine color
  * swatches, the quick moves, Duplicate and Delete. The actions are props so
  * callers decide what each one does.
  */
@@ -85,13 +95,37 @@ export function TaskContextMenu({
     onDuplicate,
     onDelete,
 }: Props) {
+    // Closed by a press elsewhere: leave focus where that press puts it.
+    const closedFromOutside = useRef(false);
+
     return (
-        <ContextMenu>
+        <ContextMenu
+            onOpenChange={(open) => {
+                if (open) {
+                    closedFromOutside.current = false;
+                }
+            }}
+        >
             <ContextMenuTrigger asChild onKeyDown={openFromKeyboard}>
                 {children}
             </ContextMenuTrigger>
             <ContextMenuContent
                 aria-label={`Task: ${task.text}`}
+                onInteractOutside={() => {
+                    closedFromOutside.current = true;
+                }}
+                // Back to the task's row, wherever an action moved it (when
+                // it is gone, Radix falls back to the element that had focus).
+                onCloseAutoFocus={(event) => {
+                    const row = document.querySelector<HTMLElement>(
+                        `[data-task-id="${CSS.escape(task.id)}"] button`,
+                    );
+
+                    if (row && !closedFromOutside.current) {
+                        event.preventDefault();
+                        row.focus();
+                    }
+                }}
                 className="min-w-56"
             >
                 <ContextMenuRadioGroup

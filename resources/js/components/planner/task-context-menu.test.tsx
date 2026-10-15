@@ -131,6 +131,26 @@ describe('TaskContextMenu', () => {
         await screen.findByRole('menu', { name: 'Task: Plan trip' });
     });
 
+    it('returns focus to the row when it closes', async () => {
+        const { user, button } = await setup();
+
+        button.focus();
+        await user.keyboard('{Shift>}{F10}{/Shift}');
+        await screen.findByRole('menu');
+        await user.keyboard('{Escape}');
+        await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+        expect(document.activeElement).toBe(button);
+
+        await user.keyboard('{Shift>}{F10}{/Shift}');
+        fireEvent.click(
+            await screen.findByRole('menuitemradio', { name: 'Green' }),
+        );
+        await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+        expect(document.activeElement).toBe(
+            screen.getByRole('button', { name: 'Plan trip' }),
+        );
+    });
+
     it('changes the color', async () => {
         const { task, button } = await setup();
 

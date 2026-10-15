@@ -25,6 +25,7 @@ import { createContext, use, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { toast } from 'sonner';
 import { EdgeZone } from '@/components/planner/edge-zone';
+import { openContextMenuAt } from '@/components/planner/task-context-menu';
 import { TaskLabel } from '@/components/planner/task-row';
 import { moveTask } from '@/lib/db/tasks';
 import type { MoveTaskInput } from '@/lib/db/tasks';
@@ -213,8 +214,12 @@ function touchPointOf(event: Event): { x: number; y: number } | null {
 
 /**
  * Turns a still touch hold into the row's context menu: cancels the pointer
- * drag (Escape is how dnd-kit cancels one) and opens the menu at the touch
- * point through the same `contextmenu` event a right click sends.
+ * drag (dnd-kit has no API for it; its pointer sensors cancel on an Escape
+ * keydown on the document) and opens the menu at the touch point.
+ *
+ * Both happen synchronously, before React renders the cancel: the row still
+ * renders as not dragged (a held task is not `activeId`), so its
+ * `contextmenu` guard lets the event through.
  */
 function openContextMenuFromHold(
     taskId: string,
@@ -223,16 +228,13 @@ function openContextMenuFromHold(
     document.dispatchEvent(
         new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape' }),
     );
-    document
-        .querySelector(`[data-task-id="${CSS.escape(taskId)}"]`)
-        ?.dispatchEvent(
-            new MouseEvent('contextmenu', {
-                bubbles: true,
-                cancelable: true,
-                clientX: point.x,
-                clientY: point.y,
-            }),
-        );
+    const row = document.querySelector(
+        `[data-task-id="${CSS.escape(taskId)}"]`,
+    );
+
+    if (row) {
+        openContextMenuAt(row, point.x, point.y);
+    }
 }
 
 /**
