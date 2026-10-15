@@ -204,17 +204,12 @@ measurements in [style.md](./style.md#planner-layout)). It follows the offline-f
     - Every week change after that uses `history.replaceState` directly (keeping Inertia's history state), never a
       server visit; held arrow keys do not repeat and rate-limit errors are ignored.
 - Shortcuts (`hooks/use-planner-shortcuts.ts`) listen on `window` and skip events from text fields or while a dialog
-  or menu (`role="dialog" | "alertdialog" | "menu" | "listbox"`) is open.
+  or menu (`role="dialog" | "alertdialog" | "menu" | "listbox"`) is open, or while a task is dragged
+  (`[data-drag-overlay]`).
 - "Today" comes from `useToday()`, which rolls over at local midnight and when the tab becomes visible again.
 - Pure logic lives in `lib/planner/` with unit tests: ISO week math and the desktop column layout (`week.ts`), smart
   time (`smart-time.ts`), date labels (`format.ts`), task color styles (`task-colors.ts`) and drop resolution
   (`drop.ts`).
-
-Seams for later work:
-
-| Seam                                                     | Meant for                                                                        |
-| -------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| `openTask(taskId)` in `pages/planner.tsx` → `onOpenTask` | The task dialog: replace the stub with dialog state; every row already calls it. |
 
 ### Drag and drop
 
