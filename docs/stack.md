@@ -94,7 +94,9 @@ Browser QA for UI changes runs against a production build, so the service worker
 ## CI
 
 `.github/workflows/tests.yml` runs on every pull request to `main` and on pushes to `main`: PHP 8.5, Node 24 and bun
-1.3, then `composer setup` (which also builds the assets and generates Wayfinder) and `composer ci:check`. Dependabot
+1.3, then `composer setup` (which also builds the assets and generates Wayfinder) and `composer ci:check`.
+`.github/workflows/docker.yml` builds the Docker image for amd64 and arm64 on pull requests and publishes it to GHCR on
+pushes to `main` (`edge`) and on `v*` tags (`X.Y.Z`, `X.Y`, `latest`); see [self-hosting.md](./self-hosting.md). Dependabot
 keeps the GitHub Actions up to date (`.github/dependabot.yml`).
 
 ## Folder layout
@@ -103,10 +105,12 @@ keeps the GitHub Actions up to date (`.github/dependabot.yml`).
 app/                      Laravel application code (controllers, models, actions, middleware)
 bootstrap/                Framework bootstrap
 config/                   Configuration
+deploy/                   Coolify service template and a docker-compose.yml example (docs/self-hosting.md)
+docker/                   Caddyfile, PHP ini and entrypoint of the Docker image (Dockerfile at the root)
 database/                 Migrations, factories, seeders (SQLite file lives here locally)
 docs/                     Project documentation (this folder)
 public/                   Web root; built assets end up in public/build, the worker in public/sw.js;
-                          offline.html and the PWA icons live here
+                          offline.html and the PWA icons live here (robots.txt is a route, see routes/web.php)
 resources/css/app.css     Tailwind entry point and design tokens (shadcn preset)
 resources/js/
   app.tsx                 Inertia entry point: providers, layout resolution, service worker registration
@@ -215,10 +219,11 @@ Note: Wayfinder 0.1.x does not know the `QUERY` HTTP verb that Laravel 13 adds t
 and the generated TypeScript fails to type-check for such routes. Register explicit verbs instead (for example
 `Route::get('settings', fn () => to_route('profile.edit'))`).
 
-## Self-hosting
+## Self-hosting without Docker
 
-Plain Week is a plain Laravel app with SQLite: one PHP process and one database file, no external services. There is
-no Docker image or Coolify template yet (planned as a follow-up); deploy it like any Laravel app.
+The Docker image, the Coolify template and every environment variable are documented in
+[self-hosting.md](./self-hosting.md). Without Docker, Plain Week is a plain Laravel app with SQLite: one PHP process and
+one database file, no external services. Deploy it like any Laravel app.
 
 1. Build: `composer install --no-dev --optimize-autoloader`, `bun install`, `bun run build`. The build needs PHP
    (the Wayfinder Vite plugin calls `php artisan`) and produces `public/build/` and `public/sw.js`; deploy that output.
@@ -234,6 +239,8 @@ no Docker image or Coolify template yet (planned as a follow-up); deploy it like
     | `DB_BUSY_TIMEOUT`               | Optional, milliseconds a writer waits for the SQLite lock (default `5000`)                                                        |
     | `SESSION_DRIVER`, `CACHE_STORE` | `database` (the defaults; stored in SQLite)                                                                                       |
     | `MAIL_MAILER`                   | `log` (default) without a mail server; set SMTP variables to send verification and password reset emails                          |
+    | `TRUSTED_PROXIES`               | The reverse proxy's IPs (or `*`) when it terminates TLS, so URLs use `https`. Sessions are secure when `APP_URL` is `https://`    |
+    | `APP_NOINDEX`                   | `true` to keep search engines out (`X-Robots-Tag`, robots meta and `/robots.txt`)                                                 |
 
 3. Migrate on every deploy: `php artisan migrate --force` (creates the SQLite file's tables; `touch` the file first if
    it does not exist). Optionally cache config and routes (`php artisan optimize`).

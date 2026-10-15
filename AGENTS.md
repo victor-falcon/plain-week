@@ -21,6 +21,7 @@ React 19, TypeScript, Tailwind v4 and shadcn/ui, using bun and SQLite.
   patterns and the checklist for building a new component
 - [docs/stack.md](./docs/stack.md): versions, commands, local dev, testing (incl. browser QA), CI, folder layout,
   self-hosting
+- [docs/self-hosting.md](./docs/self-hosting.md): Docker image, GHCR, Coolify template, environment variables
 - [docs/conventions.md](./docs/conventions.md): code style, naming, tests, commits and PRs
 
 ## Before you push

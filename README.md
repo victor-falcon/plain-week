@@ -52,10 +52,15 @@ bun run build       # production assets
 
 ## Self-hosting
 
-Build the assets, point `DB_DATABASE` at a SQLite file on a persistent volume, run `php artisan migrate --force` and
-serve `public/` over HTTPS from the domain root. Mail and a queue worker are optional. The full checklist and the
-environment variables are in [docs/stack.md](./docs/stack.md#self-hosting). A Docker image and a Coolify template are
-planned.
+One container, SQLite on a volume, no other services:
+
+```sh
+docker run -d -p 127.0.0.1:8080:8080 -v plainweek-storage:/app/storage \
+  -e APP_KEY="base64:$(openssl rand -base64 32)" ghcr.io/victor-falcon/plain-week:latest
+```
+
+There is a one-click [Coolify](https://coolify.io) template, a `docker-compose.yml` for any server and a guide for
+running it without Docker: see [docs/self-hosting.md](./docs/self-hosting.md).
 
 ## Documentation
 

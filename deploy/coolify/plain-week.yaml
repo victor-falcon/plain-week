@@ -1,0 +1,29 @@
+# documentation: https://github.com/victor-falcon/plain-week/blob/main/docs/self-hosting.md
+# slogan: A minimal, offline-first weekly planner. Free, open source and self-hostable.
+# category: productivity
+# tags: planner, todo, tasks, calendar, productivity, offline-first, pwa
+# logo: svgs/plain-week.svg
+# port: 8080
+
+services:
+    plainweek:
+        image: ghcr.io/victor-falcon/plain-week:latest
+        volumes:
+            - plainweek-storage:/app/storage
+        environment:
+            - SERVICE_URL_PLAINWEEK_8080
+            - APP_NAME=${APP_NAME:-Plain Week}
+            - APP_ENV=production
+            - APP_DEBUG=false
+            - APP_URL=${SERVICE_URL_PLAINWEEK}
+            - APP_KEY=base64:${SERVICE_REALBASE64_32_APPKEY}
+            - APP_NOINDEX=${APP_NOINDEX:-false}
+            - DB_CONNECTION=sqlite
+            - LOG_CHANNEL=stderr
+            - MAIL_MAILER=${MAIL_MAILER:-log}
+        healthcheck:
+            test: ['CMD', 'curl', '-fsS', 'http://127.0.0.1:8080/up']
+            interval: 10s
+            timeout: 5s
+            retries: 5
+            start_period: 30s
