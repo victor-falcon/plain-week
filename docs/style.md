@@ -259,31 +259,36 @@ row keeps focus when its first change turns the occurrence into an exception row
 and Color; its label is "Repeat" or "Repeat: Every Mon, Wed". Disabled for a Someday task (it cannot repeat). The
 popover (320px, `align="end"`) holds a draft that "Apply" writes:
 
-| Part     | Components                       | Behaviour                                                                                                                   |
-| -------- | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| Kind     | `ToggleGroup type="single"`      | Never / Weekly / Monthly, outline segments, the selected one filled                                                         |
-| Weekdays | `ToggleGroup type="multiple"`    | Seven localized short names from Monday (`aria-label` the long name); the task's own weekday is always selected (see below) |
-| Day      | `Select` (1–31)                  | "Monthly on day N"; N starts at the task's day of the month; from 29 on, the note "On the last day in shorter months."      |
-| Ends     | `Popover` + `Calendar`, `Button` | "Never" or the end date (not before the start); an X button clears it                                                       |
-| Apply    | `Button`                         | Writes the rule; on an occurrence a note says "Applies to this and all future tasks."                                       |
+| Part     | Components                       | Behaviour                                                                                                                                                           |
+| -------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Kind     | `ToggleGroup type="single"`      | Never / Weekly / Monthly, outline segments, the selected one filled                                                                                                 |
+| Weekdays | `ToggleGroup type="multiple"`    | Seven localized short names from Monday (`aria-label` the long name); the task's own weekday is always selected (see below)                                         |
+| Day      | `Select` (1–31)                  | "Monthly on day N"; N starts at the task's day of the month; from 29 on, the note "On the last day in shorter months."                                              |
+| Ends     | `Popover` + `Calendar`, `Button` | "Never" or the end date (not before the start); an X button clears it                                                                                               |
+| Apply    | `Button`                         | Writes the rule; on the series' first occurrence a note says "Applies to the whole series." ("Stops the whole series." for Never); on a later one it asks the scope |
 
 The rule starts on the task's date (for an occurrence, its own date: the series is split there). If that date did not
 match the rule the task would vanish from its own day, so the picker opens with that weekday (weekly) and day of the
 month (monthly) chosen, and the weekday cannot be deselected. A monthly day other than the date's moves the task to
 the first matching date: the picker says "Starts on Sun, 1 Nov 2026." and the dialog follows the task there. A rule
-that would end before its first date cannot be applied. "Never" on an occurrence asks the scope ("Stop
-repeating": only this one becomes a one-off task, or the series ends here).
+that would end before its first date cannot be applied.
+
+A new rule or "Never" on an occurrence after the series' first one asks the scope ("Change repeat" / "Stop
+repeating"). "Only this task" takes it out of the series: with a rule it starts a new series of its own from its date
+(the old series keeps its rule and skips that date), with "Never" it becomes a one-off task. "This and all future" ends
+the series the day before and starts the new rule (or a one-off task) there. On the series' first occurrence nothing is
+asked: the change is the whole series'.
 
 **Scope prompt** (`scope-prompt.tsx`, `ScopePromptProvider` mounted once by the planner page, `useScopePrompt()` /
-`useScopeFor()`). An `AlertDialog` titled after the action ("Edit recurring task", "Delete recurring task", "Stop
-repeating"; in the dialog the edit prompt adds that the answer applies until the task is closed) with Cancel, "This and all future" (outline) and "Only this task" (default, destructive for delete). It is
+`useScopeFor()`). An `AlertDialog` titled after the action ("Edit recurring task", "Delete recurring task", "Change
+repeat", "Stop repeating"; in the dialog the edit prompt adds that the answer applies until the task is closed) with Cancel, "This and all future" (outline) and "Only this task" (default, destructive for delete). It is
 asked only for an occurrence, or an exception whose series still exists.
 
 | Change                                                  | Asks?                                                                                    |
 | ------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
 | Title, notes, color, time, subtasks (in the dialog)     | Once per dialog session, on the first change; the answer applies until the dialog closes |
-| Delete, "Never" in the repeat picker                    | Every time                                                                               |
-| A new or changed rule                                   | Never: a rule always applies from this task on                                           |
+| Delete                                                  | Every time                                                                               |
+| A new or changed rule, "Never" in the repeat picker     | Every time, except on the series' first occurrence (the whole series changes)            |
 | Done, moves (date picker, More menu, context menu, DnD) | Never: only this task                                                                    |
 | Duplicate                                               | Never: the copy is a one-off task                                                        |
 | Color from the context menu                             | Every time                                                                               |

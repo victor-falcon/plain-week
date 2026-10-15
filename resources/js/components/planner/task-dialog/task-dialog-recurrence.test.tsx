@@ -156,7 +156,7 @@ describe('Repeat picker', () => {
         expect(screen.getByRole('dialog', { name: 'Edit task' })).toBe(dialog);
     });
 
-    it('shows the current rule of an occurrence and changes it from there on', async () => {
+    it('asks before changing the rule of an occurrence; "This and all future" splits the series', async () => {
         const { user, dialog, seriesId } = await openOccurrence();
 
         await user.click(
@@ -164,9 +164,14 @@ describe('Repeat picker', () => {
                 name: 'Repeat: Every Mon, Wed, Fri',
             }),
         );
-        screen.getByText('Applies to this and all future tasks.');
+        expect(screen.queryByText('Applies to the whole series.')).toBeNull();
         await user.click(screen.getByRole('button', { name: 'Friday' }));
         await user.click(screen.getByRole('button', { name: 'Apply' }));
+        await user.click(
+            within(await scopePrompt()).getByRole('button', {
+                name: 'This and all future',
+            }),
+        );
 
         await within(dialog).findByRole('button', {
             name: 'Repeat: Every Mon, Wed',
@@ -175,6 +180,117 @@ describe('Repeat picker', () => {
             ...WEEKLY,
             until: '2026-10-13',
         });
+    });
+
+    it('gives only this occurrence the new rule, as a series of its own', async () => {
+        const { user, dialog, seriesId, id } = await openOccurrence();
+
+        await user.click(
+            within(dialog).getByRole('button', {
+                name: 'Repeat: Every Mon, Wed, Fri',
+            }),
+        );
+        await user.click(screen.getByRole('button', { name: 'Friday' }));
+        await user.click(screen.getByRole('button', { name: 'Apply' }));
+        await user.click(
+            within(await scopePrompt()).getByRole('button', {
+                name: 'Only this task',
+            }),
+        );
+
+        await within(dialog).findByRole('button', {
+            name: 'Repeat: Every Mon, Wed',
+        });
+        // The old series goes on unchanged, without this date.
+        expect((await db.tasks.get(seriesId))?.recurrence).toEqual(WEEKLY);
+        expect(await queryTask(id)).toBeNull();
+        expect(
+            (await rows()).filter(
+                (row) =>
+                    row.date === WEDNESDAY &&
+                    row.id !== seriesId &&
+                    row.deleted_at === null,
+            ),
+        ).toMatchObject([
+            {
+                recurrence: { type: 'weekly', weekdays: [1, 3] },
+                series_id: null,
+            },
+        ]);
+    });
+
+    it('writes nothing when the rule prompt is cancelled', async () => {
+        const { user, dialog, seriesId } = await openOccurrence();
+        const before = await rows();
+
+        await user.click(
+            within(dialog).getByRole('button', {
+                name: 'Repeat: Every Mon, Wed, Fri',
+            }),
+        );
+        await user.click(screen.getByRole('button', { name: 'Friday' }));
+        await user.click(screen.getByRole('button', { name: 'Apply' }));
+        await user.click(
+            within(await scopePrompt()).getByRole('button', {
+                name: 'Cancel',
+            }),
+        );
+
+        within(dialog).getByRole('button', {
+            name: 'Repeat: Every Mon, Wed, Fri',
+        });
+        expect(await rows()).toEqual(before);
+        expect((await db.tasks.get(seriesId))?.recurrence).toEqual(WEEKLY);
+    });
+
+    it('changes the whole series from its first occurrence without asking', async () => {
+        const task = await createTask({ text: 'Gym', date: MONDAY });
+        await setRecurrence(task.id, WEEKLY);
+        const { user, dialog } = await openDialog(
+            occurrenceId(task.id, MONDAY),
+        );
+
+        await user.click(
+            within(dialog).getByRole('button', {
+                name: 'Repeat: Every Mon, Wed, Fri',
+            }),
+        );
+        screen.getByText('Applies to the whole series.');
+        await user.click(screen.getByRole('button', { name: 'Friday' }));
+        await user.click(screen.getByRole('button', { name: 'Apply' }));
+
+        await within(dialog).findByRole('button', {
+            name: 'Repeat: Every Mon, Wed',
+        });
+        expect(screen.queryByRole('alertdialog')).toBeNull();
+        expect(await rows()).toMatchObject([
+            { id: task.id, recurrence: { type: 'weekly', weekdays: [1, 3] } },
+        ]);
+    });
+
+    it('stops the whole series from its first occurrence without asking', async () => {
+        const task = await createTask({ text: 'Gym', date: MONDAY });
+        await setRecurrence(task.id, WEEKLY);
+        const { user, dialog } = await openDialog(
+            occurrenceId(task.id, MONDAY),
+        );
+
+        await user.click(
+            within(dialog).getByRole('button', {
+                name: 'Repeat: Every Mon, Wed, Fri',
+            }),
+        );
+        await user.click(await screen.findByRole('radio', { name: 'Never' }));
+        screen.getByText('Stops the whole series.');
+        await user.click(screen.getByRole('button', { name: 'Apply' }));
+
+        await within(dialog).findByRole('button', { name: 'Repeat' });
+        expect(screen.queryByRole('alertdialog')).toBeNull();
+        expect(
+            (await rows())
+                .filter((row) => row.deleted_at === null)
+                .map((row) => [row.date, row.recurrence]),
+        ).toEqual([[MONDAY, null]]);
     });
 
     it('stops repeating only this task after asking', async () => {

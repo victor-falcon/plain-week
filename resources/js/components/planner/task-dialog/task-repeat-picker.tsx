@@ -22,16 +22,20 @@ import { formatLongDate } from '@/lib/planner/format';
 import {
     ISO_WEEKDAYS,
     draftToRecurrence,
-    firstRuleDate,
     repeatAnchor,
     repeatDraft,
     sameRecurrence,
+    isSeriesStart,
     summarizeRecurrence,
     weekdayName,
 } from '@/lib/planner/repeat';
 import type { RepeatDraft } from '@/lib/planner/repeat';
 import { isoWeekday } from '@/lib/recurrence/dates';
-import { isRecurring, occurrenceId } from '@/lib/recurrence/expand';
+import {
+    firstRuleDate,
+    isRecurring,
+    occurrenceId,
+} from '@/lib/recurrence/expand';
 import { cn } from '@/lib/utils';
 import { useTaskEditor } from './task-editor';
 import { TOOLBAR_BUTTON_CLASS, ToolbarTooltip } from './toolbar-tooltip';
@@ -54,6 +58,8 @@ export function TaskRepeatPicker() {
     const current = series?.recurrence ?? null;
     const [open, setOpen] = useState(false);
     const [draft, setDraft] = useState<RepeatDraft | null>(null);
+    const wholeSeries = recurring && !!series && isSeriesStart(task, series);
+    const asksForScope = recurring && !!series && !wholeSeries;
 
     const label = current
         ? `Repeat: ${summarizeRecurrence(current)}`
@@ -78,32 +84,29 @@ export function TaskRepeatPicker() {
             return;
         }
 
-        if (rule !== null) {
-            // On an occurrence a rule always applies from here on. When the
-            // rule skips the task's day, follow the task to its first date.
-            write(
-                async (id) => {
-                    const item = await setRecurrence(id, rule);
-                    const first =
-                        item.kind === 'series' &&
-                        firstRuleDate(item.recurrence, item.date);
+        // From the series' first occurrence a change is the whole series';
+        // from a later one, ask whether only this task changes.
+        const scope = asksForScope
+            ? await askScope(rule === null ? 'stop-repeating' : 'repeat')
+            : undefined;
 
-                    return first ? { id: occurrenceId(item.id, first) } : item;
-                },
-                { follow: true, error: 'Could not change the repeat.' },
-            );
-
+        if (scope === null) {
             return;
         }
 
-        const scope = await askScope('stop-repeating');
+        write(
+            async (id) => {
+                const item = await setRecurrence(id, rule, { scope });
+                // When the rule skips the task's day, follow the task to its
+                // first date.
+                const first =
+                    item.kind === 'series' &&
+                    firstRuleDate(item.recurrence, item.date);
 
-        if (scope !== null) {
-            write((id) => setRecurrence(id, null, { scope }), {
-                follow: true,
-                error: 'Could not change the repeat.',
-            });
-        }
+                return first ? { id: occurrenceId(item.id, first) } : item;
+            },
+            { follow: true, error: 'Could not change the repeat.' },
+        );
     };
 
     return (
@@ -138,9 +141,11 @@ export function TaskRepeatPicker() {
                         onChange={setDraft}
                     />
                     <StartNote anchor={anchor} draft={draft} />
-                    {recurring && draft.kind !== 'never' && (
+                    {wholeSeries && (
                         <p className="text-xs text-muted-foreground">
-                            Applies to this and all future tasks.
+                            {draft.kind === 'never'
+                                ? 'Stops the whole series.'
+                                : 'Applies to the whole series.'}
                         </p>
                     )}
                     <Button

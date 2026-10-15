@@ -225,19 +225,22 @@ keeps working after the first change.
 
 **Mutations on an occurrence** (all in one transaction, one outbox entry per written row):
 
-| Change                          | Scope `'this'` (default for edits)                                                  | Scope `'future'` (edits, delete, rule)                                                                 |
-| ------------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `updateTask` / `updateSubtasks` | Writes an exception row (new UUID v7) with the change.                              | Split at the occurrence date D: the series gets `until = D-1`, a new series with the edit starts on D. |
-| `toggleDone`, `moveTask`        | Always `'this'`: writes or updates the exception.                                   |                                                                                                        |
-| `deleteTask`                    | A deleted exception row.                                                            | `until = D-1`; when D is the series' first date, the series and its exceptions are deleted.            |
-| `setRecurrence(id, rule)`       | Refused (a rule cannot apply to one occurrence).                                    | Default. Split at D; the new series has this item's content and the new rule.                          |
-| `setRecurrence(id, null)`       | This item becomes a plain task; a deleted exception keeps its date hidden.          | Default. `until = D-1`; this item becomes a plain task (an exception row keeps its id).                |
-| `duplicateTask`                 | The copy is a plain task right after the source; the source gets its exception row. |                                                                                                        |
+| Change                          | Scope `'this'` (default for edits)                                                                                           | Scope `'future'` (edits, delete, rule)                                                                 |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `updateTask` / `updateSubtasks` | Writes an exception row (new UUID v7) with the change.                                                                       | Split at the occurrence date D: the series gets `until = D-1`, a new series with the edit starts on D. |
+| `toggleDone`, `moveTask`        | Always `'this'`: writes or updates the exception.                                                                            |                                                                                                        |
+| `deleteTask`                    | A deleted exception row.                                                                                                     | `until = D-1`; when D is the series' first occurrence, the series and its exceptions are deleted.      |
+| `setRecurrence(id, rule)`       | This item starts its own series on D with the new rule; the old series keeps its rule and gets a deleted exception hiding D. | Default. Split at D; the new series has this item's content and the new rule.                          |
+| `setRecurrence(id, null)`       | This item becomes a plain task; a deleted exception keeps its date hidden.                                                   | Default. `until = D-1`; this item becomes a plain task (an exception row keeps its id).                |
+| `duplicateTask`                 | The copy is a plain task right after the source; the source gets its exception row.                                          |                                                                                                        |
 
-A split also deletes the series' exceptions dated D or later. When D is the series' first date there is nothing to keep,
-so the series row itself takes the new content or rule (same id) instead of ending. `done` never reaches a series: a
-`'future'` patch applies its other fields; the new series takes this item's content (an exception's earlier edits
-included). Scope is ignored for plain tasks.
+A split also deletes the series' exceptions dated D or later. When D is on or before the series' first occurrence
+(`startsSeries`: the anchor, or the first date after it the rule matches) there is nothing to keep, so the series
+row itself takes the new content or rule (same id) instead of ending. A rule change with scope `'this'` is a split for
+one date only: the occurrence leaves its series and becomes the start of a new, independent series (its content, an
+exception's edits included, and the new rule from D on), while the old series goes on with its rule and skips D. Both
+series then show on dates they share. `done` never reaches a series: a `'future'` patch applies its other fields; the
+new series takes this item's content (an exception's earlier edits included). Scope is ignored for plain tasks.
 
 `setRecurrence` validates the rule and stores it in canonical form (`normalizeRecurrence`: weekdays unique and sorted,
 `day` 1–31, `until` not before the anchor) and throws otherwise, so the server never refuses it. The anchor date does

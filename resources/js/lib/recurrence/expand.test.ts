@@ -4,11 +4,13 @@ import { makeTask } from '@/test/fixtures';
 import { addDays, daysInMonth, isoWeekday } from './dates';
 import {
     expandSeries,
+    firstRuleDate,
     isRecurring,
     matchesRule,
     normalizeRecurrence,
     occurrenceId,
     parseOccurrenceId,
+    startsSeries,
     toItem,
     winningException,
 } from './expand';
@@ -389,6 +391,44 @@ describe('normalizeRecurrence', () => {
                 anchor,
             ),
         ).toThrow();
+    });
+});
+
+describe('firstRuleDate', () => {
+    it('is the anchor when the rule matches it, else the next match', () => {
+        expect(firstRuleDate({ type: 'monthly', day: 31 }, '2026-10-31')).toBe(
+            '2026-10-31',
+        );
+        expect(firstRuleDate({ type: 'monthly', day: 1 }, '2026-10-31')).toBe(
+            '2026-11-01',
+        );
+        expect(firstRuleDate({ type: 'monthly', day: 31 }, '2027-02-01')).toBe(
+            '2027-02-28',
+        );
+        expect(
+            firstRuleDate(
+                { type: 'monthly', day: 1, until: '2026-10-31' },
+                '2026-10-15',
+            ),
+        ).toBeNull();
+    });
+});
+
+describe('startsSeries', () => {
+    it('is true up to the first occurrence, even when the anchor skips it', () => {
+        const monday = series(
+            { type: 'weekly', weekdays: [1] },
+            { date: '2026-10-12' },
+        );
+        const wednesday = series(
+            { type: 'weekly', weekdays: [3] },
+            { date: '2026-10-12' },
+        );
+
+        expect(startsSeries(monday, '2026-10-12')).toBe(true);
+        expect(startsSeries(monday, '2026-10-19')).toBe(false);
+        expect(startsSeries(wednesday, '2026-10-14')).toBe(true);
+        expect(startsSeries(wednesday, '2026-10-21')).toBe(false);
     });
 });
 

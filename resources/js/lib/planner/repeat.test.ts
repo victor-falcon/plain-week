@@ -3,7 +3,6 @@ import { makeTask } from '@/test/fixtures';
 import {
     asksScope,
     draftToRecurrence,
-    firstRuleDate,
     repeatDraft,
     rowKey,
     sameRecurrence,
@@ -121,26 +120,6 @@ describe('weekdayName', () => {
     it('names ISO weekdays', () => {
         expect(weekdayName(1)).toBe('Mon');
         expect(weekdayName(7, 'long')).toBe('Sunday');
-    });
-});
-
-describe('firstRuleDate', () => {
-    it('is the anchor when the rule matches it, else the next match', () => {
-        expect(firstRuleDate({ type: 'monthly', day: 31 }, '2026-10-31')).toBe(
-            '2026-10-31',
-        );
-        expect(firstRuleDate({ type: 'monthly', day: 1 }, '2026-10-31')).toBe(
-            '2026-11-01',
-        );
-        expect(firstRuleDate({ type: 'monthly', day: 31 }, '2027-02-01')).toBe(
-            '2027-02-28',
-        );
-        expect(
-            firstRuleDate(
-                { type: 'monthly', day: 1, until: '2026-10-31' },
-                '2026-10-15',
-            ),
-        ).toBeNull();
     });
 });
 
