@@ -2,18 +2,19 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { toDateKey } from '@/lib/db/dates';
 import {
     queryPendingChangeCount,
+    querySeries,
     querySomedayTasks,
     queryTask,
     queryWeekTasks,
 } from '@/lib/db/queries';
 import type { SomedayTasks, WeekTasks } from '@/lib/db/queries';
-import type { Task } from '@/lib/db/types';
+import type { PlannerTask, SeriesItem } from '@/lib/recurrence/expand';
 
 export type { SomedayTasks, WeekTasks } from '@/lib/db/queries';
 
 /**
  * Live tasks of the seven days starting at `weekStart`, keyed by 'YYYY-MM-DD'
- * and sorted. `undefined` only while the first local read is in progress.
+ * and sorted, with the occurrences of recurring tasks. `undefined` only while the first local read is in progress.
  */
 export function useWeekTasks(weekStart: Date): WeekTasks | undefined {
     const firstDay = toDateKey(weekStart);
@@ -28,11 +29,12 @@ export function useSomedayTasks(): SomedayTasks | undefined {
 
 /**
  * A single live task. `undefined` while loading, `null` when it does not exist
- * or was deleted.
+ * or was deleted. `id` may be an occurrence id; once that occurrence has an
+ * exception row, the row is returned (with its own id).
  */
 export function useTask(
     id: string | null | undefined,
-): Task | null | undefined {
+): PlannerTask | null | undefined {
     // Right after `id` changes, useLiveQuery still returns the previous
     // query's result; tagging it with its id keeps that stale value out.
     const result = useLiveQuery(
@@ -41,6 +43,32 @@ export function useTask(
     );
 
     return result !== undefined && result.id === id ? result.task : undefined;
+}
+
+/**
+ * The live series of an occurrence or exception (a series: itself). `null`
+ * for a plain task or a deleted series, `undefined` while loading.
+ */
+export function useSeries(
+    item: PlannerTask | null | undefined,
+): SeriesItem | null | undefined {
+    const seriesId =
+        item?.kind === 'series'
+            ? item.id
+            : item?.kind === 'occurrence' || item?.kind === 'exception'
+              ? item.seriesId
+              : null;
+    const result = useLiveQuery(
+        async () => ({
+            seriesId,
+            series: seriesId ? await querySeries(seriesId) : null,
+        }),
+        [seriesId],
+    );
+
+    return result !== undefined && result.seriesId === seriesId
+        ? result.series
+        : undefined;
 }
 
 /**
