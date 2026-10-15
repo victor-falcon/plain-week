@@ -207,16 +207,42 @@ measurements in [style.md](./style.md#planner-layout)). It follows the offline-f
   or menu (`role="dialog" | "alertdialog" | "menu" | "listbox"`) is open.
 - "Today" comes from `useToday()`, which rolls over at local midnight and when the tab becomes visible again.
 - Pure logic lives in `lib/planner/` with unit tests: ISO week math and the desktop column layout (`week.ts`), smart
-  time (`smart-time.ts`), date labels (`format.ts`) and task color styles (`task-colors.ts`).
+  time (`smart-time.ts`), date labels (`format.ts`), task color styles (`task-colors.ts`) and drop resolution
+  (`drop.ts`).
 
 Seams for later work:
 
-| Seam                                                     | Meant for                                                                           |
-| -------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| `openTask(taskId)` in `pages/planner.tsx` → `onOpenTask` | The task dialog: replace the stub with dialog state; every row already calls it.    |
-| `TaskRow` (one task, `onOpen`, `onToggleDone`)           | Drag and drop: wrap each row as a sortable item (`data-task-id` is set).            |
-| `TaskList` (`placement`, `tasks`)                        | Drag and drop: wrap each list as a droppable; `placement` is what `moveTask` needs. |
-| `WeekGrid` / `SomedaySection` (`onOpenTask`)             | Drag and drop context around the whole planner.                                     |
+| Seam                                                     | Meant for                                                                        |
+| -------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `openTask(taskId)` in `pages/planner.tsx` → `onOpenTask` | The task dialog: replace the stub with dialog state; every row already calls it. |
+
+### Drag and drop
+
+Built on `@dnd-kit/core` + `@dnd-kit/sortable` (shadcn has no DnD primitive). Like every other action, a drop only
+writes the local database (`moveTask`); sync follows in the background.
+
+| Piece                                               | Role                                                                                                                                |
+| --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `PlannerDnd` (`components/planner/planner-dnd.tsx`) | The `DndContext` around the week and Someday: sensors, collision detection, edge zones, drag overlay, announcements, the drop write |
+| `TaskList`                                          | A droppable per list (`list:<date>` / `list:someday-<n>`) carrying its `placement` and tasks, and a `SortableContext` of its rows   |
+| `TaskRow`                                           | A sortable item carrying its task, `placement` and list; dims while dragged                                                         |
+| `lib/planner/drop.ts`                               | Pure functions: drop target → `moveTask` input and the insertion line (`resolveDrop`), edge-zone dates (`edgeDropDate`)             |
+
+- Sensors: mouse after 5 px of movement (so a click still opens the task), touch after a 250 ms long press (a swipe
+  scrolls), keyboard from the row's move button (Space or Enter, arrows, Space or Enter to drop, Escape to cancel).
+  A click fired right after a pointer drag is swallowed.
+- Collision detection hit-tests the pointer: edge zones win over task rows, which win over the list they sit in. Over
+  a row, the upper half drops above it and the lower half below it; over the rest of a list (its empty rows) the task
+  is appended. Keyboard drags have no pointer: the overlay steps onto a row and lands below it when that row is further
+  down than where the drag started, above it otherwise.
+- Days show timed tasks first by time, so only untimed tasks are positional there: the `beforeId`/`afterId` handed to
+  `moveTask` are the closest untimed tasks around the drop point, and a timed task keeps its slot by time (moving it
+  within its own day is a no-op). Someday columns are positional throughout. A drop that would not change anything
+  writes nothing.
+- Edge zones (`start` = previous week, `end` = next week, so RTL mirrors) appear only while dragging. Hovering one
+  for 600 ms changes the shown week, and keeps doing so while hovered, so the drag continues in the new week. Dropping
+  on one moves the task to the same weekday of the week beyond the shown one (a Someday task goes to its Monday),
+  appended. The dragged task is kept in state, so the drag survives its source row unmounting on a week change.
 
 ## Offline app shell
 
