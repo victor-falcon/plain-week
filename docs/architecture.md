@@ -62,18 +62,117 @@ with tasks ordered by `version` ascending. Tombstones (`deleted_at` not null) ar
 
 ## Client sync engine
 
-- Every local mutation writes the record and an outbox entry (the task id) in the same Dexie transaction.
+- Every local mutation writes the record and an outbox entry (keyed by the task id) in the same Dexie transaction.
 - The engine runs only when `auth.user` (Inertia shared prop) is present and `navigator.onLine` is true.
 - Triggers: app start, after local mutations (debounced about 1 s), the `online` event, window focus, and every 30 s.
 - Order of a run: push the outbox in batches → clear sent entries whose record did not change in the meantime → pull from
   the stored cursor until `has_more` is false.
 - A pulled record is applied only if `remote.updated_at >= local.updated_at` and its id is not pending in the outbox.
+  (Client refinement: a pending change that is strictly older than the remote record is dropped and the remote record
+  applied, because the server would refuse it anyway. See [Sync lifecycle](#sync-lifecycle-libsync).)
 - The cursor is persisted in the Dexie `meta` table (key `cursor`). The `user_id` is stored there too; if a different
   user logs in, the local database is wiped first.
 - Guest to account: guest data is already in the outbox, so the first authenticated sync pushes it and guest work is
   kept.
 - Logout wipes the local database (privacy on shared devices).
 - The engine exposes a sync status for the UI: `idle` | `syncing` | `offline` | `error`.
+
+## Client data layer
+
+Everything lives in `resources/js/lib/db` (local data), `resources/js/lib/sync` (sync engine) and `resources/js/hooks`.
+The UI imports the repository functions and the hooks; it never talks to `fetch` or to Dexie tables directly.
+
+### IndexedDB schema (Dexie database `plain-week`, version 1)
+
+| Table    | Primary key | Indexes                                                                 | Content                                                             |
+| -------- | ----------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| `tasks`  | `id`        | `date`, `[date+position]`, `someday_column`, `updated_at`, `deleted_at` | `Task` records, tombstones included                                 |
+| `outbox` | `task_id`   |                                                                         | `{ task_id, revision, failed_revision? }`: pending changes          |
+| `meta`   | `key`       |                                                                         | `cursor` (last pulled version), `user_id` (owner of the local data) |
+
+Types are in `lib/db/types.ts`: `Task` (exactly the contract shape), `TaskColor` and `TASK_COLORS` (colour ids only; the
+UI owns the swatches), `SomedayColumn`, `Subtask`. Schema changes need a new `this.version(n)` in
+`lib/db/database.ts`; never edit a released version.
+
+### Repository API (`lib/db/tasks.ts`)
+
+All functions are local only and return a promise that resolves once IndexedDB has committed; the UI does not need to
+await them (the live hooks re-render on their own). Each mutation reads the current record, computes the new one and
+writes it plus its outbox entry in one Dexie read-write transaction, so concurrent mutations of the same task never lose
+each other's fields and never resurrect a deleted task. `updated_at` is strictly increasing, so a local change always
+beats the version it replaces. After commit the mutation schedules a sync.
+
+| Function                                                                                                         | Notes                                                                                                                             |
+| ---------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `createTask({ text, date, someday_column?, afterPosition?, beforePosition?, color?, time?, notes?, subtasks? })` | `date: null` requires `someday_column`. Without positions it is appended at the end.                                              |
+| `updateTask(id, patch)`                                                                                          | Only `text`, `done`, `color`, `time`, `notes`, `subtasks`; `undefined` values are ignored. Changing `done` sets/clears `done_at`. |
+| `toggleDone(id)`                                                                                                 |                                                                                                                                   |
+| `deleteTask(id)`                                                                                                 | Tombstone (`deleted_at`); the record stays and syncs.                                                                             |
+| `moveTask(id, { date, someday_column?, beforeId?, afterId? })`                                                   | Lands right before `beforeId` and/or right after `afterId`; a neighbour not in the target list is ignored; with none, at the end. |
+| `duplicateTask(id)`                                                                                              | Copy (content and done state) with new ids for the task and subtasks, right after the original.                                   |
+| `listTasksIn({ date } \| { date: null, someday_column })`                                                        | Sorted, non-deleted tasks of one list (useful to compute neighbours).                                                             |
+
+Mutations on a missing or deleted task throw. Order inside a list is `position` (fractional-indexing key), then `id` as a
+tie-break (`compareTaskOrder` in `lib/db/position.ts`).
+
+### Hooks
+
+| Hook                            | Returns                                                                                    |
+| ------------------------------- | ------------------------------------------------------------------------------------------ |
+| `useWeekTasks(weekStart: Date)` | `Record<'YYYY-MM-DD', Task[]>` for the 7 days from `weekStart` (every day present), sorted |
+| `useSomedayTasks()`             | `[Task[], Task[], Task[]]`, the three Someday columns, sorted                              |
+| `useTask(id)`                   | The task, or `null` if missing/deleted                                                     |
+| `useSyncStatus()`               | `'idle' \| 'syncing' \| 'offline' \| 'error'` (`idle` for guests)                          |
+
+The data hooks return `undefined` only during the first local read. Dates are local calendar days
+(`toDateKey`/`weekDateKeys` in `lib/db/dates.ts`). The queries behind the hooks are plain async functions in
+`lib/db/queries.ts`.
+
+### Sync lifecycle (`lib/sync`)
+
+- `SyncProvider` (`components/sync-provider.tsx`) is mounted once at the planner root. When the Inertia shared prop
+  `auth.user` is present it starts the singleton `syncEngine`; when it disappears it stops it. Guests never sync.
+- Triggers: start, 1 s after the last local mutation, `online`, window `focus` and every 30 s. Only one run at a time;
+  a trigger during a run queues one more run. Runs hold a cross-tab Web Lock (`lib/sync/lock.ts`), so tabs never
+  interleave runs or a logout wipe.
+- A run:
+    1. Claims the database for the user: if `meta.user_id` is a different user, everything is wiped (including that
+       user's unsynced changes); if there is no owner, the guest data is kept and pushed.
+    2. Pushes the outbox in batches of 500. After each batch it deletes the entries whose `revision` did not change while
+       the request was in flight (applied, rejected and stale records alike). The push response `cursor` is not a pull
+       position and is ignored.
+    3. Pulls from `meta.cursor` with `limit=500` until `has_more` is false, storing the cursor (from pull responses only)
+       after each page.
+- Pull applies last-write-wins: a remote record replaces the local one if it is newer, or equally new and not pending in
+  the outbox. If a pending local change is older than the remote record, the server would refuse it anyway, so the
+  remote record is applied and the pending entry dropped: both sides converge.
+- Errors:
+    - `401` stops the engine quietly; local data stays usable and sync resumes on the next page load with a session.
+    - `422`/`413` are permanent: the batch is split until the invalid records are isolated; each is quarantined
+      (`failed_revision` = its revision, logged with `console.warn`) and skipped until the task changes again. The rest
+      of the outbox and the pull carry on; the status stays `error` while a record is quarantined.
+    - `5xx`, timeouts (30 s per request) and network failures are retried with exponential backoff (5 s doubling up to
+      5 min). Network failures report `offline`, the others `error`. Runs are cancelled by `stop()` and never write after
+      it.
+- Status: `syncing` during a run (the UI should debounce any indicator, since runs are frequent and short), then `idle`,
+  `offline` or `error`.
+- Logout: the logout links use `useLogout()` → `logOut()`. It forces a sync; if changes are still pending (offline,
+  errors) it asks before discarding them. Then it ends the server session (`POST /logout`) and only after that wipes
+  the local database under the sync lock and tells other tabs (BroadcastChannel) to stop their engines. If the server
+  logout fails, nothing is wiped and syncing resumes.
+- HTTP: `fetchTransport` calls `/sync/push` and `/sync/pull` (Wayfinder helpers `@/routes/sync`) with `credentials: 'same-origin'`, `Accept:
+application/json` and the `X-XSRF-TOKEN` header from Laravel's `XSRF-TOKEN` cookie.
+
+### Adding a new synced entity
+
+1. Add its type to `lib/db/types.ts` and a table in a new Dexie `version(n)` in `lib/db/database.ts`.
+2. Extend the outbox to identify the entity (for example an `entity` field next to the id) and write the record plus
+   the outbox entry in one transaction from a repository module, with `nextTimestamp()` for `updated_at` and
+   `notifyLocalChange()` after commit.
+3. Extend the contract here and the push/pull payloads (server and `lib/sync/transport.ts`), then group the outbox by
+   entity in `SyncEngine.push` and apply the new collection in `SyncEngine.applyRemote` with the same LWW rule.
+4. Add the new table to `allTables()` in `lib/db/database.ts` so every wipe and sync transaction includes it.
+5. Cover it with Vitest tests (repository + engine against `test/fake-sync-server.ts`).
 
 ## Server side
 
@@ -83,3 +182,144 @@ Laravel provides:
   passkeys) with Inertia pages.
 - The sync endpoints above.
 - The HTML shell and built assets. Planner data is never rendered from server props; pages read it from IndexedDB.
+
+### Routes and access
+
+| Route             | Name        | Access                                                   |
+| ----------------- | ----------- | -------------------------------------------------------- |
+| `GET /`           | `home`      | Public. Renders the Inertia page `planner` for everyone. |
+| `POST /sync/push` | `sync.push` | `auth` (session + CSRF). `SyncController@push`.          |
+| `GET /sync/pull`  | `sync.pull` | `auth` (session). `SyncController@pull`.                 |
+| `/settings/*`     |             | `auth`.                                                  |
+
+After login, registration and email verification Fortify redirects to `/` (`config/fortify.php` → `home`).
+
+**Email verification never blocks the app.** Self-hosted instances often have no mail server, so no route uses the
+`verified` middleware. The verify-email flow (notice page, resend link, signed verification URL) still works for
+instances that do send mail: the "unverified" notice and resend link live on the profile settings page. Keep
+`MAIL_MAILER=log` (the default) when there is no mail server, otherwise sending the verification email fails.
+
+Sync routes always answer in JSON, whatever the `Accept` header: guests get `401 {"message": "Unauthenticated."}`
+instead of a redirect, validation errors are `422`, and a missing or stale CSRF token is `419`. Requests must be
+same-origin and send the `X-XSRF-TOKEN` header from the `XSRF-TOKEN` cookie. (Laravel 13 also accepts a same-origin
+browser request without the token when it carries `Sec-Fetch-Site: same-origin`; send the header anyway so older
+browsers work.) Use the Wayfinder helpers
+(`@/actions/App/Http/Controllers/SyncController` or `@/routes/sync`) to build the URLs.
+
+The `TrimStrings` and `ConvertEmptyStringsToNull` middleware are skipped for `sync/*`, so strings (empty `notes`,
+leading spaces in `text`) round-trip exactly.
+
+### Tables
+
+`tasks`
+
+| Column           | Type                       | Notes                                                       |
+| ---------------- | -------------------------- | ----------------------------------------------------------- |
+| `id`             | string(36), primary key    | UUID supplied by the client; never generated by the server  |
+| `user_id`        | foreign key → `users`      | Cascades on user delete                                     |
+| `text`           | text                       |                                                             |
+| `date`           | date, nullable             | Returned as `YYYY-MM-DD`                                    |
+| `someday_column` | unsigned tinyint, nullable | `0`–`2`                                                     |
+| `position`       | string                     | Fractional index key                                        |
+| `done`           | boolean                    |                                                             |
+| `done_at`        | datetime(3), nullable      | UTC                                                         |
+| `color`          | string(16)                 | `App\Enums\TaskColor`                                       |
+| `time`           | string(5), nullable        | `HH:mm`                                                     |
+| `notes`          | text                       |                                                             |
+| `subtasks`       | json                       | List of `{ id, text, done }`                                |
+| `created_at`     | datetime(3)                | Client-owned, UTC                                           |
+| `updated_at`     | datetime(3)                | Client-owned, UTC; drives last-write-wins                   |
+| `deleted_at`     | datetime(3), nullable      | Tombstone. Not Eloquent soft deletes: tombstones are synced |
+| `version`        | unsigned bigint            | Indexed with `user_id`                                      |
+
+`sync_versions`: a single row (`id = 1`) holding the last version handed out, seeded by its migration.
+
+The `Task` model disables Eloquent timestamps (the client owns them). Timestamps go through the
+`App\Casts\UtcMillisDateTime` cast: they are stored as UTC with milliseconds and returned in the wire format
+`Y-m-d\TH:i:s.v\Z` (`2026-10-15T08:35:00.123Z`), so a pushed value comes back byte for byte.
+
+### Versioning
+
+A push runs in one database transaction (`App\Actions\Sync\PushTasks`). Its first statement increments the
+`sync_versions` counter by the number of records in the batch, reserving a block of versions. Because that write comes
+first, the transaction holds the write lock from the start (the row lock on MySQL/PostgreSQL, the database write lock
+on SQLite), so concurrent pushes wait for each other and commit their versions in order. A reader therefore never sees
+a version appear behind a cursor it has already passed.
+
+Each applied record takes the next version from the block. Records that are skipped (stale or rejected) leave gaps;
+versions only need to increase, not be contiguous. Versions are global across users, so a user's versions are not
+consecutive either. The SQLite connection sets `busy_timeout` to 5 s (`DB_BUSY_TIMEOUT`) so concurrent writers wait
+instead of failing.
+
+### Push semantics
+
+- Records are processed in request order. A record whose `id` belongs to another user goes to `rejected` and is not
+  touched.
+- A record older than the stored row (`updated_at` strictly lower) is skipped silently: it is in neither `applied` nor
+  `rejected`. Equal `updated_at` is applied.
+- `cursor` is the highest version among the user's tasks after the push (`0` if the user has none). It is **not** a
+  pull position: other devices may have written versions below it that this client has not pulled yet. Only advance
+  the stored pull cursor from `/sync/pull` responses.
+
+Validation (`App\Http\Requests\Sync\PushRequest`) rejects the whole batch with `422` if any record is invalid:
+`tasks` must be a list of at most 500 records; every field of the contract must be present; `id` a UUID; `date`
+`YYYY-MM-DD` or `null`; `someday_column` `0`–`2` and required when `date` is `null`; `color` one of the nine values;
+`time` `HH:mm` or `null`; `done` and subtask `done` real booleans; `subtasks` a list of `{ id, text, done }`;
+timestamps exactly `YYYY-MM-DDTHH:mm:ss.sssZ` (what `Date.prototype.toISOString()` produces); `id` must be lowercase
+(the primary key is case sensitive). `text`, `notes` and subtask `text` have no length limit; `position` is at most
+255 characters.
+
+A `422` is not transient: retrying the same batch fails again. The client should surface it as an error instead of
+retrying forever, and must not drop the other records of the batch. `5xx` and network errors are transient (for
+example a SQLite lock that outlives `busy_timeout`) and can be retried.
+
+### Examples
+
+```http
+POST /sync/push
+X-XSRF-TOKEN: …
+Content-Type: application/json
+Accept: application/json
+
+{
+  "tasks": [
+    {
+      "id": "0199e7a4-6c1e-7a0b-9f3e-2d4c5b6a7e8f",
+      "text": "Buy milk",
+      "date": "2026-10-15",
+      "someday_column": null,
+      "position": "a0",
+      "done": false,
+      "done_at": null,
+      "color": "cornflower",
+      "time": "09:30",
+      "notes": "",
+      "subtasks": [{ "id": "s1", "text": "Oat milk", "done": false }],
+      "created_at": "2026-10-15T08:35:00.123Z",
+      "updated_at": "2026-10-15T08:35:00.123Z",
+      "deleted_at": null
+    }
+  ]
+}
+```
+
+```json
+{
+    "applied": ["0199e7a4-6c1e-7a0b-9f3e-2d4c5b6a7e8f"],
+    "rejected": [],
+    "cursor": 42
+}
+```
+
+```http
+GET /sync/pull?cursor=40&limit=500
+Accept: application/json
+```
+
+```json
+{
+    "tasks": [{ "id": "0199e7a4-6c1e-7a0b-9f3e-2d4c5b6a7e8f", "…": "…" }],
+    "cursor": 42,
+    "has_more": false
+}
+```
