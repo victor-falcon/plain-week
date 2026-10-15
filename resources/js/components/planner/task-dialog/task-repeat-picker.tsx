@@ -25,7 +25,7 @@ import {
     repeatAnchor,
     repeatDraft,
     sameRecurrence,
-    startsSeries,
+    isSeriesStart,
     summarizeRecurrence,
     weekdayName,
 } from '@/lib/planner/repeat';
@@ -58,8 +58,8 @@ export function TaskRepeatPicker() {
     const current = series?.recurrence ?? null;
     const [open, setOpen] = useState(false);
     const [draft, setDraft] = useState<RepeatDraft | null>(null);
-    const wholeSeries = recurring && !!series && startsSeries(task, series);
-    const asksForScope = recurring && !wholeSeries;
+    const wholeSeries = recurring && !!series && isSeriesStart(task, series);
+    const asksForScope = recurring && !!series && !wholeSeries;
 
     const label = current
         ? `Repeat: ${summarizeRecurrence(current)}`
@@ -143,7 +143,9 @@ export function TaskRepeatPicker() {
                     <StartNote anchor={anchor} draft={draft} />
                     {wholeSeries && (
                         <p className="text-xs text-muted-foreground">
-                            Applies to the whole series.
+                            {draft.kind === 'never'
+                                ? 'Stops the whole series.'
+                                : 'Applies to the whole series.'}
                         </p>
                     )}
                     <Button

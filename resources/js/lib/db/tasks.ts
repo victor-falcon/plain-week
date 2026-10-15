@@ -1,11 +1,11 @@
 import { v7 as uuidv7 } from 'uuid';
 import { addDays } from '@/lib/recurrence/dates';
 import {
-    firstOccurrenceDate,
     makeOccurrence,
     normalizeRecurrence,
     occursOn,
     parseOccurrenceId,
+    startsSeries,
     toItem,
 } from '@/lib/recurrence/expand';
 import type {
@@ -294,9 +294,9 @@ function newSeries(task: Task, date: string, recurrence: Recurrence): Task {
  * Ends `series` before `from` ("this and all future"): its exceptions dated
  * `from` or later are deleted (except `keepId`), and it gets `until` the day
  * before, or is deleted when nothing would be left (`from` is on or before its
- * first occurrence). `replacement`, a series
- * row with a new id, takes over from `from`; when the old series would be
- * empty, the old row takes the replacement's content instead (same id).
+ * first occurrence). `replacement`, a series row with a new id, takes over
+ * from `from`; when the old series would be empty, the old row takes the
+ * replacement's content instead (same id).
  * Returns the rows to write and the series that now covers `from`.
  */
 async function splitSeries(
@@ -310,7 +310,7 @@ async function splitSeries(
         .filter((row) => row.deleted_at === null && row.id !== keepId)
         .map(tombstone);
 
-    if (from <= (firstOccurrenceDate(series) ?? series.date)) {
+    if (startsSeries(series, from)) {
         if (replacement === null) {
             return { rows: [...rows, tombstone(series)], successor: null };
         }

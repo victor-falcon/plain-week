@@ -281,6 +281,7 @@ describe('Repeat picker', () => {
             }),
         );
         await user.click(await screen.findByRole('radio', { name: 'Never' }));
+        screen.getByText('Stops the whole series.');
         await user.click(screen.getByRole('button', { name: 'Apply' }));
 
         await within(dialog).findByRole('button', { name: 'Repeat' });

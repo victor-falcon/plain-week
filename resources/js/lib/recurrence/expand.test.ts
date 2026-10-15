@@ -4,13 +4,13 @@ import { makeTask } from '@/test/fixtures';
 import { addDays, daysInMonth, isoWeekday } from './dates';
 import {
     expandSeries,
-    firstOccurrenceDate,
     firstRuleDate,
     isRecurring,
     matchesRule,
     normalizeRecurrence,
     occurrenceId,
     parseOccurrenceId,
+    startsSeries,
     toItem,
     winningException,
 } from './expand';
@@ -414,24 +414,21 @@ describe('firstRuleDate', () => {
     });
 });
 
-describe('firstOccurrenceDate', () => {
-    it('is the anchor, or the first date after it the rule matches', () => {
-        expect(
-            firstOccurrenceDate(
-                series(
-                    { type: 'weekly', weekdays: [1] },
-                    { date: '2026-10-12' },
-                ),
-            ),
-        ).toBe('2026-10-12');
-        expect(
-            firstOccurrenceDate(
-                series(
-                    { type: 'weekly', weekdays: [3] },
-                    { date: '2026-10-12' },
-                ),
-            ),
-        ).toBe('2026-10-14');
+describe('startsSeries', () => {
+    it('is true up to the first occurrence, even when the anchor skips it', () => {
+        const monday = series(
+            { type: 'weekly', weekdays: [1] },
+            { date: '2026-10-12' },
+        );
+        const wednesday = series(
+            { type: 'weekly', weekdays: [3] },
+            { date: '2026-10-12' },
+        );
+
+        expect(startsSeries(monday, '2026-10-12')).toBe(true);
+        expect(startsSeries(monday, '2026-10-19')).toBe(false);
+        expect(startsSeries(wednesday, '2026-10-14')).toBe(true);
+        expect(startsSeries(wednesday, '2026-10-21')).toBe(false);
     });
 });
 

@@ -235,7 +235,7 @@ keeps working after the first change.
 | `duplicateTask`                 | The copy is a plain task right after the source; the source gets its exception row.                                          |                                                                                                        |
 
 A split also deletes the series' exceptions dated D or later. When D is on or before the series' first occurrence
-(`firstOccurrenceDate`: the anchor, or the first date after it the rule matches) there is nothing to keep, so the series
+(`startsSeries`: the anchor, or the first date after it the rule matches) there is nothing to keep, so the series
 row itself takes the new content or rule (same id) instead of ending. A rule change with scope `'this'` is a split for
 one date only: the occurrence leaves its series and becomes the start of a new, independent series (its content, an
 exception's edits included, and the new rule from D on), while the old series goes on with its rule and skips D. Both

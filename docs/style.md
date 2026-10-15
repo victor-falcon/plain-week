@@ -259,13 +259,13 @@ row keeps focus when its first change turns the occurrence into an exception row
 and Color; its label is "Repeat" or "Repeat: Every Mon, Wed". Disabled for a Someday task (it cannot repeat). The
 popover (320px, `align="end"`) holds a draft that "Apply" writes:
 
-| Part     | Components                       | Behaviour                                                                                                                     |
-| -------- | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| Kind     | `ToggleGroup type="single"`      | Never / Weekly / Monthly, outline segments, the selected one filled                                                           |
-| Weekdays | `ToggleGroup type="multiple"`    | Seven localized short names from Monday (`aria-label` the long name); the task's own weekday is always selected (see below)   |
-| Day      | `Select` (1–31)                  | "Monthly on day N"; N starts at the task's day of the month; from 29 on, the note "On the last day in shorter months."        |
-| Ends     | `Popover` + `Calendar`, `Button` | "Never" or the end date (not before the start); an X button clears it                                                         |
-| Apply    | `Button`                         | Writes the rule; on the series' first occurrence a note says "Applies to the whole series."; on a later one it asks the scope |
+| Part     | Components                       | Behaviour                                                                                                                                                           |
+| -------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Kind     | `ToggleGroup type="single"`      | Never / Weekly / Monthly, outline segments, the selected one filled                                                                                                 |
+| Weekdays | `ToggleGroup type="multiple"`    | Seven localized short names from Monday (`aria-label` the long name); the task's own weekday is always selected (see below)                                         |
+| Day      | `Select` (1–31)                  | "Monthly on day N"; N starts at the task's day of the month; from 29 on, the note "On the last day in shorter months."                                              |
+| Ends     | `Popover` + `Calendar`, `Button` | "Never" or the end date (not before the start); an X button clears it                                                                                               |
+| Apply    | `Button`                         | Writes the rule; on the series' first occurrence a note says "Applies to the whole series." ("Stops the whole series." for Never); on a later one it asks the scope |
 
 The rule starts on the task's date (for an occurrence, its own date: the series is split there). If that date did not
 match the rule the task would vanish from its own day, so the picker opens with that weekday (weekly) and day of the

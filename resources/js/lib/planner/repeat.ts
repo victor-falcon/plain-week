@@ -1,6 +1,6 @@
 import type { IsoWeekday, Recurrence } from '@/lib/db/types';
 import { dayOfMonth, isoWeekday } from '@/lib/recurrence/dates';
-import { firstOccurrenceDate } from '@/lib/recurrence/expand';
+import { startsSeries } from '@/lib/recurrence/expand';
 import type { PlannerTask, SeriesItem } from '@/lib/recurrence/expand';
 import { LOCALE, formatShortDate } from './format';
 
@@ -66,11 +66,10 @@ export function asksScope(
  * change to the rule from there changes the whole series, so there is no
  * scope to ask.
  */
-export function startsSeries(item: PlannerTask, series: SeriesItem): boolean {
+export function isSeriesStart(item: PlannerTask, series: SeriesItem): boolean {
     const anchor = repeatAnchor(item);
-    const first = firstOccurrenceDate(series) ?? series.date;
 
-    return anchor !== null && anchor <= first;
+    return anchor !== null && startsSeries(series, anchor);
 }
 
 /**

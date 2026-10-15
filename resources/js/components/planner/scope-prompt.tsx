@@ -30,7 +30,7 @@ const COPY: Record<ScopeAction, { title: string; description: string }> = {
     repeat: {
         title: 'Change repeat',
         description:
-            'Give only this task the new repeat (it leaves the series), or change the series from this task on?',
+            'Apply the new repeat to only this task (it becomes a series of its own), or to this one and every later one?',
     },
     'stop-repeating': {
         title: 'Stop repeating',

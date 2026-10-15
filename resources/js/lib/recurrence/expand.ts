@@ -173,11 +173,14 @@ export function firstRuleDate(rule: Recurrence, anchor: string): string | null {
 }
 
 /**
- * The date of a series' first occurrence: its anchor, or the first date after
- * it that the rule matches. `null` when the rule ends before producing one.
+ * Whether `date` is on or before the series' first occurrence (its anchor, or
+ * the first date after it that the rule matches): a change from there is a
+ * change to the whole series.
  */
-export function firstOccurrenceDate(series: SeriesItem): string | null {
-    return firstRuleDate(series.recurrence, series.date);
+export function startsSeries(series: SeriesItem, date: string): boolean {
+    return (
+        date <= (firstRuleDate(series.recurrence, series.date) ?? series.date)
+    );
 }
 
 /** The occurrence of `series` on `date` (it does not check `occursOn`). */
