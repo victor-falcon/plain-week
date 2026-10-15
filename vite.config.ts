@@ -4,24 +4,36 @@ import babel from '@rolldown/plugin-babel';
 import tailwindcss from '@tailwindcss/vite';
 import react, { reactCompilerPreset } from '@vitejs/plugin-react';
 import laravel from 'laravel-vite-plugin';
+import { fileURLToPath } from 'node:url';
 import { defineConfig, lazyPlugins } from 'vite-plus';
 
 export default defineConfig({
-    plugins: lazyPlugins(() => [
-        laravel({
-            input: ['resources/css/app.css', 'resources/js/app.tsx'],
-            refresh: true,
-        }),
-        inertia(),
-        react(),
-        babel({
-            presets: [reactCompilerPreset()],
-        }),
-        tailwindcss(),
-        wayfinder({
-            formVariants: true,
-        }),
-    ]),
+    // Unit tests (Vitest) only need the `@/` alias, not the Laravel and
+    // Wayfinder plugins (which shell out to PHP).
+    plugins: lazyPlugins(() =>
+        process.env.VITEST
+            ? []
+            : [
+                  laravel({
+                      input: ['resources/css/app.css', 'resources/js/app.tsx'],
+                      refresh: true,
+                  }),
+                  inertia(),
+                  react(),
+                  babel({
+                      presets: [reactCompilerPreset()],
+                  }),
+                  tailwindcss(),
+                  wayfinder({
+                      formVariants: true,
+                  }),
+              ],
+    ),
+    resolve: {
+        alias: {
+            '@': fileURLToPath(new URL('./resources/js', import.meta.url)),
+        },
+    },
     server: {
         watch: {
             ignored: [
@@ -32,6 +44,11 @@ export default defineConfig({
                 '**/vendor/**',
             ],
         },
+    },
+    test: {
+        include: ['resources/js/**/*.test.ts'],
+        environment: 'node',
+        setupFiles: ['resources/js/test/setup.ts'],
     },
     lint: {
         ignorePatterns: [

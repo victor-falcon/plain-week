@@ -3,10 +3,13 @@ import { Form, Head } from '@inertiajs/react';
 import TextLink from '@/components/text-link';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
+import { useLogout } from '@/hooks/use-logout';
 import { logout } from '@/routes';
 import { send } from '@/routes/verification';
 
 export default function VerifyEmail({ status }: { status?: string }) {
+    const handleLogout = useLogout();
+
     return (
         <>
             <Head title="Email verification" />
@@ -28,6 +31,10 @@ export default function VerifyEmail({ status }: { status?: string }) {
 
                         <TextLink
                             href={logout()}
+                            onClick={(event) => {
+                                event.preventDefault();
+                                handleLogout();
+                            }}
                             className="mx-auto block text-sm"
                         >
                             Log out

@@ -2,44 +2,49 @@
 
 ## Versions
 
-| Layer    | Package                   | Version                                                      |
-| -------- | ------------------------- | ------------------------------------------------------------ |
-| Runtime  | PHP                       | 8.5 (composer requires `^8.3`; CI runs 8.5)                  |
-| Runtime  | bun                       | 1.3 (package manager and script runner)                      |
-| Runtime  | Node.js                   | 24+ (used by some tooling; CI runs 24)                       |
-| Backend  | Laravel                   | 13                                                           |
-| Backend  | Laravel Fortify           | 1.x (authentication, 2FA, passkeys)                          |
-| Backend  | Inertia (Laravel adapter) | 3.x                                                          |
-| Backend  | Laravel Wayfinder         | 0.1.x                                                        |
-| Database | SQLite                    | default for local dev and tests                              |
-| Frontend | React                     | 19 (React Compiler enabled)                                  |
-| Frontend | Inertia (React adapter)   | 3.x                                                          |
-| Frontend | TypeScript                | 5.x                                                          |
-| Frontend | Tailwind CSS              | 4.x                                                          |
-| Frontend | shadcn/ui                 | CLI 4.x, style `radix-luma`, Radix primitives via `radix-ui` |
-| Frontend | lucide-react              | icons                                                        |
-| Tooling  | Vite+ (`vp`)              | build, dev server, lint (Oxlint) and format (Oxfmt)          |
-| Tooling  | Pest                      | 5.x                                                          |
-| Tooling  | Pint                      | PHP formatter (`laravel` preset)                             |
-| Tooling  | Larastan                  | PHPStan level 7                                              |
+| Layer    | Package                     | Version                                                      |
+| -------- | --------------------------- | ------------------------------------------------------------ |
+| Runtime  | PHP                         | 8.5 (composer requires `^8.3`; CI runs 8.5)                  |
+| Runtime  | bun                         | 1.3 (package manager and script runner)                      |
+| Runtime  | Node.js                     | 24+ (used by some tooling; CI runs 24)                       |
+| Backend  | Laravel                     | 13                                                           |
+| Backend  | Laravel Fortify             | 1.x (authentication, 2FA, passkeys)                          |
+| Backend  | Inertia (Laravel adapter)   | 3.x                                                          |
+| Backend  | Laravel Wayfinder           | 0.1.x                                                        |
+| Database | SQLite                      | default for local dev and tests                              |
+| Frontend | React                       | 19 (React Compiler enabled)                                  |
+| Frontend | Inertia (React adapter)     | 3.x                                                          |
+| Frontend | TypeScript                  | 5.x                                                          |
+| Frontend | Tailwind CSS                | 4.x                                                          |
+| Frontend | shadcn/ui                   | CLI 4.x, style `radix-luma`, Radix primitives via `radix-ui` |
+| Frontend | lucide-react                | icons                                                        |
+| Tooling  | Vite+ (`vp`)                | build, dev server, lint (Oxlint) and format (Oxfmt)          |
+| Frontend | Dexie (+ dexie-react-hooks) | 4.x, IndexedDB: the client's source of truth                 |
+| Frontend | fractional-indexing         | 4.x, `position` keys                                         |
+| Frontend | uuid                        | v7 ids generated on the client                               |
+| Tooling  | Vitest (through `vp test`)  | 4.x, JS unit tests with `fake-indexeddb`                     |
+| Tooling  | Pest                        | 5.x                                                          |
+| Tooling  | Pint                        | PHP formatter (`laravel` preset)                             |
+| Tooling  | Larastan                    | PHPStan level 7                                              |
 
 Exact versions are pinned by `composer.lock` and `bun.lock`.
 
 ## Commands
 
-| Task                                         | Command                                                                 |
-| -------------------------------------------- | ----------------------------------------------------------------------- |
-| First-time setup                             | `composer setup` (installs deps, creates `.env`, key, migrates, builds) |
-| Dev server (Laravel, queue, logs, Vite)      | `composer run dev`                                                      |
-| Production build                             | `bun run build`                                                         |
-| SSR build                                    | `bun run build:ssr`                                                     |
-| Lint + format check (JS/TS)                  | `bun run check`                                                         |
-| Lint + format fix (JS/TS)                    | `bun run check:fix`                                                     |
-| Type check (TS)                              | `bun run types:check`                                                   |
-| PHP format                                   | `composer lint` (fix) / `composer lint:check`                           |
-| PHP static analysis                          | `composer types:check`                                                  |
-| PHP tests (runs Pint check + PHPStan + Pest) | `composer test`                                                         |
-| Everything CI runs                           | `composer ci:check`                                                     |
+| Task                                          | Command                                                                 |
+| --------------------------------------------- | ----------------------------------------------------------------------- |
+| First-time setup                              | `composer setup` (installs deps, creates `.env`, key, migrates, builds) |
+| Dev server (Laravel, queue, logs, Vite)       | `composer run dev`                                                      |
+| Production build                              | `bun run build`                                                         |
+| SSR build                                     | `bun run build:ssr`                                                     |
+| Lint + format check (JS/TS)                   | `bun run check`                                                         |
+| Lint + format fix (JS/TS)                     | `bun run check:fix`                                                     |
+| Type check (TS)                               | `bun run types:check`                                                   |
+| JS unit tests (Vitest)                        | `bun run test:js`                                                       |
+| PHP format                                    | `composer lint` (fix) / `composer lint:check`                           |
+| PHP static analysis                           | `composer types:check`                                                  |
+| PHP tests (runs Pint check + PHPStan + Pest)  | `composer test`                                                         |
+| Everything CI runs (JS checks, JS tests, PHP) | `composer ci:check`                                                     |
 
 CI (`.github/workflows/tests.yml`) runs `composer setup` and `composer ci:check` on every pull request to `main` and on
 pushes to `main`.
@@ -62,6 +67,9 @@ resources/js/
   components/ui/          shadcn components; managed by the shadcn CLI
   hooks/                  React hooks
   lib/                    Utilities (`cn`, etc.)
+  lib/db/                 Dexie database, task repository and queries (offline-first data layer)
+  lib/sync/               Background sync engine and its HTTP transport
+  test/                   Shared helpers for JS unit tests (fake sync server, fixtures)
   types/                  Shared TypeScript types
   actions/, routes/,      Generated by Wayfinder at build/dev time (gitignored)
   wayfinder/
