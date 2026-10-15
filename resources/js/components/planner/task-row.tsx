@@ -1,35 +1,83 @@
 import { useSortable } from '@dnd-kit/sortable';
-import { CircleCheck, GripVertical } from 'lucide-react';
+import { CircleCheck, GripVertical, Repeat } from 'lucide-react';
 import { usePlannerDnd } from '@/components/planner/planner-dnd';
+import { useScopeFor } from '@/components/planner/scope-prompt';
 import { TaskContextMenu } from '@/components/planner/task-context-menu';
 import { Button } from '@/components/ui/button';
-import type { TaskPlacement } from '@/lib/db/tasks';
-import type { Task } from '@/lib/db/types';
-import type { TaskDragData } from '@/lib/planner/drop';
 import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { useSeries } from '@/hooks/use-tasks';
+import type { TaskPlacement } from '@/lib/db/tasks';
+import type { TaskDragData } from '@/lib/planner/drop';
+import { summarizeRecurrence } from '@/lib/planner/repeat';
+import {
+    SOMEDAY_MOVE,
     deleteWithUndo,
     duplicateWithToast,
-    moveToNextWeek,
-    moveToSomeday,
-    moveToTomorrow,
+    moveWithUndo,
+    nextWeekMove,
     setTaskColor,
+    tomorrowMove,
 } from '@/lib/planner/task-actions';
 import { TASK_COLOR_STYLES } from '@/lib/planner/task-colors';
+import { isRecurring } from '@/lib/recurrence/expand';
+import type { PlannerTask } from '@/lib/recurrence/expand';
 import { cn } from '@/lib/utils';
 
 type Props = {
-    task: Task;
+    task: PlannerTask;
     /** The list the row is in, and its tasks in display order (for drops). */
     placement: TaskPlacement;
-    tasks: Task[];
+    tasks: PlannerTask[];
     /** Opens the task (click, Enter or Space on its text). */
     onOpen: (taskId: string) => void;
     onToggleDone: (taskId: string) => void;
     className?: string;
 };
 
-/** The task's time pill and text pill, as shown in a row (and the drag overlay). */
-export function TaskLabel({ task }: { task: Task }) {
+/**
+ * The repeat icon of an occurrence or exception, with the series' rule in a
+ * tooltip ("Every Mon, Wed"). An exception whose series is gone shows nothing:
+ * it is a one-off task now.
+ */
+function RepeatIcon({ task }: { task: PlannerTask }) {
+    const series = useSeries(task);
+
+    if (
+        series === null ||
+        (series === undefined && task.kind !== 'occurrence')
+    ) {
+        return null;
+    }
+
+    const icon = (
+        <Repeat
+            aria-hidden
+            data-testid="repeat-icon"
+            className="ms-1.5 size-3 shrink-0 opacity-70"
+        />
+    );
+
+    return series ? (
+        <Tooltip>
+            <TooltipTrigger asChild>{icon}</TooltipTrigger>
+            <TooltipContent>
+                {summarizeRecurrence(series.recurrence)}
+            </TooltipContent>
+        </Tooltip>
+    ) : (
+        icon
+    );
+}
+
+/**
+ * The task's time pill, repeat icon and text pill, as shown in a row (and the
+ * drag overlay).
+ */
+export function TaskLabel({ task }: { task: PlannerTask }) {
     const color = TASK_COLOR_STYLES[task.color];
 
     return (
@@ -39,6 +87,7 @@ export function TaskLabel({ task }: { task: Task }) {
                     {task.time}
                 </span>
             )}
+            {isRecurring(task) && <RepeatIcon task={task} />}
             <span
                 className={cn(
                     'truncate rounded-full px-1.5 leading-6',
@@ -73,7 +122,12 @@ export function TaskRow({
     onToggleDone,
     className,
 }: Props) {
-    const label = [task.time, task.text, task.done ? '(done)' : null]
+    const label = [
+        task.time,
+        task.text,
+        isRecurring(task) ? '(repeats)' : null,
+        task.done ? '(done)' : null,
+    ]
         .filter(Boolean)
         .join(' ');
     const { setNodeRef, setActivatorNodeRef, listeners, attributes } =
@@ -89,16 +143,34 @@ export function TaskRow({
         });
     // Dimmed while dragged, and until the drop has been written.
     const isDragging = usePlannerDnd().activeId === task.id;
+    const scopeFor = useScopeFor();
+    // Asks "Only this task / This and all future" for a recurring task;
+    // cancelling the prompt does nothing.
+    const scoped = async (
+        action: 'edit' | 'delete',
+        run: (scope?: 'this' | 'future') => unknown,
+    ) => {
+        const scope = await scopeFor(task, action);
+
+        if (scope !== null) {
+            run(scope);
+        }
+    };
 
     return (
         <TaskContextMenu
             task={task}
-            onColorChange={(color) => setTaskColor(task, color)}
-            onMoveToTomorrow={() => moveToTomorrow(task)}
-            onMoveToNextWeek={() => moveToNextWeek(task)}
-            onMoveToSomeday={() => moveToSomeday(task)}
-            onDuplicate={() => duplicateWithToast(task)}
-            onDelete={() => deleteWithUndo(task)}
+            onColorChange={(color) =>
+                color !== task.color &&
+                void scoped('edit', (scope) => setTaskColor(task, color, scope))
+            }
+            onMoveToTomorrow={() => moveWithUndo(task.id, tomorrowMove(task))}
+            onMoveToNextWeek={() => moveWithUndo(task.id, nextWeekMove(task))}
+            onMoveToSomeday={() => moveWithUndo(task.id, SOMEDAY_MOVE)}
+            onDuplicate={() => duplicateWithToast(task.id)}
+            onDelete={() =>
+                void scoped('delete', (scope) => deleteWithUndo(task.id, scope))
+            }
         >
             <div
                 ref={setNodeRef}

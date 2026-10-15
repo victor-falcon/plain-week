@@ -3,21 +3,24 @@ import { useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { useTask } from '@/hooks/use-tasks';
 import { toggleDone, updateTask } from '@/lib/db/tasks';
-import type { Task } from '@/lib/db/types';
+import { deleteWithUndo } from '@/lib/planner/task-actions';
 import { cn } from '@/lib/utils';
 import { TaskColorPicker } from './task-color-picker';
 import { TaskDatePicker } from './task-date-picker';
+import {
+    TaskEditorProvider,
+    useTaskEditor,
+    useTaskEditorSession,
+} from './task-editor';
 import { TaskMoreMenu } from './task-more-menu';
+import { TaskRepeatPicker } from './task-repeat-picker';
 import { TaskSubtasks } from './task-subtasks';
 import { TaskTimePicker } from './task-time-picker';
-import { saveLocally } from '@/lib/planner/save-locally';
-import { deleteWithUndo } from '@/lib/planner/task-actions';
 import { TOOLBAR_BUTTON_CLASS, ToolbarTooltip } from './toolbar-tooltip';
 
 type Props = {
-    /** The task to show; null keeps the dialog closed. */
+    /** The task to show (a task or occurrence id); null keeps it closed. */
     taskId: string | null;
     onClose: () => void;
 };
@@ -27,38 +30,45 @@ type Props = {
  * (no save button, no network); Esc or a click outside closes it.
  */
 export function TaskDialog({ taskId, onClose }: Props) {
-    const task = useTask(taskId);
+    // One session per opened task: what it shows can change id while it is
+    // open (an occurrence's first change, a "this and all future" edit).
+    return taskId === null ? null : (
+        <TaskDialogSession key={taskId} openedId={taskId} onClose={onClose} />
+    );
+}
+
+function TaskDialogSession({
+    openedId,
+    onClose,
+}: {
+    openedId: string;
+    onClose: () => void;
+}) {
+    const { task, editor } = useTaskEditorSession(openedId);
 
     // Deleted here or on another device (through sync): nothing left to edit.
     useEffect(() => {
-        if (taskId !== null && task === null) {
+        if (task === null) {
             onClose();
         }
-    }, [taskId, task, onClose]);
+    }, [task, onClose]);
 
     return (
         <Dialog
-            open={taskId !== null && task !== null}
+            open={task !== null && task !== undefined}
             onOpenChange={(open) => !open && onClose()}
         >
-            {task && (
-                <TaskDialogContent
-                    key={task.id}
-                    task={task}
-                    onClose={onClose}
-                />
+            {editor && (
+                <TaskEditorProvider value={editor}>
+                    <TaskDialogContent onClose={onClose} />
+                </TaskEditorProvider>
             )}
         </Dialog>
     );
 }
 
-function TaskDialogContent({
-    task,
-    onClose,
-}: {
-    task: Task;
-    onClose: () => void;
-}) {
+function TaskDialogContent({ onClose }: { onClose: () => void }) {
+    const { task, write, edit, askScope } = useTaskEditor();
     const contentRef = useRef<HTMLDivElement>(null);
     const notesRef = useRef<HTMLTextAreaElement>(null);
 
@@ -78,7 +88,7 @@ function TaskDialogContent({
             // back to the element that had focus).
             onCloseAutoFocus={(event) => {
                 const row = document.querySelector<HTMLElement>(
-                    `[data-task-id="${task.id}"] button`,
+                    `[data-task-id="${CSS.escape(task.id)}"] button`,
                 );
 
                 if (row) {
@@ -90,8 +100,8 @@ function TaskDialogContent({
         >
             <DialogTitle className="sr-only">Edit task</DialogTitle>
             <div className="-mx-2 -mt-1 flex min-w-0 items-center gap-1">
-                <TaskDatePicker task={task} />
-                <TaskTimePicker task={task} />
+                <TaskDatePicker />
+                <TaskTimePicker />
                 <div className="ms-auto flex items-center gap-1">
                     <ToolbarTooltip label="Delete">
                         <Button
@@ -99,14 +109,24 @@ function TaskDialogContent({
                             variant="ghost"
                             size="icon-sm"
                             aria-label="Delete"
-                            onClick={() => deleteWithUndo(task, onClose)}
+                            onClick={async () => {
+                                const scope = await askScope('delete');
+
+                                if (scope !== null) {
+                                    write((id) => deleteWithUndo(id, scope), {
+                                        onSaved: (deleted) =>
+                                            deleted && onClose(),
+                                    });
+                                }
+                            }}
                             className={TOOLBAR_BUTTON_CLASS}
                         >
                             <Trash2 />
                         </Button>
                     </ToolbarTooltip>
-                    <TaskColorPicker task={task} />
-                    <TaskMoreMenu task={task} />
+                    <TaskRepeatPicker />
+                    <TaskColorPicker />
+                    <TaskMoreMenu />
                 </div>
             </div>
             {/*
@@ -129,10 +149,19 @@ function TaskDialogContent({
                             );
                         }
 
-                        const text = event.target.value;
+                        const field = event.target;
+                        const text = field.value;
 
                         if (text.trim() !== '') {
-                            saveLocally(updateTask(task.id, { text }));
+                            edit(
+                                (id, scope) =>
+                                    updateTask(id, { text }, { scope }),
+                                {
+                                    onCancel: () => {
+                                        field.value = task.text;
+                                    },
+                                },
+                            );
                         }
                     }}
                     onBlur={(event) => {
@@ -162,7 +191,9 @@ function TaskDialogContent({
                     size="icon-sm"
                     aria-label={task.done ? 'Mark as not done' : 'Mark as done'}
                     aria-pressed={task.done}
-                    onClick={() => saveLocally(toggleDone(task.id))}
+                    onClick={() =>
+                        write((id) => toggleDone(id), { follow: true })
+                    }
                     className="mt-0.5 shrink-0 rounded-full hover:bg-transparent"
                 >
                     <CircleCheck
@@ -179,14 +210,19 @@ function TaskDialogContent({
                 aria-label="Notes"
                 placeholder="Add some extra notes here…"
                 defaultValue={task.notes}
-                onChange={(event) =>
-                    saveLocally(
-                        updateTask(task.id, { notes: event.target.value }),
-                    )
-                }
+                onChange={(event) => {
+                    const field = event.target;
+                    const notes = field.value;
+
+                    edit((id, scope) => updateTask(id, { notes }, { scope }), {
+                        onCancel: () => {
+                            field.value = task.notes;
+                        },
+                    });
+                }}
                 className="min-h-10 rounded-none border-0 bg-transparent p-0 shadow-none focus-visible:ring-0 dark:bg-transparent"
             />
-            <TaskSubtasks task={task} />
+            <TaskSubtasks />
         </DialogContent>
     );
 }

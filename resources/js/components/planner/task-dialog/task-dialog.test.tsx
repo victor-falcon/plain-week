@@ -9,10 +9,12 @@ import {
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
+import { ScopePromptProvider } from '@/components/planner/scope-prompt';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { db, wipeLocalDatabase } from '@/lib/db/database';
 import { createTask, listTasksIn } from '@/lib/db/tasks';
+import { toastAction } from '@/test/toasts';
 import type { Task } from '@/lib/db/types';
 import { TaskDialog } from './task-dialog';
 
@@ -23,8 +25,10 @@ function Harness({ taskId }: { taskId: string }) {
 
     return (
         <TooltipProvider>
-            <TaskDialog taskId={openId} onClose={() => setOpenId(null)} />
-            <Toaster />
+            <ScopePromptProvider>
+                <TaskDialog taskId={openId} onClose={() => setOpenId(null)} />
+                <Toaster />
+            </ScopePromptProvider>
         </TooltipProvider>
     );
 }
@@ -313,7 +317,7 @@ describe('TaskDialog', () => {
         await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
         expect((await stored(task.id))?.deleted_at).not.toBeNull();
 
-        await user.click(await screen.findByRole('button', { name: 'Undo' }));
+        await user.click(await toastAction('Task deleted.'));
 
         await waitFor(async () =>
             expect((await stored(task.id))?.deleted_at).toBeNull(),

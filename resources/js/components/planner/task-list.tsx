@@ -13,7 +13,7 @@ import {
 import { TaskRow } from '@/components/planner/task-row';
 import { createTask, toggleDone } from '@/lib/db/tasks';
 import type { TaskPlacement } from '@/lib/db/tasks';
-import type { Task } from '@/lib/db/types';
+import type { PlannerTask } from '@/lib/recurrence/expand';
 import { placementKey } from '@/lib/planner/drop';
 import type { ListDropData } from '@/lib/planner/drop';
 import { parseSmartTime } from '@/lib/planner/smart-time';
@@ -23,7 +23,7 @@ type Props = {
     /** The day or Someday column this list shows. */
     placement: TaskPlacement;
     /** Sorted tasks; `undefined` while the first local read is in progress. */
-    tasks: Task[] | undefined;
+    tasks: PlannerTask[] | undefined;
     /** Ruled rows to fill on desktop. Mobile shows a single empty row. */
     rows: number;
     /** Accessible label of the empty rows, e.g. "New task for Mon 12 Oct". */

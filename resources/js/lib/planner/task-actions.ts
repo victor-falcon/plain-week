@@ -1,80 +1,150 @@
 import { toast } from 'sonner';
 import { toDateKey } from '@/lib/db/dates';
+import { getSeries } from '@/lib/db/queries';
 import {
+    createUndoLog,
     deleteTask,
     duplicateTask,
     moveTask,
-    restoreTask,
+    undoChanges,
     updateTask,
 } from '@/lib/db/tasks';
+import type { MoveTaskInput, Scope } from '@/lib/db/tasks';
 import { SOMEDAY_COLUMNS } from '@/lib/db/types';
 import type { Task, TaskColor } from '@/lib/db/types';
+import type { PlannerTask } from '@/lib/recurrence/expand';
+import { placementLabel } from './drop';
 import { nextWeekOf, tomorrowOf } from './quick-moves';
 import { saveLocally } from './save-locally';
 
 /**
  * The task actions shared by the task dialog and the task context menu. They
  * write to the local database without making the UI wait, and report a failed
- * write with a toast.
+ * write with a toast. The ones that return a promise resolve with the item that
+ * now stands for the task, or `undefined` when the write failed (already
+ * reported), so callers never need a `catch`.
  */
 
-export function setTaskColor(task: Task, color: TaskColor): void {
-    if (color !== task.color) {
-        saveLocally(updateTask(task.id, { color }));
+/**
+ * Whether a change to this item has to ask "Only this task / This and all
+ * future": an occurrence, or an exception whose series still exists. A plain
+ * task, a series row or an orphaned exception has nothing to ask about.
+ */
+export async function needsScope(item: PlannerTask): Promise<boolean> {
+    if (item.kind === 'occurrence') {
+        return true;
     }
+
+    return item.kind === 'exception' && (await getSeries(item)) !== null;
+}
+
+/** Runs a write; on failure shows `error` and resolves with `undefined`. */
+function settle<T>(write: Promise<T>, error: string): Promise<T | undefined> {
+    return write.catch(() => {
+        toast.error(error);
+
+        return undefined;
+    });
+}
+
+export function setTaskColor(
+    task: Task,
+    color: TaskColor,
+    scope?: Scope,
+): Promise<PlannerTask | undefined> {
+    if (color === task.color) {
+        return Promise.resolve(undefined);
+    }
+
+    return settle(
+        updateTask(task.id, { color }, { scope }),
+        'Could not update the task.',
+    );
 }
 
 /**
  * Quick moves. "Today" is read when the action runs, so a planner left open
  * overnight counts from the right day.
  */
-export function moveToTomorrow(task: Task): void {
-    saveLocally(
-        moveTask(task.id, {
-            date: tomorrowOf(task.date, toDateKey(new Date())),
+export function tomorrowMove(task: Task): MoveTaskInput {
+    return { date: tomorrowOf(task.date, toDateKey(new Date())) };
+}
+
+export function nextWeekMove(task: Task): MoveTaskInput {
+    return { date: nextWeekOf(task.date, toDateKey(new Date())) };
+}
+
+export const SOMEDAY_MOVE: MoveTaskInput = {
+    date: null,
+    someday_column: SOMEDAY_COLUMNS[0],
+};
+
+/**
+ * Moves a task (an occurrence: only this one) and says where it went in a
+ * toast ("Moved to Tue 13 Oct.") whose "Undo" puts it back.
+ */
+export function moveWithUndo(
+    id: string,
+    move: MoveTaskInput,
+): Promise<PlannerTask | undefined> {
+    const undo = createUndoLog();
+
+    return settle(
+        moveTask(id, move, { undo }).then((moved) => {
+            toast(
+                `Moved to ${move.date === null ? 'Someday' : placementLabel(move)}.`,
+                {
+                    action: {
+                        label: 'Undo',
+                        onClick: () =>
+                            saveLocally(undoChanges(undo), {
+                                error: 'Could not undo the move.',
+                            }),
+                    },
+                },
+            );
+
+            return moved;
         }),
+        'Could not move the task.',
     );
 }
 
-export function moveToNextWeek(task: Task): void {
-    saveLocally(
-        moveTask(task.id, {
-            date: nextWeekOf(task.date, toDateKey(new Date())),
+export function duplicateWithToast(id: string): Promise<Task | undefined> {
+    return settle(
+        duplicateTask(id).then((copy) => {
+            toast.success('Task duplicated.');
+
+            return copy;
         }),
+        'Could not duplicate the task.',
     );
-}
-
-export function moveToSomeday(task: Task): void {
-    saveLocally(
-        moveTask(task.id, { date: null, someday_column: SOMEDAY_COLUMNS[0] }),
-    );
-}
-
-export function duplicateWithToast(task: Task): void {
-    saveLocally(duplicateTask(task.id), {
-        error: 'Could not duplicate the task.',
-        onSaved: () => toast.success('Task duplicated.'),
-    });
 }
 
 /**
- * Deletes at once (no confirmation) and offers "Undo" in a toast, which
- * restores the same task. `onDeleted` runs once the delete is written.
+ * Deletes at once and offers "Undo" in a toast, which puts back everything
+ * the delete changed (with scope 'future', the ended series too).
  */
-export function deleteWithUndo(task: Task, onDeleted?: () => void): void {
-    saveLocally(deleteTask(task.id), {
-        error: 'Could not delete the task.',
-        onSaved: () => {
-            onDeleted?.();
+export function deleteWithUndo(
+    id: string,
+    scope?: Scope,
+): Promise<Task | undefined> {
+    const undo = createUndoLog();
+
+    return settle(
+        deleteTask(id, { scope, undo }).then((deleted) => {
             toast('Task deleted.', {
                 action: {
                     label: 'Undo',
                     onClick: () =>
-                        saveLocally(restoreTask(task.id), {
+                        saveLocally(undoChanges(undo), {
                             error: 'Could not restore the task.',
                         }),
                 },
             });
-        },
-    });
+
+            return deleted;
+        }),
+        'Could not delete the task.',
+    );
 }

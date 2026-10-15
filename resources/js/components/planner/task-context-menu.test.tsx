@@ -16,10 +16,12 @@ import {
     it,
     vi,
 } from 'vite-plus/test';
+import { ScopePromptProvider } from '@/components/planner/scope-prompt';
 import { TaskList } from '@/components/planner/task-list';
 import { Toaster } from '@/components/ui/sonner';
 import { db, wipeLocalDatabase } from '@/lib/db/database';
 import { createTask, listTasksIn } from '@/lib/db/tasks';
+import { toastAction } from '@/test/toasts';
 import type { TaskPlacement } from '@/lib/db/tasks';
 import type { Task } from '@/lib/db/types';
 
@@ -35,7 +37,7 @@ function List({
     const tasks = useLiveQuery(() => listTasksIn(placement), [placement]);
 
     return (
-        <>
+        <ScopePromptProvider>
             <TaskList
                 placement={placement}
                 tasks={tasks}
@@ -44,7 +46,7 @@ function List({
                 onOpenTask={onOpenTask}
             />
             <Toaster />
-        </>
+        </ScopePromptProvider>
     );
 }
 
@@ -238,7 +240,7 @@ describe('TaskContextMenu', () => {
         );
         expect((await stored(task.id))?.deleted_at).not.toBeNull();
 
-        await user.click(await screen.findByRole('button', { name: 'Undo' }));
+        await user.click(await toastAction('Task deleted.'));
 
         await screen.findByRole('button', { name: 'Plan trip' });
         expect((await stored(task.id))?.deleted_at).toBeNull();
