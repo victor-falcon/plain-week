@@ -123,4 +123,17 @@ describe('Settings › Data', () => {
         expect(await screen.findByText('Exported 1 task')).toBeTruthy();
         expect(createObjectURL).toHaveBeenCalledOnce();
     });
+
+    it('does not download an empty export', async () => {
+        const createObjectURL = vi.fn(() => 'blob:export');
+        URL.createObjectURL = createObjectURL;
+        const user = renderPage();
+
+        await user.click(screen.getByRole('button', { name: 'Export data' }));
+
+        expect(
+            await screen.findByText('There are no tasks to export.'),
+        ).toBeTruthy();
+        expect(createObjectURL).not.toHaveBeenCalled();
+    });
 });

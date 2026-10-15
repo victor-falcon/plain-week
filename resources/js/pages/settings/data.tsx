@@ -52,21 +52,20 @@ export default function Data() {
                 <Button
                     variant="outline"
                     onClick={transfer.chooseImportFile}
+                    disabled={transfer.reading}
                     data-test="import-data"
                 >
-                    <FileUp />
+                    {transfer.reading ? <Spinner /> : <FileUp />}
                     Import data…
                 </Button>
                 {transfer.element}
             </div>
 
-            <div className="space-y-2">
-                <Heading
-                    variant="small"
-                    title="File format"
-                    description="A plain-week-export-YYYY-MM-DD.json file with a format marker, a version and the list of tasks: text, date or Someday column, position, done state, color, time, notes, subtasks and repeat rules. Deleted tasks are left out."
-                />
-            </div>
+            <Heading
+                variant="small"
+                title="File format"
+                description="A plain-week-export-YYYY-MM-DD.json file with a format marker, a version and the list of tasks: text, date or Someday column, position, done state, color, time, notes, subtasks and repeat rules. Deleted tasks are left out."
+            />
         </SyncProvider>
     );
 }

@@ -10,7 +10,7 @@ import { buildExport } from '@/lib/transfer/export';
 import { makeTask } from '@/test/fixtures';
 
 function Harness() {
-    const transfer = useDataTransfer();
+    const transfer = useDataTransfer({ prepare: () => Promise.resolve(true) });
 
     return (
         <>

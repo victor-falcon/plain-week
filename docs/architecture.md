@@ -350,8 +350,10 @@ the client (`lib/transfer`) against IndexedDB, so they work offline once the pag
 The planner's `SyncProvider` is not mounted on settings pages, so the Data page mounts its own, and both actions first
 call `prepareLocalData(userId)` (`lib/sync`): it claims the local database for the signed-in user, exactly like a sync
 run (`claimDatabaseFor`: another user's data is wiped, guest data kept), so a later run never wipes what the import
-wrote, then waits for one sync when online, so an export includes the latest server data. Imported rows are pushed by
-that page's engine right away, or by the planner's on the next visit.
+wrote, then runs one sync (forced, even during back-off) so an export includes the latest server data. When that sync
+cannot finish (offline, errors) the export still happens, and its toast says changes from other devices may be missing.
+Imported rows are pushed by that page's engine right away, or by the planner's on the next visit. Like any sync run,
+the claim wipes another user's leftover local data (which only exists after a session ended without a logout).
 
 ```json
 {

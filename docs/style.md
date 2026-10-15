@@ -328,8 +328,10 @@ listed last in the settings nav); guests and the planner's account menu have no 
 small `Heading` sections: "Export data" (a filled button), "Import data" (an outline button) and "File format" (a short
 description).
 
-"Export data" downloads `plain-week-export-YYYY-MM-DD.json` and confirms with a toast ("Exported 12 tasks"); the button
-shows a `Spinner` while the file is built. "Import data…" opens the file picker (`.json`), then an `AlertDialog`
+"Export data" downloads `plain-week-export-YYYY-MM-DD.json` and confirms with a toast ("Exported 12 tasks", with a
+"may be missing changes from other devices" description when the page could not sync first); the button shows a
+`Spinner` while the file is built, and an empty planner gets "There are no tasks to export." instead of a file. The
+Import button shows a `Spinner` while the chosen file is read. "Import data…" opens the file picker (`.json`), then an `AlertDialog`
 previews the file ("12 tasks (2 recurring) will be added. Your existing tasks will stay unchanged.") with Cancel /
 Import. While importing, a `Progress` bar fills and the dialog cannot be dismissed; it closes with a toast ("Imported 12
 tasks"). The rows are planned when Import is pressed, so positions follow any task added while the preview was open; a

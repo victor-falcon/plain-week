@@ -10,18 +10,23 @@ export const syncEngine = new SyncEngine({ db, transport: fetchTransport });
 
 /**
  * Gets the local database ready for the signed-in user outside the planner
- * (Settings › Data): claims it like a sync run does, so a later run never
- * wipes what is written now, then waits for one sync while the engine runs
- * and the browser is online, so reads include the latest server data.
- * Offline it only claims.
+ * (Settings › Data): claims it like a sync run does (another user's leftover
+ * data is wiped, guest work kept), so a later run never wipes what is written
+ * now, then runs one sync (needs a started engine, see `SyncProvider`).
+ * Resolves with true when the local data is up to date with the server, false
+ * when that sync could not finish (offline, errors).
  */
-export async function prepareLocalData(userId: string | number): Promise<void> {
+export async function prepareLocalData(
+    userId: string | number,
+): Promise<boolean> {
     await withSyncLock(() =>
         db.transaction('rw', allTables(db), () =>
             claimDatabaseFor(db, String(userId)),
         ),
     );
-    await syncEngine.sync();
+    await syncEngine.sync({ force: true });
+
+    return syncEngine.isStarted && syncEngine.getStatus() === 'idle';
 }
 
 const LOGOUT_CHANNEL = 'plain-week-session';

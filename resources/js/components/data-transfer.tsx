@@ -51,10 +51,18 @@ function errorMessage(error: unknown, fallback: string): string {
 }
 
 /** Saves the local database as a JSON file (works offline). */
-async function exportData(prepare: () => Promise<void>): Promise<void> {
+async function exportData(prepare: () => Promise<boolean>): Promise<void> {
     try {
-        await prepare();
+        const upToDate = await prepare();
         const file = await buildExport();
+        const { taskCount } = summarizeImport(file);
+
+        if (taskCount === 0) {
+            toast.info('There are no tasks to export.');
+
+            return;
+        }
+
         const url = URL.createObjectURL(
             new Blob([JSON.stringify(file, null, 2)], {
                 type: 'application/json',
@@ -67,9 +75,11 @@ async function exportData(prepare: () => Promise<void>): Promise<void> {
         link.click();
         link.remove();
         setTimeout(() => URL.revokeObjectURL(url), DOWNLOAD_URL_LIFETIME_MS);
-        toast.success(
-            `Exported ${tasksLabel(summarizeImport(file).taskCount)}`,
-        );
+        toast.success(`Exported ${tasksLabel(taskCount)}`, {
+            description: upToDate
+                ? undefined
+                : 'Not synced with your account right now, so changes made on other devices may be missing.',
+        });
     } catch (error) {
         toast.error(errorMessage(error, 'Could not export your data.'));
     }
@@ -77,6 +87,7 @@ async function exportData(prepare: () => Promise<void>): Promise<void> {
 
 type ImportState =
     | { phase: 'closed' }
+    | { phase: 'reading' }
     | { phase: 'preview'; file: ExportFile; summary: ImportSummary }
     | {
           phase: 'importing';
@@ -89,6 +100,8 @@ export type DataTransfer = {
     exportData: () => void;
     /** True while the export file is being built. */
     exporting: boolean;
+    /** True while a chosen file is read, before its preview opens. */
+    reading: boolean;
     /** Opens the file picker; the preview dialog follows. */
     chooseImportFile: () => void;
     /** The hidden file input and the import dialog; render it once. */
@@ -97,13 +110,12 @@ export type DataTransfer = {
 
 export type DataTransferOptions = {
     /**
-     * Runs before the local database is read or written, for example to bind
-     * it to the signed-in user (`prepareLocalData`).
+     * Runs before the local database is read or written, to bind it to the
+     * signed-in user (`prepareLocalData`). Resolves with whether the local
+     * data is up to date with the server.
      */
-    prepare?: () => Promise<void>;
+    prepare: () => Promise<boolean>;
 };
-
-const noPreparation = () => Promise.resolve();
 
 /**
  * Export and import of a JSON backup (docs/architecture.md, "Export
@@ -111,10 +123,11 @@ const noPreparation = () => Promise.resolve();
  * imported tasks sync like any other local change.
  */
 export function useDataTransfer({
-    prepare = noPreparation,
-}: DataTransferOptions = {}): DataTransfer {
+    prepare,
+}: DataTransferOptions): DataTransfer {
     const input = useRef<HTMLInputElement>(null);
     const running = useRef(false);
+    const exportRunning = useRef(false);
     const [state, setState] = useState<ImportState>({ phase: 'closed' });
     const [exporting, setExporting] = useState(false);
 
@@ -126,6 +139,8 @@ export function useDataTransfer({
             return;
         }
 
+        setState({ phase: 'reading' });
+
         try {
             await prepare();
             const file = await parseImport(chosen);
@@ -133,6 +148,7 @@ export function useDataTransfer({
 
             if (summary.taskCount === 0) {
                 toast.info('There are no tasks in this file.');
+                setState({ phase: 'closed' });
 
                 return;
             }
@@ -140,6 +156,7 @@ export function useDataTransfer({
             setState({ phase: 'preview', file, summary });
         } catch (error) {
             toast.error(errorMessage(error, 'Could not read this file.'));
+            setState({ phase: 'closed' });
         }
     }
 
@@ -174,7 +191,7 @@ export function useDataTransfer({
         } catch (error) {
             toast.error(
                 written > 0
-                    ? `The import stopped after ${written.toLocaleString()} of ${total.toLocaleString()} rows; those were added.`
+                    ? `The import stopped after ${written.toLocaleString()} of ${total.toLocaleString()} tasks; those were added.`
                     : errorMessage(error, 'Could not import this file.'),
             );
 
@@ -202,7 +219,7 @@ export function useDataTransfer({
                 onChange={onFileChosen}
             />
             <AlertDialog
-                open={state.phase !== 'closed'}
+                open={state.phase === 'preview' || state.phase === 'importing'}
                 onOpenChange={(open) => {
                     if (!open && !importing) {
                         setState({ phase: 'closed' });
@@ -251,14 +268,19 @@ export function useDataTransfer({
 
     return {
         exportData: () => {
-            if (exporting) {
+            if (exportRunning.current) {
                 return;
             }
 
+            exportRunning.current = true;
             setExporting(true);
-            void exportData(prepare).finally(() => setExporting(false));
+            void exportData(prepare).finally(() => {
+                exportRunning.current = false;
+                setExporting(false);
+            });
         },
         exporting,
+        reading: state.phase === 'reading',
         chooseImportFile: () => input.current?.click(),
         element,
     };

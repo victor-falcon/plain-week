@@ -82,11 +82,6 @@ function toTask(remote: Task): Task {
 }
 
 /**
- * Background sync: pushes the outbox, then pulls remote changes, applying them
- * with last-write-wins. It never blocks the UI; the UI keeps reading Dexie.
- * See docs/architecture.md for the full lifecycle.
- */
-/**
  * Binds the local database to `userId`: data of a different user is wiped,
  * data without an owner (guest work) is kept, except untouched demo tasks,
  * which are deleted (they never reach the server). Call it inside a read-write
@@ -106,6 +101,11 @@ export async function claimDatabaseFor(
     await db.meta.put({ key: 'user_id', value: userId });
 }
 
+/**
+ * Background sync: pushes the outbox, then pulls remote changes, applying them
+ * with last-write-wins. It never blocks the UI; the UI keeps reading Dexie.
+ * See docs/architecture.md for the full lifecycle.
+ */
 export class SyncEngine {
     private readonly db: PlainWeekDatabase;
     private readonly transport: SyncTransport;
