@@ -7,6 +7,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.0.4] - 2026-10-15
+
 ### Added
 
 - **Repeat every N days.** The repeat picker has a "Daily" option with a number of days from 1 to 365 ("Every day",
@@ -96,7 +98,8 @@ between devices.
   app, so an instance without mail works.
 - **Documentation** for contributors and coding agents in `docs/` and `AGENTS.md`.
 
-[Unreleased]: https://github.com/victor-falcon/plain-week/compare/v0.0.3...HEAD
+[Unreleased]: https://github.com/victor-falcon/plain-week/compare/v0.0.4...HEAD
+[0.0.4]: https://github.com/victor-falcon/plain-week/compare/v0.0.3...v0.0.4
 [0.0.3]: https://github.com/victor-falcon/plain-week/compare/v0.0.2...v0.0.3
 [0.0.2]: https://github.com/victor-falcon/plain-week/compare/v0.0.1...v0.0.2
 [0.0.1]: https://github.com/victor-falcon/plain-week/releases/tag/v0.0.1
