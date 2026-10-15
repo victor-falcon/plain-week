@@ -8,6 +8,7 @@ const dayFormat = new Intl.DateTimeFormat(LOCALE, {
     month: 'short',
 });
 const weekdayFormat = new Intl.DateTimeFormat(LOCALE, { weekday: 'short' });
+const yearFormat = new Intl.DateTimeFormat(LOCALE, { year: 'numeric' });
 const longMonthFormat = new Intl.DateTimeFormat(LOCALE, {
     month: 'long',
     year: 'numeric',
@@ -25,6 +26,13 @@ export function formatDay(dateKey: string): string {
 /** "Mon" for a 'YYYY-MM-DD' key. */
 export function formatWeekday(dateKey: string): string {
     return weekdayFormat.format(parseDateKey(dateKey));
+}
+
+/** "Mon, 12 Oct 2026" for a 'YYYY-MM-DD' key. */
+export function formatLongDate(dateKey: string): string {
+    const date = parseDateKey(dateKey);
+
+    return `${weekdayFormat.format(date)}, ${dayFormat.format(date)} ${yearFormat.format(date)}`;
 }
 
 /** "October 2026" (long) or "Oct 2026" (short). */

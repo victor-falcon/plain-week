@@ -166,6 +166,41 @@ export function deleteTask(id: string): Promise<Task> {
 }
 
 /**
+ * Brings back a soft-deleted task (undo of `deleteTask`). The restore is a
+ * newer change, so it also wins over the tombstone on other devices.
+ */
+export function restoreTask(id: string): Promise<Task> {
+    return write(async () => {
+        const task = await db.tasks.get(id);
+
+        if (!task) {
+            throw new Error(`Task ${id} does not exist.`);
+        }
+
+        return {
+            ...task,
+            updated_at: nextTimestamp(task.updated_at),
+            deleted_at: null,
+        };
+    });
+}
+
+/**
+ * Replaces the subtasks with `update(current)`, reading and writing in one
+ * transaction so quick successive edits never overwrite each other.
+ */
+export function updateSubtasks(
+    id: string,
+    update: (subtasks: Subtask[]) => Subtask[],
+): Promise<Task> {
+    return write(async () => {
+        const task = await getLive(id);
+
+        return patched(task, { subtasks: update(task.subtasks) });
+    });
+}
+
+/**
  * Moves a task to a day or Someday column. It lands right before `beforeId`
  * and/or right after `afterId`; a neighbour that is not in the target list is
  * ignored, and with no usable neighbour the task goes to the end.
