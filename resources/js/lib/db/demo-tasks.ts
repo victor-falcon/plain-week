@@ -1,6 +1,5 @@
 import { addDays, isoWeekday } from '@/lib/recurrence/dates';
-import { allTables, db } from './database';
-import { addDemoIds, isDemoSeeded, markDemoSeeded } from './demo';
+import { db } from './database';
 import { createTask, setRecurrence, toggleDone } from './tasks';
 import type { CreateTaskInput } from './tasks';
 
@@ -15,13 +14,13 @@ function demoTasks(today: string): DemoTask[] {
     const day = (offset: number) => addDays(monday, offset);
 
     return [
-        { text: 'Hover a task and tick it to complete', date: day(0) },
-        { text: 'Done tasks get crossed out', date: day(0), done: true },
+        { text: 'Hover to complete me', date: day(0) },
+        { text: 'Done looks like this', date: day(0), done: true },
         { text: 'Click a task to edit it', date: day(0) },
         { text: 'Drag me to another day', date: day(0) },
         { text: 'Pick a color in the editor', date: day(1), color: 'yellow' },
-        { text: 'Timed tasks go first', date: day(1), time: '17:30' },
-        { text: 'Right-click for quick actions', date: day(2) },
+        { text: 'Times go first', date: day(1), time: '17:30' },
+        { text: 'Right-click for actions', date: day(2) },
         { text: 'Weekly review', date: day(4), repeatWeekly: true },
         {
             text: 'Ideas without a date live here',
@@ -32,51 +31,55 @@ function demoTasks(today: string): DemoTask[] {
 }
 
 /**
- * Seeds the demo tasks on a guest's very first visit: only when this device
- * never seeded them, never belonged to a user and has no tasks. Either way it
- * marks the device as seeded, so they never come back, even after the user
- * deletes them all. Runs in one transaction, so two tabs cannot both seed.
- * Resolves with true when it seeded.
+ * Claims the onboarding for this device: true only on a guest's very first
+ * visit (never seeded, never owned by a user, no tasks). It marks the device
+ * as seeded either way, in one transaction, so two tabs never both seed and
+ * the demo never comes back, even after the user deletes every demo task.
  */
-export function seedDemoTasks(today: string): Promise<boolean> {
-    return db.transaction('rw', allTables(db), async () => {
+function claimOnboarding(): Promise<boolean> {
+    return db.transaction('rw', db.tasks, db.meta, async () => {
         const [seeded, owner, taskCount] = await Promise.all([
-            isDemoSeeded(),
+            db.meta.get('demo_seeded'),
             db.meta.get('user_id'),
             db.tasks.count(),
         ]);
 
-        if (seeded) {
+        if (seeded !== undefined) {
             return false;
         }
 
-        await markDemoSeeded();
+        await db.meta.put({ key: 'demo_seeded', value: 1 });
 
-        if (owner !== undefined || taskCount > 0) {
-            return false;
-        }
-
-        const ids: string[] = [];
-
-        for (const { done, repeatWeekly, ...input } of demoTasks(today)) {
-            const task = await createTask(input);
-
-            ids.push(task.id);
-
-            if (done) {
-                await toggleDone(task.id);
-            }
-
-            if (repeatWeekly && task.date !== null) {
-                await setRecurrence(task.id, {
-                    type: 'weekly',
-                    weekdays: [isoWeekday(task.date)],
-                });
-            }
-        }
-
-        await addDemoIds(ids);
-
-        return true;
+        return owner === undefined && taskCount === 0;
     });
+}
+
+/**
+ * Seeds the demo tasks in the week of `today` on a guest's very first visit,
+ * through the repository. Every write marks its rows as demo in its own
+ * transaction, so even a seed cut short never leaves anything to push.
+ * Resolves with true when it seeded.
+ */
+export async function seedDemoTasks(today: string): Promise<boolean> {
+    if (!(await claimOnboarding())) {
+        return false;
+    }
+
+    for (const { done, repeatWeekly, ...input } of demoTasks(today)) {
+        const task = await createTask(input, { demo: true });
+
+        if (done) {
+            await toggleDone(task.id, { demo: true });
+        }
+
+        if (repeatWeekly && task.date !== null) {
+            await setRecurrence(
+                task.id,
+                { type: 'weekly', weekdays: [isoWeekday(task.date)] },
+                { demo: true },
+            );
+        }
+    }
+
+    return true;
 }

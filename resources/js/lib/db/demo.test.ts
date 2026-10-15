@@ -50,7 +50,7 @@ describe('seedDemoTasks', () => {
         );
         expect(week['2026-10-12'].filter((t) => t.done)).toHaveLength(1);
         expect(week['2026-10-13'][0]).toMatchObject({
-            text: 'Timed tasks go first',
+            text: 'Times go first',
             time: '17:30',
         });
         expect(week['2026-10-13'][1].color).toBe('yellow');
@@ -83,6 +83,17 @@ describe('seedDemoTasks', () => {
         expect(await liveTasks()).toHaveLength(0);
         // Deleting a demo task never queues a tombstone.
         expect(await db.outbox.count()).toBe(0);
+    });
+
+    it('never leaves anything to push, even when cut short', async () => {
+        await seedDemoTasks(TODAY);
+
+        // Every row became demo in its own write, not in a final step.
+        const ids = await demoIds();
+
+        (await db.tasks.toArray()).forEach((task) =>
+            expect(ids.has(task.id)).toBe(true),
+        );
     });
 
     it('seeds once when two tabs race', async () => {
@@ -142,9 +153,9 @@ describe('demo status', () => {
     });
 
     it('ends when the user completes, moves or duplicates one', async () => {
-        const done = await demoTask('Hover a task and tick it to complete');
+        const done = await demoTask('Hover to complete me');
         const moved = await demoTask('Drag me to another day');
-        const source = await demoTask('Right-click for quick actions');
+        const source = await demoTask('Right-click for actions');
 
         await toggleDone(done.id);
         await moveTask(moved.id, { date: '2026-10-15' });
@@ -173,8 +184,10 @@ describe('demo status', () => {
             (t) => t.id === series.id || t.series_id === series.id,
         );
 
+        const ids = await demoIds();
+
         expect(rows).toHaveLength(3);
-        rows.forEach((row) => expect(demoIds()).resolves.not.toContain(row.id));
+        rows.forEach((row) => expect(ids.has(row.id)).toBe(false));
         expect(
             (await db.outbox.bulkGet(rows.map((r) => r.id))).every(Boolean),
         ).toBe(true);

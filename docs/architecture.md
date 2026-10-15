@@ -311,11 +311,13 @@ application/json` and the `X-XSRF-TOKEN` header from Laravel's `XSRF-TOKEN` cook
 A guest's very first visit gets a few demo tasks in the current week that teach the planner (complete on hover, click to
 edit, drag, color, timed tasks first, right click, a weekly series on Friday, Someday). They live only on this device.
 
-- **Seeding.** `useGuestOnboarding(today)` (planner page, guests only) calls `seedDemoTasks` (`lib/db/demo-tasks.ts`).
-  In one transaction it checks `meta.demo_seeded` and sets it; it seeds only if the flag was absent, there is no
-  `meta.user_id` and no task at all. The tasks are created through the repository, then their ids go to
-  `meta.demo_ids` and their outbox entries are removed. The flag is never cleared (logout keeps it), so the demo never
-  comes back, not even after the user deletes every demo task or a user logs out back into a guest.
+- **Seeding.** `useGuestOnboarding` (planner page, guests only, once the current week is on screen) calls
+  `seedDemoTasks` (`lib/db/demo-tasks.ts`). A small transaction claims the onboarding: it sets `meta.demo_seeded` and
+  goes on only if the flag was absent, there is no `meta.user_id` and no task at all. The tasks are then created
+  through the repository with `{ demo: true }`, so each write puts its rows in `meta.demo_ids` without an outbox entry
+  in its own transaction (a seed cut short leaves fewer demo tasks, never something to push). The flag is never
+  cleared (logout keeps it with `wipeLocalDatabase(db, { onboarded: true })`), so the demo never comes back, not even
+  after the user deletes every demo task or when a user logs out back into a guest.
 - **Never synced.** A demo row has no outbox entry, so it is never pushed and does not count as pending work (the guest
   "save" button stays off until the guest makes a change).
 - **Becoming real.** `write()` in `lib/db/tasks.ts` calls `trackDemoRows` (`lib/db/demo.ts`) in the same transaction.

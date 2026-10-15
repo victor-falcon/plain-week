@@ -23,7 +23,7 @@ export default function Planner() {
     const closeTask = useCallback(() => setOpenTaskId(null), []);
 
     usePlannerShortcuts(navigation);
-    useGuestOnboarding(today);
+    useGuestOnboarding(today, navigation.isCurrentWeek);
 
     return (
         <SyncProvider>

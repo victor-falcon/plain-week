@@ -1,5 +1,4 @@
-import { allTables, clearAllTables, db } from '@/lib/db/database';
-import { markDemoSeeded } from '@/lib/db/demo';
+import { db, wipeLocalDatabase } from '@/lib/db/database';
 import { SyncEngine } from './engine';
 import { withSyncLock } from './lock';
 import { fetchTransport, requestLogout } from './transport';
@@ -75,14 +74,7 @@ export async function logOut({
         throw error;
     }
 
-    // The device stays marked as onboarded, so the guest it turns back into
-    // never gets the demo tasks again.
-    await withSyncLock(() =>
-        db.transaction('rw', allTables(db), async () => {
-            await clearAllTables(db);
-            await markDemoSeeded(db);
-        }),
-    );
+    await withSyncLock(() => wipeLocalDatabase(db, { onboarded: true }));
 
     const channel = logoutChannel();
 

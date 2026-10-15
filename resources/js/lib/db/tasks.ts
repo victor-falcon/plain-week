@@ -94,7 +94,14 @@ export type Scope = 'this' | 'future';
  */
 export type UndoLog = { before: Map<string, Task | null> };
 
-export type MutationOptions = { undo?: UndoLog };
+export type MutationOptions = {
+    undo?: UndoLog;
+    /**
+     * The written rows are demo tasks: local only, never pushed (used to seed
+     * the guest onboarding, see `lib/db/demo.ts`).
+     */
+    demo?: boolean;
+};
 
 export type ScopedMutationOptions = MutationOptions & { scope?: Scope };
 
@@ -121,11 +128,12 @@ function toRow(task: Task): Task {
     };
 }
 
-/** How a write treats demo tasks (see `lib/db/demo.ts`). */
-type WriteDemo = {
-    /** The id the user acted on, when it is not among the written rows. */
+/** How a write affects demo tasks (see `lib/db/demo.ts`). */
+type DemoEffect = {
+    /** The id the user acted on, which may not be among the written rows. */
     subjectId?: string;
-    mode?: DemoMode;
+    /** `release` unless the mutation is a delete, restore or undo. */
+    mode?: Exclude<DemoMode, 'seed'>;
 };
 
 /**
@@ -136,7 +144,7 @@ type WriteDemo = {
 async function write<T>(
     build: () => Promise<{ rows: Task[]; result: T }>,
     options: MutationOptions = {},
-    { subjectId, mode = 'release' }: WriteDemo = {},
+    { subjectId, mode = 'release' }: DemoEffect = {},
 ): Promise<T> {
     let written = 0;
     const tables = [db.tasks, db.outbox, db.meta];
@@ -164,7 +172,7 @@ async function write<T>(
                 revision: (entries[i]?.revision ?? 0) + 1,
             })),
         );
-        await trackDemoRows(rows, subjectId, mode);
+        await trackDemoRows(rows, subjectId, options.demo ? 'seed' : mode);
 
         written = rows.length;
 
@@ -376,7 +384,10 @@ async function liveSeriesOf(item: PlannerTask): Promise<{
     return series ? { series, item } : null;
 }
 
-export function createTask(input: CreateTaskInput): Promise<Task> {
+export function createTask(
+    input: CreateTaskInput,
+    options: MutationOptions = {},
+): Promise<Task> {
     return write(async () => {
         const hasBounds =
             input.afterPosition != null || input.beforePosition != null;
@@ -407,7 +418,7 @@ export function createTask(input: CreateTaskInput): Promise<Task> {
         };
 
         return { rows: [task], result: task };
-    });
+    }, options);
 }
 
 /**
@@ -418,7 +429,7 @@ export function createTask(input: CreateTaskInput): Promise<Task> {
 function edit(
     id: string,
     change: (item: PlannerTask) => TaskPatch,
-    { scope = 'this', undo }: ScopedMutationOptions,
+    { scope = 'this', ...options }: ScopedMutationOptions,
 ): Promise<PlannerTask> {
     return write(
         async () => {
@@ -456,7 +467,7 @@ function edit(
 
             return { rows: [row], result: toItem(row) };
         },
-        { undo },
+        options,
         { subjectId: id },
     );
 }
@@ -503,7 +514,7 @@ export function updateSubtasks(
  */
 export function deleteTask(
     id: string,
-    { scope = 'this', undo }: ScopedMutationOptions = {},
+    { scope = 'this', ...options }: ScopedMutationOptions = {},
 ): Promise<Task> {
     return write(
         async () => {
@@ -540,7 +551,7 @@ export function deleteTask(
 
             return { rows: [row], result: row };
         },
-        { undo },
+        options,
         { mode: 'keep' },
     );
 }
@@ -699,7 +710,7 @@ export function duplicateTask(
 export function setRecurrence(
     id: string,
     recurrence: Recurrence | null,
-    { scope = 'future', undo }: ScopedMutationOptions = {},
+    { scope = 'future', ...options }: ScopedMutationOptions = {},
 ): Promise<PlannerTask> {
     return write(
         async () => {
@@ -796,7 +807,7 @@ export function setRecurrence(
 
             return { rows: [row], result: representative(row, item.date) };
         },
-        { undo },
+        options,
         { subjectId: id },
     );
 }

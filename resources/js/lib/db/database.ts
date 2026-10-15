@@ -50,11 +50,20 @@ export async function clearAllTables(
     await Promise.all(allTables(database).map((table) => table.clear()));
 }
 
-/** Removes every local record, pending change and sync metadata. */
+/**
+ * Removes every local record, pending change and sync metadata. With
+ * `onboarded`, the device is left marked as past the guest onboarding
+ * (`meta.demo_seeded`), so the guest it turns into never gets demo tasks.
+ */
 export async function wipeLocalDatabase(
     database: PlainWeekDatabase = db,
+    { onboarded = false }: { onboarded?: boolean } = {},
 ): Promise<void> {
-    await database.transaction('rw', allTables(database), () =>
-        clearAllTables(database),
-    );
+    await database.transaction('rw', allTables(database), async () => {
+        await clearAllTables(database);
+
+        if (onboarded) {
+            await database.meta.put({ key: 'demo_seeded', value: 1 });
+        }
+    });
 }

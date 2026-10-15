@@ -15,9 +15,10 @@ import type { Task } from './types';
 /**
  * How a mutation affects demo rows: `release` (an edit, move, duplicate…)
  * turns them into real tasks; `keep` (delete, restore, undo) leaves them
- * demo, so deleting a demo task never syncs a tombstone.
+ * demo, so deleting a demo task never syncs a tombstone; `seed` makes every
+ * written row a demo row.
  */
-export type DemoMode = 'release' | 'keep';
+export type DemoMode = 'release' | 'keep' | 'seed';
 
 export async function demoIds(
     database: PlainWeekDatabase = defaultDb,
@@ -38,37 +39,16 @@ async function saveDemoIds(
     }
 }
 
-/** True once this device has seeded (or decided to skip) the demo tasks. */
-export async function isDemoSeeded(
-    database: PlainWeekDatabase = defaultDb,
-): Promise<boolean> {
-    return (await database.meta.get('demo_seeded')) !== undefined;
-}
-
-/** Makes sure the demo tasks are never seeded on this device. */
-export async function markDemoSeeded(
-    database: PlainWeekDatabase = defaultDb,
-): Promise<void> {
-    await database.meta.put({ key: 'demo_seeded', value: 1 });
-}
-
-/**
- * Marks rows as demo: local only, with no outbox entry. Call it inside a
- * transaction over `tasks`, `outbox` and `meta`.
- */
-export async function addDemoIds(
-    rowIds: string[],
-    database: PlainWeekDatabase = defaultDb,
-): Promise<void> {
-    const ids = await demoIds(database);
-
+/** Marks rows as demo: local only, with no outbox entry. */
+async function addDemoIds(ids: Set<string>, rowIds: string[]): Promise<void> {
     rowIds.forEach((id) => ids.add(id));
-    await database.outbox.bulkDelete(rowIds);
-    await saveDemoIds(database, ids);
+    await defaultDb.outbox.bulkDelete(rowIds);
+    await saveDemoIds(defaultDb, ids);
 }
 
 /**
- * Updates the demo set after a repository write, inside its transaction.
+ * Updates the demo set after a repository write, inside its transaction
+ * (over `tasks`, `outbox` and `meta`).
  * `subjectId` is the id the user acted on (possibly an occurrence id), so a
  * duplicate also releases its source. A series and its exceptions are
  * released together, and released rows that were not written get queued.
@@ -78,7 +58,16 @@ export async function trackDemoRows(
     subjectId: string | undefined,
     mode: DemoMode,
 ): Promise<void> {
-    const ids = await demoIds();
+    const ids = await demoIds(defaultDb);
+
+    if (mode === 'seed') {
+        await addDemoIds(
+            ids,
+            rows.map((row) => row.id),
+        );
+
+        return;
+    }
 
     if (ids.size === 0) {
         return;
@@ -93,7 +82,7 @@ export async function trackDemoRows(
             .map((row) => row.id);
 
         if (derived.length > 0) {
-            await addDemoIds(derived);
+            await addDemoIds(ids, derived);
         }
 
         return;
