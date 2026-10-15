@@ -1,10 +1,21 @@
-import { useLayoutEffect, useRef } from 'react';
+import { useDroppable } from '@dnd-kit/core';
+import {
+    SortableContext,
+    verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { Fragment, useLayoutEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { NewTaskRow } from '@/components/planner/new-task-row';
+import {
+    listDroppableId,
+    usePlannerDnd,
+} from '@/components/planner/planner-dnd';
 import { TaskRow } from '@/components/planner/task-row';
 import { createTask, toggleDone } from '@/lib/db/tasks';
 import type { TaskPlacement } from '@/lib/db/tasks';
 import type { Task } from '@/lib/db/types';
+import { placementKey } from '@/lib/planner/drop';
+import type { ListDropData } from '@/lib/planner/drop';
 import { parseSmartTime } from '@/lib/planner/smart-time';
 import { cn } from '@/lib/utils';
 
@@ -20,6 +31,15 @@ type Props = {
     onOpenTask: (taskId: string) => void;
     className?: string;
 };
+
+/** The insertion line shown while a dragged task is over this spot. */
+function DropIndicator() {
+    return (
+        <div data-drop-indicator className="relative h-0">
+            <div className="absolute inset-x-0 -top-px z-[11] h-0.5 rounded-full bg-primary" />
+        </div>
+    );
+}
 
 /**
  * A ruled list: the tasks, then empty rows that add new ones. Empty rows are
@@ -38,6 +58,19 @@ export function TaskList({
     const emptyInputs = useRef(new Map<number, HTMLInputElement>());
     const focusAfterCreate = useRef(false);
     const taskCount = tasks?.length ?? 0;
+    const listKey = placementKey(placement);
+    const listTasks = tasks ?? [];
+    const { setNodeRef } = useDroppable({
+        id: listDroppableId(listKey),
+        data: {
+            type: 'list',
+            placement,
+            tasks: listTasks,
+        } satisfies ListDropData,
+    });
+    const { indicator } = usePlannerDnd();
+    const indicatorBefore =
+        indicator?.listKey === listKey ? indicator.beforeTaskId : undefined;
     const emptyRows = Math.max(rows, taskCount + 1) - taskCount;
 
     // When the row that had focus was replaced by its task (no empty row was
@@ -75,15 +108,29 @@ export function TaskList({
     };
 
     return (
-        <div className={cn('flex flex-col', className)}>
-            {tasks?.map((task) => (
-                <TaskRow
-                    key={task.id}
-                    task={task}
-                    onOpen={onOpenTask}
-                    onToggleDone={handleToggleDone}
-                />
-            ))}
+        <div
+            ref={setNodeRef}
+            data-list={listKey}
+            className={cn('flex flex-col', className)}
+        >
+            <SortableContext
+                items={listTasks.map((task) => task.id)}
+                strategy={verticalListSortingStrategy}
+            >
+                {listTasks.map((task) => (
+                    <Fragment key={task.id}>
+                        {indicatorBefore === task.id && <DropIndicator />}
+                        <TaskRow
+                            task={task}
+                            placement={placement}
+                            tasks={listTasks}
+                            onOpen={onOpenTask}
+                            onToggleDone={handleToggleDone}
+                        />
+                    </Fragment>
+                ))}
+            </SortableContext>
+            {indicatorBefore === null && <DropIndicator />}
             {Array.from({ length: emptyRows }, (_, index) => {
                 const slot = taskCount + index;
 

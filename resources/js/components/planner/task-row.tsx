@@ -1,34 +1,92 @@
-import { CircleCheck } from 'lucide-react';
+import { useSortable } from '@dnd-kit/sortable';
+import { CircleCheck, GripVertical } from 'lucide-react';
+import { usePlannerDnd } from '@/components/planner/planner-dnd';
 import { Button } from '@/components/ui/button';
+import type { TaskPlacement } from '@/lib/db/tasks';
 import type { Task } from '@/lib/db/types';
+import type { TaskDragData } from '@/lib/planner/drop';
 import { TASK_COLOR_STYLES } from '@/lib/planner/task-colors';
 import { cn } from '@/lib/utils';
 
 type Props = {
     task: Task;
+    /** The list the row is in, and its tasks in display order (for drops). */
+    placement: TaskPlacement;
+    tasks: Task[];
     /** Opens the task (click, Enter or Space on its text). */
     onOpen: (taskId: string) => void;
     onToggleDone: (taskId: string) => void;
     className?: string;
 };
 
+/** The task's time pill and text pill, as shown in a row (and the drag overlay). */
+export function TaskLabel({ task }: { task: Task }) {
+    const color = TASK_COLOR_STYLES[task.color];
+
+    return (
+        <>
+            {task.time && (
+                <span className="ms-1.5 shrink-0 rounded-full border border-current px-1.5 text-xs leading-5 tabular-nums">
+                    {task.time}
+                </span>
+            )}
+            <span
+                className={cn(
+                    'truncate rounded-full px-1.5 leading-6',
+                    color.pill,
+                    task.done && 'line-through',
+                    task.done && color.pill && 'opacity-50',
+                )}
+            >
+                {task.text}
+            </span>
+        </>
+    );
+}
+
 /**
  * One ruled row showing a task: a button with the text that opens it, and a
  * check button at the end that toggles completion (on hover or focus with a
  * mouse on desktop, always on mobile and touch screens).
+ *
+ * The whole row is draggable (mouse: after 5px of movement, so a click still
+ * opens the task; touch: long press). For keyboard users a move button,
+ * visible only while focused, picks the task up with Space or Enter.
  */
-export function TaskRow({ task, onOpen, onToggleDone, className }: Props) {
-    const color = TASK_COLOR_STYLES[task.color];
+export function TaskRow({
+    task,
+    placement,
+    tasks,
+    onOpen,
+    onToggleDone,
+    className,
+}: Props) {
     const label = [task.time, task.text, task.done ? '(done)' : null]
         .filter(Boolean)
         .join(' ');
+    const { setNodeRef, setActivatorNodeRef, listeners, attributes } =
+        useSortable({
+            id: task.id,
+            data: {
+                type: 'task',
+                task,
+                placement,
+                tasks,
+            } satisfies TaskDragData,
+            attributes: { roleDescription: 'movable task' },
+        });
+    // Dimmed while dragged, and until the drop has been written.
+    const isDragging = usePlannerDnd().activeId === task.id;
 
     return (
         <div
+            ref={setNodeRef}
             data-task-id={task.id}
+            {...listeners}
             className={cn(
-                'group/task flex h-row items-center gap-1 border-b border-border',
+                'group/task relative flex h-row items-center gap-1 border-b border-border select-none [-webkit-touch-callout:none]',
                 task.done && 'text-muted-foreground',
+                isDragging && 'opacity-40',
                 className,
             )}
         >
@@ -39,21 +97,18 @@ export function TaskRow({ task, onOpen, onToggleDone, className }: Props) {
                 onClick={() => onOpen(task.id)}
                 className="h-full min-w-0 flex-1 justify-start gap-0 rounded-none px-0 text-base font-normal text-inherit hover:bg-transparent hover:text-inherit focus-visible:rounded-sm active:not-aria-[haspopup]:translate-y-0 lg:text-sm"
             >
-                {task.time && (
-                    <span className="ms-1.5 shrink-0 rounded-full border border-current px-1.5 text-xs leading-5 tabular-nums">
-                        {task.time}
-                    </span>
-                )}
-                <span
-                    className={cn(
-                        'truncate rounded-full px-1.5 leading-6',
-                        color.pill,
-                        task.done && 'line-through',
-                        task.done && color.pill && 'opacity-50',
-                    )}
-                >
-                    {task.text}
-                </span>
+                <TaskLabel task={task} />
+            </Button>
+            <Button
+                ref={setActivatorNodeRef}
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                {...attributes}
+                aria-label={`Move ${task.text}`}
+                className="sr-only shrink-0 rounded-full hover:bg-transparent focus-visible:not-sr-only"
+            >
+                <GripVertical className="size-5" />
             </Button>
             <Button
                 type="button"

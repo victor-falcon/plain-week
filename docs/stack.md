@@ -23,6 +23,7 @@
 | Frontend | fractional-indexing         | 4.x, `position` keys                                         |
 | Frontend | uuid                        | v7 ids generated on the client                               |
 | Frontend | vite-plugin-pwa (+ Workbox) | 2.x / 7.x, service worker and web manifest (offline shell)   |
+| Frontend | dnd-kit (core, sortable)    | 6.x / 10.x, drag and drop of tasks (shadcn has no DnD)       |
 | Tooling  | Vitest (through `vp test`)  | 4.x, JS unit tests with `fake-indexeddb`                     |
 | Tooling  | Testing Library + happy-dom | React component tests (`*.test.tsx`)                         |
 | Tooling  | Pest                        | 5.x                                                          |
@@ -73,7 +74,7 @@ resources/js/
   lib/                    Utilities (`cn`, etc.)
   lib/db/                 Dexie database, task repository and queries (offline-first data layer)
   lib/sync/               Background sync engine and its HTTP transport
-  lib/planner/            Pure planner logic: week math, smart time, task color styles
+  lib/planner/            Pure planner logic: week math, smart time, task color styles, drop resolution
   lib/pwa/                Service worker registration, update toast and request matchers
   test/                   Shared helpers for JS unit tests (fake sync server, fixtures)
   types/                  Shared TypeScript types

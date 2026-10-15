@@ -9,6 +9,7 @@ import {
     weekColumns,
     weekFromUrl,
     weekThursday,
+    weekdayIndex,
 } from './week';
 
 const day = (key: string) => {
@@ -146,5 +147,12 @@ describe('planner URLs', () => {
                 today,
             ),
         ).toBe(base);
+    });
+});
+
+describe('weekdayIndex', () => {
+    it('counts from Monday (0) to Sunday (6)', () => {
+        expect(weekdayIndex(day('2026-10-12'))).toBe(0);
+        expect(weekdayIndex(day('2026-10-18'))).toBe(6);
     });
 });

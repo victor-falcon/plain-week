@@ -103,14 +103,26 @@ Row behaviour:
   the new task), Esc cancels, leaving the row with text also creates it. A leading 24-hour time becomes the task time
   ("17:30 Gym" → time `17:30`, text "Gym"; `lib/planner/smart-time.ts`).
 - The row being typed in lifts with `shadow-md`, a background and extra horizontal padding.
-- A task row holds two sibling `Button`s: the text (click, Enter or Space opens the task through `onOpen(taskId)`, the
-  seam for the task dialog) and the complete check.
+- A task row holds sibling `Button`s: the text (click, Enter or Space opens the task through `onOpen(taskId)`, the
+  seam for the task dialog), the move button for keyboard drag and drop (hidden until focused) and the complete check.
 - Empty rows are keyed by their slot, so saving a task never unmounts the row the user moved to.
 - Done tasks are `text-muted-foreground` and `line-through`; a colored pill fades to 50 %.
 - A task with a time shows it first in a small outlined pill (`border-current`, `text-xs`, tabular numbers), and timed
   tasks are listed first in their day, earliest first.
 
-Keyboard shortcuts (only when focus is not in a text field and no dialog or menu is open): ← / → previous / next week
+Drag and drop (behaviour in [architecture.md](./architecture.md#drag-and-drop)):
+
+- The dragged task follows the pointer as its pill on a lifted row (`bg-background`, `shadow-lg`, `ring-1 ring-border`,
+  `rounded-md`); the source row stays in place at 40 % opacity.
+- Where it will land is a 2px `bg-primary` line between rows. Layers: edge zones (5) < drag overlay (10) < insertion
+  line (11) < sticky mobile header (20), so the line shows through the dragged task.
+- While dragging, `bg-muted` zones (208px tall, `rounded-e-3xl` / `rounded-s-3xl`, 24px wide on desktop, 16px on
+  mobile) sit vertically centered on the start and end screen edges; a hovered zone darkens. Their hit area is the full
+  screen height, and 32px wide on mobile so a finger does not have to reach the system back-gesture edge.
+- Rows are `select-none` and suppress the iOS callout so a long press starts a drag. The move button that starts a
+  keyboard drag is visually hidden until it has keyboard focus.
+
+Keyboard shortcuts (only when focus is not in a text field, no dialog or menu is open and no task is being dragged): ← / → previous / next week
 (mirrored in RTL), T current week. Held keys do not repeat.
 
 ## Task dialog
