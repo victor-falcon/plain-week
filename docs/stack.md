@@ -89,9 +89,16 @@ tests/                    Pest tests (Feature and Unit)
 
 `vite-plugin-pwa` is configured in `vite.config.ts` with the `injectManifest` strategy: Workbox injects the list of
 built files into `resources/js/sw.ts` and the result is written to `public/sw.js` (gitignored, like the web manifest
-in `public/build/manifest.webmanifest`). The worker must stay at the web root so its scope is `/`; serve `sw.js`
-without long-lived caching (`Cache-Control: no-cache`) so updates are picked up. How the worker caches requests is
-described in [architecture.md](./architecture.md#offline-app-shell).
+in `public/build/manifest.webmanifest`). How the worker caches requests is described in
+[architecture.md](./architecture.md#offline-app-shell).
+
+Deploying:
+
+- `public/sw.js` only exists after `bun run build`, so deploy the build output, not just the repository.
+- The app must be served from the domain root: the worker, its scope, the manifest and the cached URLs all assume `/`.
+- Serve `sw.js` without long-lived caching (`Cache-Control: no-cache`) so browsers pick up new versions.
+
+Configuration:
 
 - The manifest (name, colors from `--background`, icons) lives in `vite.config.ts`; its `<link>` and the
   `theme-color` metas are in `resources/views/app.blade.php`.
@@ -105,7 +112,8 @@ described in [architecture.md](./architecture.md#offline-app-shell).
     ```
 
 - `public/offline.html` is a self-contained page (no build step); its colors mirror the tokens in
-  `resources/css/app.css`.
+  `resources/css/app.css`. The manifest colors and the `theme-color` metas are `--background` as hex (`#ffffff`, and
+  `#0c0a09` for dark); keep them in sync if the preset changes.
 
 ### Testing offline
 
@@ -119,8 +127,7 @@ The service worker only exists in production builds; `composer run dev` never re
 4. To see the update prompt, change any source file, run `bun run build` again and reload: the "Update available"
    toast appears.
 
-If you go back to `composer run dev` on the same origin after testing a build, unregister the worker in DevTools
-(Application > Service workers > Unregister) so a stale worker does not answer for the dev app.
+Going back to `composer run dev` on the same origin unregisters the worker on the next page load.
 
 ## Adding a shadcn component
 

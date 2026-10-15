@@ -1,13 +1,29 @@
+import { router } from '@inertiajs/react';
 import { registerSW } from 'virtual:pwa-register';
+import { notifyOfflineVisits } from '@/lib/pwa/offline-visits';
+import { REFRESH_SHELL_MESSAGE } from '@/lib/pwa/request-matchers';
+import { createSessionChangeDetector } from '@/lib/pwa/session-change';
 import { showUpdateToast } from '@/lib/pwa/update-toast';
 
 const UPDATE_CHECK_INTERVAL_MS = 60 * 60 * 1000;
 
 /**
- * Registers the service worker (production builds only; a no-op under the
- * Vite dev server) and prompts when a new version is waiting.
+ * Registers the service worker (production builds only) and prompts when a
+ * new version is waiting.
  */
 export function registerServiceWorker(): void {
+    if (import.meta.env.DEV) {
+        // A worker left over from testing a production build on this origin
+        // would otherwise keep answering for the dev app.
+        void navigator.serviceWorker?.getRegistrations().then((registrations) =>
+            registrations.forEach((registration) => {
+                void registration.unregister();
+            }),
+        );
+
+        return;
+    }
+
     const updateServiceWorker = registerSW({
         onNeedRefresh: () => showUpdateToast(() => updateServiceWorker()),
         onRegisteredSW: (_url, registration) => {
@@ -15,12 +31,34 @@ export function registerServiceWorker(): void {
                 return;
             }
 
-            // Long-lived tabs also learn about new deploys.
+            // Long-lived tabs also learn about new deploys. Lives as long as
+            // the page, like the registration itself.
             setInterval(() => {
                 if (navigator.onLine) {
                     void registration.update();
                 }
             }, UPDATE_CHECK_INTERVAL_MS);
         },
+    });
+
+    refreshShellOnSessionChange();
+    notifyOfflineVisits();
+}
+
+/**
+ * The cached shell embeds the page props of the visit that stored it, so a
+ * login or logout (Inertia visits, not full page loads) asks the worker to
+ * store a fresh one. Otherwise an offline reload would show the previous
+ * session.
+ */
+function refreshShellOnSessionChange(): void {
+    const sessionChanged = createSessionChangeDetector();
+
+    router.on('navigate', (event) => {
+        if (sessionChanged(event.detail.page.props.auth?.user)) {
+            navigator.serviceWorker?.controller?.postMessage({
+                type: REFRESH_SHELL_MESSAGE,
+            });
+        }
     });
 }

@@ -24,12 +24,15 @@ import { CacheFirst, NetworkFirst, NetworkOnly } from 'workbox-strategies';
 import {
     BUILD_ASSETS_CACHE,
     OFFLINE_FALLBACK_URL,
+    REFRESH_SHELL_MESSAGE,
     SHELL_CACHE,
     SHELL_URL,
     isBuildAsset,
+    isCacheableShell,
     isServerNavigation,
     isShellNavigation,
-} from '@/lib/pwa/routes';
+    withPageUrl,
+} from '@/lib/pwa/request-matchers';
 
 declare const self: ServiceWorkerGlobalScope;
 
@@ -51,20 +54,70 @@ const shellStrategy = new NetworkFirst({
     cacheName: SHELL_CACHE,
     networkTimeoutSeconds: 3,
     plugins: [
-        new CacheableResponsePlugin({ statuses: [200] }),
         {
             // `/?week=...` and `/` are the same document.
             cacheKeyWillBeUsed: () => Promise.resolve(shellUrl),
-            // A redirect (for example to a login page) is not the planner.
             cacheWillUpdate: ({ response }) =>
-                Promise.resolve(response.redirected ? null : response),
+                Promise.resolve(isCacheableShell(response) ? response : null),
+            // `request` here is the normalized cache key; the event still
+            // holds the URL being loaded.
+            cachedResponseWillBeUsed: ({ cachedResponse, event }) =>
+                cachedResponse
+                    ? shellFor(
+                          cachedResponse,
+                          (event as FetchEvent).request.url,
+                      )
+                    : Promise.resolve(null),
         },
     ],
 });
 
+/** The cached shell, pointed at the URL being loaded (see `withPageUrl`). */
+async function shellFor(cached: Response, requestUrl: string) {
+    const url = new URL(requestUrl);
+    const html = withPageUrl(await cached.text(), url.pathname + url.search);
+
+    const headers = new Headers(cached.headers);
+    headers.delete('content-length');
+
+    return new Response(html, {
+        status: cached.status,
+        statusText: cached.statusText,
+        headers,
+    });
+}
+
+/** Fetches `/` with the current session and stores it as the shell. */
+async function refreshShell(): Promise<void> {
+    try {
+        const response = await fetch(shellUrl, { credentials: 'same-origin' });
+
+        if (isCacheableShell(response)) {
+            const cache = await caches.open(SHELL_CACHE);
+            await cache.put(shellUrl, response);
+        }
+    } catch {
+        // Offline: keep the shell we have.
+    }
+}
+
+// NetworkFirst only falls back on network errors; an error page while the
+// server restarts (502/503) should not replace a planner that works offline.
 registerRoute(
     ({ request, url }) => isShellNavigation(request, url, origin),
-    shellStrategy,
+    async (options: RouteHandlerCallbackOptions) => {
+        const response = await shellStrategy.handle(options);
+
+        if (response.status >= 500) {
+            const cached = await caches.match(shellUrl, {
+                cacheName: SHELL_CACHE,
+            });
+
+            return cached ? shellFor(cached, options.request.url) : response;
+        }
+
+        return response;
+    },
 );
 
 registerRoute(
@@ -105,26 +158,20 @@ setCatchHandler(async ({ request }) => {
 // The first visit loads `/` before this worker controls the page, so store
 // the shell now: an offline reload right after the first visit must work.
 self.addEventListener('install', (event) => {
-    event.waitUntil(
-        caches
-            .open(SHELL_CACHE)
-            .then(async (cache) => {
-                const response = await fetch(shellUrl, {
-                    credentials: 'same-origin',
-                });
-
-                if (response.ok && !response.redirected) {
-                    await cache.put(shellUrl, response);
-                }
-            })
-            .catch(() => undefined),
-    );
+    event.waitUntil(refreshShell());
 });
 
-// Activated on demand from the "Update available" toast.
 self.addEventListener('message', (event) => {
-    if ((event.data as { type?: string } | null)?.type === 'SKIP_WAITING') {
+    const type = (event.data as { type?: string } | null)?.type;
+
+    // Sent by the "Update available" toast (vite-plugin-pwa's registerSW).
+    if (type === 'SKIP_WAITING') {
         void self.skipWaiting();
+    }
+
+    // Sent after a login or logout: the shell embeds the session's page props.
+    if (type === REFRESH_SHELL_MESSAGE) {
+        event.waitUntil(refreshShell());
     }
 });
 

@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
     isBuildAsset,
+    isCacheableShell,
     isServerNavigation,
     isShellNavigation,
-} from '@/lib/pwa/routes';
+    withPageUrl,
+} from '@/lib/pwa/request-matchers';
 
 const origin = 'https://planner.test';
 
@@ -68,5 +70,51 @@ describe('isBuildAsset', () => {
         expect(isBuildAsset(asset.request, asset.url, origin)).toBe(true);
         expect(isBuildAsset(sync.request, sync.url, origin)).toBe(false);
         expect(isBuildAsset(post.request, post.url, origin)).toBe(false);
+    });
+});
+
+describe('isCacheableShell', () => {
+    it('accepts plain 200 documents only', () => {
+        const redirected = new Response('login');
+        Object.defineProperty(redirected, 'redirected', { value: true });
+
+        expect(isCacheableShell(new Response('planner'))).toBe(true);
+        expect(isCacheableShell(redirected)).toBe(false);
+        expect(isCacheableShell(new Response('', { status: 500 }))).toBe(false);
+    });
+});
+
+describe('withPageUrl', () => {
+    // Laravel escapes `/` in the page JSON, as the server does.
+    const shell = (page: object) =>
+        `<body><script data-page="app" type="application/json">${JSON.stringify(page).replaceAll('/', '\\/')}</script><div id="app"></div></body>`;
+
+    it('replaces the Inertia page url and keeps the rest of the page', () => {
+        const html = withPageUrl(
+            shell({ component: 'planner', url: '/?week=2026-11-02' }),
+            '/?week=2026-11-09',
+        );
+
+        expect(html).toContain('"url":"/?week=2026-11-09"');
+        expect(html).toContain('"component":"planner"');
+        expect(html).toContain('<div id="app"></div></body>');
+    });
+
+    it('keeps props from closing the script tag', () => {
+        const html = withPageUrl(
+            shell({ props: { name: '</script><b>' }, url: '/' }),
+            '/',
+        );
+
+        expect(html).not.toContain('</script><b>');
+        expect(html).toContain('\\u003c/script>\\u003cb>');
+    });
+
+    it('leaves documents without a valid page untouched', () => {
+        const broken =
+            '<script data-page="app" type="application/json">{oops</script>';
+
+        expect(withPageUrl(broken, '/')).toBe(broken);
+        expect(withPageUrl('<p>hi</p>', '/')).toBe('<p>hi</p>');
     });
 });
