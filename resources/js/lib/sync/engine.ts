@@ -82,6 +82,31 @@ function toTask(remote: Task): Task {
 }
 
 /**
+ * Binds the local database to `userId` in one transaction over every table:
+ * data of a different user is wiped, data without an owner (guest work) is
+ * kept, except untouched demo tasks, which are deleted (they never reach the
+ * server). `check` runs first inside the transaction and may throw to cancel.
+ */
+export function claimDatabaseFor(
+    db: PlainWeekDatabase,
+    userId: string,
+    check: () => void = () => {},
+): Promise<void> {
+    return db.transaction('rw', allTables(db), async () => {
+        check();
+
+        const owner = await db.meta.get('user_id');
+
+        if (owner && String(owner.value) !== userId) {
+            await clearAllTables(db);
+        }
+
+        await purgeDemoTasks(db);
+        await db.meta.put({ key: 'user_id', value: userId });
+    });
+}
+
+/**
  * Background sync: pushes the outbox, then pulls remote changes, applying them
  * with last-write-wins. It never blocks the UI; the UI keeps reading Dexie.
  * See docs/architecture.md for the full lifecycle.
@@ -321,18 +346,9 @@ export class SyncEngine {
     private async claimDatabase(generation: number): Promise<void> {
         const { db } = this;
 
-        await db.transaction('rw', allTables(db), async () => {
-            this.assertCurrent(generation);
-
-            const owner = await db.meta.get('user_id');
-
-            if (owner && String(owner.value) !== this.userId) {
-                await clearAllTables(db);
-            }
-
-            await purgeDemoTasks(db);
-            await db.meta.put({ key: 'user_id', value: this.userId as string });
-        });
+        await claimDatabaseFor(db, this.userId as string, () =>
+            this.assertCurrent(generation),
+        );
     }
 
     private async push(generation: number): Promise<void> {

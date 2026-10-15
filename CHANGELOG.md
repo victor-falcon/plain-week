@@ -12,6 +12,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Guest onboarding.** A first-time guest finds a few demo tasks in the current week that show how the planner works.
   They stay on the device: the untouched ones are dropped when the guest creates an account or logs in, the ones the
   guest changed are kept and synced. They never come back once seeded.
+- **Export and import** in Settings › Data (registered users). "Export data" downloads all your tasks, recurring ones
+  included, as a JSON backup (`plain-week-export-YYYY-MM-DD.json`). "Import data…" previews a backup and adds its tasks
+  next to the ones you have, leaving those unchanged. Both run in the browser on your local data; imported tasks sync
+  like any other change.
 
 ### Changed
 

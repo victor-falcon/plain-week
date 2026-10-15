@@ -1,5 +1,5 @@
 import { db, wipeLocalDatabase } from '@/lib/db/database';
-import { SyncEngine } from './engine';
+import { SyncEngine, claimDatabaseFor } from './engine';
 import { withSyncLock } from './lock';
 import { fetchTransport, requestLogout } from './transport';
 
@@ -7,6 +7,23 @@ export type { SyncStatus } from './engine';
 
 /** The app-wide sync engine. Started by `SyncProvider`. */
 export const syncEngine = new SyncEngine({ db, transport: fetchTransport });
+
+/**
+ * Gets the local database ready for the signed-in user outside the planner
+ * (Settings › Data): claims it like a sync run does (another user's leftover
+ * data is wiped, guest work kept), so a later run never wipes what is written
+ * now, then runs one sync (needs a started engine, see `SyncProvider`).
+ * Resolves with true when the local data is up to date with the server, false
+ * when that sync could not finish (offline, errors).
+ */
+export async function prepareLocalData(
+    userId: string | number,
+): Promise<boolean> {
+    await withSyncLock(() => claimDatabaseFor(db, String(userId)));
+    await syncEngine.sync({ force: true });
+
+    return syncEngine.isStarted && syncEngine.getStatus() === 'idle';
+}
 
 const LOGOUT_CHANNEL = 'plain-week-session';
 

@@ -134,6 +134,11 @@ IndexedDB leaves a row out of an index when the indexed value is null, so `recur
 `[series_id+occurrence_date]` exception rows only. Version 2 added both indexes and an upgrade that sets `recurrence`,
 `series_id` and `occurrence_date` to `null` on existing rows.
 
+Helpers that run inside a caller's transaction (`clearAllTables`, `purgeDemoTasks`) return Dexie promises, not native
+ones from an `async` function: awaiting a native promise from a nested async helper can resume outside the transaction
+zone, and Dexie then commits early (`PrematureCommitError`) before the caller's next operation. In the browser this
+made the first sync of a fresh login fail.
+
 Types are in `lib/db/types.ts`: `Task` (exactly the contract shape), `Recurrence`, `TaskColor` and `TASK_COLORS`
 (colour ids only; the UI owns the swatches), `SomedayColumn`, `Subtask`. Schema changes need a new `this.version(n)` in
 `lib/db/database.ts`; never edit a released version.
@@ -341,6 +346,62 @@ edit, drag, color, timed tasks first, right click, a weekly series on Friday, So
 4. Add the new table to `allTables()` in `lib/db/database.ts` so every wipe and sync transaction includes it.
 5. Cover it with Vitest tests (repository + engine against `test/fake-sync-server.ts`).
 
+## Export format
+
+A JSON backup of the local database, for registered users, on the Settings › Data page (`/settings/data`,
+[style.md](./style.md#settings--data)). The page is a server-rendered Inertia page, but export and import run entirely on
+the client (`lib/transfer`) against IndexedDB, so they work offline once the page is loaded.
+
+The planner's `SyncProvider` is not mounted on settings pages, so the Data page mounts its own, and both actions first
+call `prepareLocalData(userId)` (`lib/sync`): it claims the local database for the signed-in user, exactly like a sync
+run (`claimDatabaseFor`: another user's data is wiped, guest data kept), so a later run never wipes what the import
+wrote, then runs one sync (forced, even during back-off) so an export includes the latest server data. When that sync
+cannot finish (offline, errors) the export still happens, and its toast says changes from other devices may be missing.
+Imported rows are pushed by that page's engine right away, or by the planner's on the next visit. Like any sync run,
+the claim wipes another user's leftover local data (which only exists after a session ended without a logout).
+
+```json
+{
+    "format": "plain-week",
+    "version": 1,
+    "exported_at": "2026-10-15T08:35:00.123Z",
+    "app_version": "0.0.3",
+    "tasks": [<Task>, ...]
+}
+```
+
+- File name: `plain-week-export-YYYY-MM-DD.json` (local date). `app_version` is `package.json`'s version, injected at
+  build time (`__APP_VERSION__`); it is informational only.
+- `tasks` holds rows with exactly the [Task](#data-model-task) wire shape, `recurrence`, `series_id` and
+  `occurrence_date` included. Left out: tombstones, exceptions of a deleted series, and losing duplicate exceptions
+  (only the `winningException` of each occurrence is kept). One kind of tombstone is kept on purpose: the deleted
+  exception of a live series, because it is what hides a deleted occurrence; without it the occurrence would come back.
+  Demo tasks ([Guest onboarding](#guest-onboarding-demo-tasks), `meta.demo_ids`) are never exported: `buildExport`
+  skips them, and `prepareLocalData`'s claim already purges the untouched ones, like the first sync of a new account.
+- `version` changes only for incompatible changes. A newer version is refused with a message to update Plain Week.
+
+| Function (`lib/transfer`)                      | What it does                                                                                                                                                                                                                                                                                                                         |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `buildExport(db)`                              | The file for the local database (`backupRows` selects the rows).                                                                                                                                                                                                                                                                     |
+| `parseImport(file \| text)`                    | Parses and validates (at most 50 MB); throws `ImportError` with a message for the user (not JSON, not a Plain Week file, unsupported version, `Task 3: "color" must be one of …`). Every row is checked with the server's push rules (`PushRequest`), so imported rows never get a `422` when they sync. Ids only need to be unique. |
+| `summarizeImport(file)`                        | `taskCount` (plain tasks and series) and `recurringCount` (series) for the preview; no database access.                                                                                                                                                                                                                              |
+| `planImport(file, db)`                         | The rows to add (reads the database, never writes): see below. Call it right before `applyImport`, so positions are current.                                                                                                                                                                                                         |
+| `applyImport(plan, { batchSize, onProgress })` | Writes the rows plus their outbox entries in transactions of 500, series first, yielding to the event loop between batches (10 000 tasks do not freeze the UI) and reporting progress. Batches already written stay if a later one fails.                                                                                            |
+
+Import **adds** tasks; it never changes or removes existing ones (importing the same file twice gives two copies):
+
+- The file's rows go through the same selection as the export (`backupRows`), so a hand-edited file is cleaned up the
+  same way (for example, exceptions of a series deleted in the file are dropped).
+- Every row gets a new UUID v7 id, series first, so their ids sort (and sync) before their exceptions; an exception's
+  `series_id` points at its series' new id. An exception whose series is not in the file becomes a plain task (a
+  deleted one is dropped). Duplicate exceptions in the file are settled with
+  `winningException` before the ids change, since the new rows all share one `updated_at`.
+- Positions are appended after the existing tasks of each day / Someday column (`generateNKeysBetween` after the
+  column's last key), keeping the file's relative order.
+- `created_at` and `updated_at` are now (one `nextTimestamp()`); `done`, `done_at` and subtasks (with their ids) are kept;
+  kept exception tombstones get `deleted_at` = now.
+- The outbox entries make the sync push the new rows like any other local change.
+
 ## Planner UI
 
 `resources/js/pages/planner.tsx` composes the components in `resources/js/components/planner/` (layout and
@@ -453,12 +514,13 @@ Laravel provides:
 
 ### Routes and access
 
-| Route             | Name        | Access                                                   |
-| ----------------- | ----------- | -------------------------------------------------------- |
-| `GET /`           | `home`      | Public. Renders the Inertia page `planner` for everyone. |
-| `POST /sync/push` | `sync.push` | `auth` (session + CSRF). `SyncController@push`.          |
-| `GET /sync/pull`  | `sync.pull` | `auth` (session). `SyncController@pull`.                 |
-| `/settings/*`     |             | `auth`.                                                  |
+| Route                | Name        | Access                                                                  |
+| -------------------- | ----------- | ----------------------------------------------------------------------- |
+| `GET /`              | `home`      | Public. Renders the Inertia page `planner` for everyone.                |
+| `POST /sync/push`    | `sync.push` | `auth` (session + CSRF). `SyncController@push`.                         |
+| `GET /sync/pull`     | `sync.pull` | `auth` (session). `SyncController@pull`.                                |
+| `/settings/*`        |             | `auth`.                                                                 |
+| `GET /settings/data` | `data.edit` | `auth`. Inertia page `settings/data` (export / import run client-side). |
 
 After login, registration and email verification Fortify redirects to `/` (`config/fortify.php` → `home`).
 

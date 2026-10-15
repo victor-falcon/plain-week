@@ -140,16 +140,21 @@ export async function trackDemoRows(
  * server never had them). The sync engine calls it before the first push of
  * an authenticated session, inside a transaction over every table.
  */
-export async function purgeDemoTasks(
+export function purgeDemoTasks(
     database: PlainWeekDatabase = defaultDb,
 ): Promise<void> {
-    const ids = [...(await demoIds(database))];
+    // A Dexie promise chain, not an async function, so the caller's
+    // transaction stays active after awaiting it (see `clearAllTables`).
+    return database.meta.get('demo_ids').then((entry) => {
+        const ids: string[] = Array.isArray(entry?.value) ? entry.value : [];
 
-    if (ids.length === 0) {
-        return;
-    }
+        if (ids.length === 0) {
+            return;
+        }
 
-    await database.tasks.bulkDelete(ids);
-    await database.outbox.bulkDelete(ids);
-    await database.meta.delete('demo_ids');
+        return database.tasks
+            .bulkDelete(ids)
+            .then(() => database.outbox.bulkDelete(ids))
+            .then(() => database.meta.delete('demo_ids'));
+    });
 }

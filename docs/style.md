@@ -82,27 +82,28 @@ Use `rtl:` variants (for example `rtl:rotate-180` on directional icons) when a l
 
 Installed in `resources/js/components/ui/` and where they are used:
 
-| Component                                                          | Used in                                                                              |
-| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
-| `button`                                                           | Everywhere: planner header, task rows, task dialog toolbar, auth and settings pages  |
-| `input`                                                            | Empty task rows (`new-task-row.tsx`), subtasks, time picker, auth and settings forms |
-| `textarea`                                                         | Task dialog title and notes                                                          |
-| `checkbox`                                                         | Subtasks, "Remember me" on login                                                     |
-| `dialog`                                                           | Task dialog; account deletion, passkeys and 2FA setup in settings                    |
-| `alert-dialog`                                                     | Scope prompt of recurring tasks (`scope-prompt.tsx`)                                 |
-| `popover`                                                          | Task dialog date, time, repeat and color pickers                                     |
-| `calendar`                                                         | Task dialog date picker, repeat end date                                             |
-| `toggle-group` (+ `toggle`)                                        | Task color picker, repeat picker (kind and weekdays)                                 |
-| `select`                                                           | Repeat picker (day of the month)                                                     |
-| `dropdown-menu`                                                    | Task dialog "More" menu, planner account menu, app header user menu                  |
-| `context-menu`                                                     | Task row context menu (`task-context-menu.tsx`)                                      |
-| `tooltip`                                                          | Planner header buttons, account button, task dialog toolbar (`toolbar-tooltip.tsx`)  |
-| `sonner`                                                           | `AppToaster`; planner code calls `toast` from the `sonner` package                   |
-| `avatar`                                                           | Account button, app header, user info                                                |
-| `direction`                                                        | `app.tsx` (RTL)                                                                      |
-| `alert`, `card`, `label`, `spinner`, `input-otp`, `separator`      | Auth and settings pages (from the Laravel starter kit)                               |
-| `sidebar` (+ `skeleton`), `sheet`, `navigation-menu`, `breadcrumb` | Starter kit app shell around the settings pages                                      |
-| `badge`, `collapsible`                                             | Installed, not used yet                                                              |
+| Component                                                          | Used in                                                                                |
+| ------------------------------------------------------------------ | -------------------------------------------------------------------------------------- |
+| `button`                                                           | Everywhere: planner header, task rows, task dialog toolbar, auth and settings pages    |
+| `input`                                                            | Empty task rows (`new-task-row.tsx`), subtasks, time picker, auth and settings forms   |
+| `textarea`                                                         | Task dialog title and notes                                                            |
+| `checkbox`                                                         | Subtasks, "Remember me" on login                                                       |
+| `dialog`                                                           | Task dialog; account deletion, passkeys and 2FA setup in settings                      |
+| `alert-dialog`                                                     | Scope prompt of recurring tasks (`scope-prompt.tsx`), import preview (Settings › Data) |
+| `progress`                                                         | Import progress (Settings › Data)                                                      |
+| `popover`                                                          | Task dialog date, time, repeat and color pickers                                       |
+| `calendar`                                                         | Task dialog date picker, repeat end date                                               |
+| `toggle-group` (+ `toggle`)                                        | Task color picker, repeat picker (kind and weekdays)                                   |
+| `select`                                                           | Repeat picker (day of the month)                                                       |
+| `dropdown-menu`                                                    | Task dialog "More" menu, planner account menu, app header user menu                    |
+| `context-menu`                                                     | Task row context menu (`task-context-menu.tsx`)                                        |
+| `tooltip`                                                          | Planner header buttons, account button, task dialog toolbar (`toolbar-tooltip.tsx`)    |
+| `sonner`                                                           | `AppToaster`; planner code calls `toast` from the `sonner` package                     |
+| `avatar`                                                           | Account button, app header, user info                                                  |
+| `direction`                                                        | `app.tsx` (RTL)                                                                        |
+| `alert`, `card`, `label`, `spinner`, `input-otp`, `separator`      | Auth and settings pages (from the Laravel starter kit)                                 |
+| `sidebar` (+ `skeleton`), `sheet`, `navigation-menu`, `breadcrumb` | Starter kit app shell around the settings pages                                        |
+| `badge`, `collapsible`                                             | Installed, not used yet                                                                |
 
 `icon.tsx` and `placeholder-pattern.tsx` in the same folder are starter kit helpers, not shadcn components.
 
@@ -319,6 +320,24 @@ still until 500 ms cancels that drag and dispatches a `contextmenu` event at the
 menu like a right click. Releasing a held task before it moved does nothing. Radix's own touch long press (700 ms,
 cancelled by any movement) stays as a fallback and only ever reopens the same menu; the row ignores `contextmenu` while
 it is being dragged, so a browser long-press event cannot open the menu mid-drag.
+
+## Settings › Data
+
+Export and import are for registered users only, on their own settings page (`/settings/data`, `pages/settings/data.tsx`,
+listed last in the settings nav); guests and the planner's account menu have no entry for them. The page has three
+small `Heading` sections: "Export data" (a filled button), "Import data" (an outline button) and "File format" (a short
+description).
+
+"Export data" downloads `plain-week-export-YYYY-MM-DD.json` and confirms with a toast ("Exported 12 tasks", with a
+"may be missing changes from other devices" description when the page could not sync first); the button shows a
+`Spinner` while the file is built, and an empty planner gets "There are no tasks to export." instead of a file. The
+Import button shows a `Spinner` while the chosen file is read. "Import data…" opens the file picker (`.json`), then an `AlertDialog`
+previews the file ("12 tasks (2 recurring) will be added. Your existing tasks will stay unchanged.") with Cancel /
+Import. While importing, a `Progress` bar fills and the dialog cannot be dismissed; it closes with a toast ("Imported 12
+tasks"). The rows are planned when Import is pressed, so positions follow any task added while the preview was open; a
+second click does nothing. An invalid file never opens the dialog: a `toast.error` says why ("This is not a Plain Week
+export file."). The hook and dialog live in `components/data-transfer.tsx` (`useDataTransfer`); behaviour is in
+[architecture.md](./architecture.md#export-format).
 
 ## Planner accent
 

@@ -17,7 +17,14 @@ function revisionOf(publicPath: string): string {
         .digest('hex');
 }
 
+const appVersion: string = JSON.parse(
+    readFileSync(new URL('./package.json', import.meta.url), 'utf8'),
+).version;
+
 export default defineConfig({
+    define: {
+        __APP_VERSION__: JSON.stringify(appVersion),
+    },
     // Unit tests (Vitest) only need the `@/` alias, not the Laravel and
     // Wayfinder plugins (which shell out to PHP).
     plugins: lazyPlugins(() =>
