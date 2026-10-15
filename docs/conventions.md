@@ -36,6 +36,9 @@ titles and descriptions.
   by a mocked `fetch` (`resources/js/test/fake-sync-server.ts` implements the sync contract in memory). The tests import
   Wayfinder route helpers, so generate them first (`bun run build`, `composer run dev` or
   `php artisan wayfinder:generate --with-form`); CI does this in `composer setup`.
+- React components get Testing Library tests in `*.test.tsx` next to them. Those files opt into a DOM with a
+  `// @vitest-environment happy-dom` first line (the default environment is `node`) and use the real local database
+  (`fake-indexeddb`), so they cover the component and the data layer together.
 - Every bug fix comes with a test that fails without the fix.
 - Before pushing, run what CI runs: `composer ci:check` (JS lint/format, TS types, JS tests, Pint, PHPStan, Pest). `bun run build`
   must also succeed.
