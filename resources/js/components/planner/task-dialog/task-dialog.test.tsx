@@ -323,6 +323,22 @@ describe('TaskDialog', () => {
         ]);
     });
 
+    it('closes with Escape right after a popover closes', async () => {
+        const { user, dialog } = await open();
+
+        await user.click(
+            within(dialog).getByRole('button', { name: 'Color: No color' }),
+        );
+        await screen.findByRole('radio', { name: 'Pink' });
+        await user.keyboard('{Escape}');
+        await waitFor(() =>
+            expect(screen.queryByRole('radio', { name: 'Pink' })).toBeNull(),
+        );
+        await user.keyboard('{Escape}');
+
+        await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    });
+
     it('closes with Escape', async () => {
         const { user } = await open();
 

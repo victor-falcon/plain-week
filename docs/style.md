@@ -132,7 +132,8 @@ a click outside closes it.
 | Notes    | `Textarea`                                  | Plain text, "Add some extra notes here…"                                                                                                                                                                                                                               |
 | Subtasks | `Checkbox` + `Input` + `Button` per subtask | Round checkbox, editable text, delete button (shown on hover/focus with a mouse, always on touch); "Add subtask..." adds on Enter and keeps focus, and also adds what was typed when it loses focus or the dialog closes; Enter in a subtask moves to "Add subtask..." |
 
-Toolbar icon buttons are `ghost` `icon-sm` round buttons with a tooltip; the one whose popover or menu is open is filled
+Toolbar icon buttons are `ghost` `icon-sm` round buttons with a tooltip on hover (not on focus: focus returns to a
+trigger when its popover closes, and an open tooltip would take the next Esc meant for the dialog); the one whose popover or menu is open is filled
 (`aria-expanded:bg-foreground aria-expanded:text-background`), like Tweek's active icon. Opening the dialog focuses the
 dialog itself, so no tooltip pops up and touch devices do not open the keyboard; closing it focuses the task's row again, wherever it moved. A tall dialog scrolls inside the viewport. Repeat, reminders, rich-text notes and
 attachments are not part of v0.0.1.

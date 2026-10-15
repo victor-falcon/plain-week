@@ -18,7 +18,7 @@ export const TASK_COLOR_STYLES: Record<TaskColor, TaskColorStyle> = {
     none: {
         label: 'No color',
         pill: '',
-        swatch: 'border border-border bg-background',
+        swatch: 'border border-foreground/40',
     },
     pink: {
         label: 'Pink',
