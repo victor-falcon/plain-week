@@ -1,6 +1,5 @@
 import { router, usePage } from '@inertiajs/react';
 import { useRef } from 'react';
-import type { MouseEvent } from 'react';
 import { toast } from 'sonner';
 import { logOut } from '@/lib/sync';
 import { logout } from '@/routes';
@@ -14,7 +13,8 @@ function confirmDiscard(pendingChanges: number): boolean {
 }
 
 /**
- * Click handler for logout links. It syncs pending changes, asks before
+ * Returns the logout action for menus and links (links must prevent their own
+ * navigation). It syncs pending changes, asks before
  * discarding any that could not be synced, logs out on the server and then
  * wipes the local database. `beforeLogout` runs first (e.g. close menus).
  */
@@ -22,9 +22,7 @@ export function useLogout(beforeLogout?: () => void) {
     const userId = usePage().props.auth?.user?.id ?? null;
     const inProgress = useRef(false);
 
-    return (event: MouseEvent) => {
-        event.preventDefault();
-
+    return () => {
         if (inProgress.current || userId === null) {
             return;
         }
