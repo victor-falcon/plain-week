@@ -134,6 +134,36 @@ describe('push', () => {
     });
 });
 
+describe('invalid records', () => {
+    it('quarantines a record the server refuses and pushes the rest', async () => {
+        server.isInvalid = (task) => task.text === 'invalid';
+
+        const good = await createTask({ text: 'good', date: '2026-10-12' });
+        const bad = await createTask({ text: 'invalid', date: '2026-10-12' });
+        const other = await createTask({ text: 'other', date: '2026-10-12' });
+
+        await startAndSync();
+
+        expect([...server.rows.keys()].sort()).toEqual(
+            [good.id, other.id].sort(),
+        );
+        expect(await db.outbox.get(bad.id)).toEqual({
+            task_id: bad.id,
+            revision: 1,
+            failed_revision: 1,
+        });
+        expect(engine.getStatus()).toBe('error');
+
+        // Fixing the record releases it from quarantine.
+        await updateTask(bad.id, { text: 'fixed' });
+        await engine.sync({ force: true });
+
+        expect(server.rows.get(bad.id)?.text).toBe('fixed');
+        expect(await db.outbox.count()).toBe(0);
+        expect(engine.getStatus()).toBe('idle');
+    });
+});
+
 describe('pull', () => {
     it('pulls every page and stores the cursor', async () => {
         ['A', 'B', 'C'].forEach((text) => server.seed(makeTask({ text })));
@@ -258,14 +288,27 @@ describe('lifecycle', () => {
         expect(server.requests.length).toBe(count);
     });
 
-    it('reports errors and recovers on the next run', async () => {
+    it('reports errors, backs off and recovers', async () => {
         server.failWith = 500;
         await startAndSync();
         expect(engine.getStatus()).toBe('error');
 
         server.failWith = null;
+        const count = server.requests.length;
+
         await engine.sync();
+        expect(server.requests.length).toBe(count);
+        expect(engine.getStatus()).toBe('error');
+
+        await engine.sync({ force: true });
         expect(engine.getStatus()).toBe('idle');
+    });
+
+    it('reports network failures as offline', async () => {
+        vi.stubGlobal('fetch', () => Promise.reject(new TypeError('failed')));
+        await startAndSync();
+
+        expect(engine.getStatus()).toBe('offline');
     });
 
     it('does not sync offline and syncs when back online', async () => {

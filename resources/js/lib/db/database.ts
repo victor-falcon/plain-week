@@ -20,21 +20,23 @@ export class PlainWeekDatabase extends Dexie {
 
 export const db = new PlainWeekDatabase();
 
+/** Every table of the database; transactions that wipe must include them all. */
+export function allTables(database: PlainWeekDatabase) {
+    return [database.tasks, database.outbox, database.meta];
+}
+
+/** Clears every table. Call it inside a transaction over `allTables()`. */
+export async function clearAllTables(
+    database: PlainWeekDatabase,
+): Promise<void> {
+    await Promise.all(allTables(database).map((table) => table.clear()));
+}
+
 /** Removes every local record, pending change and sync metadata. */
 export async function wipeLocalDatabase(
     database: PlainWeekDatabase = db,
 ): Promise<void> {
-    await database.transaction(
-        'rw',
-        database.tasks,
-        database.outbox,
-        database.meta,
-        async () => {
-            await Promise.all([
-                database.tasks.clear(),
-                database.outbox.clear(),
-                database.meta.clear(),
-            ]);
-        },
+    await database.transaction('rw', allTables(database), () =>
+        clearAllTables(database),
     );
 }

@@ -15,6 +15,8 @@ export function createFakeSyncServer() {
         requests: [] as Array<{ url: string; init?: RequestInit }>,
         /** Status to answer every request with instead of handling it. */
         failWith: null as number | null,
+        /** Push batches containing a matching task are refused with 422. */
+        isInvalid: (() => false) as (task: Task) => boolean,
         /** Awaited before answering a push (to simulate a slow network). */
         beforePushResponse: null as (() => Promise<void>) | null,
         /** Stores a record as if another device had pushed it. */
@@ -35,6 +37,13 @@ export function createFakeSyncServer() {
                     tasks: Task[];
                 };
                 const applied: string[] = [];
+
+                if (tasks.some((task) => server.isInvalid(task))) {
+                    return Response.json(
+                        { message: 'Invalid.', errors: {} },
+                        { status: 422 },
+                    );
+                }
 
                 tasks.forEach((task) => {
                     const stored = rows.get(task.id);
@@ -72,6 +81,10 @@ export function createFakeSyncServer() {
                     cursor: page.at(-1)?.version ?? cursor,
                     has_more: newer.length > page.length,
                 });
+            }
+
+            if (url === '/logout') {
+                return new Response('<html></html>', { status: 200 });
             }
 
             return new Response('Not found', { status: 404 });

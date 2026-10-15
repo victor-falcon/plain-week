@@ -62,12 +62,14 @@ with tasks ordered by `version` ascending. Tombstones (`deleted_at` not null) ar
 
 ## Client sync engine
 
-- Every local mutation writes the record and an outbox entry (the task id) in the same Dexie transaction.
+- Every local mutation writes the record and an outbox entry (keyed by the task id) in the same Dexie transaction.
 - The engine runs only when `auth.user` (Inertia shared prop) is present and `navigator.onLine` is true.
 - Triggers: app start, after local mutations (debounced about 1 s), the `online` event, window focus, and every 30 s.
 - Order of a run: push the outbox in batches → clear sent entries whose record did not change in the meantime → pull from
   the stored cursor until `has_more` is false.
 - A pulled record is applied only if `remote.updated_at >= local.updated_at` and its id is not pending in the outbox.
+  (Client refinement: a pending change that is strictly older than the remote record is dropped and the remote record
+  applied, because the server would refuse it anyway. See [Sync lifecycle](#sync-lifecycle-libsync).)
 - The cursor is persisted in the Dexie `meta` table (key `cursor`). The `user_id` is stored there too; if a different
   user logs in, the local database is wiped first.
 - Guest to account: guest data is already in the outbox, so the first authenticated sync pushes it and guest work is
@@ -85,7 +87,7 @@ The UI imports the repository functions and the hooks; it never talks to `fetch`
 | Table    | Primary key | Indexes                                                                 | Content                                                             |
 | -------- | ----------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------- |
 | `tasks`  | `id`        | `date`, `[date+position]`, `someday_column`, `updated_at`, `deleted_at` | `Task` records, tombstones included                                 |
-| `outbox` | `task_id`   |                                                                         | `{ task_id, revision }`: pending changes                            |
+| `outbox` | `task_id`   |                                                                         | `{ task_id, revision, failed_revision? }`: pending changes          |
 | `meta`   | `key`       |                                                                         | `cursor` (last pulled version), `user_id` (owner of the local data) |
 
 Types are in `lib/db/types.ts`: `Task` (exactly the contract shape), `TaskColor` and `TASK_COLORS` (colour ids only; the
@@ -95,19 +97,20 @@ UI owns the swatches), `SomedayColumn`, `Subtask`. Schema changes need a new `th
 ### Repository API (`lib/db/tasks.ts`)
 
 All functions are local only and return a promise that resolves once IndexedDB has committed; the UI does not need to
-await them (the live hooks re-render on their own). Each mutation writes the record and its outbox entry in one Dexie
-transaction, bumps `updated_at` (strictly increasing, so a local change always beats the version it replaces) and
-schedules a sync.
+await them (the live hooks re-render on their own). Each mutation reads the current record, computes the new one and
+writes it plus its outbox entry in one Dexie read-write transaction, so concurrent mutations of the same task never lose
+each other's fields and never resurrect a deleted task. `updated_at` is strictly increasing, so a local change always
+beats the version it replaces. After commit the mutation schedules a sync.
 
-| Function                                                                                                         | Notes                                                                                        |
-| ---------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `createTask({ text, date, someday_column?, afterPosition?, beforePosition?, color?, time?, notes?, subtasks? })` | `date: null` requires `someday_column`. Without positions it is appended at the end.         |
-| `updateTask(id, patch)`                                                                                          | `text`, `done`, `color`, `time`, `notes`, `subtasks`. Changing `done` sets/clears `done_at`. |
-| `toggleDone(id)`                                                                                                 |                                                                                              |
-| `deleteTask(id)`                                                                                                 | Tombstone (`deleted_at`); the record stays and syncs.                                        |
-| `moveTask(id, { date, someday_column?, beforeId?, afterId? })`                                                   | Lands right before `beforeId` and/or right after `afterId`; with neither, at the end.        |
-| `duplicateTask(id)`                                                                                              | Copy with new ids (task and subtasks) right after the original.                              |
-| `listTasksIn({ date } \| { date: null, someday_column })`                                                        | Sorted, non-deleted tasks of one list (useful to compute neighbours).                        |
+| Function                                                                                                         | Notes                                                                                                                             |
+| ---------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `createTask({ text, date, someday_column?, afterPosition?, beforePosition?, color?, time?, notes?, subtasks? })` | `date: null` requires `someday_column`. Without positions it is appended at the end.                                              |
+| `updateTask(id, patch)`                                                                                          | Only `text`, `done`, `color`, `time`, `notes`, `subtasks`; `undefined` values are ignored. Changing `done` sets/clears `done_at`. |
+| `toggleDone(id)`                                                                                                 |                                                                                                                                   |
+| `deleteTask(id)`                                                                                                 | Tombstone (`deleted_at`); the record stays and syncs.                                                                             |
+| `moveTask(id, { date, someday_column?, beforeId?, afterId? })`                                                   | Lands right before `beforeId` and/or right after `afterId`; a neighbour not in the target list is ignored; with none, at the end. |
+| `duplicateTask(id)`                                                                                              | Copy (content and done state) with new ids for the task and subtasks, right after the original.                                   |
+| `listTasksIn({ date } \| { date: null, someday_column })`                                                        | Sorted, non-deleted tasks of one list (useful to compute neighbours).                                                             |
 
 Mutations on a missing or deleted task throw. Order inside a list is `position` (fractional-indexing key), then `id` as a
 tie-break (`compareTaskOrder` in `lib/db/position.ts`).
@@ -130,18 +133,33 @@ The data hooks return `undefined` only during the first local read. Dates are lo
 - `SyncProvider` (`components/sync-provider.tsx`) is mounted once at the planner root. When the Inertia shared prop
   `auth.user` is present it starts the singleton `syncEngine`; when it disappears it stops it. Guests never sync.
 - Triggers: start, 1 s after the last local mutation, `online`, window `focus` and every 30 s. Only one run at a time;
-  a trigger during a run queues one more run.
-- A run: claim the database for the user (if `meta.user_id` is a different user, wipe everything; if there is no owner,
-  keep the guest data and push it) → push the outbox in batches of 500 → after each batch, delete the outbox entries
-  whose `revision` did not change while the request was in flight (applied, rejected and stale records alike) → pull
-  from `meta.cursor` with `limit=500` until `has_more` is false, storing the cursor after each page.
+  a trigger during a run queues one more run. Runs hold a cross-tab Web Lock (`lib/sync/lock.ts`), so tabs never
+  interleave runs or a logout wipe.
+- A run:
+    1. Claims the database for the user: if `meta.user_id` is a different user, everything is wiped (including that
+       user's unsynced changes); if there is no owner, the guest data is kept and pushed.
+    2. Pushes the outbox in batches of 500. After each batch it deletes the entries whose `revision` did not change while
+       the request was in flight (applied, rejected and stale records alike). The push response `cursor` is not a pull
+       position and is ignored.
+    3. Pulls from `meta.cursor` with `limit=500` until `has_more` is false, storing the cursor (from pull responses only)
+       after each page.
 - Pull applies last-write-wins: a remote record replaces the local one if it is newer, or equally new and not pending in
-  the outbox. If a pending local change is older than the remote record, the server would reject it anyway, so the
+  the outbox. If a pending local change is older than the remote record, the server would refuse it anyway, so the
   remote record is applied and the pending entry dropped: both sides converge.
-- Errors: `401` stops the engine quietly (local data stays usable); any other failure sets `error` (or `offline`) and
-  the next trigger retries. Runs are cancelled by `stop()` and never write after it.
-- Logout: the logout links use `useLogout()`, which gives pending changes up to 3 s to reach the server, stops the
-  engine, wipes the local database and then logs out.
+- Errors:
+    - `401` stops the engine quietly; local data stays usable and sync resumes on the next page load with a session.
+    - `422`/`413` are permanent: the batch is split until the invalid records are isolated; each is quarantined
+      (`failed_revision` = its revision, logged with `console.warn`) and skipped until the task changes again. The rest
+      of the outbox and the pull carry on; the status stays `error` while a record is quarantined.
+    - `5xx`, timeouts (30 s per request) and network failures are retried with exponential backoff (5 s doubling up to
+      5 min). Network failures report `offline`, the others `error`. Runs are cancelled by `stop()` and never write after
+      it.
+- Status: `syncing` during a run (the UI should debounce any indicator, since runs are frequent and short), then `idle`,
+  `offline` or `error`.
+- Logout: the logout links use `useLogout()` → `logOut()`. It forces a sync; if changes are still pending (offline,
+  errors) it asks before discarding them. Then it ends the server session (`POST /logout`) and only after that wipes
+  the local database under the sync lock and tells other tabs (BroadcastChannel) to stop their engines. If the server
+  logout fails, nothing is wiped and syncing resumes.
 - HTTP: `fetchTransport` calls `/sync/push` and `/sync/pull` with `credentials: 'same-origin'`, `Accept:
 application/json` and the `X-XSRF-TOKEN` header from Laravel's `XSRF-TOKEN` cookie.
 
@@ -153,7 +171,7 @@ application/json` and the `X-XSRF-TOKEN` header from Laravel's `XSRF-TOKEN` cook
    `notifyLocalChange()` after commit.
 3. Extend the contract here and the push/pull payloads (server and `lib/sync/transport.ts`), then group the outbox by
    entity in `SyncEngine.push` and apply the new collection in `SyncEngine.applyRemote` with the same LWW rule.
-4. Wipe the new table in `wipeLocalDatabase()` and in `SyncEngine.claimDatabase()`.
+4. Add the new table to `allTables()` in `lib/db/database.ts` so every wipe and sync transaction includes it.
 5. Cover it with Vitest tests (repository + engine against `test/fake-sync-server.ts`).
 
 ## Server side

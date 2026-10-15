@@ -35,11 +35,17 @@ function xsrfToken(): string | null {
     return match ? decodeURIComponent(match[1]) : null;
 }
 
-async function request<T>(url: string, init: RequestInit = {}): Promise<T> {
+const REQUEST_TIMEOUT_MS = 30_000;
+
+/** Same-origin fetch with the session cookie and the XSRF header. */
+async function send(url: string, init: RequestInit = {}): Promise<Response> {
     const headers = new Headers(init.headers);
     const token = xsrfToken();
 
-    headers.set('Accept', 'application/json');
+    if (!headers.has('Accept')) {
+        headers.set('Accept', 'application/json');
+    }
+
     headers.set('X-Requested-With', 'XMLHttpRequest');
 
     if (token) {
@@ -50,13 +56,33 @@ async function request<T>(url: string, init: RequestInit = {}): Promise<T> {
         ...init,
         headers,
         credentials: 'same-origin',
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
 
     if (!response.ok) {
         throw new SyncHttpError(response.status);
     }
 
+    return response;
+}
+
+async function request<T>(url: string, init: RequestInit = {}): Promise<T> {
+    const response = await send(url, init);
+
     return (await response.json()) as T;
+}
+
+/**
+ * Ends the server session. Resolves with the URL the server redirected to,
+ * and throws (`SyncHttpError` or a network error) if logout did not happen.
+ */
+export async function requestLogout(url: string): Promise<string> {
+    const response = await send(url, {
+        method: 'POST',
+        headers: { Accept: 'text/html' },
+    });
+
+    return response.url || '/';
 }
 
 /**

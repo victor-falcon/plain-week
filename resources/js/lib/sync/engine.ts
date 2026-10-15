@@ -1,7 +1,9 @@
 import { onLocalChange } from '@/lib/db/changes';
+import { allTables, clearAllTables } from '@/lib/db/database';
 import type { PlainWeekDatabase } from '@/lib/db/database';
 import { compareTimestamps } from '@/lib/db/dates';
 import type { OutboxEntry, Task } from '@/lib/db/types';
+import { withSyncLock } from './lock';
 import { SyncHttpError } from './transport';
 import type { SyncTransport } from './transport';
 
@@ -26,7 +28,23 @@ export type SyncEngineOptions = {
     debounceMs?: number;
     /** Background sync interval. */
     intervalMs?: number;
+    /** First retry delay after a retryable failure; doubles up to 5 min. */
+    retryBaseMs?: number;
 };
+
+const MAX_RETRY_MS = 5 * 60_000;
+
+/** The server refused the payload itself: retrying it unchanged cannot work. */
+function isPermanentFailure(error: unknown): boolean {
+    return (
+        error instanceof SyncHttpError &&
+        (error.status === 422 || error.status === 413)
+    );
+}
+
+function isPending(entry: OutboxEntry): boolean {
+    return entry.failed_revision !== entry.revision;
+}
 
 const browserEnvironment: SyncEnvironment = {
     isOnline: () => navigator.onLine,
@@ -72,6 +90,7 @@ export class SyncEngine {
     private readonly pullLimit: number;
     private readonly debounceMs: number;
     private readonly intervalMs: number;
+    private readonly retryBaseMs: number;
 
     private userId: string | null = null;
     /** Bumped on start/stop so in-flight runs can tell they are stale. */
@@ -82,6 +101,8 @@ export class SyncEngine {
     private readonly statusListeners = new Set<() => void>();
     private debounceTimer: ReturnType<typeof setTimeout> | null = null;
     private teardown: Array<() => void> = [];
+    private failures = 0;
+    private retryAt = 0;
 
     constructor(options: SyncEngineOptions) {
         this.db = options.db;
@@ -91,6 +112,12 @@ export class SyncEngine {
         this.pullLimit = options.pullLimit ?? 500;
         this.debounceMs = options.debounceMs ?? 1000;
         this.intervalMs = options.intervalMs ?? 30_000;
+        this.retryBaseMs = options.retryBaseMs ?? 5000;
+    }
+
+    /** True between `start()` and `stop()`. */
+    get isStarted(): boolean {
+        return this.userId !== null;
     }
 
     getStatus = (): SyncStatus => this.status;
@@ -146,6 +173,8 @@ export class SyncEngine {
         this.userId = null;
         this.generation++;
         this.rerunRequested = false;
+        this.failures = 0;
+        this.retryAt = 0;
         this.setStatus('idle');
     }
 
@@ -167,9 +196,10 @@ export class SyncEngine {
 
     /**
      * Runs a sync now (or right after the current one) and resolves when the
-     * outbox has been pushed and remote changes pulled. Never rejects.
+     * outbox has been pushed and remote changes pulled. Never rejects. While
+     * backing off after a failure it does nothing unless `force` is set.
      */
-    sync(): Promise<void> {
+    sync({ force = false }: { force?: boolean } = {}): Promise<void> {
         if (this.userId === null) {
             return Promise.resolve();
         }
@@ -186,20 +216,30 @@ export class SyncEngine {
             return this.running;
         }
 
+        if (!force && Date.now() < this.retryAt) {
+            return Promise.resolve();
+        }
+
         this.running = (async () => {
             do {
                 this.rerunRequested = false;
-                await this.run(this.generation);
+                await withSyncLock(() => this.run(this.generation));
             } while (
                 this.rerunRequested &&
                 this.userId !== null &&
-                this.environment.isOnline()
+                this.environment.isOnline() &&
+                this.failures === 0
             );
         })().finally(() => {
             this.running = null;
         });
 
         return this.running;
+    }
+
+    /** Number of local changes not yet accepted by a push (quarantined too). */
+    pendingCount(): Promise<number> {
+        return this.db.outbox.count();
     }
 
     private setStatus(status: SyncStatus): void {
@@ -224,7 +264,9 @@ export class SyncEngine {
             await this.claimDatabase(generation);
             await this.push(generation);
             await this.pull(generation);
-            this.setStatus('idle');
+            this.failures = 0;
+            this.retryAt = 0;
+            await this.settleStatus();
         } catch (error) {
             if (error instanceof SyncCancelled) {
                 return;
@@ -237,7 +279,33 @@ export class SyncEngine {
                 return;
             }
 
-            this.setStatus(this.environment.isOnline() ? 'error' : 'offline');
+            this.failures++;
+            this.retryAt =
+                Date.now() +
+                Math.min(
+                    this.retryBaseMs * 2 ** (this.failures - 1),
+                    MAX_RETRY_MS,
+                );
+            // A network failure (fetch TypeError) means we are effectively
+            // offline even when `navigator.onLine` says otherwise.
+            this.setStatus(
+                !this.environment.isOnline() || error instanceof TypeError
+                    ? 'offline'
+                    : 'error',
+            );
+        }
+    }
+
+    /** Final status of a successful run: quarantined records keep `error`. */
+    private async settleStatus(): Promise<void> {
+        const quarantined = await this.db.outbox
+            .filter((entry) => !isPending(entry))
+            .count();
+
+        if (!this.environment.isOnline()) {
+            this.setStatus('offline');
+        } else {
+            this.setStatus(quarantined > 0 ? 'error' : 'idle');
         }
     }
 
@@ -248,17 +316,13 @@ export class SyncEngine {
     private async claimDatabase(generation: number): Promise<void> {
         const { db } = this;
 
-        await db.transaction('rw', db.tasks, db.outbox, db.meta, async () => {
+        await db.transaction('rw', allTables(db), async () => {
             this.assertCurrent(generation);
 
             const owner = await db.meta.get('user_id');
 
             if (owner && String(owner.value) !== this.userId) {
-                await Promise.all([
-                    db.tasks.clear(),
-                    db.outbox.clear(),
-                    db.meta.clear(),
-                ]);
+                await clearAllTables(db);
             }
 
             await db.meta.put({ key: 'user_id', value: this.userId as string });
@@ -273,6 +337,7 @@ export class SyncEngine {
             this.assertCurrent(generation);
 
             const entries = (await db.outbox.toArray())
+                .filter((entry) => isPending(entry))
                 .filter((entry) => !attempted.has(entry.task_id))
                 .slice(0, this.pushBatchSize);
 
@@ -281,22 +346,78 @@ export class SyncEngine {
             }
 
             entries.forEach((entry) => attempted.add(entry.task_id));
+            await this.pushEntries(generation, entries);
+        }
+    }
 
-            const records = await db.tasks.bulkGet(
-                entries.map((entry) => entry.task_id),
-            );
-            const tasks = records.filter(
-                (task): task is Task => task !== undefined,
-            );
+    /**
+     * Pushes one batch. When the server refuses it as invalid, the batch is
+     * split until the offending records are isolated and quarantined, so one
+     * bad record never blocks the rest.
+     */
+    private async pushEntries(
+        generation: number,
+        entries: OutboxEntry[],
+    ): Promise<void> {
+        const records = await this.db.tasks.bulkGet(
+            entries.map((entry) => entry.task_id),
+        );
+        const tasks = records.filter(
+            (task): task is Task => task !== undefined,
+        );
 
+        try {
             if (tasks.length > 0) {
+                this.assertCurrent(generation);
                 await this.transport.push(tasks);
             }
+        } catch (error) {
+            if (!isPermanentFailure(error)) {
+                throw error;
+            }
 
-            // Whether applied, rejected or ignored as stale by the server, the
-            // entry is done, unless the record changed while it was in flight.
-            await this.clearSent(generation, entries);
+            if (entries.length === 1) {
+                await this.quarantine(generation, entries[0]);
+
+                return;
+            }
+
+            const middle = Math.ceil(entries.length / 2);
+
+            await this.pushEntries(generation, entries.slice(0, middle));
+            await this.pushEntries(generation, entries.slice(middle));
+
+            return;
         }
+
+        // Whether applied, rejected or ignored as stale by the server, the
+        // entry is done, unless the record changed while it was in flight. The
+        // push response `cursor` is not a pull position and is ignored.
+        await this.clearSent(generation, entries);
+    }
+
+    private async quarantine(
+        generation: number,
+        entry: OutboxEntry,
+    ): Promise<void> {
+        const { db } = this;
+
+        console.warn(
+            `Sync: the server refused task ${entry.task_id} as invalid; it will be retried after its next change.`,
+        );
+
+        await db.transaction('rw', db.outbox, async () => {
+            this.assertCurrent(generation);
+
+            const current = await db.outbox.get(entry.task_id);
+
+            if (current?.revision === entry.revision) {
+                await db.outbox.put({
+                    ...current,
+                    failed_revision: current.revision,
+                });
+            }
+        });
     }
 
     private async clearSent(
@@ -327,24 +448,19 @@ export class SyncEngine {
             this.assertCurrent(generation);
 
             const page = await this.transport.pull(cursor, this.pullLimit);
+            const next = Number(page.cursor);
 
-            await db.transaction(
-                'rw',
-                db.tasks,
-                db.outbox,
-                db.meta,
-                async () => {
-                    this.assertCurrent(generation);
-                    await this.applyRemote(page.tasks.map(toTask));
-                    await db.meta.put({ key: 'cursor', value: page.cursor });
-                },
-            );
+            await db.transaction('rw', allTables(db), async () => {
+                this.assertCurrent(generation);
+                await this.applyRemote(page.tasks.map(toTask));
+                await db.meta.put({ key: 'cursor', value: next });
+            });
 
-            if (!page.has_more || page.cursor <= cursor) {
+            if (!page.has_more || next <= cursor) {
                 return;
             }
 
-            cursor = page.cursor;
+            cursor = next;
         }
     }
 

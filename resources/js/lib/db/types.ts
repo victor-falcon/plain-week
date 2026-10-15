@@ -59,6 +59,11 @@ export type Task = {
 export type OutboxEntry = {
     task_id: string;
     revision: number;
+    /**
+     * Set when the server refused this revision as invalid (422). The entry is
+     * skipped by push until the task changes again.
+     */
+    failed_revision?: number;
 };
 
 export type MetaKey = 'cursor' | 'user_id';

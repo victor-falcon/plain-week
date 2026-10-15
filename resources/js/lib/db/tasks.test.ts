@@ -100,6 +100,57 @@ describe('task repository', () => {
         await expect(updateTask(task.id, { text: 'B' })).rejects.toThrow();
     });
 
+    it('keeps both of two concurrent edits', async () => {
+        const task = await createTask({ text: 'A', date: DAY });
+
+        await Promise.all([
+            updateTask(task.id, { text: 'B' }),
+            updateTask(task.id, { color: 'green' }),
+            toggleDone(task.id),
+        ]);
+
+        expect(await db.tasks.get(task.id)).toMatchObject({
+            text: 'B',
+            color: 'green',
+            done: true,
+        });
+        expect((await db.outbox.get(task.id))?.revision).toBe(4);
+    });
+
+    it('toggles twice when clicked twice quickly', async () => {
+        const task = await createTask({ text: 'A', date: DAY });
+
+        await Promise.all([toggleDone(task.id), toggleDone(task.id)]);
+
+        expect((await db.tasks.get(task.id))?.done).toBe(false);
+    });
+
+    it('does not resurrect a task deleted concurrently', async () => {
+        const task = await createTask({ text: 'A', date: DAY });
+
+        const results = await Promise.allSettled([
+            deleteTask(task.id),
+            updateTask(task.id, { text: 'B' }),
+        ]);
+
+        expect(results[1].status).toBe('rejected');
+        expect((await db.tasks.get(task.id))?.deleted_at).not.toBeNull();
+    });
+
+    it('ignores undefined and unknown patch fields', async () => {
+        const task = await createTask({ text: 'A', date: DAY, color: 'pink' });
+        const updated = await updateTask(task.id, {
+            color: undefined,
+            ...({ date: '2030-01-01', id: 'x' } as object),
+        });
+
+        expect(updated).toMatchObject({
+            id: task.id,
+            date: DAY,
+            color: 'pink',
+        });
+    });
+
     it('notifies listeners after a mutation', async () => {
         let calls = 0;
         const unsubscribe = onLocalChange(() => calls++);
