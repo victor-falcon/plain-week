@@ -1,4 +1,5 @@
 import type { Task } from '@/lib/db/types';
+import { pull, push } from '@/routes/sync';
 
 export type PushResponse = {
     applied: string[];
@@ -91,16 +92,11 @@ export async function requestLogout(url: string): Promise<string> {
  */
 export const fetchTransport: SyncTransport = {
     push: (tasks) =>
-        request<PushResponse>('/sync/push', {
+        request<PushResponse>(push.url(), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ tasks }),
         }),
     pull: (cursor, limit) =>
-        request<PullResponse>(
-            `/sync/pull?${new URLSearchParams({
-                cursor: String(cursor),
-                limit: String(limit),
-            })}`,
-        ),
+        request<PullResponse>(pull.url({ query: { cursor, limit } })),
 };

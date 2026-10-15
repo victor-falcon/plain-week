@@ -160,7 +160,7 @@ The data hooks return `undefined` only during the first local read. Dates are lo
   errors) it asks before discarding them. Then it ends the server session (`POST /logout`) and only after that wipes
   the local database under the sync lock and tells other tabs (BroadcastChannel) to stop their engines. If the server
   logout fails, nothing is wiped and syncing resumes.
-- HTTP: `fetchTransport` calls `/sync/push` and `/sync/pull` with `credentials: 'same-origin'`, `Accept:
+- HTTP: `fetchTransport` calls `/sync/push` and `/sync/pull` (Wayfinder helpers `@/routes/sync`) with `credentials: 'same-origin'`, `Accept:
 application/json` and the `X-XSRF-TOKEN` header from Laravel's `XSRF-TOKEN` cookie.
 
 ### Adding a new synced entity
