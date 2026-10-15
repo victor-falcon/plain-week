@@ -40,7 +40,7 @@ export function useTask(
         [id],
     );
 
-    return result?.id === id ? result.task : undefined;
+    return result !== undefined && result.id === id ? result.task : undefined;
 }
 
 /**
