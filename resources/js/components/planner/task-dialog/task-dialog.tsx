@@ -112,7 +112,7 @@ function TaskDialogContent({
             className="top-4 max-h-[calc(100dvh-2rem)] translate-y-0 gap-4 overflow-y-auto bg-secondary p-4 text-secondary-foreground sm:top-16 sm:max-h-[calc(100dvh-8rem)] sm:max-w-lg sm:p-6"
         >
             <DialogTitle className="sr-only">Edit task</DialogTitle>
-            <div className="-mx-2 -mt-1 flex flex-wrap items-center gap-1">
+            <div className="-mx-2 -mt-1 flex items-center gap-1">
                 <TaskDatePicker task={task} />
                 <TaskTimePicker task={task} />
                 <div className="ms-auto flex items-center gap-1">
