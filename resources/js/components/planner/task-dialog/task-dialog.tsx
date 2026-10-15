@@ -86,6 +86,15 @@ function TaskDialogContent({ onClose }: { onClose: () => void }) {
             // Back to the task's row, which may have moved to another day
             // since it opened the dialog (when it is not shown, Radix falls
             // back to the element that had focus).
+            // A toast (the "Undo" of a move) is not outside the task.
+            onInteractOutside={(event) => {
+                if (
+                    event.target instanceof Element &&
+                    event.target.closest('[data-sonner-toaster]')
+                ) {
+                    event.preventDefault();
+                }
+            }}
             onCloseAutoFocus={(event) => {
                 const row = document.querySelector<HTMLElement>(
                     `[data-task-id="${CSS.escape(task.id)}"] button`,

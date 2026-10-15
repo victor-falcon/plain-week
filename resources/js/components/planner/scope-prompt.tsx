@@ -1,5 +1,6 @@
 import { createContext, use, useCallback, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
+import { flushSync } from 'react-dom';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -57,6 +58,9 @@ export function ScopePromptProvider({ children }: { children: ReactNode }) {
     // Kept after closing, so the prompt keeps its text while it fades out.
     const [prompt, setPrompt] = useState<Prompt | null>(null);
     const resolver = useRef<((scope: Scope | null) => void) | null>(null);
+    // The prompt has no trigger: focus goes back to where it was asked from
+    // (the field being typed in), so typing carries on.
+    const returnFocus = useRef<HTMLElement | null>(null);
 
     const ask = useCallback<AskScope>((action, options = {}) => {
         // A prompt still open is answered with "cancel".
@@ -64,6 +68,10 @@ export function ScopePromptProvider({ children }: { children: ReactNode }) {
 
         return new Promise((resolve) => {
             resolver.current = resolve;
+            returnFocus.current =
+                document.activeElement instanceof HTMLElement
+                    ? document.activeElement
+                    : null;
             setPrompt({ action, ...options });
             setOpen(true);
         });
@@ -72,7 +80,14 @@ export function ScopePromptProvider({ children }: { children: ReactNode }) {
     const answer = (scope: Scope | null) => {
         resolver.current?.(scope);
         resolver.current = null;
-        setOpen(false);
+        // Closed synchronously so the focus trap is gone, then focus goes
+        // back right away rather than after the closing animation: keys
+        // typed just after answering land in the field.
+        flushSync(() => setOpen(false));
+
+        if (returnFocus.current?.isConnected) {
+            returnFocus.current.focus();
+        }
     };
 
     const copy = prompt ? COPY[prompt.action] : null;
@@ -86,7 +101,16 @@ export function ScopePromptProvider({ children }: { children: ReactNode }) {
                 onOpenChange={(open) => !open && answer(null)}
             >
                 {copy && (
-                    <AlertDialogContent>
+                    <AlertDialogContent
+                        onCloseAutoFocus={(event) => {
+                            const target = returnFocus.current;
+
+                            if (target?.isConnected) {
+                                event.preventDefault();
+                                target.focus();
+                            }
+                        }}
+                    >
                         <AlertDialogHeader>
                             <AlertDialogTitle>{copy.title}</AlertDialogTitle>
                             <AlertDialogDescription>

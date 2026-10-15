@@ -62,12 +62,14 @@ function useTaskRepeat(task: PlannerTask): TaskRepeat {
 
 /** The repeat icon, with the rule in a tooltip ("Every Mon, Wed"). */
 function RepeatIcon({ summary }: { summary: string | null }) {
+    // A span carries the tooltip: buttons turn off pointer events on icons.
     const icon = (
-        <Repeat
-            aria-hidden
+        <span
             data-testid="repeat-icon"
-            className="ms-1.5 size-3 shrink-0 opacity-70"
-        />
+            className="ms-1.5 flex shrink-0 opacity-70"
+        >
+            <Repeat aria-hidden className="size-3" />
+        </span>
     );
 
     return summary ? (
