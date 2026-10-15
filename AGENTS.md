@@ -23,7 +23,7 @@ React 19, TypeScript, Tailwind v4 and shadcn/ui, using bun and SQLite.
 ## Before you push
 
 ```sh
-composer ci:check   # JS lint/format, TS types, Pint, PHPStan, Pest
+composer ci:check   # JS lint/format, TS types, JS tests, Pint, PHPStan, Pest
 bun run build
 ```
 
