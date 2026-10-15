@@ -7,6 +7,8 @@ import {
     vi,
 } from 'vite-plus/test';
 import { db, wipeLocalDatabase } from '@/lib/db/database';
+import { demoIds } from '@/lib/db/demo';
+import { seedDemoTasks } from '@/lib/db/demo-tasks';
 import { queryWeekTasks } from '@/lib/db/queries';
 import {
     createTask,
@@ -486,5 +488,26 @@ describe('lifecycle', () => {
 
         expect(seen).toContain('syncing');
         expect(seen.at(-1)).toBe('idle');
+    });
+});
+
+describe('demo tasks', () => {
+    it('never pushes them, deletes the untouched ones and keeps the edited', async () => {
+        await seedDemoTasks('2026-10-14');
+        const [edited, untouched] = (await db.tasks.toArray()).filter(
+            (task) => task.recurrence === null,
+        );
+        const own = await createTask({ text: 'Mine', date: '2026-10-12' });
+
+        await updateTask(edited.id, { text: 'Edited demo' });
+        await startAndSync();
+
+        expect([...server.rows.keys()].sort()).toEqual(
+            [edited.id, own.id].sort(),
+        );
+        expect(await db.tasks.get(untouched.id)).toBeUndefined();
+        expect(await db.tasks.count()).toBe(2);
+        expect(await demoIds()).toEqual(new Set());
+        expect(await db.outbox.count()).toBe(0);
     });
 });

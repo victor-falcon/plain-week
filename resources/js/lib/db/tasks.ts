@@ -17,6 +17,8 @@ import type {
 import { notifyLocalChange } from './changes';
 import { db } from './database';
 import { nextTimestamp } from './dates';
+import { trackDemoRows } from './demo';
+import type { DemoMode } from './demo';
 import { positionBetween } from './position';
 import {
     placementOf,
@@ -92,7 +94,14 @@ export type Scope = 'this' | 'future';
  */
 export type UndoLog = { before: Map<string, Task | null> };
 
-export type MutationOptions = { undo?: UndoLog };
+export type MutationOptions = {
+    undo?: UndoLog;
+    /**
+     * The written rows are demo tasks: local only, never pushed (used to seed
+     * the guest onboarding, see `lib/db/demo.ts`).
+     */
+    demo?: boolean;
+};
 
 export type ScopedMutationOptions = MutationOptions & { scope?: Scope };
 
@@ -119,16 +128,27 @@ function toRow(task: Task): Task {
     };
 }
 
+/** How a write affects demo tasks (see `lib/db/demo.ts`). */
+type DemoEffect = {
+    /** The id the user acted on, which may not be among the written rows. */
+    subjectId?: string;
+    /** `release` unless the mutation is a delete, restore or undo. */
+    mode?: Exclude<DemoMode, 'seed'>;
+};
+
 /**
  * Runs `build` and writes the rows it returns, plus an outbox entry for each,
- * in one read-write transaction, then wakes the sync engine.
+ * in one read-write transaction, then wakes the sync engine. Demo rows are
+ * released (or kept local) in the same transaction.
  */
 async function write<T>(
     build: () => Promise<{ rows: Task[]; result: T }>,
     options: MutationOptions = {},
+    { subjectId, mode = 'release' }: DemoEffect = {},
 ): Promise<T> {
     let written = 0;
-    const result = await db.transaction('rw', db.tasks, db.outbox, async () => {
+    const tables = [db.tasks, db.outbox, db.meta];
+    const result = await db.transaction('rw', tables, async () => {
         const built = await build();
         const rows = [
             ...new Map(built.rows.map((row) => [row.id, toRow(row)])).values(),
@@ -152,6 +172,7 @@ async function write<T>(
                 revision: (entries[i]?.revision ?? 0) + 1,
             })),
         );
+        await trackDemoRows(rows, subjectId, options.demo ? 'seed' : mode);
 
         written = rows.length;
 
@@ -363,7 +384,10 @@ async function liveSeriesOf(item: PlannerTask): Promise<{
     return series ? { series, item } : null;
 }
 
-export function createTask(input: CreateTaskInput): Promise<Task> {
+export function createTask(
+    input: CreateTaskInput,
+    options: MutationOptions = {},
+): Promise<Task> {
     return write(async () => {
         const hasBounds =
             input.afterPosition != null || input.beforePosition != null;
@@ -394,7 +418,7 @@ export function createTask(input: CreateTaskInput): Promise<Task> {
         };
 
         return { rows: [task], result: task };
-    });
+    }, options);
 }
 
 /**
@@ -405,7 +429,7 @@ export function createTask(input: CreateTaskInput): Promise<Task> {
 function edit(
     id: string,
     change: (item: PlannerTask) => TaskPatch,
-    { scope = 'this', undo }: ScopedMutationOptions,
+    { scope = 'this', ...options }: ScopedMutationOptions,
 ): Promise<PlannerTask> {
     return write(
         async () => {
@@ -443,7 +467,8 @@ function edit(
 
             return { rows: [row], result: toItem(row) };
         },
-        { undo },
+        options,
+        { subjectId: id },
     );
 }
 
@@ -489,7 +514,7 @@ export function updateSubtasks(
  */
 export function deleteTask(
     id: string,
-    { scope = 'this', undo }: ScopedMutationOptions = {},
+    { scope = 'this', ...options }: ScopedMutationOptions = {},
 ): Promise<Task> {
     return write(
         async () => {
@@ -526,7 +551,8 @@ export function deleteTask(
 
             return { rows: [row], result: row };
         },
-        { undo },
+        options,
+        { mode: 'keep' },
     );
 }
 
@@ -537,24 +563,28 @@ export function deleteTask(
  * a change that touched several rows, use an `UndoLog`.
  */
 export function restoreTask(id: string): Promise<PlannerTask> {
-    return write(async () => {
-        const occurrence = parseOccurrenceId(id);
-        const task = occurrence
-            ? await queryException(occurrence.seriesId, occurrence.date)
-            : await db.tasks.get(id);
+    return write(
+        async () => {
+            const occurrence = parseOccurrenceId(id);
+            const task = occurrence
+                ? await queryException(occurrence.seriesId, occurrence.date)
+                : await db.tasks.get(id);
 
-        if (!task) {
-            throw new Error(`Task ${id} does not exist.`);
-        }
+            if (!task) {
+                throw new Error(`Task ${id} does not exist.`);
+            }
 
-        const row: Task = {
-            ...task,
-            updated_at: nextTimestamp(task.updated_at),
-            deleted_at: null,
-        };
+            const row: Task = {
+                ...task,
+                updated_at: nextTimestamp(task.updated_at),
+                deleted_at: null,
+            };
 
-        return { rows: [row], result: toItem(row) };
-    });
+            return { rows: [row], result: toItem(row) };
+        },
+        {},
+        { mode: 'keep' },
+    );
 }
 
 /**
@@ -568,50 +598,54 @@ export function moveTask(
     input: MoveTaskInput,
     options: MutationOptions = {},
 ): Promise<PlannerTask> {
-    return write(async () => {
-        const item = await getLive(id);
+    return write(
+        async () => {
+            const item = await getLive(id);
 
-        if (item.kind === 'series') {
-            throw new Error('Move an occurrence, not its series.');
-        }
+            if (item.kind === 'series') {
+                throw new Error('Move an occurrence, not its series.');
+            }
 
-        const siblings = (await queryListTasks(input)).filter(
-            (sibling) => sibling.id !== id && sibling.id !== item.id,
-        );
-        const indexOf = (siblingId: string | null | undefined) =>
-            siblingId ? siblings.findIndex((s) => s.id === siblingId) : -1;
+            const siblings = (await queryListTasks(input)).filter(
+                (sibling) => sibling.id !== id && sibling.id !== item.id,
+            );
+            const indexOf = (siblingId: string | null | undefined) =>
+                siblingId ? siblings.findIndex((s) => s.id === siblingId) : -1;
 
-        let afterIndex = indexOf(input.afterId);
-        let beforeIndex = indexOf(input.beforeId);
+            let afterIndex = indexOf(input.afterId);
+            let beforeIndex = indexOf(input.beforeId);
 
-        if (afterIndex === -1 && beforeIndex === -1) {
-            afterIndex = siblings.length - 1;
-            beforeIndex = siblings.length;
-        } else if (beforeIndex === -1) {
-            beforeIndex = afterIndex + 1;
-        } else if (afterIndex === -1) {
-            afterIndex = beforeIndex - 1;
-        }
+            if (afterIndex === -1 && beforeIndex === -1) {
+                afterIndex = siblings.length - 1;
+                beforeIndex = siblings.length;
+            } else if (beforeIndex === -1) {
+                beforeIndex = afterIndex + 1;
+            } else if (afterIndex === -1) {
+                afterIndex = beforeIndex - 1;
+            }
 
-        const base =
-            item.kind === 'occurrence'
-                ? materialize(
-                      await seriesOfOccurrence(item),
-                      item.occurrenceDate,
-                  )
-                : item;
-        const row: Task = {
-            ...toRow(base),
-            ...normalizePlacement(input),
-            position: positionBetween(
-                siblings[afterIndex]?.position,
-                siblings[beforeIndex]?.position,
-            ),
-            updated_at: nextTimestamp(base.updated_at),
-        };
+            const base =
+                item.kind === 'occurrence'
+                    ? materialize(
+                          await seriesOfOccurrence(item),
+                          item.occurrenceDate,
+                      )
+                    : item;
+            const row: Task = {
+                ...toRow(base),
+                ...normalizePlacement(input),
+                position: positionBetween(
+                    siblings[afterIndex]?.position,
+                    siblings[beforeIndex]?.position,
+                ),
+                updated_at: nextTimestamp(base.updated_at),
+            };
 
-        return { rows: [row], result: toItem(row) };
-    }, options);
+            return { rows: [row], result: toItem(row) };
+        },
+        options,
+        { subjectId: id },
+    );
 }
 
 /**
@@ -623,31 +657,36 @@ export function duplicateTask(
     id: string,
     options: MutationOptions = {},
 ): Promise<Task> {
-    return write(async () => {
-        const item = await getLive(id);
-        const siblings = await queryListTasks(placementOf(item));
-        const next = siblings[siblings.findIndex((s) => s.id === item.id) + 1];
-        const source =
-            item.kind === 'occurrence'
-                ? materialize(
-                      await seriesOfOccurrence(item),
-                      item.occurrenceDate,
-                  )
-                : item;
-        const copy: Task = {
-            ...plainCopy(source),
-            position: positionBetween(item.position, next?.position),
-            subtasks: item.subtasks.map((subtask) => ({
-                ...subtask,
-                id: uuidv7(),
-            })),
-        };
+    return write(
+        async () => {
+            const item = await getLive(id);
+            const siblings = await queryListTasks(placementOf(item));
+            const next =
+                siblings[siblings.findIndex((s) => s.id === item.id) + 1];
+            const source =
+                item.kind === 'occurrence'
+                    ? materialize(
+                          await seriesOfOccurrence(item),
+                          item.occurrenceDate,
+                      )
+                    : item;
+            const copy: Task = {
+                ...plainCopy(source),
+                position: positionBetween(item.position, next?.position),
+                subtasks: item.subtasks.map((subtask) => ({
+                    ...subtask,
+                    id: uuidv7(),
+                })),
+            };
 
-        return {
-            rows: item.kind === 'occurrence' ? [source, copy] : [copy],
-            result: copy,
-        };
-    }, options);
+            return {
+                rows: item.kind === 'occurrence' ? [source, copy] : [copy],
+                result: copy,
+            };
+        },
+        options,
+        { subjectId: id },
+    );
 }
 
 /**
@@ -671,7 +710,7 @@ export function duplicateTask(
 export function setRecurrence(
     id: string,
     recurrence: Recurrence | null,
-    { scope = 'future', undo }: ScopedMutationOptions = {},
+    { scope = 'future', ...options }: ScopedMutationOptions = {},
 ): Promise<PlannerTask> {
     return write(
         async () => {
@@ -768,7 +807,8 @@ export function setRecurrence(
 
             return { rows: [row], result: representative(row, item.date) };
         },
-        { undo },
+        options,
+        { subjectId: id },
     );
 }
 
@@ -781,30 +821,34 @@ export function createUndoLog(): UndoLog {
  * the rows they created, as newer changes so the undo also syncs.
  */
 export function undoChanges(log: UndoLog): Promise<void> {
-    return write(async () => {
-        const rows: Task[] = [];
+    return write(
+        async () => {
+            const rows: Task[] = [];
 
-        for (const [id, before] of log.before) {
-            const now = await db.tasks.get(id);
+            for (const [id, before] of log.before) {
+                const now = await db.tasks.get(id);
 
-            if (!now) {
-                continue;
+                if (!now) {
+                    continue;
+                }
+
+                if (before) {
+                    rows.push({
+                        ...before,
+                        updated_at: nextTimestamp(now.updated_at),
+                    });
+                } else {
+                    rows.push(...(await unwritten(now)));
+                }
             }
 
-            if (before) {
-                rows.push({
-                    ...before,
-                    updated_at: nextTimestamp(now.updated_at),
-                });
-            } else {
-                rows.push(...(await unwritten(now)));
-            }
-        }
+            log.before.clear();
 
-        log.before.clear();
-
-        return { rows, result: undefined };
-    });
+            return { rows, result: undefined };
+        },
+        {},
+        { mode: 'keep' },
+    );
 }
 
 /**

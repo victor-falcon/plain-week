@@ -7,6 +7,7 @@ import { SomedaySection } from '@/components/planner/someday-section';
 import { TaskDialog } from '@/components/planner/task-dialog/task-dialog';
 import { WeekGrid } from '@/components/planner/week-grid';
 import { SyncProvider } from '@/components/sync-provider';
+import { useGuestOnboarding } from '@/hooks/use-guest-onboarding';
 import { usePlannerShortcuts } from '@/hooks/use-planner-shortcuts';
 import { useToday } from '@/hooks/use-today';
 import { useWeekNavigation } from '@/hooks/use-week-navigation';
@@ -22,6 +23,7 @@ export default function Planner() {
     const closeTask = useCallback(() => setOpenTaskId(null), []);
 
     usePlannerShortcuts(navigation);
+    useGuestOnboarding(today, navigation.isCurrentWeek);
 
     return (
         <SyncProvider>

@@ -2,7 +2,7 @@ import { Link, usePage } from '@inertiajs/react';
 import {
     CloudAlert,
     CloudOff,
-    Download,
+    CloudUpload,
     LogIn,
     RefreshCw,
     User as UserIcon,
@@ -126,7 +126,7 @@ function GuestSaveButton() {
                         aria-hidden
                         className="absolute -inset-1 animate-pulse rounded-full border-2 border-primary/50 motion-reduce:animate-none"
                     />
-                    <Download className="size-5" />
+                    <CloudUpload className="size-5" />
                 </Link>
             </Button>
         </WithTooltip>

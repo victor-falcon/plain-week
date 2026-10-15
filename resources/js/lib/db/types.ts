@@ -83,9 +83,13 @@ export type OutboxEntry = {
     failed_revision?: number;
 };
 
-export type MetaKey = 'cursor' | 'user_id';
+/**
+ * `cursor` and `user_id` belong to the sync engine; `demo_seeded` and
+ * `demo_ids` to the guest onboarding (`lib/db/demo.ts`) and never sync.
+ */
+export type MetaKey = 'cursor' | 'user_id' | 'demo_seeded' | 'demo_ids';
 
 export type MetaEntry = {
     key: MetaKey;
-    value: string | number;
+    value: string | number | string[];
 };

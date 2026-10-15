@@ -113,8 +113,8 @@ a `422` (it is not clamped).
 - The cursor is persisted in the Dexie `meta` table (key `cursor`). The `user_id` is stored there too; if a different
   user logs in, the local database is wiped first.
 - Guest to account: guest data is already in the outbox, so the first authenticated sync pushes it and guest work is
-  kept.
-- Logout wipes the local database (privacy on shared devices).
+  kept. Untouched demo tasks are deleted first and never pushed ([Guest onboarding](#guest-onboarding-demo-tasks)).
+- Logout wipes the local database (privacy on shared devices), except the `demo_seeded` flag.
 - The engine exposes a sync status for the UI: `idle` | `syncing` | `offline` | `error`.
 
 ## Client data layer
@@ -124,11 +124,11 @@ The UI imports the repository functions and the hooks; it never talks to `fetch`
 
 ### IndexedDB schema (Dexie database `plain-week`, version 2)
 
-| Table    | Primary key | Indexes                                                                                                                   | Content                                                             |
-| -------- | ----------- | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| `tasks`  | `id`        | `date`, `[date+position]`, `someday_column`, `updated_at`, `deleted_at`, `recurrence.type`, `[series_id+occurrence_date]` | `Task` records, tombstones included                                 |
-| `outbox` | `task_id`   |                                                                                                                           | `{ task_id, revision, failed_revision? }`: pending changes          |
-| `meta`   | `key`       |                                                                                                                           | `cursor` (last pulled version), `user_id` (owner of the local data) |
+| Table    | Primary key | Indexes                                                                                                                   | Content                                                                                                                                           |
+| -------- | ----------- | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tasks`  | `id`        | `date`, `[date+position]`, `someday_column`, `updated_at`, `deleted_at`, `recurrence.type`, `[series_id+occurrence_date]` | `Task` records, tombstones included                                                                                                               |
+| `outbox` | `task_id`   |                                                                                                                           | `{ task_id, revision, failed_revision? }`: pending changes                                                                                        |
+| `meta`   | `key`       |                                                                                                                           | `cursor` (last pulled version), `user_id` (owner of the local data), `demo_seeded`, `demo_ids` ([Guest onboarding](#guest-onboarding-demo-tasks)) |
 
 IndexedDB leaves a row out of an index when the indexed value is null, so `recurrence.type` lists series rows only and
 `[series_id+occurrence_date]` exception rows only. Version 2 added both indexes and an upgrade that sets `recurrence`,
@@ -279,7 +279,8 @@ defaults them to `null` on pull.
   interleave runs or a logout wipe.
 - A run:
     1. Claims the database for the user: if `meta.user_id` is a different user, everything is wiped (including that
-       user's unsynced changes); if there is no owner, the guest data is kept and pushed.
+       user's unsynced changes); if there is no owner, the guest data is kept and pushed. Demo tasks still in
+       `meta.demo_ids` are deleted (no tombstones: the server never had them).
     2. Pushes the outbox in batches of 500. After each batch it deletes the entries whose `revision` did not change while
        the request was in flight (applied, rejected and stale records alike). The push response `cursor` is not a pull
        position and is ignored.
@@ -304,6 +305,30 @@ defaults them to `null` on pull.
   logout fails, nothing is wiped and syncing resumes.
 - HTTP: `fetchTransport` calls `/sync/push` and `/sync/pull` (Wayfinder helpers `@/routes/sync`) with `credentials: 'same-origin'`, `Accept:
 application/json` and the `X-XSRF-TOKEN` header from Laravel's `XSRF-TOKEN` cookie.
+
+### Guest onboarding: demo tasks
+
+A guest's very first visit gets a few demo tasks in the current week that teach the planner (complete on hover, click to
+edit, drag, color, timed tasks first, right click, a weekly series on Friday, Someday). They live only on this device.
+
+- **Seeding.** `useGuestOnboarding` (planner page, guests only, once the current week is on screen) calls
+  `seedDemoTasks` (`lib/db/demo-tasks.ts`). A small transaction claims the onboarding: it sets `meta.demo_seeded` and
+  goes on only if the flag was absent, there is no `meta.user_id` and no task at all. The tasks are then created
+  through the repository with `{ demo: true }`, so each write puts its rows in `meta.demo_ids` without an outbox entry
+  in its own transaction (a seed cut short leaves fewer demo tasks, never something to push). The flag is never
+  cleared (logout keeps it with `wipeLocalDatabase(db, { onboarded: true })`), so the demo never comes back, not even
+  after the user deletes every demo task or when a user logs out back into a guest.
+- **Never synced.** A demo row has no outbox entry, so it is never pushed and does not count as pending work (the guest
+  "save" button stays off until the guest makes a change).
+- **Becoming real.** `write()` in `lib/db/tasks.ts` calls `trackDemoRows` (`lib/db/demo.ts`) in the same transaction.
+  Edits, completion, moves, duplicates and repeat changes (`release`) take the rows they write, the id the user acted on
+  and their series out of `demo_ids`, together with the whole series family (a series and its exceptions), and queue
+  the ones not written in that change. Deletes, restores and undos (`keep`) leave demo rows demo, and add the rows they
+  derive from them (for example the deleted exception of a demo occurrence), so deleting a demo task never syncs a
+  tombstone.
+- **Signing up or in.** `SyncEngine.claimDatabase` runs `purgeDemoTasks` before the first push: the demo rows still in
+  `demo_ids` are hard-deleted locally. Edited ones were released, so they are pushed like any guest work. Signed-in
+  users never get demo tasks.
 
 ### Adding a new synced entity
 

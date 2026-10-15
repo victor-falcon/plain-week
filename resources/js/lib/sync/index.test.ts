@@ -45,7 +45,11 @@ describe('logOut', () => {
         expect(confirmDiscard).not.toHaveBeenCalled();
         expect(redirectTo).toBe('/');
         expect(await db.tasks.count()).toBe(0);
-        expect(await db.meta.count()).toBe(0);
+        // Only the onboarding flag survives: the guest left behind on this
+        // device never gets the demo tasks.
+        expect(await db.meta.toArray()).toEqual([
+            { key: 'demo_seeded', value: 1 },
+        ]);
         expect(syncEngine.isStarted).toBe(false);
     });
 
