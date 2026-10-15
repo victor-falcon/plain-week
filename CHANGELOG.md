@@ -33,6 +33,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Task context menu.** Right click a task (or press Shift+F10 / the context menu key on it) to change its color, move
   it to tomorrow, next week or Someday, duplicate it or delete it with undo. On touch screens, press and hold still to
   open it; press, hold and move still drags the task.
+- **Export and import.** "Export data" in the account menu downloads all your tasks, recurring ones included, as a JSON
+  backup (`plain-week-export-YYYY-MM-DD.json`). "Import data…" previews a backup and adds its tasks next to the ones
+  you have, leaving those unchanged. Both work offline and for guests; imported tasks sync like any other change.
 
 ## [0.0.1] - 2026-10-15
 

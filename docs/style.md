@@ -89,7 +89,8 @@ Installed in `resources/js/components/ui/` and where they are used:
 | `textarea`                                                         | Task dialog title and notes                                                          |
 | `checkbox`                                                         | Subtasks, "Remember me" on login                                                     |
 | `dialog`                                                           | Task dialog; account deletion, passkeys and 2FA setup in settings                    |
-| `alert-dialog`                                                     | Scope prompt of recurring tasks (`scope-prompt.tsx`)                                 |
+| `alert-dialog`                                                     | Scope prompt of recurring tasks (`scope-prompt.tsx`), import preview (Settings › Data) |
+| `progress`                                                         | Import progress (Settings › Data)                                                    |
 | `popover`                                                          | Task dialog date, time, repeat and color pickers                                     |
 | `calendar`                                                         | Task dialog date picker, repeat end date                                             |
 | `toggle-group` (+ `toggle`)                                        | Task color picker, repeat picker (kind and weekdays)                                 |
@@ -319,6 +320,23 @@ still until 500 ms cancels that drag and dispatches a `contextmenu` event at the
 menu like a right click. Releasing a held task before it moved does nothing. Radix's own touch long press (700 ms,
 cancelled by any movement) stays as a fallback and only ever reopens the same menu; the row ignores `contextmenu` while
 it is being dragged, so a browser long-press event cannot open the menu mid-drag.
+
+## Account menu
+
+`AccountButton` (`components/planner/account-button.tsx`) is the round button at the header's end.
+
+| Who                   | Button                                        | Menu                                                      |
+| --------------------- | --------------------------------------------- | --------------------------------------------------------- |
+| User                  | Avatar with the sync status badge             | User info, Settings, Export data, Import data…, Log out   |
+| Guest                 | Secondary round button with a user icon       | Log in, Create account, Export data, Import data…         |
+| Guest with local work | Filled, pulsing "save" button (`save-button`) | Create account to save, Log in, Export data, Import data… |
+
+"Export data" downloads `plain-week-export-YYYY-MM-DD.json` at once and confirms with a toast ("Exported 12 tasks").
+"Import data…" opens the file picker (`.json`), then an `AlertDialog` previews the file ("12 tasks (2 recurring) will be
+added. Your existing tasks will stay unchanged.") with Cancel / Import. While importing, a `Progress` bar fills and the
+dialog cannot be dismissed; it closes with a toast ("Imported 12 tasks"). An invalid file never opens the dialog: a
+`toast.error` says why ("This is not a Plain Week export file."). Both work offline (see
+[architecture.md](./architecture.md#export-format)).
 
 ## Planner accent
 

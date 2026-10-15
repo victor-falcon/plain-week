@@ -82,7 +82,9 @@ Browser QA for UI changes runs against a production build, so the service worker
 2. Drive it with headless Playwright (Chromium). Useful hooks: the empty rows are inputs labelled
    `New task for Mon 12 Oct` / `New Someday task (column 1)`, task rows are `[data-task-id]` with a button named after
    the task (`17:30 Gym`, `Call mom (done)`), the task dialog is the dialog named `Edit task`, and the account button is
-   `[data-test="account-button"]` (`[data-test="save-button"]` for a guest with local work).
+   `[data-test="account-button"]` (`[data-test="save-button"]` for a guest with local work). Its menu has
+   "Export data" / "Import data…" (`[data-test="export-data"]` / `[data-test="import-data"]`); the import reads the
+   hidden `[data-test="import-file-input"]`, so `setInputFiles` on it skips the native file picker.
 3. Offline: wait for `navigator.serviceWorker.ready`, then `context.setOffline(true)` and reload.
 4. Sync: register in one browser context, check the `tasks` table (`sqlite3 database/database.sqlite`), log in from a
    second context and edit there; the first context picks the change up on its next sync (focus, or within 30 s).

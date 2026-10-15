@@ -341,6 +341,48 @@ edit, drag, color, timed tasks first, right click, a weekly series on Friday, So
 4. Add the new table to `allTables()` in `lib/db/database.ts` so every wipe and sync transaction includes it.
 5. Cover it with Vitest tests (repository + engine against `test/fake-sync-server.ts`).
 
+## Export format
+
+A JSON backup of the local database, written and read entirely on the client (`lib/transfer`), so it works offline and
+for guests. The account menu's "Export data" and "Import data…" entries use it ([style.md](./style.md#account-menu)).
+
+```json
+{
+    "format": "plain-week",
+    "version": 1,
+    "exported_at": "2026-10-15T08:35:00.123Z",
+    "app_version": "0.0.3",
+    "tasks": [<Task>, ...]
+}
+```
+
+- File name: `plain-week-export-YYYY-MM-DD.json` (local date). `app_version` is `package.json`'s version, injected at
+  build time (`__APP_VERSION__`); it is informational only.
+- `tasks` holds rows with exactly the [Task](#data-model-task) wire shape, `recurrence`, `series_id` and
+  `occurrence_date` included. Left out: tombstones, exceptions of a deleted series, and losing duplicate exceptions
+  (only the `winningException` of each occurrence is kept). One kind of tombstone is kept on purpose: the deleted
+  exception of a live series, because it is what hides a deleted occurrence; without it the occurrence would come back.
+- `version` changes only for incompatible changes. A newer version is refused with a message to update Plain Week.
+
+| Function (`lib/transfer`)                      | What it does                                                                                                                                                                                                                                                                                                         |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `buildExport(db)`                              | The file for the local database (`exportableTasks` selects the rows).                                                                                                                                                                                                                                                |
+| `parseImport(file \| text)`                    | Parses and validates; throws `ImportError` with a message for the user (not JSON, not a Plain Week file, unsupported version, `Task 3: "color" must be one of …`). Every row is checked with the server's push rules (`PushRequest`), so imported rows never get a `422` when they sync. Ids only need to be unique. |
+| `planImport(file, db)`                         | The rows to add (reads the database, never writes): see below. Also returns `taskCount` (plain tasks and series) and `recurringCount` (series) for the preview.                                                                                                                                                      |
+| `applyImport(plan, { batchSize, onProgress })` | Writes the rows plus their outbox entries in transactions of 500, series first, yielding to the event loop between batches (10 000 tasks do not freeze the UI) and reporting progress. Batches already written stay if a later one fails.                                                                            |
+
+Import **adds** tasks; it never changes or removes existing ones (importing the same file twice gives two copies):
+
+- Every row gets a new UUID v7 id; an exception's `series_id` points at its series' new id. An exception whose series
+  is not in the file becomes a plain task (a deleted one is dropped). Duplicate exceptions in the file are settled with
+  `winningException` before the ids change, since the new rows all share one `updated_at`.
+- Positions are appended after the existing tasks of each day / Someday column (`generateNKeysBetween` after the
+  column's last key), keeping the file's relative order.
+- `created_at` and `updated_at` are now (one `nextTimestamp()`); `done`, `done_at` and subtasks (with their ids) are kept;
+  kept exception tombstones get `deleted_at` = now.
+- The outbox entries make a signed-in user's sync push the new rows like any other local change; a guest's import
+  stays local (and turns the account button into "save").
+
 ## Planner UI
 
 `resources/js/pages/planner.tsx` composes the components in `resources/js/components/planner/` (layout and
