@@ -102,7 +102,9 @@ instances that do send mail: the "unverified" notice and resend link live on the
 
 Sync routes always answer in JSON, whatever the `Accept` header: guests get `401 {"message": "Unauthenticated."}`
 instead of a redirect, validation errors are `422`, and a missing or stale CSRF token is `419`. Requests must be
-same-origin and send the `X-XSRF-TOKEN` header from the `XSRF-TOKEN` cookie. Use the Wayfinder helpers
+same-origin and send the `X-XSRF-TOKEN` header from the `XSRF-TOKEN` cookie. (Laravel 13 also accepts a same-origin
+browser request without the token when it carries `Sec-Fetch-Site: same-origin`; send the header anyway so older
+browsers work.) Use the Wayfinder helpers
 (`@/actions/App/Http/Controllers/SyncController` or `@/routes/sync`) to build the URLs.
 
 The `TrimStrings` and `ConvertEmptyStringsToNull` middleware are skipped for `sync/*`, so strings (empty `notes`,
