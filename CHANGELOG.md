@@ -7,6 +7,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- **Narrower task context menu.** Its nine color swatches sit in two rows of five and four, like the task dialog's color
+  picker, so the menu is as wide as that grid instead of one long row.
+
 ## [0.0.3] - 2026-10-15
 
 ### Added
