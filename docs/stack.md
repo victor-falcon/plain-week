@@ -85,9 +85,9 @@ If the CLI rewrites an import to something other than `@/lib/utils` (it has emit
 ## Inertia
 
 Laravel controllers return `Inertia::render('<page>', $props)`; the page component lives in
-`resources/js/pages/<page>.tsx`. Layouts are assigned in `resources/js/app.tsx` by page name (`auth/*` → auth layout,
-`settings/*` → app + settings layouts, everything else → app layout). Shared props (for example `auth.user`, `name`)
-come from `app/Http/Middleware/HandleInertiaRequests.php`.
+`resources/js/pages/<page>.tsx`. Layouts are assigned in `resources/js/app.tsx` by page name (`planner` → no layout,
+`auth/*` → auth layout, `settings/*` → app + settings layouts, everything else → app layout). Shared props (for
+example `auth.user`, `name`) come from `app/Http/Middleware/HandleInertiaRequests.php`.
 
 ## Wayfinder
 
