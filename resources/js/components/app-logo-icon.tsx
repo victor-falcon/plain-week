@@ -4,8 +4,8 @@ import { cn } from '@/lib/utils';
 
 // One continuous line drawing a lowercase "pw" on a 32 grid: the p's stem
 // drops below the baseline and the same line runs on into the w. Same
-// geometry as resources/images/pwa/*.svg. The colors are the brand's, not
-// theme tokens, so the mark looks the same whatever the preset.
+// geometry as resources/images/pwa/*.svg. Its ink is the brand's, not
+// theme tokens, so it looks the same whatever the preset.
 export default function AppLogoIcon({
     className,
     ...props
