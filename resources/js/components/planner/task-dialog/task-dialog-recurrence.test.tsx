@@ -543,3 +543,22 @@ describe('Scope prompt', () => {
         await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     });
 });
+
+describe('Scope prompt focus', () => {
+    it('gives focus back to the task dialog when the prompt is cancelled from a closed popover', async () => {
+        const { user, dialog } = await openOccurrence();
+
+        await user.keyboard('c');
+        await user.click(await screen.findByRole('radio', { name: 'Pink' }));
+        await scopePrompt();
+        await user.keyboard('{Escape}');
+
+        await waitFor(() =>
+            expect(screen.queryByRole('alertdialog')).toBeNull(),
+        );
+        expect(dialog.contains(document.activeElement)).toBe(true);
+        // Its keys work again.
+        await user.keyboard('t');
+        await screen.findByLabelText('Time');
+    });
+});
