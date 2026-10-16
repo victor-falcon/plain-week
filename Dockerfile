@@ -46,6 +46,7 @@ ARG USER=plainweek
 ENV SERVER_NAME=:8080 \
     APP_ENV=production \
     APP_DEBUG=false \
+    SAAS_ENABLED=false \
     LOG_CHANNEL=stderr \
     DB_CONNECTION=sqlite \
     DB_DATABASE=/app/storage/database/database.sqlite \

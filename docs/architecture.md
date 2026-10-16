@@ -89,7 +89,8 @@ The server treats the three fields as plain synced columns (same LWW, same push/
 
 ## Sync endpoints
 
-Web routes with session auth and CSRF, JSON in and out. All require authentication; guests get `401`.
+Web routes with session auth and CSRF, JSON in and out. All require authentication; guests get `401`. In SaaS mode an
+account without a paid plan gets `402 Payment Required` ([saas.md](./saas.md)); a self-hosted instance never sends it.
 
 Both take an optional `X-Sync-Format: <int>` header that says what the client understands: none (or `1`) is a client
 up to v0.0.3; `2` adds daily rules. A missing or malformed header counts as `1`; a higher one as the newest the server
@@ -133,6 +134,9 @@ a `422` (it is not clamped).
 - Leaving a session wipes the local database completely (privacy on shared devices): on logout, when sync finds the
   session gone, and when a guest page finds data a signed-out user left behind. The device is then a first-time guest's,
   so the demo tasks come back. A guest's own data (no `user_id`) is never wiped on load.
+- SaaS mode: the engine does not start for an account without a paid plan (`account.hasAccess` shared prop), and a
+  `402` stops it without retrying. Local data and the outbox are kept, and the page goes to the paywall (`/plans`);
+  after paying, the next start pushes what was kept.
 - The engine exposes a sync status for the UI: `idle` | `syncing` | `offline` | `error`.
 
 ## Client data layer
@@ -544,11 +548,14 @@ Laravel provides:
 
 | Route                | Name        | Access                                                                  |
 | -------------------- | ----------- | ----------------------------------------------------------------------- |
-| `GET /`              | `home`      | Public. Renders the Inertia page `planner` for everyone.                |
-| `POST /sync/push`    | `sync.push` | `auth` (session + CSRF). `SyncController@push`.                         |
-| `GET /sync/pull`     | `sync.pull` | `auth` (session). `SyncController@pull`.                                |
+| `GET /`              | `home`      | Public. Renders the Inertia page `planner` for everyone.¹               |
+| `POST /sync/push`    | `sync.push` | `auth` (session + CSRF). `SyncController@push`.¹                        |
+| `GET /sync/pull`     | `sync.pull` | `auth` (session). `SyncController@pull`.¹                               |
 | `/settings/*`        |             | `auth`.                                                                 |
 | `GET /settings/data` | `data.edit` | `auth`. Inertia page `settings/data` (export / import run client-side). |
+
+¹ Plus `EnsureHasAccess`: in SaaS mode a signed-in account without a paid plan is redirected to the paywall (pages) or
+gets `402` (sync). Billing and legal routes are listed in [saas.md](./saas.md).
 
 After login, registration and email verification Fortify redirects to `/` (`config/fortify.php` → `home`).
 

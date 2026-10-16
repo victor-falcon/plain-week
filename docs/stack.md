@@ -11,6 +11,7 @@
 | Backend  | Laravel Fortify             | 1.x (authentication, 2FA, passkeys)                          |
 | Backend  | Inertia (Laravel adapter)   | 3.x                                                          |
 | Backend  | Laravel Wayfinder           | 0.1.x                                                        |
+| Backend  | Laravel Cashier (Stripe)    | 16.x, billing in SaaS mode only ([saas.md](./saas.md))       |
 | Database | SQLite                      | default for local dev and tests                              |
 | Frontend | React                       | 19 (React Compiler enabled)                                  |
 | Frontend | Inertia (React adapter)     | 3.x                                                          |

@@ -7,6 +7,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **SaaS mode (`SAAS_ENABLED`, off by default).** For the hosted service: accounts need a paid plan to sync, a Weekly
+  subscription or a one-time Lifetime purchase (with an optional launch coupon), paid through Stripe Checkout with
+  Stripe Tax (Laravel Cashier). An account without a plan sees a paywall and the sync API answers `402`; the client
+  then stops syncing, keeps its local data and shows the paywall. Adds Settings › Billing (plan, renewal, Stripe
+  portal, upgrade to lifetime), Terms of Service and Privacy Policy pages, Stripe webhooks (refunds revoke lifetime)
+  and `php artisan plainweek:grant-lifetime`. Self-hosted instances are unchanged: free accounts, no billing, and the
+  new routes are `404`. See [docs/saas.md](docs/saas.md).
+
 ### Fixed
 
 - **Logging out leaves nothing behind and shows the demo again.** Logout wipes every local table and flag, so the

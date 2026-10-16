@@ -58,8 +58,11 @@ echo "base64:$(openssl rand -base64 32)"
 | `MAIL_MAILER`           | `log`                                   | `log` writes emails to the logs. Set `smtp` plus `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM_ADDRESS` to send verification and password reset emails                                                                                             |
 | `LOG_CHANNEL`           | `stderr`                                | Logs go to the container output (`docker logs`)                                                                                                                                                                                                                             |
 | `LOG_LEVEL`             | `debug`                                 | `warning` keeps the logs quiet                                                                                                                                                                                                                                              |
+| `SAAS_ENABLED`          | `false`                                 | Leave it `false`. `true` turns the instance into the paid hosted service (accounts need a Stripe plan to sync); see [saas.md](./saas.md) for it and its `STRIPE_*` and `SAAS_*` variables                                                                                   |
 
-Any other Laravel setting (`config/*.php`) can be set the same way. Email verification never blocks the app, so an
+With `SAAS_ENABLED=false` (the default) accounts are free and sync without limits, there is no billing anywhere and the
+billing, terms and privacy routes are `404`; no Stripe variable is needed. Any other Laravel setting (`config/*.php`)
+can be set the same way. Email verification never blocks the app, so an
 instance without mail works.
 
 On start, the container creates the storage layout and the SQLite file if they are missing, runs the migrations and
