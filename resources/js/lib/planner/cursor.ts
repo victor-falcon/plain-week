@@ -123,12 +123,14 @@ export function initialCursor(
 
 /**
  * Moves a resolved cursor: up and down within its list (the new-task row is
- * the last stop), to the previous / next list keeping roughly the same row.
+ * the last stop), to the previous / next list on the row it was last on there
+ * (`rows`, by list key), or else roughly the same row.
  */
 export function moveCursor(
     lists: CursorList[],
     cursor: Cursor,
     motion: CursorMotion,
+    rows: ReadonlyMap<string, number> = new Map(),
 ): Cursor {
     const position = lists.findIndex(({ key }) => key === cursor.listKey);
 
@@ -145,7 +147,9 @@ export function moveCursor(
         case 'nextList': {
             const target = lists[position + (motion === 'nextList' ? 1 : -1)];
 
-            return target ? at(target, cursor.index) : cursor;
+            return target
+                ? at(target, rows.get(target.key) ?? cursor.index)
+                : cursor;
         }
     }
 }

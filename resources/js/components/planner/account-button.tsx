@@ -9,6 +9,7 @@ import {
     RefreshCw,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { ShortcutHint } from '@/components/planner/shortcut-hint';
 import { shortcutsDialogStore } from '@/lib/planner/shortcuts-dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -17,9 +18,9 @@ import {
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuSeparator,
+    DropdownMenuShortcut,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Kbd } from '@/components/ui/kbd';
 import {
     Tooltip,
     TooltipContent,
@@ -94,9 +95,9 @@ function ShortcutsMenuItem() {
         >
             <Keyboard className="me-2" />
             Keyboard shortcuts
-            <Kbd aria-hidden className="ms-auto pointer-coarse:hidden">
-                ?
-            </Kbd>
+            <DropdownMenuShortcut>
+                <ShortcutHint action="general.help" />
+            </DropdownMenuShortcut>
         </DropdownMenuItem>
     );
 }

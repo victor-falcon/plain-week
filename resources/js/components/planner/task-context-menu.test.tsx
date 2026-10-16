@@ -115,8 +115,26 @@ describe('TaskContextMenu', () => {
         ).toBe('true');
         expect(
             screen.getAllByRole('menuitem').map((item) => item.textContent),
-        ).toEqual(['Tomorrow', 'Next week', 'Someday', 'Duplicate', 'Delete']);
+        ).toEqual([
+            // Each with its planner key.
+            'Tomorrow>',
+            'Next weekw',
+            'Somedays',
+            'Duplicatey',
+            'Deletedd',
+        ]);
         expect(onOpenTask).not.toHaveBeenCalled();
+    });
+
+    it('picks an item with its key while open', async () => {
+        const { task, user, button } = await setup();
+
+        await openMenu(button);
+        await user.keyboard('w');
+        await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+        await waitFor(async () =>
+            expect((await stored(task.id))?.date).toBe('2026-10-19'),
+        );
     });
 
     it('opens from the keyboard with Shift+F10 and the context menu key', async () => {
@@ -244,5 +262,19 @@ describe('TaskContextMenu', () => {
 
         await screen.findByRole('button', { name: 'Plan trip' });
         expect((await stored(task.id))?.deleted_at).toBeNull();
+    });
+
+    it('deletes with d d while open, not with one d', async () => {
+        const { task, user, button } = await setup();
+
+        await openMenu(button);
+        await user.keyboard('d');
+        // "d" alone neither deletes nor jumps to "Duplicate" (typeahead).
+        expect(screen.getByRole('menu')).toBeTruthy();
+        expect((await stored(task.id))?.deleted_at).toBeNull();
+        await user.keyboard('d');
+        await waitFor(async () =>
+            expect((await stored(task.id))?.deleted_at).not.toBeNull(),
+        );
     });
 });

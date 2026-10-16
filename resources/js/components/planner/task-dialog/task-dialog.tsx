@@ -1,8 +1,9 @@
 import { CircleCheck, Trash2 } from 'lucide-react';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
+import { useTaskDialogShortcuts } from '@/hooks/use-task-dialog-shortcuts';
 import { toggleDone, updateTask } from '@/lib/db/tasks';
 import { deleteWithUndo } from '@/lib/planner/task-actions';
 import { cn } from '@/lib/utils';
@@ -13,10 +14,12 @@ import {
     useTaskEditor,
     useTaskEditorSession,
 } from './task-editor';
-import { TaskMoreMenu } from './task-more-menu';
+import { TaskMoreMenu, useQuickActions } from './task-more-menu';
 import { TaskRepeatPicker } from './task-repeat-picker';
 import { TaskSubtasks } from './task-subtasks';
 import { TaskTimePicker } from './task-time-picker';
+import { ToolbarPickerContext } from './toolbar-picker';
+import type { ToolbarPicker } from './toolbar-picker';
 import { TOOLBAR_BUTTON_CLASS, ToolbarTooltip } from './toolbar-tooltip';
 
 type Props = {
@@ -27,7 +30,9 @@ type Props = {
 
 /**
  * The task dialog. Every edit is written to the local database as it happens
- * (no save button, no network); Esc or a click outside closes it.
+ * (no save button, no network); Esc or a click outside closes it. Its own
+ * keys (`useTaskDialogShortcuts`) open the toolbar's pickers and run its
+ * actions.
  */
 export function TaskDialog({ taskId, onClose }: Props) {
     // One session per opened task: what it shows can change id while it is
@@ -70,168 +75,212 @@ function TaskDialogSession({
 function TaskDialogContent({ onClose }: { onClose: () => void }) {
     const { task, write, edit, askScope } = useTaskEditor();
     const contentRef = useRef<HTMLDivElement>(null);
+    const titleRef = useRef<HTMLTextAreaElement>(null);
     const notesRef = useRef<HTMLTextAreaElement>(null);
+    const [picker, setPicker] = useState<ToolbarPicker | null>(null);
+    const quick = useQuickActions();
+
+    const handleDelete = async () => {
+        const scope = await askScope('delete');
+
+        if (scope !== null) {
+            write((id) => deleteWithUndo(id, scope), {
+                onSaved: (deleted) => deleted && onClose(),
+            });
+        }
+    };
+
+    /** Focuses a text field with the caret at the end of its text. */
+    const focusField = (
+        field: HTMLTextAreaElement | HTMLInputElement | null,
+    ) => {
+        field?.focus();
+        field?.setSelectionRange(field.value.length, field.value.length);
+    };
+
+    const handleShortcut = useTaskDialogShortcuts({
+        'dialog.date': () => setPicker('date'),
+        'dialog.time': () => setPicker('time'),
+        'dialog.repeat': () => setPicker('repeat'),
+        'dialog.color': () => setPicker('color'),
+        'dialog.more': () => setPicker('more'),
+        'dialog.title': () => focusField(titleRef.current),
+        'dialog.notes': () => focusField(notesRef.current),
+        'dialog.subtask': () =>
+            focusField(
+                contentRef.current?.querySelector<HTMLInputElement>(
+                    '[data-add-subtask]',
+                ) ?? null,
+            ),
+        'dialog.toggleDone': () =>
+            write((id) => toggleDone(id), { follow: true }),
+        'dialog.nextDay': () => quick.canMove && quick.tomorrow(),
+        'dialog.nextWeek': () => quick.canMove && quick.nextWeek(),
+        'dialog.someday': () => quick.canMoveToSomeday && quick.someday(),
+        'dialog.duplicate': quick.duplicate,
+        'dialog.delete': () => void handleDelete(),
+    });
 
     return (
-        <DialogContent
-            ref={contentRef}
-            showCloseButton={false}
-            aria-describedby={undefined}
-            // Focus the dialog itself: no tooltip pops up and no on-screen
-            // keyboard opens on touch devices.
-            onOpenAutoFocus={(event) => {
-                event.preventDefault();
-                contentRef.current?.focus();
-            }}
-            // Back to the task's row, which may have moved to another day
-            // since it opened the dialog (when it is not shown, Radix falls
-            // back to the element that had focus).
-            // A toast (the "Undo" of a move) is not outside the task.
-            onInteractOutside={(event) => {
-                if (
-                    event.target instanceof Element &&
-                    event.target.closest('[data-sonner-toaster]')
-                ) {
+        <ToolbarPickerContext value={{ open: picker, setOpen: setPicker }}>
+            <DialogContent
+                ref={contentRef}
+                showCloseButton={false}
+                aria-describedby={undefined}
+                onKeyDown={handleShortcut}
+                // Focus the dialog itself: no tooltip pops up and no on-screen
+                // keyboard opens on touch devices.
+                onOpenAutoFocus={(event) => {
                     event.preventDefault();
-                }
-            }}
-            onCloseAutoFocus={(event) => {
-                const row = document.querySelector<HTMLElement>(
-                    `[data-task-id="${CSS.escape(task.id)}"] button`,
-                );
+                    contentRef.current?.focus();
+                }}
+                // Back to the task's row, which may have moved to another day
+                // since it opened the dialog (when it is not shown, Radix falls
+                // back to the element that had focus).
+                // A toast (the "Undo" of a move) is not outside the task.
+                onInteractOutside={(event) => {
+                    if (
+                        event.target instanceof Element &&
+                        event.target.closest('[data-sonner-toaster]')
+                    ) {
+                        event.preventDefault();
+                    }
+                }}
+                onCloseAutoFocus={(event) => {
+                    const row = document.querySelector<HTMLElement>(
+                        `[data-task-id="${CSS.escape(task.id)}"] button`,
+                    );
 
-                if (row) {
-                    event.preventDefault();
-                    row.focus();
-                }
-            }}
-            className="top-4 max-h-[calc(100dvh-2rem)] translate-y-0 gap-4 overflow-y-auto bg-secondary p-4 text-secondary-foreground sm:top-16 sm:max-h-[calc(100dvh-8rem)] sm:max-w-lg sm:p-6"
-        >
-            <DialogTitle className="sr-only">Edit task</DialogTitle>
-            <div className="-mx-2 -mt-1 flex min-w-0 items-center gap-1">
-                <TaskDatePicker />
-                <TaskTimePicker />
-                <div className="ms-auto flex items-center gap-1">
-                    <ToolbarTooltip label="Delete">
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon-sm"
-                            aria-label="Delete"
-                            onClick={async () => {
-                                const scope = await askScope('delete');
-
-                                if (scope !== null) {
-                                    write((id) => deleteWithUndo(id, scope), {
-                                        onSaved: (deleted) =>
-                                            deleted && onClose(),
-                                    });
-                                }
-                            }}
-                            className={TOOLBAR_BUTTON_CLASS}
-                        >
-                            <Trash2 />
-                        </Button>
-                    </ToolbarTooltip>
-                    <TaskRepeatPicker />
-                    <TaskColorPicker />
-                    <TaskMoreMenu />
+                    if (row) {
+                        event.preventDefault();
+                        row.focus();
+                    }
+                }}
+                className="top-4 max-h-[calc(100dvh-2rem)] translate-y-0 gap-4 overflow-y-auto bg-secondary p-4 text-secondary-foreground sm:top-16 sm:max-h-[calc(100dvh-8rem)] sm:max-w-lg sm:p-6"
+            >
+                <DialogTitle className="sr-only">Edit task</DialogTitle>
+                <div className="-mx-2 -mt-1 flex min-w-0 items-center gap-1">
+                    <TaskDatePicker />
+                    <TaskTimePicker />
+                    <div className="ms-auto flex items-center gap-1">
+                        <ToolbarTooltip label="Delete" action="dialog.delete">
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-sm"
+                                aria-label="Delete"
+                                onClick={handleDelete}
+                                className={TOOLBAR_BUTTON_CLASS}
+                            >
+                                <Trash2 />
+                            </Button>
+                        </ToolbarTooltip>
+                        <TaskRepeatPicker />
+                        <TaskColorPicker />
+                        <TaskMoreMenu />
+                    </div>
                 </div>
-            </div>
-            {/*
+                {/*
               The text fields are uncontrolled (the dialog remounts per task):
               typing never waits on the database round trip, and a remote edit
               of the same field made while the dialog is open shows next time.
             */}
-            <div className="mt-6 flex items-start gap-2 border-b border-foreground/30 pb-1">
-                <Textarea
-                    aria-label="Task"
-                    defaultValue={task.text}
-                    rows={1}
-                    onChange={(event) => {
-                        // The title is one line: pasted line breaks become
-                        // spaces.
-                        if (/[\r\n]/.test(event.target.value)) {
-                            event.target.value = event.target.value.replace(
-                                /\s*[\r\n]+\s*/g,
-                                ' ',
-                            );
-                        }
+                <div className="mt-6 flex items-start gap-2 border-b border-foreground/30 pb-1">
+                    <Textarea
+                        ref={titleRef}
+                        aria-label="Task"
+                        defaultValue={task.text}
+                        rows={1}
+                        onChange={(event) => {
+                            // The title is one line: pasted line breaks become
+                            // spaces.
+                            if (/[\r\n]/.test(event.target.value)) {
+                                event.target.value = event.target.value.replace(
+                                    /\s*[\r\n]+\s*/g,
+                                    ' ',
+                                );
+                            }
 
-                        const field = event.target;
-                        const text = field.value;
+                            const field = event.target;
+                            const text = field.value;
 
-                        if (text.trim() !== '') {
-                            edit(
-                                (id, scope) =>
-                                    updateTask(id, { text }, { scope }),
-                                {
-                                    onCancel: () => {
-                                        field.value = task.text;
+                            if (text.trim() !== '') {
+                                edit(
+                                    (id, scope) =>
+                                        updateTask(id, { text }, { scope }),
+                                    {
+                                        onCancel: () => {
+                                            field.value = task.text;
+                                        },
                                     },
-                                },
-                            );
-                        }
-                    }}
-                    onBlur={(event) => {
-                        // A task always has text: put the saved text back.
-                        if (event.target.value.trim() === '') {
-                            event.target.value = task.text;
-                        }
-                    }}
-                    onKeyDown={(event) => {
-                        // The title is one paragraph: Enter moves on to notes.
-                        if (
-                            event.key === 'Enter' &&
-                            !event.nativeEvent.isComposing
-                        ) {
-                            event.preventDefault();
-                            notesRef.current?.focus();
-                        }
-                    }}
-                    className={cn(
-                        'min-h-0 rounded-none border-0 bg-transparent p-0 text-2xl leading-snug font-medium shadow-none focus-visible:ring-0 md:text-2xl dark:bg-transparent',
-                        task.done && 'text-muted-foreground line-through',
-                    )}
-                />
-                <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label={task.done ? 'Mark as not done' : 'Mark as done'}
-                    aria-pressed={task.done}
-                    onClick={() =>
-                        write((id) => toggleDone(id), { follow: true })
-                    }
-                    className="mt-0.5 shrink-0 rounded-full hover:bg-transparent"
-                >
-                    <CircleCheck
+                                );
+                            }
+                        }}
+                        onBlur={(event) => {
+                            // A task always has text: put the saved text back.
+                            if (event.target.value.trim() === '') {
+                                event.target.value = task.text;
+                            }
+                        }}
+                        onKeyDown={(event) => {
+                            // The title is one paragraph: Enter moves on to notes.
+                            if (
+                                event.key === 'Enter' &&
+                                !event.nativeEvent.isComposing
+                            ) {
+                                event.preventDefault();
+                                notesRef.current?.focus();
+                            }
+                        }}
                         className={cn(
-                            'size-5',
-                            task.done &&
-                                'fill-muted-foreground text-background',
+                            'min-h-0 rounded-none border-0 bg-transparent p-0 text-2xl leading-snug font-medium shadow-none focus-visible:ring-0 md:text-2xl dark:bg-transparent',
+                            task.done && 'text-muted-foreground line-through',
                         )}
                     />
-                </Button>
-            </div>
-            <Textarea
-                ref={notesRef}
-                aria-label="Notes"
-                placeholder="Add some extra notes here…"
-                defaultValue={task.notes}
-                onChange={(event) => {
-                    const field = event.target;
-                    const notes = field.value;
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={
+                            task.done ? 'Mark as not done' : 'Mark as done'
+                        }
+                        aria-pressed={task.done}
+                        onClick={() =>
+                            write((id) => toggleDone(id), { follow: true })
+                        }
+                        className="mt-0.5 shrink-0 rounded-full hover:bg-transparent"
+                    >
+                        <CircleCheck
+                            className={cn(
+                                'size-5',
+                                task.done &&
+                                    'fill-muted-foreground text-background',
+                            )}
+                        />
+                    </Button>
+                </div>
+                <Textarea
+                    ref={notesRef}
+                    aria-label="Notes"
+                    placeholder="Add some extra notes here…"
+                    defaultValue={task.notes}
+                    onChange={(event) => {
+                        const field = event.target;
+                        const notes = field.value;
 
-                    edit((id, scope) => updateTask(id, { notes }, { scope }), {
-                        onCancel: () => {
-                            field.value = task.notes;
-                        },
-                    });
-                }}
-                className="min-h-10 rounded-none border-0 bg-transparent p-0 shadow-none focus-visible:ring-0 dark:bg-transparent"
-            />
-            <TaskSubtasks />
-        </DialogContent>
+                        edit(
+                            (id, scope) => updateTask(id, { notes }, { scope }),
+                            {
+                                onCancel: () => {
+                                    field.value = task.notes;
+                                },
+                            },
+                        );
+                    }}
+                    className="min-h-10 rounded-none border-0 bg-transparent p-0 shadow-none focus-visible:ring-0 dark:bg-transparent"
+                />
+                <TaskSubtasks />
+            </DialogContent>
+        </ToolbarPickerContext>
     );
 }

@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useRef } from 'react';
 import type { KeyboardEvent, ReactElement } from 'react';
+import { ShortcutHint } from '@/components/planner/shortcut-hint';
 import { TaskColorSwatch } from '@/components/planner/task-color-swatch';
 import {
     ContextMenu,
@@ -15,10 +16,13 @@ import {
     ContextMenuRadioGroup,
     ContextMenuRadioItem,
     ContextMenuSeparator,
+    ContextMenuShortcut,
     ContextMenuTrigger,
 } from '@/components/ui/context-menu';
+import { useMenuShortcuts } from '@/hooks/use-menu-shortcuts';
 import { TASK_COLORS } from '@/lib/db/types';
 import type { Task, TaskColor } from '@/lib/db/types';
+import type { ShortcutId } from '@/lib/planner/shortcuts';
 import { TASK_COLOR_STYLES, isTaskColor } from '@/lib/planner/task-colors';
 
 export type TaskContextMenuActions = {
@@ -36,6 +40,15 @@ type Props = TaskContextMenuActions & {
     /** The task's row: a DOM element that takes a ref and event handlers. */
     children: ReactElement;
 };
+
+/** The menu's items that have a planner shortcut. */
+const MENU_SHORTCUTS: ShortcutId[] = [
+    'task.nextDay',
+    'task.nextWeek',
+    'task.someday',
+    'task.duplicate',
+    'task.delete',
+];
 
 /**
  * Opens the context menu of the trigger containing `element` at a point, with
@@ -79,6 +92,18 @@ function openFromKeyboard(event: KeyboardEvent<HTMLElement>): void {
 }
 
 /**
+ * An item's key, before its icon. The slot stays (empty on touch devices) so
+ * the icon keeps its place at the end.
+ */
+function MenuShortcut({ action }: { action: ShortcutId }) {
+    return (
+        <ContextMenuShortcut>
+            <ShortcutHint action={action} />
+        </ContextMenuShortcut>
+    );
+}
+
+/**
  * The context menu of a task row: right click on desktop, Shift+F10 or the
  * context menu key on a focused row, and a still long press on touch screens
  * (opened by `PlannerDnd`, see planner-dnd.tsx). The nine color swatches in
@@ -98,6 +123,7 @@ export function TaskContextMenu({
 }: Props) {
     // Closed by a press elsewhere: leave focus where that press puts it.
     const closedFromOutside = useRef(false);
+    const handleShortcut = useMenuShortcuts(MENU_SHORTCUTS);
 
     return (
         <ContextMenu
@@ -112,6 +138,7 @@ export function TaskContextMenu({
             </ContextMenuTrigger>
             <ContextMenuContent
                 aria-label={`Task: ${task.text}`}
+                onKeyDown={handleShortcut}
                 onInteractOutside={() => {
                     closedFromOutside.current = true;
                 }}
@@ -157,28 +184,49 @@ export function TaskContextMenu({
                     ))}
                 </ContextMenuRadioGroup>
                 <ContextMenuSeparator />
-                <ContextMenuItem onSelect={onMoveToTomorrow}>
+                <ContextMenuItem
+                    data-shortcut="task.nextDay"
+                    onSelect={onMoveToTomorrow}
+                >
                     Tomorrow
-                    <ArrowRight className="ms-auto rtl:rotate-180" />
+                    <MenuShortcut action="task.nextDay" />
+                    <ArrowRight className="rtl:rotate-180" />
                 </ContextMenuItem>
-                <ContextMenuItem onSelect={onMoveToNextWeek}>
+                <ContextMenuItem
+                    data-shortcut="task.nextWeek"
+                    onSelect={onMoveToNextWeek}
+                >
                     Next week
-                    <CalendarArrowUp className="ms-auto" />
+                    <MenuShortcut action="task.nextWeek" />
+                    <CalendarArrowUp />
                 </ContextMenuItem>
                 {task.date !== null && (
-                    <ContextMenuItem onSelect={onMoveToSomeday}>
+                    <ContextMenuItem
+                        data-shortcut="task.someday"
+                        onSelect={onMoveToSomeday}
+                    >
                         Someday
-                        <ArrowDownToLine className="ms-auto" />
+                        <MenuShortcut action="task.someday" />
+                        <ArrowDownToLine />
                     </ContextMenuItem>
                 )}
-                <ContextMenuItem onSelect={onDuplicate}>
+                <ContextMenuItem
+                    data-shortcut="task.duplicate"
+                    onSelect={onDuplicate}
+                >
                     Duplicate
-                    <Copy className="ms-auto" />
+                    <MenuShortcut action="task.duplicate" />
+                    <Copy />
                 </ContextMenuItem>
                 <ContextMenuSeparator />
-                <ContextMenuItem variant="destructive" onSelect={onDelete}>
+                <ContextMenuItem
+                    variant="destructive"
+                    data-shortcut="task.delete"
+                    onSelect={onDelete}
+                >
                     Delete
-                    <Trash2 className="ms-auto" />
+                    <MenuShortcut action="task.delete" />
+                    <Trash2 />
                 </ContextMenuItem>
             </ContextMenuContent>
         </ContextMenu>

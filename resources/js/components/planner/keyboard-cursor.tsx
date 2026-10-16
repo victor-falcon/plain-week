@@ -142,10 +142,12 @@ export function focusCursorRow(): boolean {
     return stop !== null;
 }
 
-/** The cursor of the task or new-task row that has focus, if any. */
-function cursorFromFocus(lists: CursorList[]): Cursor | null {
-    const active = document.activeElement;
-    const taskId = active
+/** The cursor of the task or new-task row `element` is in, if any. */
+function cursorFromElement(
+    lists: CursorList[],
+    element: Element | null,
+): Cursor | null {
+    const taskId = element
         ?.closest('[data-task-id]')
         ?.getAttribute('data-task-id');
 
@@ -153,13 +155,31 @@ function cursorFromFocus(lists: CursorList[]): Cursor | null {
         return cursorOnTask(lists, taskId);
     }
 
-    const listKey = active
+    const listKey = element
         ?.closest('[data-new-task-row]')
         ?.closest('[data-list]')
         ?.getAttribute('data-list');
     const list = lists.find(({ key }) => key === listKey);
 
     return list ? newTaskRowCursor(list.key) : null;
+}
+
+/** The cursor of the task or new-task row that has focus, if any. */
+function cursorFromFocus(lists: CursorList[]): Cursor | null {
+    return cursorFromElement(lists, document.activeElement);
+}
+
+/**
+ * The cursor of the row under the mouse, if any: its key hint (`o`, `a`)
+ * says a key acts on it.
+ */
+function cursorFromHover(lists: CursorList[]): Cursor | null {
+    return cursorFromElement(
+        lists,
+        document.querySelector(
+            '[data-task-id]:hover, [data-new-task-row]:hover',
+        ),
+    );
 }
 
 function sameCursor(a: Cursor | null, b: Cursor | null): boolean {
@@ -233,6 +253,8 @@ export function KeyboardCursorProvider({
     // Tasks with a move or delete in flight: a quick second press would act
     // on their state from before the first one.
     const busy = useRef(new Set<string>());
+    // The row the cursor was last on in each list it left with h / l.
+    const rows = useRef(new Map<string, number>());
     const askScope = useScopePrompt();
 
     const lists = useMemo<CursorList[]>(
@@ -327,8 +349,10 @@ export function KeyboardCursorProvider({
         return () => window.removeEventListener('focusin', listener);
     }, []);
 
-    /** The cursor to act on: the shown one, or the focused row's. */
-    const current = (): Cursor | null => resolved ?? cursorFromFocus(lists);
+    /** The cursor to act on: the shown one, the focused row's or the hovered
+     * row's. */
+    const current = (): Cursor | null =>
+        resolved ?? cursorFromFocus(lists) ?? cursorFromHover(lists);
 
     const taskAt = (at: Cursor): PlannerTask | null => {
         if (at.taskId === null) {
@@ -428,7 +452,17 @@ export function KeyboardCursorProvider({
     /** The task leaves the list: the cursor stays on its row. */
     const leave = (at: Cursor) => show(cursorAfterRemoval(lists, at));
 
+    /** h / l: remembers the row it leaves, and goes back to the one it had
+     * in the next list. */
+    const across = (motion: 'previousList' | 'nextList') => (at: Cursor) => {
+        rows.current.set(at.listKey, at.index);
+
+        return moveCursor(lists, at, motion, rows.current);
+    };
+
     const changeWeek = (weeks: -1 | 1) => () => {
+        rows.current.clear();
+
         if (weeks === -1) {
             navigation.previousWeek();
         } else {
@@ -441,9 +475,8 @@ export function KeyboardCursorProvider({
     };
 
     const handlers: ShortcutHandlers = {
-        'cursor.previousDay': () =>
-            move((at) => moveCursor(lists, at, 'previousList')),
-        'cursor.nextDay': () => move((at) => moveCursor(lists, at, 'nextList')),
+        'cursor.previousDay': () => move(across('previousList')),
+        'cursor.nextDay': () => move(across('nextList')),
         'cursor.down': () => move((at) => moveCursor(lists, at, 'down')),
         'cursor.up': () => move((at) => moveCursor(lists, at, 'up')),
         'cursor.first': () => move((at) => firstInList(lists, at)),
@@ -532,6 +565,7 @@ export function KeyboardCursorProvider({
         'week.previous': changeWeek(-1),
         'week.next': changeWeek(1),
         'week.today': () => {
+            rows.current.clear();
             navigation.goToToday();
             show({ listKey: today, taskId: null, index: 0 });
         },

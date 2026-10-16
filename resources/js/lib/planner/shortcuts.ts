@@ -1,7 +1,8 @@
 /**
- * The planner's keyboard shortcuts, as data: the single source of truth for
- * the key handler (`hooks/use-planner-shortcuts.ts`) and the shortcuts dialog
- * (`?`). Keys are case-sensitive `KeyboardEvent.key` values ("G" is Shift+G),
+ * The keyboard shortcuts, as data: the single source of truth for the key
+ * handlers (`hooks/use-planner-shortcuts.ts` on the planner,
+ * `hooks/use-task-dialog-shortcuts.ts` in the task dialog), the shortcuts
+ * dialog (`?`) and the key hints (`ShortcutHint`). Keys are case-sensitive `KeyboardEvent.key` values ("G" is Shift+G),
  * with "Space" for the space bar and "Shift+F10" for Shift plus a named key.
  * A binding of several keys is a sequence ("g g"), typed within
  * `SEQUENCE_TIMEOUT_MS`.
@@ -12,6 +13,7 @@ export const SHORTCUT_GROUPS = [
     'Tasks',
     'Weeks',
     'General',
+    'Task dialog',
 ] as const;
 
 export type ShortcutGroup = (typeof SHORTCUT_GROUPS)[number];
@@ -41,7 +43,22 @@ export type ShortcutId =
     | 'week.today'
     | 'general.undo'
     | 'general.settings'
-    | 'general.help';
+    | 'general.help'
+    | 'dialog.date'
+    | 'dialog.time'
+    | 'dialog.repeat'
+    | 'dialog.color'
+    | 'dialog.more'
+    | 'dialog.title'
+    | 'dialog.notes'
+    | 'dialog.subtask'
+    | 'dialog.toggleDone'
+    | 'dialog.nextDay'
+    | 'dialog.nextWeek'
+    | 'dialog.someday'
+    | 'dialog.duplicate'
+    | 'dialog.delete'
+    | 'dialog.close';
 
 /** A key sequence; most are a single key. */
 export type KeySequence = string[];
@@ -220,7 +237,95 @@ export const SHORTCUTS: ShortcutDefinition[] = [
         label: 'Keyboard shortcuts',
         group: 'General',
     },
+    // The task dialog's own keys: plain keys, so they only run when focus is
+    // not in one of its text fields (Tab leaves a field).
+    { id: 'dialog.date', keys: [['d']], label: 'Date', group: 'Task dialog' },
+    { id: 'dialog.time', keys: [['t']], label: 'Time', group: 'Task dialog' },
+    {
+        id: 'dialog.repeat',
+        keys: [['r']],
+        label: 'Repeat',
+        group: 'Task dialog',
+    },
+    { id: 'dialog.color', keys: [['c']], label: 'Color', group: 'Task dialog' },
+    {
+        id: 'dialog.more',
+        keys: [['m']],
+        label: 'More actions',
+        group: 'Task dialog',
+    },
+    {
+        id: 'dialog.title',
+        keys: [['e']],
+        label: 'Edit the title',
+        group: 'Task dialog',
+    },
+    {
+        id: 'dialog.notes',
+        keys: [['n']],
+        label: 'Edit the notes',
+        group: 'Task dialog',
+    },
+    {
+        id: 'dialog.subtask',
+        keys: [['a']],
+        label: 'Add a subtask',
+        group: 'Task dialog',
+    },
+    {
+        id: 'dialog.toggleDone',
+        keys: [['x']],
+        label: 'Mark as done or not done',
+        group: 'Task dialog',
+    },
+    {
+        id: 'dialog.nextDay',
+        keys: [['>']],
+        label: 'Move to the next day',
+        group: 'Task dialog',
+    },
+    {
+        id: 'dialog.nextWeek',
+        keys: [['w']],
+        label: 'Move to next week',
+        group: 'Task dialog',
+    },
+    {
+        id: 'dialog.someday',
+        keys: [['s']],
+        label: 'Move to Someday',
+        group: 'Task dialog',
+    },
+    {
+        id: 'dialog.duplicate',
+        keys: [['y']],
+        label: 'Duplicate',
+        group: 'Task dialog',
+    },
+    {
+        id: 'dialog.delete',
+        keys: [['Delete'], ['Backspace']],
+        label: 'Delete',
+        group: 'Task dialog',
+    },
+    // Radix closes the dialog; listed for the dialog and the hints.
+    {
+        id: 'dialog.close',
+        keys: [['Escape']],
+        label: 'Close',
+        group: 'Task dialog',
+    },
 ];
+
+/** What runs on the planner itself (no dialog open). */
+export const PLANNER_SHORTCUTS = SHORTCUTS.filter(
+    (shortcut) => shortcut.group !== 'Task dialog',
+);
+
+/** What runs inside the task dialog. */
+export const TASK_DIALOG_SHORTCUTS = SHORTCUTS.filter(
+    (shortcut) => shortcut.group === 'Task dialog',
+);
 
 const BY_ID = new Map(SHORTCUTS.map((shortcut) => [shortcut.id, shortcut]));
 
@@ -266,6 +371,8 @@ export function keyLabel(key: string): string {
             return 'Esc';
         case 'Backspace':
             return '⌫';
+        case 'Delete':
+            return 'Del';
         case 'ContextMenu':
             return 'Menu';
         default:
@@ -295,7 +402,7 @@ export function keyName(key: string): string {
  * continue a sequence). */
 export function singleKeyShortcut(
     token: string,
-    shortcuts: ShortcutDefinition[] = SHORTCUTS,
+    shortcuts: ShortcutDefinition[] = PLANNER_SHORTCUTS,
 ): ShortcutDefinition | undefined {
     return shortcuts.find((shortcut) =>
         shortcut.keys.some((keys) => keys.length === 1 && keys[0] === token),
@@ -341,7 +448,7 @@ function startsWith(sequence: KeySequence, prefix: string[]): boolean {
  * does not continue it is tried again on its own ("g" then "j" is "j").
  */
 export function createShortcutMatcher(
-    shortcuts: ShortcutDefinition[] = SHORTCUTS,
+    shortcuts: ShortcutDefinition[] = PLANNER_SHORTCUTS,
     timeout = SEQUENCE_TIMEOUT_MS,
 ): ShortcutMatcher {
     let buffer: string[] = [];

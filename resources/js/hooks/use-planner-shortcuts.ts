@@ -23,7 +23,8 @@ export type ShortcutHandlers = Partial<
 export const OVERLAY_SELECTOR =
     '[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"], [data-drag-overlay]';
 
-function isEditable(target: EventTarget | null): boolean {
+/** Whether a key press goes to a text field (typing, not a shortcut). */
+export function isEditable(target: EventTarget | null): boolean {
     return (
         target instanceof HTMLElement &&
         (target.isContentEditable ||

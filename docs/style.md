@@ -89,7 +89,7 @@ Installed in `resources/js/components/ui/` and where they are used:
 | `textarea`                                                         | Task dialog title and notes                                                            |
 | `checkbox`                                                         | Subtasks, "Remember me" on login                                                       |
 | `dialog`                                                           | Task dialog, shortcuts dialog, `FloatingCard`; account deletion, passkeys, 2FA setup   |
-| `kbd`                                                              | Shortcuts dialog keys, the account menu's `?` hint                                     |
+| `kbd`                                                              | Shortcuts dialog keys and every key hint (`ShortcutHint`): rows, tooltips, menus       |
 | `radio-group`                                                      | Plan choice (`/plans`)                                                                 |
 | `accordion`                                                        | Landing card FAQ                                                                       |
 | `alert-dialog`                                                     | Scope prompt of recurring tasks (`scope-prompt.tsx`), import preview (Settings › Data) |
@@ -298,7 +298,27 @@ shortcuts" in the account menu (the menu item's `?` hint is hidden on touch scre
   lifted style replaces it.
 - The shortcuts dialog is a shadcn `Dialog` (`sm:max-w-2xl`, two columns from `sm`, one on phones, scrolling when
   taller than the screen) with the keys as shadcn `Kbd`s; alternatives are joined by "or", a sequence is two `Kbd`s.
-  In RTL it lists the keys that run each action there (`h` under "Next day").
+  In RTL it lists the keys that run each action there (`h` under "Next day"). Its last group, "Task dialog", lists
+  the keys of the task dialog.
+
+#### Key hints
+
+`ShortcutHint` (`components/planner/shortcut-hint.tsx`) renders the key of an action id from the registry as small
+`Kbd`s (`all` for every binding, left to right even in RTL, hidden from screen readers). It renders nothing unless the
+device can hover with a fine pointer (`useKeyHints`, `(hover: hover) and (pointer: fine)`), so phones and tablets
+never show a hint. Hints sit only where a key helps:
+
+| Where                              | Hint                                                                                                                                                  |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Task row (hover, or the cursor's)  | `o` at the row's end, before the check; it grows in (`max-w-0` → `max-w-8`, fading in) so it takes no room until shown and never covers the text pill |
+| Empty row (hover, or the cursor's) | `a` at the row's end, absolutely positioned over the empty input; gone while typing                                                                   |
+| Header tooltips                    | "Current week `t`", "Previous week `H` `←`", "Next week `L` `→`" (the mirrored keys in RTL)                                                           |
+| Task menu, More menu               | Each item's key in a `ContextMenuShortcut` / `DropdownMenuShortcut`, before its icon (the empty slot keeps the icon at the end on touch screens)      |
+| Task dialog toolbar tooltips       | "Date `d`", "Time `t`", "Delete `Del`", "Repeat `r`", "Color `c`", "More `m`"                                                                         |
+| Account menu, end of the planner   | `?` next to "Keyboard shortcuts"; a ghost "? Keyboard shortcuts" button at the end of the page (bottom-end, after Someday, out of the toasts' corner) |
+
+Row hints use `ROW_HINT_KEY_CLASS` (20px caps, a little smaller than the dialog's); tooltips restyle `Kbd` on their own
+(`in-data-[slot=tooltip-content]`).
 
 ## Sync status dot
 
@@ -342,7 +362,11 @@ The toolbar stays on one line at every width. Toolbar icon buttons are `ghost` `
 trigger when its popover closes, and an open tooltip would take the next Esc meant for the dialog); the one whose
 popover or menu is open is filled (`aria-expanded:bg-foreground aria-expanded:text-background`), like Tweek's active
 icon. Opening the dialog focuses the dialog itself, so no tooltip pops up and touch devices do not open the keyboard;
-closing it focuses the task's row again, wherever it moved. A tall dialog scrolls inside the viewport. Reminders,
+closing it focuses the task's row again, wherever it moved. A tall dialog scrolls inside the viewport.
+The dialog is keyboard operable: Tab goes through the toolbar (date, time, delete, repeat, color, more), the title, the
+check, the notes and the subtasks; its own keys (the "Task dialog" group of the shortcuts) open the toolbar's popovers
+and run its actions while focus is not in a text field, and their tooltips show them. The date and repeat-end
+calendars open with focus on the task's day (else today), so the arrow keys move through the days and Enter picks one. Reminders,
 rich-text notes and attachments are not part of Plain Week yet.
 
 ## Task context menu
@@ -358,6 +382,7 @@ row, in the days and in Someday. The actions come in as props (`onColorChange`, 
 | Moves  | Tomorrow, Next week and Someday, as in the dialog's More menu, with a "Moved to …" toast and Undo; Someday is hidden for a Someday task                                                                                                                     |
 | Copy   | Duplicate (toast "Task duplicated."); the copy of a recurring task is a one-off task                                                                                                                                                                        |
 | Delete | After a separator, `variant="destructive"` (the translucent preset menu shows it in the accent color); deletes at once with an "Undo" toast                                                                                                                 |
+| Keys   | Each action shows its planner key (`>`, `w`, `s`, `y`, `d d`) for mouse users; pressing it while the menu is open picks the item                                                                                                                            |
 
 On a recurring task, a color change and Delete ask the scope first (moves never do: they move only that task).
 

@@ -351,3 +351,137 @@ describe('TaskDialog', () => {
         await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     });
 });
+
+describe('TaskDialog keys', () => {
+    it('opens the date picker with d, on the task day, and picks a day with the arrows', async () => {
+        const { task, user, dialog } = await open();
+
+        await user.keyboard('d');
+        const grid = await screen.findByRole('grid');
+        await waitFor(() =>
+            expect(grid.contains(document.activeElement)).toBe(true),
+        );
+        expect(document.activeElement?.closest('td')?.dataset.day).toBe(DAY);
+
+        await user.keyboard('{ArrowRight}{Enter}');
+        await within(dialog).findByRole('button', {
+            name: 'Date: Tue, 13 Oct 2026',
+        });
+        expect((await stored(task.id))?.date).toBe('2026-10-13');
+    });
+
+    it('opens the time, repeat and color pickers with t, r and c', async () => {
+        const { user } = await open();
+
+        await user.keyboard('t');
+        await screen.findByLabelText('Time');
+        await user.keyboard('{Escape}');
+        await waitFor(() => expect(screen.queryByLabelText('Time')).toBeNull());
+
+        await user.keyboard('r');
+        await screen.findByRole('button', { name: 'Apply' });
+        await user.keyboard('{Escape}');
+        await waitFor(() =>
+            expect(screen.queryByRole('button', { name: 'Apply' })).toBeNull(),
+        );
+
+        await user.keyboard('c');
+        await screen.findByRole('radio', { name: 'Pink' });
+        // Still in the dialog: Esc closes the popover only.
+        await user.keyboard('{Escape}');
+        await waitFor(() =>
+            expect(screen.queryByRole('radio', { name: 'Pink' })).toBeNull(),
+        );
+        expect(screen.getByRole('dialog', { name: 'Edit task' })).toBeTruthy();
+    });
+
+    it('marks the task as done with x', async () => {
+        const { task, user } = await open();
+
+        await user.keyboard('x');
+
+        await waitFor(async () =>
+            expect((await stored(task.id))?.done).toBe(true),
+        );
+    });
+
+    it('moves the task with its keys, and from the More menu with m', async () => {
+        const { task, user, dialog } = await open();
+
+        await user.keyboard('>');
+        await within(dialog).findByRole('button', {
+            name: 'Date: Tue, 13 Oct 2026',
+        });
+
+        await user.keyboard('m');
+        await screen.findByRole('menu');
+        await user.keyboard('w');
+        await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+        await within(dialog).findByRole('button', {
+            name: 'Date: Tue, 20 Oct 2026',
+        });
+
+        await user.keyboard('s');
+        await within(dialog).findByRole('button', { name: 'Date: Someday' });
+        expect((await stored(task.id))?.date).toBeNull();
+    });
+
+    it('duplicates the task with y', async () => {
+        const { user } = await open();
+
+        await user.keyboard('y');
+
+        await waitFor(async () =>
+            expect(
+                (await listTasksIn({ date: DAY })).map((t) => t.text),
+            ).toEqual(['Plan trip', 'Plan trip']),
+        );
+    });
+
+    it('focuses the title, the notes and "Add subtask" with e, n and a', async () => {
+        const { user, dialog } = await open();
+
+        await user.keyboard('e');
+        expect(document.activeElement).toBe(
+            within(dialog).getByLabelText('Task'),
+        );
+
+        await user.tab();
+        await user.tab();
+        await user.keyboard('n');
+        expect(document.activeElement).toBe(
+            within(dialog).getByLabelText('Notes'),
+        );
+
+        await user.tab();
+        await user.keyboard('a');
+        expect(document.activeElement).toBe(
+            within(dialog).getByLabelText('Add subtask'),
+        );
+    });
+
+    it('types its keys as text in a field', async () => {
+        const { task, user, dialog } = await open();
+        const notes = within(dialog).getByLabelText('Notes');
+
+        await user.click(notes);
+        await user.keyboard('dtrcmx');
+
+        expect(screen.queryByRole('grid')).toBeNull();
+        expect(screen.queryByRole('menu')).toBeNull();
+        await waitFor(async () =>
+            expect((await stored(task.id))?.notes).toBe('dtrcmx'),
+        );
+        expect((await stored(task.id))?.done).toBe(false);
+    });
+
+    // Last: Sonner keeps the "Task deleted." toast across tests.
+    it('deletes the task and closes with Delete', async () => {
+        const { task, user } = await open();
+
+        await user.keyboard('{Delete}');
+
+        await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+        expect((await stored(task.id))?.deleted_at).not.toBeNull();
+    });
+});

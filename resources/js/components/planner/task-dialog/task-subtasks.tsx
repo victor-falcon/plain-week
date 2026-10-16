@@ -139,6 +139,7 @@ export function TaskSubtasks() {
                 <Plus className="size-4 shrink-0" />
                 <Input
                     ref={addInputRef}
+                    data-add-subtask
                     aria-label="Add subtask"
                     onBlur={(event) => add(event.currentTarget)}
                     placeholder="Add subtask..."
