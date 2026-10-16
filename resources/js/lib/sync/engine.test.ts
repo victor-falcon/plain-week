@@ -473,6 +473,29 @@ describe('lifecycle', () => {
         expect(server.requests.length).toBe(count);
     });
 
+    it('keeps unsynced changes when the user declines to discard them', async () => {
+        const onSessionExpired = vi.fn();
+        const confirmDiscard = vi.fn(() => false);
+
+        engine = new SyncEngine({
+            db,
+            transport: fetchTransport,
+            environment,
+            onSessionExpired,
+            confirmDiscard,
+        });
+        await createTask({ text: 'offline work', date: '2026-10-12' });
+        server.failWith = 401;
+
+        await startAndSync();
+
+        expect(confirmDiscard).toHaveBeenCalledWith(1);
+        expect(await db.tasks.count()).toBe(1);
+        expect(await db.outbox.count()).toBe(1);
+        expect(engine.isStarted).toBe(false);
+        expect(onSessionExpired).not.toHaveBeenCalled();
+    });
+
     it('treats a 419 on push as a lost session once a pull confirms it', async () => {
         const onSessionExpired = vi.fn();
 

@@ -1,7 +1,7 @@
 import { db, wipeLocalDatabase } from '@/lib/db/database';
 import { SyncEngine, claimDatabaseFor } from './engine';
 import { withSyncLock } from './lock';
-import { SyncHttpError, fetchTransport, requestLogout } from './transport';
+import { fetchTransport, isSessionGone, requestLogout } from './transport';
 
 export type { SyncStatus } from './engine';
 
@@ -10,6 +10,7 @@ export const syncEngine = new SyncEngine({
     db,
     transport: fetchTransport,
     onSessionExpired: leaveEndedSession,
+    confirmDiscard: confirmEndedSessionDiscard,
 });
 
 /**
@@ -49,11 +50,29 @@ sessionChannel?.addEventListener('message', () => {
     window.location.reload();
 });
 
+/**
+ * The session ended without a logout, but some changes never reached the
+ * server: they are only discarded if the user agrees. Keeping them keeps them
+ * on this device until the same user signs in again.
+ */
+function confirmEndedSessionDiscard(pendingChanges: number): boolean {
+    const changes =
+        pendingChanges === 1
+            ? '1 change has not been synced'
+            : `${pendingChanges} changes have not been synced`;
+
+    return window.confirm(
+        `Your session has ended and ${changes}. Discard them and clear this device? Cancel to keep them and log in again.`,
+    );
+}
+
 /** The local database was wiped after the session ended outside a logout. */
 function leaveEndedSession(): void {
     sessionChannel?.postMessage('logged-out');
     window.location.reload();
 }
+
+let forgetting: Promise<boolean> | null = null;
 
 /**
  * For guest pages. When the local database still belongs to a user, that
@@ -61,28 +80,44 @@ function leaveEndedSession(): void {
  * server). Once the server confirms there is no session, the data is wiped
  * like on logout and the page reloads as a first-time guest. Offline, or when
  * the server still knows the user (a stale offline shell), nothing changes.
- * A guest's own data has no owner and is never touched.
+ * Unsynced changes are only discarded if the user agrees. A guest's own data
+ * has no owner and is never touched.
  * Resolves with true when it wiped.
  */
-export async function forgetEndedSession(): Promise<boolean> {
-    if ((await db.meta.get('user_id')) === undefined) {
-        return false;
-    }
-
-    try {
-        await fetchTransport.pull(0, 1);
-
-        return false;
-    } catch (error) {
-        if (!(error instanceof SyncHttpError && error.status === 401)) {
+export function forgetEndedSession(): Promise<boolean> {
+    forgetting ??= withSyncLock(async () => {
+        // Under the lock: a sign-in in another tab cannot claim the database
+        // between this check and the wipe.
+        if ((await db.meta.get('user_id')) === undefined) {
             return false;
         }
-    }
 
-    await withSyncLock(() => wipeLocalDatabase(db));
-    leaveEndedSession();
+        if (!(await isSessionGone(fetchTransport))) {
+            return false;
+        }
 
-    return true;
+        const pending = await db.outbox.count();
+
+        if (pending > 0 && !confirmEndedSessionDiscard(pending)) {
+            return false;
+        }
+
+        await wipeLocalDatabase(db);
+
+        return true;
+    })
+        .then((wiped) => {
+            if (wiped) {
+                leaveEndedSession();
+            }
+
+            return wiped;
+        })
+        .finally(() => {
+            forgetting = null;
+        });
+
+    return forgetting;
 }
 
 export type LogOutOptions = {

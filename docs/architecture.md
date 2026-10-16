@@ -314,8 +314,9 @@ defaults them to `null` on pull.
   remote record is applied and the pending entry dropped: both sides converge.
 - Errors:
     - `401` means the session is gone (expired, logged out elsewhere): the engine wipes the local database under the
-      lock, unsynced changes included, stops, and `onSessionExpired` tells the other tabs and reloads the page as a
-      guest. A `419` on push (the XSRF token of an ended session) is confirmed first with a `pull` (no token needed):
+      lock, stops, and `onSessionExpired` tells the other tabs and reloads the page as a guest. If changes are still
+      pending (edits made offline before the session expired) it asks first, like logout; declining keeps everything
+      and only stops the engine, so the changes are pushed when the same user signs in again. A `419` on push (the XSRF token of an ended session) is confirmed first with a `pull` (no token needed):
       only a `401` there wipes; otherwise it is an ordinary `error`.
     - `422`/`413` are permanent: the batch is split until the invalid records are isolated; each is quarantined
       (`failed_revision` = its revision, logged with `console.warn`) and skipped until the task changes again. The rest
@@ -331,8 +332,8 @@ defaults them to `null` on pull.
   (BroadcastChannel `plain-week-session`), which stop their engines and reload into the guest state. If the server
   logout fails, nothing is wiped and syncing resumes.
 - Session ended without a logout on this device: on guest pages `SyncProvider` calls `forgetEndedSession()`. If
-  `meta.user_id` is set, it asks the server (`GET /sync/pull?limit=1`); only a `401` wipes the database, tells other
-  tabs and reloads as a guest. Offline, or when the server still knows the user (a stale offline shell), nothing
+  `meta.user_id` is set, it asks the server (`GET /sync/pull?limit=1`); only a `401` wipes the database (asking first
+  about pending changes), tells other tabs and reloads as a guest. Offline, or when the server still knows the user (a stale offline shell), nothing
   changes. Guest data has no `user_id`, so a guest never triggers it.
 - HTTP: `fetchTransport` calls `/sync/push` and `/sync/pull` (Wayfinder helpers `@/routes/sync`) with `credentials: 'same-origin'`, `Accept:
 application/json` and the `X-XSRF-TOKEN` header from Laravel's `XSRF-TOKEN` cookie.

@@ -9,7 +9,7 @@ import { compareTimestamps } from '@/lib/db/dates';
 import { purgeDemoTasks } from '@/lib/db/demo';
 import type { OutboxEntry, Task } from '@/lib/db/types';
 import { withSyncLock } from './lock';
-import { SYNC_FORMAT, SyncHttpError } from './transport';
+import { SYNC_FORMAT, SyncHttpError, isSessionGone } from './transport';
 import type { SyncTransport } from './transport';
 
 export type SyncStatus = 'idle' | 'syncing' | 'offline' | 'error';
@@ -40,6 +40,12 @@ export type SyncEngineOptions = {
      * database and stopped.
      */
     onSessionExpired?: () => void;
+    /**
+     * Asked before that wipe when some local changes never reached the
+     * server. Return false to keep everything (sync stops and resumes when
+     * the same user signs in again).
+     */
+    confirmDiscard?: (pendingChanges: number) => boolean;
 };
 
 const MAX_RETRY_MS = 5 * 60_000;
@@ -130,6 +136,7 @@ export class SyncEngine {
     private readonly intervalMs: number;
     private readonly retryBaseMs: number;
     private readonly onSessionExpired: () => void;
+    private readonly confirmDiscard: (pendingChanges: number) => boolean;
 
     private userId: string | null = null;
     /** Bumped on start/stop so in-flight runs can tell they are stale. */
@@ -153,6 +160,7 @@ export class SyncEngine {
         this.intervalMs = options.intervalMs ?? 30_000;
         this.retryBaseMs = options.retryBaseMs ?? 5000;
         this.onSessionExpired = options.onSessionExpired ?? (() => {});
+        this.confirmDiscard = options.confirmDiscard ?? (() => true);
     }
 
     /** True between `start()` and `stop()`. */
@@ -312,7 +320,7 @@ export class SyncEngine {
                 return;
             }
 
-            if (await this.isSessionGone(error)) {
+            if (await this.sessionEnded(error)) {
                 await this.forgetUser(generation);
 
                 return;
@@ -337,37 +345,35 @@ export class SyncEngine {
 
     /**
      * A 401 means the session is gone. A 419 on push usually means the same
-     * (the XSRF token of an ended session), but it is confirmed with a pull,
-     * which needs no token, before anything gets wiped.
+     * (the XSRF token of an ended session), but it is confirmed with a pull
+     * before anything gets wiped.
      */
-    private async isSessionGone(error: unknown): Promise<boolean> {
+    private async sessionEnded(error: unknown): Promise<boolean> {
         if (!(error instanceof SyncHttpError)) {
             return false;
         }
 
-        if (error.status === 419) {
-            try {
-                await this.transport.pull(0, 1);
-
-                return false;
-            } catch (probeError) {
-                return (
-                    probeError instanceof SyncHttpError &&
-                    probeError.status === 401
-                );
-            }
-        }
-
-        return error.status === 401;
+        return error.status === 419
+            ? isSessionGone(this.transport)
+            : error.status === 401;
     }
 
     /**
      * The user is no longer signed in on this device: their data must not
      * stay behind (shared devices) nor be pushed by anyone later, so the
-     * database is wiped, unsynced changes included. Runs under the sync lock.
+     * database is wiped, after asking about unsynced changes (like logout).
+     * Runs under the sync lock.
      */
     private async forgetUser(generation: number): Promise<void> {
         if (generation !== this.generation) {
+            return;
+        }
+
+        const pending = await this.pendingCount();
+
+        if (pending > 0 && !this.confirmDiscard(pending)) {
+            this.stop();
+
             return;
         }
 

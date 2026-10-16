@@ -96,6 +96,23 @@ export async function requestLogout(url: string): Promise<string> {
 }
 
 /**
+ * Asks the server whether the session is gone, with the smallest pull (it
+ * needs no XSRF token). Only a `401` says so; any other failure (offline,
+ * server errors) is unknown and resolves false, so nothing gets wiped.
+ */
+export async function isSessionGone(
+    transport: SyncTransport,
+): Promise<boolean> {
+    try {
+        await transport.pull(0, 1);
+
+        return false;
+    } catch (error) {
+        return error instanceof SyncHttpError && error.status === 401;
+    }
+}
+
+/**
  * Talks to `POST /sync/push` and `GET /sync/pull` with the session cookie and
  * Laravel's XSRF-TOKEN cookie.
  */

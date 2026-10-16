@@ -16,6 +16,7 @@ const SESSION_CHANNEL = 'plain-week-session';
 
 let server: ReturnType<typeof createFakeSyncServer>;
 let reload: ReturnType<typeof vi.fn>;
+let confirm: ReturnType<typeof vi.fn>;
 
 beforeEach(async () => {
     await wipeLocalDatabase();
@@ -23,7 +24,9 @@ beforeEach(async () => {
     vi.stubGlobal('fetch', server.fetch);
     vi.stubGlobal('navigator', { onLine: true });
     reload = vi.fn();
+    confirm = vi.fn(() => true);
     vi.stubGlobal('window', {
+        confirm,
         addEventListener: () => {},
         removeEventListener: () => {},
         location: { reload },
@@ -178,6 +181,34 @@ describe('forgetEndedSession', () => {
         expect(await db.tasks.count()).toBe(0);
         expect(await db.outbox.count()).toBe(0);
         expect(await db.meta.count()).toBe(0);
+        expect(confirm).toHaveBeenCalledOnce();
+        expect(reload).toHaveBeenCalledOnce();
+    });
+
+    it('keeps unsynced changes when the user declines to discard them', async () => {
+        await db.meta.put({ key: 'user_id', value: '1' });
+        await createTask({ text: 'offline work', date: '2026-10-12' });
+        server.failWith = 401;
+        confirm.mockReturnValue(false);
+
+        expect(await forgetEndedSession()).toBe(false);
+
+        expect(await db.tasks.count()).toBe(1);
+        expect(await db.outbox.count()).toBe(1);
+        expect(reload).not.toHaveBeenCalled();
+    });
+
+    it('checks once when called again while checking', async () => {
+        await db.meta.put({ key: 'user_id', value: '1' });
+        server.failWith = 401;
+
+        const results = await Promise.all([
+            forgetEndedSession(),
+            forgetEndedSession(),
+        ]);
+
+        expect(results).toEqual([true, true]);
+        expect(server.requests).toHaveLength(1);
         expect(reload).toHaveBeenCalledOnce();
     });
 
