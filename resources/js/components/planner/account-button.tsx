@@ -4,10 +4,12 @@ import {
     CloudUpload,
     CreditCard,
     Info,
+    Keyboard,
     LogIn,
     RefreshCw,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { shortcutsDialogStore } from '@/lib/planner/shortcuts-dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -17,6 +19,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Kbd } from '@/components/ui/kbd';
 import {
     Tooltip,
     TooltipContent,
@@ -81,6 +84,23 @@ function WithTooltip({
     );
 }
 
+/** Opens the shortcuts dialog; the `?` hint only shows with a mouse. */
+function ShortcutsMenuItem() {
+    return (
+        <DropdownMenuItem
+            className="cursor-pointer whitespace-nowrap"
+            onSelect={shortcutsDialogStore.open}
+            data-test="keyboard-shortcuts"
+        >
+            <Keyboard className="me-2" />
+            Keyboard shortcuts
+            <Kbd aria-hidden className="ms-auto pointer-coarse:hidden">
+                ?
+            </Kbd>
+        </DropdownMenuItem>
+    );
+}
+
 function UserAccountMenu({ user }: { user: User }) {
     const { account } = usePage().props;
     const engineStatus = useVisibleSyncStatus();
@@ -138,6 +158,8 @@ function UserAccountMenu({ user }: { user: User }) {
                     </>
                 )}
                 <UserMenuContent user={user} />
+                <DropdownMenuSeparator />
+                <ShortcutsMenuItem />
             </DropdownMenuContent>
         </DropdownMenu>
     );
@@ -188,6 +210,7 @@ function GuestMenuItems({ withSignUp }: { withSignUp: boolean }) {
                     About Plain Week
                 </DropdownMenuItem>
             )}
+            <ShortcutsMenuItem />
         </>
     );
 }
@@ -229,7 +252,7 @@ function GuestSyncButton() {
                             <ChevronDown className="size-4" />
                         </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent className="min-w-48" align="end">
+                    <DropdownMenuContent className="min-w-56" align="end">
                         <GuestMenuItems withSignUp={false} />
                     </DropdownMenuContent>
                 </DropdownMenu>
@@ -248,7 +271,7 @@ function GuestSyncButton() {
                         <GuestDot className="absolute -end-px -top-px size-3.5 border-[2.5px] border-background" />
                     </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent className="min-w-48" align="end">
+                <DropdownMenuContent className="min-w-56" align="end">
                     <GuestMenuItems withSignUp />
                 </DropdownMenuContent>
             </DropdownMenu>

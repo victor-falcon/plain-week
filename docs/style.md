@@ -88,7 +88,8 @@ Installed in `resources/js/components/ui/` and where they are used:
 | `input`                                                            | Empty task rows (`new-task-row.tsx`), subtasks, time picker, auth and settings forms   |
 | `textarea`                                                         | Task dialog title and notes                                                            |
 | `checkbox`                                                         | Subtasks, "Remember me" on login                                                       |
-| `dialog`                                                           | Task dialog, `FloatingCard`; account deletion, passkeys and 2FA setup in settings      |
+| `dialog`                                                           | Task dialog, shortcuts dialog, `FloatingCard`; account deletion, passkeys, 2FA setup   |
+| `kbd`                                                              | Shortcuts dialog keys, the account menu's `?` hint                                     |
 | `radio-group`                                                      | Plan choice (`/plans`)                                                                 |
 | `accordion`                                                        | Landing card FAQ                                                                       |
 | `alert-dialog`                                                     | Scope prompt of recurring tasks (`scope-prompt.tsx`), import preview (Settings › Data) |
@@ -284,8 +285,20 @@ Drag and drop (behaviour in [architecture.md](./architecture.md#drag-and-drop)):
   selects text nor shows the system menu. The move button that starts a keyboard drag is visually hidden until it has
   keyboard focus.
 
-Keyboard shortcuts (only when focus is not in a text field, no dialog or menu is open and no task is being dragged): ← / → previous / next week
-(mirrored in RTL), T current week. Held keys do not repeat.
+### Keyboard shortcuts
+
+The planner is usable from the keyboard alone, vim style. The full list lives in `lib/planner/shortcuts.ts` (id, keys,
+label, group), which both the key handler and the shortcuts dialog read; `?` opens that dialog, and so does "Keyboard
+shortcuts" in the account menu (the menu item's `?` hint is hidden on touch screens). Behaviour is in
+[architecture.md](./architecture.md#keyboard-shortcuts).
+
+- The keyboard cursor sits on one task or on a list's new-task row: `bg-accent` with an inset `ring-2 ring-ring`,
+  `rounded-sm`, over the row's usual focus ring. It is hidden until a shortcut key is pressed and hides again on any
+  pointer press, so mouse and touch users never see it. While the new-task input is being typed in, the input's own
+  lifted style replaces it.
+- The shortcuts dialog is a shadcn `Dialog` (`sm:max-w-2xl`, two columns from `sm`, one on phones, scrolling when
+  taller than the screen) with the keys as shadcn `Kbd`s; alternatives are joined by "or", a sequence is two `Kbd`s.
+  In RTL it lists the keys that run each action there (`h` under "Next day").
 
 ## Sync status dot
 

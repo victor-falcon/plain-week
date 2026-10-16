@@ -45,7 +45,7 @@ export function PlannerHeader({
                     onClick={onToday}
                     disabled={isCurrentWeek}
                     aria-label={
-                        isCurrentWeek ? undefined : 'Go to the current week (T)'
+                        isCurrentWeek ? undefined : 'Go to the current week (t)'
                     }
                     className={cn(
                         'h-auto min-w-0 truncate rounded-md p-0 font-[inherit] text-3xl leading-[inherit] tracking-[inherit] hover:bg-transparent disabled:opacity-100 lg:text-4xl',

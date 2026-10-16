@@ -42,6 +42,7 @@ import type {
     TaskDragData,
     WeekDirection,
 } from '@/lib/planner/drop';
+import { toastWithUndo } from '@/lib/planner/undo';
 
 /** A mouse drag starts after this much movement, so a click still opens. */
 const MOUSE_DRAG_DISTANCE_PX = 5;
@@ -396,12 +397,10 @@ export function PlannerDnd({
                 .then(() => {
                     // The task left the screen: say where it went.
                     if (drop.indicator === null) {
-                        toast(`Moved to ${placementLabel(drop.move)}.`, {
-                            action: {
-                                label: 'Undo',
-                                onClick: () => void write(task.id, undo),
-                            },
-                        });
+                        toastWithUndo(
+                            `Moved to ${placementLabel(drop.move)}.`,
+                            () => void write(task.id, undo),
+                        );
                     }
                 })
                 .catch(() => {});
