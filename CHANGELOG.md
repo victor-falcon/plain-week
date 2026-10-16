@@ -7,6 +7,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-16
+
 ### Added
 
 - **Keyboard shortcuts for the whole planner, vim style.** A keyboard cursor over the tasks (`h` / `j` / `k` / `l`,
@@ -197,7 +199,8 @@ between devices.
   app, so an instance without mail works.
 - **Documentation** for contributors and coding agents in `docs/` and `AGENTS.md`.
 
-[Unreleased]: https://github.com/victor-falcon/plain-week/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/victor-falcon/plain-week/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/victor-falcon/plain-week/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/victor-falcon/plain-week/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/victor-falcon/plain-week/compare/v0.0.6...v0.1.0
 [0.0.6]: https://github.com/victor-falcon/plain-week/compare/v0.0.5...v0.0.6
