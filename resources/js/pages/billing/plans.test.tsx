@@ -60,6 +60,12 @@ vi.mock('@inertiajs/react', async () => {
     };
 });
 
+const logOut = vi.fn();
+
+vi.mock('@/hooks/use-logout', () => ({
+    useLogout: () => logOut,
+}));
+
 vi.mock('@/hooks/use-checkout', () => ({
     useCheckout: () => ({ start, pending: null }),
 }));
@@ -181,5 +187,23 @@ describe('Plans', () => {
             'lifetime',
             expect.objectContaining({ code: 'pwfriends26' }),
         );
+    });
+
+    it('offers logging out (with the export first) instead of free use while signed in', async () => {
+        const user = userEvent.setup();
+
+        render(<Plans plans={launchOffers} processing={false} />);
+
+        expect(
+            screen.getByRole('link', { name: 'Export your tasks first' }),
+        ).not.toBeNull();
+
+        await user.click(
+            screen.getByRole('button', {
+                name: 'Log out and keep using Plain Week for free in this browser.',
+            }),
+        );
+
+        expect(logOut).toHaveBeenCalledOnce();
     });
 });

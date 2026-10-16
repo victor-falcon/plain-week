@@ -247,12 +247,22 @@ export default function Plans({ plans, processing }: Props) {
                     </AuthFootnote>
                 </div>
 
+                {/* Logging out wipes this account's local data, so the way back to free local use says so. */}
                 <AuthFootnote className="text-xs">
-                    Not now? Keep using Plain Week on this device for free.
-                    <br />
-                    Logging out removes this account's tasks from this device;{' '}
-                    <TextLink href={editData()}>export them</TextLink> first to
-                    keep a copy.
+                    Not now?{' '}
+                    <Button
+                        variant="link"
+                        className="inline h-auto p-0 text-start text-xs whitespace-normal text-muted-foreground underline"
+                        onClick={logOut}
+                        data-test="not-now-logout"
+                    >
+                        Log out and keep using Plain Week for free in this
+                        browser.
+                    </Button>{' '}
+                    <TextLink href={editData()}>
+                        Export your tasks first
+                    </TextLink>
+                    .
                 </AuthFootnote>
 
                 <LegalLinks />
