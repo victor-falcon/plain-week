@@ -18,6 +18,7 @@ import { placementLabel } from './drop';
 import { asksScope } from './repeat';
 import { nextWeekOf, tomorrowOf } from './quick-moves';
 import { saveLocally } from './save-locally';
+import { toastWithUndo } from './undo';
 
 /**
  * The task actions shared by the task dialog and the task context menu. They
@@ -85,17 +86,12 @@ export function moveWithUndo(
 
     return settle(
         moveTask(id, move, { undo }).then((moved) => {
-            toast(
+            toastWithUndo(
                 `Moved to ${move.date === null ? 'Someday' : placementLabel(move)}.`,
-                {
-                    action: {
-                        label: 'Undo',
-                        onClick: () =>
-                            saveLocally(undoChanges(undo), {
-                                error: 'Could not undo the move.',
-                            }),
-                    },
-                },
+                () =>
+                    saveLocally(undoChanges(undo), {
+                        error: 'Could not undo the move.',
+                    }),
             );
 
             return moved;
@@ -127,15 +123,11 @@ export function deleteWithUndo(
 
     return settle(
         deleteTask(id, { scope, undo }).then((deleted) => {
-            toast('Task deleted.', {
-                action: {
-                    label: 'Undo',
-                    onClick: () =>
-                        saveLocally(undoChanges(undo), {
-                            error: 'Could not restore the task.',
-                        }),
-                },
-            });
+            toastWithUndo('Task deleted.', () =>
+                saveLocally(undoChanges(undo), {
+                    error: 'Could not restore the task.',
+                }),
+            );
 
             return deleted;
         }),

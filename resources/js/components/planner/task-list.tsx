@@ -5,6 +5,10 @@ import {
 } from '@dnd-kit/sortable';
 import { Fragment, useLayoutEffect, useRef } from 'react';
 import { toast } from 'sonner';
+import {
+    useKeyboardCursor,
+    useKeyboardCursorApi,
+} from '@/components/planner/keyboard-cursor';
 import { NewTaskRow } from '@/components/planner/new-task-row';
 import {
     listDroppableId,
@@ -73,6 +77,17 @@ export function TaskList({
     const indicatorBefore =
         indicator?.listKey === listKey ? indicator.beforeTaskId : undefined;
     const emptyRows = Math.max(rows, taskCount + 1) - taskCount;
+    const cursor = useKeyboardCursor();
+    const { registerList, returnToList } = useKeyboardCursorApi();
+    const cursorOnNewRow =
+        cursor?.listKey === listKey && cursor.taskId === null;
+
+    // Tell the keyboard cursor what this list shows.
+    useLayoutEffect(() => {
+        if (tasks !== undefined) {
+            return registerList(listKey, { placement, tasks });
+        }
+    }, [registerList, listKey, placement, tasks]);
 
     // When the row that had focus was replaced by its task (no empty row was
     // left below it), continue in the first empty row.
@@ -83,7 +98,8 @@ export function TaskList({
 
         focusAfterCreate.current = false;
 
-        if (!document.activeElement?.closest('[data-new-task-row]')) {
+        // The keyboard cursor may have focused the new-task row itself.
+        if (!document.activeElement?.matches('[data-new-task-row] input')) {
             emptyInputs.current.get(taskCount)?.focus();
         }
     }, [taskCount]);
@@ -103,8 +119,10 @@ export function TaskList({
     };
 
     // Esc leaves the list, even right after Enter while the task still saves.
+    // and puts the keyboard cursor on this list's new-task row.
     const handleCancel = () => {
         focusAfterCreate.current = false;
+        returnToList(listKey);
     };
 
     const handleToggleDone = (taskId: string) => {
@@ -128,6 +146,7 @@ export function TaskList({
                         {indicatorBefore === task.id && <DropIndicator />}
                         <TaskRow
                             task={task}
+                            isCursor={cursor?.taskId === task.id}
                             placement={placement}
                             tasks={listTasks}
                             onOpen={onOpenTask}
@@ -153,6 +172,7 @@ export function TaskList({
                             };
                         }}
                         label={newTaskLabel}
+                        isCursor={index === 0 && cursorOnNewRow}
                         onSubmit={handleSubmit}
                         onCancel={handleCancel}
                         className={index > 0 ? 'max-lg:hidden' : undefined}

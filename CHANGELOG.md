@@ -7,6 +7,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **Keyboard shortcuts for the whole planner, vim style.** A keyboard cursor over the tasks (`h` / `j` / `k` / `l`,
+  arrows, `g g` / `G`, Esc), task actions on it (`o` / Enter open, `x` / Space done, `J` / `K` reorder, `<` / `>`
+  previous / next day, `w` next week, `s` Someday, `y` duplicate, `d d` / Delete delete, `m` menu, `a` / `i` new task),
+  weeks (`H` / `L`, ← / →, `t`), `u` undo, `,` settings and a `?` dialog listing them all (also in the account menu).
+  Mirrored in RTL, never while typing, with a dialog open or while dragging, and hidden from mouse users.
+
+### Changed
+
+- **The "current week" shortcut is lowercase `t`.** Shortcuts are case-sensitive now; Shift+T no longer goes to the
+  current week.
+
 ## [0.1.1] - 2026-10-16
 
 ### Changed

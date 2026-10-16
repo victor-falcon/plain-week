@@ -1,5 +1,6 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CircleCheck, GripVertical, Repeat } from 'lucide-react';
+import { useCursorFocus } from '@/components/planner/keyboard-cursor';
 import { usePlannerDnd } from '@/components/planner/planner-dnd';
 import { useScopedAction } from '@/components/planner/scope-prompt';
 import { TaskContextMenu } from '@/components/planner/task-context-menu';
@@ -32,6 +33,8 @@ type Props = {
     /** The list the row is in, and its tasks in display order (for drops). */
     placement: TaskPlacement;
     tasks: PlannerTask[];
+    /** The keyboard cursor is on this task. */
+    isCursor?: boolean;
     /** Opens the task (click, Enter or Space on its text). */
     onOpen: (taskId: string) => void;
     onToggleDone: (taskId: string) => void;
@@ -137,10 +140,12 @@ export function TaskRow({
     task,
     placement,
     tasks,
+    isCursor = false,
     onOpen,
     onToggleDone,
     className,
 }: Props) {
+    const openRef = useCursorFocus<HTMLButtonElement>(isCursor);
     const repeat = useTaskRepeat(task);
     const label = [
         task.time,
@@ -186,6 +191,7 @@ export function TaskRow({
             <div
                 ref={setNodeRef}
                 data-task-id={task.id}
+                data-cursor={isCursor || undefined}
                 {...listeners}
                 onContextMenu={(event) => {
                     // No menu for the task being dragged (a touch drag may make
@@ -198,12 +204,16 @@ export function TaskRow({
                     'group/task relative flex h-row items-center gap-1 border-b border-border select-none [-webkit-touch-callout:none]',
                     task.done && 'text-muted-foreground',
                     isDragging && 'opacity-40',
+                    // The keyboard cursor; its text button also has focus.
+                    'data-cursor:rounded-sm data-cursor:bg-accent data-cursor:ring-2 data-cursor:ring-ring data-cursor:ring-inset',
                     className,
                 )}
             >
                 <Button
+                    ref={openRef}
                     type="button"
                     variant="ghost"
+                    data-task-open
                     aria-label={label}
                     onClick={() => onOpen(task.id)}
                     // The focus ring is drawn over the whole row (the row is the
