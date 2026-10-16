@@ -160,6 +160,51 @@ describe('session expired during sync', () => {
     });
 });
 
+describe('payment required (SaaS mode)', () => {
+    let assign: ReturnType<typeof vi.fn>;
+
+    beforeEach(() => {
+        assign = vi.fn();
+        vi.stubGlobal('window', {
+            confirm,
+            addEventListener: () => {},
+            removeEventListener: () => {},
+            location: { reload, assign, pathname: '/' },
+        });
+    });
+
+    it('keeps local data and sends the user to the paywall', async () => {
+        await createTask({ text: 'unpaid', date: '2026-10-12' });
+        server.failPushWith = 402;
+
+        syncEngine.start(1);
+        await syncEngine.sync();
+
+        expect(assign).toHaveBeenCalledWith('/plans');
+        expect(syncEngine.isStarted).toBe(false);
+        expect(await db.tasks.count()).toBe(1);
+        expect(await db.outbox.count()).toBe(1);
+        expect(reload).not.toHaveBeenCalled();
+    });
+
+    it('does not leave the page while logging out', async () => {
+        await createTask({ text: 'unpaid', date: '2026-10-12' });
+        server.failPushWith = 402;
+        const confirmDiscard = vi.fn(() => true);
+
+        const redirectTo = await logOut({
+            userId: 1,
+            logoutUrl: '/logout',
+            confirmDiscard,
+        });
+
+        expect(assign).not.toHaveBeenCalled();
+        expect(confirmDiscard).toHaveBeenCalledWith(1);
+        expect(redirectTo).toBe('/');
+        expect(await db.tasks.count()).toBe(0);
+    });
+});
+
 describe('forgetEndedSession', () => {
     it('keeps the work of a guest who never signed in, without asking the server', async () => {
         await createTask({ text: 'guest', date: '2026-10-12' });

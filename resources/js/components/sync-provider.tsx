@@ -6,10 +6,15 @@ import { forgetEndedSession, syncEngine } from '@/lib/sync';
 /**
  * Runs the background sync engine while a user is authenticated. Guests keep
  * working locally; a guest page left with a signed-out user's data clears it
- * (`forgetEndedSession`). Mount it once at the planner root.
+ * (`forgetEndedSession`). In SaaS mode it only syncs accounts with a paid
+ * plan. Mount it once at the planner root.
  */
 export function SyncProvider({ children }: { children: ReactNode }) {
-    const userId = usePage().props.auth?.user?.id ?? null;
+    const { auth, account } = usePage().props;
+    const userId = auth?.user?.id ?? null;
+    // SaaS mode: an account without a paid plan cannot sync (the server would
+    // answer 402), so the engine does not start.
+    const canSync = account?.hasAccess ?? true;
 
     useEffect(() => {
         if (userId === null) {
@@ -20,10 +25,14 @@ export function SyncProvider({ children }: { children: ReactNode }) {
             return;
         }
 
+        if (!canSync) {
+            return;
+        }
+
         syncEngine.start(userId);
 
         return () => syncEngine.stop();
-    }, [userId]);
+    }, [userId, canSync]);
 
     return children;
 }

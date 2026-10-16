@@ -14,6 +14,19 @@ export type Auth = {
     user: User;
 };
 
+/** SaaS mode (`SAAS_ENABLED`): accounts need a paid plan to sync. */
+export type Saas = {
+    enabled: boolean;
+};
+
+export type Plan = 'weekly' | 'lifetime';
+
+/** The signed-in account's entitlement. `hasAccess` is always true when SaaS mode is off. */
+export type Account = {
+    hasAccess: boolean;
+    plan: Plan | null;
+};
+
 export type Passkey = {
     id: number;
     name: string;

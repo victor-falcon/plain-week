@@ -46,6 +46,11 @@ export type SyncEngineOptions = {
      * the same user signs in again).
      */
     confirmDiscard?: (pendingChanges: number) => boolean;
+    /**
+     * Called after the server answered `402 Payment Required` (SaaS mode, the
+     * account has no paid plan) and the engine stopped. Local data is kept.
+     */
+    onPaymentRequired?: () => void;
 };
 
 const MAX_RETRY_MS = 5 * 60_000;
@@ -137,6 +142,7 @@ export class SyncEngine {
     private readonly retryBaseMs: number;
     private readonly onSessionExpired: () => void;
     private readonly confirmDiscard: (pendingChanges: number) => boolean;
+    private readonly onPaymentRequired: () => void;
 
     private userId: string | null = null;
     /** Bumped on start/stop so in-flight runs can tell they are stale. */
@@ -161,6 +167,7 @@ export class SyncEngine {
         this.retryBaseMs = options.retryBaseMs ?? 5000;
         this.onSessionExpired = options.onSessionExpired ?? (() => {});
         this.confirmDiscard = options.confirmDiscard ?? (() => true);
+        this.onPaymentRequired = options.onPaymentRequired ?? (() => {});
     }
 
     /** True between `start()` and `stop()`. */
@@ -317,6 +324,15 @@ export class SyncEngine {
             await this.settleStatus();
         } catch (error) {
             if (error instanceof SyncCancelled) {
+                return;
+            }
+
+            if (error instanceof SyncHttpError && error.status === 402) {
+                // No paid plan: retrying cannot help. Stop without a retry
+                // loop; the outbox keeps the changes for after the payment.
+                this.stop();
+                this.onPaymentRequired();
+
                 return;
             }
 
