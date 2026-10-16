@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { act, cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {
     afterEach,
@@ -148,6 +148,19 @@ describe('Planner landing card', () => {
         expect(
             screen.queryByText(/The browser version is free forever/),
         ).not.toBeNull();
+    });
+
+    it('points self-hosters to the guide with a single link', () => {
+        render(<Planner />);
+        const block = document.getElementById('self-hosting')!;
+        const links = within(block).getAllByRole('link');
+
+        expect(links).toHaveLength(1);
+        expect(links[0].getAttribute('href')).toBe(
+            'https://github.com/victor-falcon/plain-week/blob/main/docs/self-hosting.md',
+        );
+        expect(links[0].getAttribute('target')).toBe('_blank');
+        expect(block.querySelector('pre')).toBeNull();
     });
 
     it('says where to find the prices when they cannot be loaded', async () => {

@@ -25,11 +25,6 @@ const REPOSITORY_URL = 'https://github.com/victor-falcon/plain-week';
 const SELF_HOSTING_URL = `${REPOSITORY_URL}/blob/main/docs/self-hosting.md`;
 const CHANGELOG_URL = `${REPOSITORY_URL}/blob/main/CHANGELOG.md`;
 
-const DOCKER_COMMAND = `docker run -d -p 127.0.0.1:8080:8080 \\
-  -v plainweek-storage:/app/storage \\
-  -e APP_KEY="base64:$(openssl rand -base64 32)" \\
-  ghcr.io/victor-falcon/plain-week:latest`;
-
 const REASONS = [
     {
         title: 'One week, one screen',
@@ -293,23 +288,15 @@ function SelfHosting() {
                 Plain Week is open source (MIT). Every feature, free, on your
                 machine. One container, SQLite, no other services.
             </p>
-            <pre
-                dir="ltr"
-                className="overflow-x-auto rounded-[0.625rem] bg-muted p-3 font-heading text-xs leading-relaxed"
+            <ExternalLink
+                href={SELF_HOSTING_URL}
+                className="self-start text-sm font-semibold"
             >
-                <code>{DOCKER_COMMAND}</code>
-            </pre>
-            <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm font-semibold">
-                <ExternalLink href={REPOSITORY_URL}>
-                    View on GitHub{' '}
-                    <span aria-hidden className="inline-block rtl:rotate-180">
-                        →
-                    </span>
-                </ExternalLink>
-                <ExternalLink href={SELF_HOSTING_URL}>
-                    Self-hosting guide
-                </ExternalLink>
-            </div>
+                Self-hosting guide{' '}
+                <span aria-hidden className="inline-block rtl:rotate-180">
+                    →
+                </span>
+            </ExternalLink>
         </section>
     );
 }
