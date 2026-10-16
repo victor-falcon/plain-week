@@ -2,6 +2,7 @@
 
 namespace App\Billing;
 
+use App\Models\User;
 use Illuminate\Validation\ValidationException;
 use Laravel\Cashier\Cashier;
 use Stripe\Coupon;
@@ -18,21 +19,22 @@ class PromotionCodes
     public function __construct(private readonly StripeCatalog $catalog) {}
 
     /**
-     * Looks the code up and checks it can be used for the plan right now.
+     * Looks the code up and checks it can be used for the plan (and the
+     * customer) right now.
      *
      * @return array{id: string, code: string, amount: int, currency: string} The code (as created) and the plan's price with it applied.
      *
-     * @throws ValidationException When the code does not exist or does not apply to the plan.
+     * @throws ValidationException When the code does not exist, does not apply, or Stripe could not be asked.
      */
-    public function resolve(string $code, Plan $plan): array
+    public function resolve(string $code, Plan $plan, User $user): array
     {
         $price = $this->catalog->price($plan);
         $promotionCode = $this->find(trim($code));
         $coupon = $promotionCode?->promotion?->coupon;
 
         if (! $promotionCode instanceof PromotionCode || ! $coupon instanceof Coupon
-            || ! $this->usable($promotionCode, $coupon, $price)) {
-            throw ValidationException::withMessages(['code' => __("This code isn't valid for this plan.")]);
+            || ! $this->usable($promotionCode, $coupon, $price, $user)) {
+            throw self::invalid();
         }
 
         return [
@@ -41,6 +43,14 @@ class PromotionCodes
             'amount' => $this->discounted($coupon, $price),
             'currency' => $price['currency'],
         ];
+    }
+
+    /**
+     * The error shown next to the code field.
+     */
+    public static function invalid(): ValidationException
+    {
+        return ValidationException::withMessages(['code' => __("This code isn't valid for this plan.")]);
     }
 
     private function find(string $code): ?PromotionCode
@@ -60,19 +70,23 @@ class PromotionCodes
         } catch (ApiErrorException $e) {
             report($e);
 
-            return null;
+            // Not the code's fault: a good code must not be called invalid while Stripe is unreachable.
+            throw ValidationException::withMessages(['code' => __('Could not check the code. Please try again.')]);
         }
     }
 
     /**
      * @param  array{id: string, amount: int, currency: string, product: string}  $price
      */
-    private function usable(PromotionCode $promotionCode, Coupon $coupon, array $price): bool
+    private function usable(PromotionCode $promotionCode, Coupon $coupon, array $price, User $user): bool
     {
         $restrictions = $promotionCode->restrictions;
         $products = $coupon->applies_to->products ?? null;
+        $customer = is_string($promotionCode->customer) ? $promotionCode->customer : $promotionCode->customer?->id;
 
         return $promotionCode->active
+            // A code made for one customer only.
+            && ($customer === null || $customer === $user->stripe_id)
             && $coupon->valid
             && ($promotionCode->expires_at === null || $promotionCode->expires_at > now()->getTimestamp())
             && ($promotionCode->max_redemptions === null || $promotionCode->times_redeemed < $promotionCode->max_redemptions)

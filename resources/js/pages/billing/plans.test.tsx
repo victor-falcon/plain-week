@@ -36,6 +36,7 @@ vi.mock('@inertiajs/react', async () => {
                 setData: (key: string, value: string) =>
                     setData((current) => ({ ...current, [key]: value })),
                 clearErrors: () => setErrors({}),
+                cancel: () => {},
                 setError: (key: string, value: string) =>
                     setErrors((current) => ({ ...current, [key]: value })),
                 post: (url: string, options: HttpOptions) => {
@@ -136,7 +137,11 @@ describe('Plans', () => {
 
         answerCode = (url, code, options, setError) => {
             if (url.endsWith('/lifetime') && code === 'pwfriends26') {
-                options.onSuccess?.({ code: 'PWFRIENDS26', price: '€0' });
+                options.onSuccess?.({
+                    code: 'PWFRIENDS26',
+                    price: '€0',
+                    free: true,
+                });
             } else {
                 setError("This code isn't valid for this plan.");
             }
@@ -151,7 +156,9 @@ describe('Plans', () => {
         );
         await user.click(screen.getByRole('button', { name: 'Apply' }));
 
-        expect(screen.queryByText('PWFRIENDS26 applied.')).not.toBeNull();
+        expect(
+            screen.queryByText('PWFRIENDS26 applied: €0 today.'),
+        ).not.toBeNull();
         expect(
             document.querySelector('[data-test="due-today"]')?.textContent,
         ).toBe('€0');
@@ -167,9 +174,8 @@ describe('Plans', () => {
         ).toBe('€2.99');
 
         await user.click(screen.getByRole('radio', { name: /Lifetime/ }));
-        await user.click(
-            screen.getByRole('button', { name: 'Continue to payment' }),
-        );
+        // Nothing to pay: no "payment" in the button.
+        await user.click(screen.getByRole('button', { name: 'Continue' }));
 
         expect(start).toHaveBeenCalledWith(
             'lifetime',

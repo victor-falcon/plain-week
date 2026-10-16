@@ -1,5 +1,5 @@
 import { useHttp } from '@inertiajs/react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,6 +12,8 @@ export type AppliedCode = {
     plan: Plan;
     code: string;
     price: string;
+    /** The plan costs nothing today with the code (no card needed). */
+    free: boolean;
 };
 
 /**
@@ -25,18 +27,29 @@ export function usePromotionCode() {
     });
     const [open, setOpen] = useState(false);
     const [applied, setApplied] = useState<AppliedCode | null>(null);
+    // Set by Apply until the code is edited: a plan change then checks it again.
+    const [checked, setChecked] = useState(false);
+    // The plan of the latest check: an older answer (e.g. after a quick plan switch) is ignored.
+    const latestPlan = useRef<Plan | null>(null);
     const typed = open ? http.data.code.trim() : '';
 
     const apply = (plan: Plan) => {
+        http.cancel();
         setApplied(null);
         http.clearErrors();
+        latestPlan.current = plan;
 
         if (typed === '') {
             return;
         }
 
+        setChecked(true);
         http.post(promotionCode.url(plan), {
-            onSuccess: (response) => setApplied({ plan, ...response }),
+            onSuccess: (response) => {
+                if (latestPlan.current === plan) {
+                    setApplied({ plan, ...response });
+                }
+            },
             onNetworkError: () =>
                 http.setError(
                     'code',
@@ -48,9 +61,11 @@ export function usePromotionCode() {
     };
 
     const change = (code: string) => {
+        http.cancel();
         http.setData('code', code);
         http.clearErrors();
         setApplied(null);
+        setChecked(false);
     };
 
     return {
@@ -64,7 +79,7 @@ export function usePromotionCode() {
         /** The applied code, if it was checked for this plan. */
         appliedTo: (plan: Plan) => (applied?.plan === plan ? applied : null),
         /** Whether the typed code was already checked (so a plan change checks it again). */
-        checked: applied !== null || http.errors.code !== undefined,
+        checked,
         error: http.errors.code,
         setError: (message: string) => http.setError('code', message),
         processing: http.processing,
@@ -129,12 +144,14 @@ export function PromotionCodeField({
                     Apply
                 </Button>
             </div>
-            <InputError message={state.error} />
-            {applied && (
-                <p role="status" className="text-sm text-muted-foreground">
-                    {applied.code} applied.
-                </p>
-            )}
+            <InputError message={state.error} role="alert" />
+            {/* Always rendered, so screen readers announce what appears in it. */}
+            <p
+                role="status"
+                className="text-sm text-muted-foreground empty:hidden"
+            >
+                {applied && `${applied.code} applied: ${applied.price} today.`}
+            </p>
         </form>
     );
 }

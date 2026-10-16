@@ -29,6 +29,7 @@ class StripeCatalog
         $key = $plan->lookupKey();
 
         /** @var array{id: string, amount: int, currency: string, product: string}|null $price */
+        // v2: the entries also hold the product (for promotion codes); older ones lack it.
         $price = Cache::remember("saas.price.v2.{$key}", self::TTL_SECONDS, function () use ($key) {
             /** @var Price|null $price */
             $price = Cashier::stripe()->prices->all(['lookup_keys' => [$key], 'active' => true, 'limit' => 1])->first();

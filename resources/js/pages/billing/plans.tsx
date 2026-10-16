@@ -237,11 +237,13 @@ export default function Plans({ plans, processing }: Props) {
                         onClick={continueToPayment}
                         data-test="checkout-button"
                     >
-                        Continue to payment
+                        {applied?.free ? 'Continue' : 'Continue to payment'}
                     </AuthSubmit>
                     <AuthFootnote className="flex items-center justify-center gap-1.5 text-xs">
                         <Lock className="size-3" aria-hidden />
-                        Secure payment with Stripe. No trial, no hidden fees.
+                        {applied?.free
+                            ? 'Nothing to pay and no card needed. Stripe confirms the order.'
+                            : 'Secure payment with Stripe. No trial, no hidden fees.'}
                     </AuthFootnote>
                 </div>
 

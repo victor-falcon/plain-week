@@ -15,6 +15,7 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 use Laravel\Cashier\Cashier;
+use Stripe\Exception\InvalidRequestException;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
 class BillingController extends Controller
@@ -64,9 +65,20 @@ class BillingController extends Controller
         }
 
         // An invalid code is a validation error shown next to it, never a checkout without it.
-        $promotionCodeId = $code === null ? null : $promotionCodes->resolve($code, $plan)['id'];
+        $promotionCodeId = $code === null ? null : $promotionCodes->resolve($code, $plan, $user)['id'];
 
-        $url = (string) $startCheckout($user, $plan, $promotionCodeId)->asStripeCheckoutSession()->url;
+        try {
+            $url = (string) $startCheckout($user, $plan, $promotionCodeId)->asStripeCheckoutSession()->url;
+        } catch (InvalidRequestException $e) {
+            // Stripe refused the code for a reason checked only at Checkout (e.g. first-time customers only).
+            if ($promotionCodeId === null) {
+                throw $e;
+            }
+
+            report($e);
+
+            throw PromotionCodes::invalid();
+        }
 
         return $this->wantsPlainJson($request) ? response()->json(['url' => $url]) : Inertia::location($url);
     }
@@ -80,11 +92,12 @@ class BillingController extends Controller
     {
         $request->validate(['code' => ['required', 'string', 'max:64']]);
 
-        $offer = $promotionCodes->resolve((string) $this->code($request), $plan);
+        $offer = $promotionCodes->resolve((string) $this->code($request), $plan, $this->user($request));
 
         return response()->json([
             'code' => $offer['code'],
             'price' => $this->format($offer['amount'], $offer['currency']),
+            'free' => $offer['amount'] === 0,
         ]);
     }
 

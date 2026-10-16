@@ -71,14 +71,16 @@ for the price the code gives and shows it as the amount due today; changing the 
 to payment" sends the typed code with the checkout request (`code`), and the server checks it again.
 
 `App\Billing\PromotionCodes` looks the code up in Stripe (`promotion_codes?code=…&active=true`, case-insensitive) and
-accepts it only when the promotion code is active, not expired and not used up, its coupon is valid, applies to the
-plan's product (`applies_to`, if set), is in the price's currency (an amount off) and the price reaches the code's
+accepts it only when the promotion code is active, not expired and not used up, not made for another customer, its
+coupon is valid, applies to the plan's product (`applies_to`, if set), is in the price's currency (an amount off) and the price reaches the code's
 minimum amount. Anything else is a validation error next to the field ("This code isn't valid for this plan."), and no
-Checkout session is opened. A valid code goes to Checkout as `discounts[0][promotion_code]` **instead of** the launch
+Checkout session is opened. Restrictions only Stripe can check (first-time customers only) surface when the session is
+created and give the same error. When Stripe cannot be reached the field says "Could not check the code. Please try
+again." instead. The check endpoint allows 10 requests a minute per user. A valid code goes to Checkout as `discounts[0][promotion_code]` **instead of** the launch
 coupon: Stripe allows one discount per session, so they never stack. Checkout's own code box
 (`allow_promotion_codes`) stays off, since it cannot be combined with an applied discount.
 
-A 100% code on Lifetime makes a no-cost order: Checkout asks for no card and completes with `payment_status` =
+A 100% code on Lifetime makes a no-cost order: the button reads "Continue" instead of "Continue to payment", Checkout asks for no card and completes with `payment_status` =
 `no_payment_required`, which grants lifetime like a paid session (on return and from the webhook). There is no payment
 intent, so `lifetime_payment_id` stays empty and no refund can revoke it; remove such a grant with
 `plainweek:grant-lifetime --revoke`.
@@ -86,7 +88,8 @@ intent, so `lifetime_payment_id` stays empty and no refund can revoke it; remove
 To add a code, in the Stripe Dashboard (test and live mode separately):
 
 1. **Product catalog › Coupons › Create coupon**: percent or amount off (amount off in EUR), duration `once` (for
-   Weekly, `once` discounts only the first week), and under **Apply to specific products** pick the Lifetime and/or
+   Weekly, `once` discounts only the first week; a `forever` coupon discounts every week, and the plan choice still
+   shows only the first week's price), and under **Apply to specific products** pick the Lifetime and/or
    Weekly product.
 2. In the coupon, **Promotion codes › Create code**: the customer-facing code (e.g. `PWFRIENDS26`), and optionally a
    maximum number of redemptions, an expiry date, first-time customers only or a minimum amount.
