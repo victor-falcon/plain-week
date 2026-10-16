@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Billing\Plan;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -11,6 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
+use Laravel\Cashier\Billable;
 use Laravel\Fortify\Contracts\PasskeyUser;
 use Laravel\Fortify\PasskeyAuthenticatable;
 use Laravel\Fortify\TwoFactorAuthenticatable;
@@ -27,13 +29,16 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
  * @property string|null $remember_token
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
+ * @property string|null $stripe_id
+ * @property Carbon|null $lifetime_purchased_at
+ * @property string|null $lifetime_payment_id
  */
 #[Fillable(['name', 'email', 'password'])]
-#[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
+#[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token', 'stripe_id', 'pm_type', 'pm_last_four', 'lifetime_payment_id'])]
 class User extends Authenticatable implements MustVerifyEmail, PasskeyUser
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable, PasskeyAuthenticatable, TwoFactorAuthenticatable;
+    use Billable, HasFactory, Notifiable, PasskeyAuthenticatable, TwoFactorAuthenticatable;
 
     /**
      * Get the attributes that should be cast.
@@ -46,6 +51,7 @@ class User extends Authenticatable implements MustVerifyEmail, PasskeyUser
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'two_factor_confirmed_at' => 'datetime',
+            'lifetime_purchased_at' => 'datetime',
         ];
     }
 
@@ -55,5 +61,32 @@ class User extends Authenticatable implements MustVerifyEmail, PasskeyUser
     public function tasks(): HasMany
     {
         return $this->hasMany(Task::class);
+    }
+
+    /**
+     * Whether the account may use account features (sync). Always true on a
+     * self-hosted instance; in SaaS mode it needs a paid plan.
+     */
+    public function hasAccess(): bool
+    {
+        return ! config('saas.enabled') || $this->plan() !== null;
+    }
+
+    /**
+     * The plan that gives access: lifetime wins over a subscription that is
+     * active or cancelled but still in its paid period.
+     */
+    public function plan(): ?Plan
+    {
+        return match (true) {
+            $this->hasLifetime() => Plan::Lifetime,
+            $this->subscribed('default') => Plan::Weekly,
+            default => null,
+        };
+    }
+
+    public function hasLifetime(): bool
+    {
+        return $this->lifetime_purchased_at !== null;
     }
 }

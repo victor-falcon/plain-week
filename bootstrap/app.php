@@ -1,7 +1,9 @@
 <?php
 
+use App\Http\Controllers\Billing\WebhookController;
 use App\Http\Controllers\RobotsController;
 use App\Http\Middleware\AddRobotsTag;
+use App\Http\Middleware\EnsureSaasEnabled;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
 use Illuminate\Foundation\Application;
@@ -17,7 +19,14 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
         // Outside the web group: crawlers get no session or cookies. Dynamic so APP_NOINDEX can close the instance.
-        then: fn () => Route::get('robots.txt', RobotsController::class)->name('robots'),
+        then: function () {
+            Route::get('robots.txt', RobotsController::class)->name('robots');
+
+            // Cashier's path, outside the web group (no session, no CSRF); the signature is checked instead.
+            Route::post('stripe/webhook', [WebhookController::class, 'handleWebhook'])
+                ->middleware(EnsureSaasEnabled::class)
+                ->name('cashier.webhook');
+        },
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->append(AddRobotsTag::class);
@@ -37,6 +46,6 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
-            fn (Request $request) => $request->is('api/*', 'sync/*') || $request->expectsJson(),
+            fn (Request $request) => $request->is('api/*', 'sync/*', 'stripe/*') || $request->expectsJson(),
         );
     })->create();
