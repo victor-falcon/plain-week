@@ -7,6 +7,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- **Landing self-hosting block.** "Prefer your own server?" drops the `docker run` command and the GitHub link and
+  keeps a single "Self-hosting guide →" link to the self-hosting docs, opening in a new tab.
+
 ## [0.1.0] - 2026-10-16
 
 ### Added
