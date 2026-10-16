@@ -1,5 +1,9 @@
 import { onLocalChange } from '@/lib/db/changes';
-import { allTables, clearAllTables } from '@/lib/db/database';
+import {
+    allTables,
+    clearAllTables,
+    wipeLocalDatabase,
+} from '@/lib/db/database';
 import type { PlainWeekDatabase } from '@/lib/db/database';
 import { compareTimestamps } from '@/lib/db/dates';
 import { purgeDemoTasks } from '@/lib/db/demo';
@@ -31,6 +35,11 @@ export type SyncEngineOptions = {
     intervalMs?: number;
     /** First retry delay after a retryable failure; doubles up to 5 min. */
     retryBaseMs?: number;
+    /**
+     * Called after the engine found the server session gone, wiped the local
+     * database and stopped.
+     */
+    onSessionExpired?: () => void;
 };
 
 const MAX_RETRY_MS = 5 * 60_000;
@@ -120,6 +129,7 @@ export class SyncEngine {
     private readonly debounceMs: number;
     private readonly intervalMs: number;
     private readonly retryBaseMs: number;
+    private readonly onSessionExpired: () => void;
 
     private userId: string | null = null;
     /** Bumped on start/stop so in-flight runs can tell they are stale. */
@@ -142,6 +152,7 @@ export class SyncEngine {
         this.debounceMs = options.debounceMs ?? 1000;
         this.intervalMs = options.intervalMs ?? 30_000;
         this.retryBaseMs = options.retryBaseMs ?? 5000;
+        this.onSessionExpired = options.onSessionExpired ?? (() => {});
     }
 
     /** True between `start()` and `stop()`. */
@@ -301,9 +312,8 @@ export class SyncEngine {
                 return;
             }
 
-            if (error instanceof SyncHttpError && error.status === 401) {
-                // The session is gone: stop quietly, local data stays usable.
-                this.stop();
+            if (await this.isSessionGone(error)) {
+                await this.forgetUser(generation);
 
                 return;
             }
@@ -323,6 +333,47 @@ export class SyncEngine {
                     : 'error',
             );
         }
+    }
+
+    /**
+     * A 401 means the session is gone. A 419 on push usually means the same
+     * (the XSRF token of an ended session), but it is confirmed with a pull,
+     * which needs no token, before anything gets wiped.
+     */
+    private async isSessionGone(error: unknown): Promise<boolean> {
+        if (!(error instanceof SyncHttpError)) {
+            return false;
+        }
+
+        if (error.status === 419) {
+            try {
+                await this.transport.pull(0, 1);
+
+                return false;
+            } catch (probeError) {
+                return (
+                    probeError instanceof SyncHttpError &&
+                    probeError.status === 401
+                );
+            }
+        }
+
+        return error.status === 401;
+    }
+
+    /**
+     * The user is no longer signed in on this device: their data must not
+     * stay behind (shared devices) nor be pushed by anyone later, so the
+     * database is wiped, unsynced changes included. Runs under the sync lock.
+     */
+    private async forgetUser(generation: number): Promise<void> {
+        if (generation !== this.generation) {
+            return;
+        }
+
+        await wipeLocalDatabase(this.db);
+        this.stop();
+        this.onSessionExpired();
     }
 
     /** Final status of a successful run: quarantined records keep `error`. */

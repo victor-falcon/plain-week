@@ -7,6 +7,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- **Logging out leaves nothing behind and shows the demo again.** Logout wipes every local table and flag, so the
+  planner starts over like a first-time guest with the demo tasks. When sync finds the session gone (`401`, or a `419`
+  confirmed by a `401`) or a guest page finds a signed-out user's data, the device is wiped the same way instead of
+  keeping it visible. Other open tabs reload into the guest state. A guest's own tasks are never wiped.
+
 ## [0.0.6] - 2026-10-16
 
 ### Added

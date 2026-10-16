@@ -130,7 +130,9 @@ a `422` (it is not clamped).
   user logs in, the local database is wiped first.
 - Guest to account: guest data is already in the outbox, so the first authenticated sync pushes it and guest work is
   kept. Untouched demo tasks are deleted first and never pushed ([Guest onboarding](#guest-onboarding-demo-tasks)).
-- Logout wipes the local database (privacy on shared devices), except the `demo_seeded` flag.
+- Leaving a session wipes the local database completely (privacy on shared devices): on logout, when sync finds the
+  session gone, and when a guest page finds data a signed-out user left behind. The device is then a first-time guest's,
+  so the demo tasks come back. A guest's own data (no `user_id`) is never wiped on load.
 - The engine exposes a sync status for the UI: `idle` | `syncing` | `offline` | `error`.
 
 ## Client data layer
@@ -311,7 +313,10 @@ defaults them to `null` on pull.
   the outbox. If a pending local change is older than the remote record, the server would refuse it anyway, so the
   remote record is applied and the pending entry dropped: both sides converge.
 - Errors:
-    - `401` stops the engine quietly; local data stays usable and sync resumes on the next page load with a session.
+    - `401` means the session is gone (expired, logged out elsewhere): the engine wipes the local database under the
+      lock, unsynced changes included, stops, and `onSessionExpired` tells the other tabs and reloads the page as a
+      guest. A `419` on push (the XSRF token of an ended session) is confirmed first with a `pull` (no token needed):
+      only a `401` there wipes; otherwise it is an ordinary `error`.
     - `422`/`413` are permanent: the batch is split until the invalid records are isolated; each is quarantined
       (`failed_revision` = its revision, logged with `console.warn`) and skipped until the task changes again. The rest
       of the outbox and the pull carry on; the status stays `error` while a record is quarantined.
@@ -322,8 +327,13 @@ defaults them to `null` on pull.
   `offline` or `error`.
 - Logout: the logout links use `useLogout()` → `logOut()`. It forces a sync; if changes are still pending (offline,
   errors) it asks before discarding them. Then it ends the server session (`POST /logout`) and only after that wipes
-  the local database under the sync lock and tells other tabs (BroadcastChannel) to stop their engines. If the server
+  the local database under the sync lock (every table and meta key, onboarding flags included) and tells other tabs
+  (BroadcastChannel `plain-week-session`), which stop their engines and reload into the guest state. If the server
   logout fails, nothing is wiped and syncing resumes.
+- Session ended without a logout on this device: on guest pages `SyncProvider` calls `forgetEndedSession()`. If
+  `meta.user_id` is set, it asks the server (`GET /sync/pull?limit=1`); only a `401` wipes the database, tells other
+  tabs and reloads as a guest. Offline, or when the server still knows the user (a stale offline shell), nothing
+  changes. Guest data has no `user_id`, so a guest never triggers it.
 - HTTP: `fetchTransport` calls `/sync/push` and `/sync/pull` (Wayfinder helpers `@/routes/sync`) with `credentials: 'same-origin'`, `Accept:
 application/json` and the `X-XSRF-TOKEN` header from Laravel's `XSRF-TOKEN` cookie.
 
@@ -336,9 +346,10 @@ edit, drag, color, timed tasks first, right click, a weekly series on Friday, So
   `seedDemoTasks` (`lib/db/demo-tasks.ts`). A small transaction claims the onboarding: it sets `meta.demo_seeded` and
   goes on only if the flag was absent, there is no `meta.user_id` and no task at all. The tasks are then created
   through the repository with `{ demo: true }`, so each write puts its rows in `meta.demo_ids` without an outbox entry
-  in its own transaction (a seed cut short leaves fewer demo tasks, never something to push). The flag is never
-  cleared (logout keeps it with `wipeLocalDatabase(db, { onboarded: true })`), so the demo never comes back, not even
-  after the user deletes every demo task or when a user logs out back into a guest.
+  in its own transaction (a seed cut short leaves fewer demo tasks, never something to push). The flag stays
+  while the device keeps its data, so the demo never comes back after the guest deletes every demo task. Leaving a
+  session (logout, or a session found gone) wipes it with everything else, so the device is a first-time guest again
+  and the demo is seeded on the next planner view.
 - **Never synced.** A demo row has no outbox entry, so it is never pushed and does not count as pending work (the guest
   "save" button stays off until the guest makes a change).
 - **Becoming real.** `write()` in `lib/db/tasks.ts` calls `trackDemoRows` (`lib/db/demo.ts`) in the same transaction.
