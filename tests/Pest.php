@@ -104,7 +104,7 @@ function enableSaas(): FakeStripe
         'saas.enabled' => true,
         'saas.launch_coupon' => 'LAUNCH75',
         'cashier.secret' => 'sk_test_fake',
-        'cashier.webhook.secret' => null,
+        'cashier.webhook.secret' => 'whsec_test',
     ]);
 
     $prices = [

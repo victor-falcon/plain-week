@@ -18,7 +18,14 @@ afterEach(fn () => FakeStripe::uninstall());
  */
 function webhook(string $type, array $object): TestResponse
 {
-    return test()->postJson('/stripe/webhook', ['id' => 'evt_test', 'type' => $type, 'data' => ['object' => $object]]);
+    $payload = json_encode(['id' => 'evt_test', 'type' => $type, 'data' => ['object' => $object]], JSON_THROW_ON_ERROR);
+    $timestamp = time();
+    $signature = hash_hmac('sha256', "{$timestamp}.{$payload}", 'whsec_test');
+
+    return test()->call('POST', '/stripe/webhook', server: [
+        'CONTENT_TYPE' => 'application/json',
+        'HTTP_STRIPE_SIGNATURE' => "t={$timestamp},v1={$signature}",
+    ], content: $payload);
 }
 
 /**
@@ -110,8 +117,34 @@ test('subscription events from Cashier keep working: created, then deleted ends 
     expect($user->refresh()->hasAccess())->toBeFalse();
 });
 
-test('the webhook rejects unsigned events when a secret is set', function () {
-    config(['cashier.webhook.secret' => 'whsec_test']);
+test('the webhook rejects events with a bad signature', function () {
+    $user = User::factory()->create(['stripe_id' => 'cus_test']);
 
-    webhook('checkout.session.completed', lifetimeSession())->assertForbidden();
+    $this->postJson('/stripe/webhook', ['id' => 'evt_test', 'type' => 'checkout.session.completed', 'data' => ['object' => lifetimeSession()]])
+        ->assertForbidden();
+
+    expect($user->refresh()->hasLifetime())->toBeFalse();
+});
+
+test('the webhook refuses every event when no signing secret is set', function () {
+    config(['cashier.webhook.secret' => null]);
+    $user = User::factory()->create(['stripe_id' => 'cus_test']);
+
+    $this->postJson('/stripe/webhook', ['id' => 'evt_test', 'type' => 'checkout.session.completed', 'data' => ['object' => lifetimeSession()]])
+        ->assertStatus(503);
+
+    expect($user->refresh()->hasLifetime())->toBeFalse();
+});
+
+test('a retried event cancels the weekly plan if cancelling failed the first time', function () {
+    $user = weeklySubscriber();
+    $user->forceFill(['lifetime_purchased_at' => now(), 'lifetime_payment_id' => 'pi_test'])->save();
+    $this->stripe
+        ->on('post', '/v1/subscriptions/sub_test', stripeSubscription(['cancel_at_period_end' => true]))
+        ->on('get', '/v1/subscription_items/si_test', ['id' => 'si_test', 'object' => 'subscription_item', 'current_period_end' => now()->addDay()->timestamp]);
+
+    webhook('checkout.session.completed', lifetimeSession())->assertOk();
+
+    expect($this->stripe->lastRequest('post', '/v1/subscriptions/sub_test'))->not->toBeNull()
+        ->and($user->refresh()->subscription('default')?->onGracePeriod())->toBeTrue();
 });

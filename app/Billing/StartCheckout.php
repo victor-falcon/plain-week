@@ -21,6 +21,10 @@ class StartCheckout
             'success_url' => route('billing.success').'?session_id={CHECKOUT_SESSION_ID}',
             'cancel_url' => route('billing.plans'),
             'metadata' => ['plan' => $plan->value],
+            // The owner is the seller and Stripe only the processor (see the terms), not the merchant of record.
+            'managed_payments' => ['enabled' => false],
+            // Stripe Tax needs the billing address entered in Checkout saved on the customer.
+            'customer_update' => ['address' => 'auto'],
             'consent_collection' => ['terms_of_service' => 'required'],
             'custom_text' => [
                 'terms_of_service_acceptance' => [

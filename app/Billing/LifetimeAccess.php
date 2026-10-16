@@ -12,15 +12,14 @@ class LifetimeAccess
      */
     public function grant(User $user, ?string $paymentId = null): void
     {
-        if ($user->hasLifetime() && $user->lifetime_payment_id === $paymentId) {
-            return;
+        if (! $user->hasLifetime() || ($paymentId !== null && $user->lifetime_payment_id !== $paymentId)) {
+            $user->forceFill([
+                'lifetime_purchased_at' => $user->lifetime_purchased_at ?? now(),
+                'lifetime_payment_id' => $paymentId ?? $user->lifetime_payment_id,
+            ])->save();
         }
 
-        $user->forceFill([
-            'lifetime_purchased_at' => $user->lifetime_purchased_at ?? now(),
-            'lifetime_payment_id' => $paymentId ?? $user->lifetime_payment_id,
-        ])->save();
-
+        // Also on a repeated grant: if cancelling failed before, the retried webhook cancels now.
         $subscription = $user->subscription('default');
 
         if ($subscription?->active() && ! $subscription->onGracePeriod()) {

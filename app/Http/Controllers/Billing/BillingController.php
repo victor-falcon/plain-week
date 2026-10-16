@@ -48,7 +48,10 @@ class BillingController extends Controller
     {
         $user = $this->user($request);
 
-        if ($user->hasLifetime() || ($plan === Plan::Weekly && $user->hasAccess())) {
+        // A subscription that has not ended (even unpaid) is fixed in the portal, never doubled.
+        $subscription = $user->subscription('default');
+
+        if ($user->hasLifetime() || ($plan === Plan::Weekly && $subscription !== null && ! $subscription->ended())) {
             if ($this->wantsPlainJson($request)) {
                 return response()->json(['message' => __('You already have this plan.')], 409);
             }
@@ -93,7 +96,9 @@ class BillingController extends Controller
         return Inertia::render('settings/billing', [
             'plan' => $plan?->value,
             'lifetimeSince' => $user->lifetime_purchased_at?->toIso8601String(),
-            'subscription' => $plan === Plan::Weekly && $subscription !== null ? [
+            // Also an unpaid one (past due, incomplete): the portal is where its payment gets fixed.
+            'subscription' => $plan !== Plan::Lifetime && $subscription !== null && ! $subscription->ended() ? [
+                'paymentFailed' => $subscription->pastDue() || $subscription->hasIncompletePayment(),
                 'cancelled' => $subscription->onGracePeriod(),
                 'endsAt' => $subscription->ends_at?->toIso8601String(),
                 'renewsAt' => $subscription->onGracePeriod() ? null : $subscription->currentPeriodEnd()?->toIso8601String(),

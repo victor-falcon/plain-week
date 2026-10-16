@@ -3,6 +3,7 @@
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
+use Stripe\Exception\InvalidRequestException;
 use Tests\Support\FakeStripe;
 
 uses(RefreshDatabase::class);
@@ -36,6 +37,9 @@ test('weekly checkout starts a tax-calculated subscription that requires accepti
             'tax_id_collection' => ['enabled' => true],
             'consent_collection' => ['terms_of_service' => 'required'],
             'metadata' => ['plan' => 'weekly'],
+            // The fake sees the form encoding: booleans are strings.
+            'managed_payments' => ['enabled' => 'false'],
+            'customer_update' => ['address' => 'auto', 'name' => 'auto'],
         ])
         ->and($session['line_items'])->toBe([['price' => 'price_weekly', 'quantity' => 1]])
         ->and($session)->not->toHaveKey('discounts')
@@ -89,6 +93,37 @@ test('a weekly subscriber can upgrade to lifetime but not subscribe again', func
     $this->post(route('billing.checkout', 'weekly'))->assertRedirect(route('billing.edit'));
     $this->postJson(route('billing.checkout', 'weekly'))->assertStatus(409);
     $this->post(route('billing.checkout', 'lifetime'))->assertRedirect('https://checkout.stripe.com/c/pay/cs_test');
+});
+
+test('an unpaid weekly subscription is fixed in the portal, not doubled', function (string $status) {
+    $this->actingAs(weeklySubscriber($status));
+    $this->stripe->on('get', '/v1/subscription_items/si_test', ['id' => 'si_test', 'object' => 'subscription_item', 'current_period_end' => now()->timestamp]);
+
+    $this->post(route('billing.checkout', 'weekly'))->assertRedirect(route('billing.edit'));
+    expect($this->stripe->lastRequest('post', '/v1/checkout/sessions'))->toBeNull();
+
+    $this->get(route('billing.edit'))->assertInertia(fn (Assert $page) => $page
+        ->where('plan', null)
+        ->where('subscription.paymentFailed', true)
+        ->where('hasStripeCustomer', true));
+})->with(['past_due', 'incomplete']);
+
+test('a missing launch coupon shows and charges the regular price', function () {
+    config(['saas.launch_coupon' => 'GONE']);
+    $this->stripe->on('get', '/v1/coupons/GONE', fn () => throw new InvalidRequestException('No such coupon'));
+    $this->actingAs(User::factory()->create());
+
+    $this->getJson(route('billing.plans'))->assertOk()->assertJsonPath('plans.lifetime.price', '€64');
+    $this->post(route('billing.checkout', 'lifetime'))->assertRedirect();
+    expect($this->stripe->lastRequest('post', '/v1/checkout/sessions'))->not->toHaveKey('discounts');
+});
+
+test('an unknown checkout session id waits on the paywall instead of failing', function () {
+    $this->actingAs(User::factory()->create(['stripe_id' => 'cus_test']));
+    $this->stripe->on('get', '/v1/checkout/sessions/cs_bogus', fn () => throw new InvalidRequestException('No such checkout.session'));
+
+    $this->get(route('billing.success', ['session_id' => 'cs_bogus']))
+        ->assertRedirect(route('billing.plans', ['processing' => 1]));
 });
 
 test('a lifetime account cannot buy again', function (string $plan) {

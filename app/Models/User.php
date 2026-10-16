@@ -73,12 +73,14 @@ class User extends Authenticatable implements MustVerifyEmail, PasskeyUser
     }
 
     /**
-     * The plan that gives access: lifetime wins over a subscription that is
-     * active or cancelled but still in its paid period.
+     * The plan that gives access in SaaS mode (null when it is off): lifetime
+     * wins over a subscription that is active or cancelled but still in its
+     * paid period.
      */
     public function plan(): ?Plan
     {
         return match (true) {
+            ! config('saas.enabled') => null,
             $this->hasLifetime() => Plan::Lifetime,
             $this->subscribed('default') => Plan::Weekly,
             default => null,

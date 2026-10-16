@@ -5,6 +5,7 @@ namespace App\Billing;
 use Illuminate\Support\Facades\Cache;
 use Laravel\Cashier\Cashier;
 use RuntimeException;
+use Stripe\Exception\InvalidRequestException;
 use Stripe\Price;
 
 /**
@@ -40,8 +41,6 @@ class StripeCatalog
         });
 
         if ($price === null) {
-            Cache::forget("saas.price.{$key}");
-
             throw new RuntimeException("No active Stripe price has the lookup key [{$key}].");
         }
 
@@ -59,8 +58,15 @@ class StripeCatalog
             return null;
         }
 
+        // Only percent-off coupons are supported; a missing or expired one means no discount.
         $percent = Cache::remember("saas.coupon.{$coupon}", self::TTL_SECONDS, function () use ($coupon) {
-            $stripeCoupon = Cashier::stripe()->coupons->retrieve($coupon);
+            try {
+                $stripeCoupon = Cashier::stripe()->coupons->retrieve($coupon);
+            } catch (InvalidRequestException $e) {
+                report($e);
+
+                return 0.0;
+            }
 
             return $stripeCoupon->valid ? (float) $stripeCoupon->percent_off : 0.0;
         });

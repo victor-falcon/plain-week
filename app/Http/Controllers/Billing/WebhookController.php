@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Billing;
 use App\Billing\FulfillCheckout;
 use App\Billing\LifetimeAccess;
 use App\Models\User;
+use Illuminate\Http\Request;
 use Laravel\Cashier\Http\Controllers\WebhookController as CashierWebhookController;
 use Stripe\Checkout\Session;
 use Symfony\Component\HttpFoundation\Response;
@@ -15,6 +16,17 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class WebhookController extends CashierWebhookController
 {
+    /**
+     * Without a signing secret Cashier skips the signature check, and a forged
+     * event could grant lifetime access: refuse every event instead.
+     */
+    public function handleWebhook(Request $request): Response
+    {
+        abort_if(blank(config('cashier.webhook.secret')), 503, 'STRIPE_WEBHOOK_SECRET is not set.');
+
+        return parent::handleWebhook($request);
+    }
+
     /**
      * Stores a subscription the way `customer.subscription.created` does (a
      * no-op if it is already stored).

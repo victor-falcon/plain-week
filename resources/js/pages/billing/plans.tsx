@@ -1,5 +1,6 @@
 import { Head, Link, usePoll } from '@inertiajs/react';
 import { Check } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import AppLogoIcon from '@/components/app-logo-icon';
 import { LegalLinks } from '@/components/billing/legal-links';
 import { LifetimePrice } from '@/components/billing/lifetime-price';
@@ -17,7 +18,9 @@ import {
 import { Spinner } from '@/components/ui/spinner';
 import { useCheckout } from '@/hooks/use-checkout';
 import { useLogout } from '@/hooks/use-logout';
+import TextLink from '@/components/text-link';
 import { home } from '@/routes';
+import { edit as editData } from '@/routes/data';
 
 type Props = {
     plans: Offers;
@@ -43,11 +46,34 @@ function Features() {
     );
 }
 
-/** Polls until Stripe confirms the payment; the server then redirects to the planner. */
-function ProcessingNotice() {
-    usePoll(2000);
+const POLL_LIMIT_MS = 60_000;
 
-    return (
+/**
+ * Polls until Stripe confirms the payment (the server then redirects to the
+ * planner), for a minute at most: a delayed payment method can take days.
+ */
+function ProcessingNotice() {
+    const { stop } = usePoll(2000);
+    const [timedOut, setTimedOut] = useState(false);
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            stop();
+            setTimedOut(true);
+        }, POLL_LIMIT_MS);
+
+        return () => clearTimeout(timer);
+    }, [stop]);
+
+    return timedOut ? (
+        <Alert>
+            <AlertTitle>Your payment is still being confirmed</AlertTitle>
+            <AlertDescription>
+                Some payment methods take a while. Sync starts on its own once
+                it is confirmed; reload this page later to check.
+            </AlertDescription>
+        </Alert>
+    ) : (
         <Alert>
             <Spinner />
             <AlertTitle>Confirming your payment…</AlertTitle>
@@ -151,9 +177,12 @@ export default function Plans({ plans, processing }: Props) {
                     >
                         Log out
                     </Button>
-                    <span className="text-xs">
-                        Without an account, Plain Week keeps working on this
-                        device only.
+                    <span className="max-w-md text-xs">
+                        Logging out removes this account's tasks from this
+                        device; you can then keep using Plain Week here without
+                        an account.{' '}
+                        <TextLink href={editData()}>Export your tasks</TextLink>{' '}
+                        first to keep a copy.
                     </span>
                 </div>
 

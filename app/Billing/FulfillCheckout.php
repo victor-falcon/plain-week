@@ -6,6 +6,7 @@ use App\Http\Controllers\Billing\WebhookController;
 use App\Models\User;
 use Laravel\Cashier\Cashier;
 use Stripe\Checkout\Session;
+use Stripe\Exception\ApiErrorException;
 
 /**
  * Applies a completed Checkout session: a paid lifetime purchase grants
@@ -26,13 +27,24 @@ class FulfillCheckout
      */
     public function forUser(User $user, string $sessionId): bool
     {
-        $session = Cashier::stripe()->checkout->sessions->retrieve($sessionId, ['expand' => ['subscription']]);
+        try {
+            $session = Cashier::stripe()->checkout->sessions->retrieve($sessionId, ['expand' => ['subscription']]);
+        } catch (ApiErrorException $e) {
+            report($e);
+
+            return $user->hasAccess();
+        }
 
         if ($user->stripe_id === null || $session->customer !== $user->stripe_id) {
             return $user->hasAccess();
         }
 
-        $this->fulfill($user, $session);
+        try {
+            $this->fulfill($user, $session);
+        } catch (ApiErrorException $e) {
+            // E.g. cancelling the weekly plan after a lifetime purchase; the webhook retries it.
+            report($e);
+        }
 
         return $user->refresh()->hasAccess();
     }
@@ -44,7 +56,7 @@ class FulfillCheckout
         }
 
         if ($session->mode === Session::MODE_PAYMENT) {
-            if (($session->metadata['plan'] ?? null) === Plan::Lifetime->value
+            if (Plan::tryFrom($session->metadata['plan'] ?? '') === Plan::Lifetime
                 && $session->payment_status === Session::PAYMENT_STATUS_PAID) {
                 $this->lifetime->grant($user, is_string($session->payment_intent) ? $session->payment_intent : $session->payment_intent?->id);
             }

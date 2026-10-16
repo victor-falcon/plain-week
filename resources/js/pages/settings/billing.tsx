@@ -21,6 +21,7 @@ type Props = {
     plan: Plan | null;
     lifetimeSince: string | null;
     subscription: {
+        paymentFailed: boolean;
         cancelled: boolean;
         endsAt: string | null;
         renewsAt: string | null;
@@ -50,6 +51,18 @@ function CurrentPlan({
                     {lifetimeSince
                         ? `Yours since ${formatDate(lifetimeSince)}. Sync is included for good.`
                         : 'Sync is included for good.'}
+                </CardDescription>
+            </>
+        );
+    }
+
+    if (subscription?.paymentFailed) {
+        return (
+            <>
+                <CardTitle>Weekly: payment failed</CardTitle>
+                <CardDescription>
+                    Update your payment method to keep syncing. Your tasks stay
+                    on this device meanwhile.
                 </CardDescription>
             </>
         );
@@ -112,17 +125,24 @@ export default function Billing({
                         />
                     </CardHeader>
                     <CardFooter className="gap-2">
-                        {plan === null && (
+                        {plan === null && subscription === null && (
                             <Button asChild>
                                 <Link href={plans()}>Choose a plan</Link>
                             </Button>
                         )}
-                        {hasStripeCustomer && plan !== null && (
-                            <Button variant="outline" asChild>
+                        {hasStripeCustomer && (
+                            <Button
+                                variant={
+                                    subscription?.paymentFailed
+                                        ? 'default'
+                                        : 'outline'
+                                }
+                                asChild
+                            >
                                 <a href={portal.url()}>
-                                    {plan === 'weekly'
-                                        ? 'Manage subscription'
-                                        : 'Invoices'}
+                                    {subscription === null
+                                        ? 'Invoices'
+                                        : 'Manage subscription'}
                                 </a>
                             </Button>
                         )}

@@ -28,7 +28,9 @@ It is used by:
 | Inertia shared props                  | `saas.enabled`, `account: { hasAccess, plan } \| null` (null for guests)      |
 | `SyncProvider` and the sync engine    | The engine does not start; a `402` stops it, keeps local data, shows `/plans` |
 
-Settings (profile, security, data) stay reachable without a plan, so an account can always be deleted.
+Settings (profile, security, data) stay reachable without a plan, so an account can always export its tasks or be
+deleted; the paywall links to the export. A weekly subscription whose payment failed (`past_due`, `incomplete`) gives
+no access but blocks a second weekly checkout: Settings › Billing shows it with the portal to fix the card.
 
 ## Routes
 
@@ -56,6 +58,9 @@ waives the EU 14-day withdrawal right, and success/cancel URLs back to the app. 
 invoice. Prices and the coupon are looked up by `App\Billing\StripeCatalog` and cached for an hour.
 
 The terms-of-service consent needs a Terms of Service URL in the Stripe Dashboard (Settings › Public details).
+Checkout passes `managed_payments[enabled]=false`: the owner is the seller and Stripe only the processor (Managed
+Payments, on by default on new accounts, would make Stripe the merchant of record and rejects `custom_text`). The
+billing address entered in Checkout is saved on the customer (`customer_update[address]=auto`) for Stripe Tax.
 
 ## Fulfillment and webhooks
 
@@ -69,7 +74,12 @@ the webhook) and from the webhook (so it also happens when the user never comes 
 | `charge.refunded`                                                        | A full refund of the lifetime payment intent revokes lifetime            |
 | `customer.subscription.*`, `customer.*`, `invoice.*`                     | Cashier: stores and updates the weekly subscription; deleted ends access |
 
-Buying lifetime while subscribed weekly cancels the subscription at the end of its paid period.
+Buying lifetime while subscribed weekly cancels the subscription at the end of its paid period (retried with the
+webhook if Stripe fails). Not handled automatically: refunds of weekly payments (cancel in the portal or Dashboard),
+lost disputes and a second lifetime payment (refund it in the Dashboard; the last payment is the one a refund revokes).
+
+The webhook refuses every event (`503`) while `STRIPE_WEBHOOK_SECRET` is empty, since Cashier would otherwise skip
+the signature check.
 
 ## Manual grants
 
