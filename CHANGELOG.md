@@ -17,8 +17,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Key hints for mouse and trackpad users.** Hovering a task shows `o`, an empty row `a`; the header tooltips show
   `t`, `H` / `←` and `L` / `→`; the task menu and the task dialog's More menu show each item's key (which also picks
   the item while the menu is open); a quiet "? Keyboard shortcuts" button sits at the end of the planner. All read
-  from the shortcut list, and never shown on touch screens. With no keyboard cursor, keys act on the row under the
-  mouse.
+  from the shortcut list, and never shown on touch screens. With no keyboard cursor, `o` and `a` act on the row under
+  the mouse.
 - **Task dialog keys.** With focus in the dialog but not in a text field: `d` date, `t` time, `r` repeat, `c` color,
   `m` More, `e` title, `n` notes, `a` add a subtask, `x` done, `>` next day, `w` next week, `s` Someday, `y`
   duplicate, Delete delete, Esc close. They show in the toolbar tooltips and in a "Task dialog" group of the `?`

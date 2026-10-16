@@ -15,7 +15,7 @@ import {
     useTaskEditorSession,
 } from './task-editor';
 import { TaskMoreMenu, useQuickActions } from './task-more-menu';
-import { TaskRepeatPicker } from './task-repeat-picker';
+import { TaskRepeatPicker, canRepeat } from './task-repeat-picker';
 import { TaskSubtasks } from './task-subtasks';
 import { TaskTimePicker } from './task-time-picker';
 import { ToolbarPickerContext } from './toolbar-picker';
@@ -73,7 +73,7 @@ function TaskDialogSession({
 }
 
 function TaskDialogContent({ onClose }: { onClose: () => void }) {
-    const { task, write, edit, askScope } = useTaskEditor();
+    const { task, series, write, edit, askScope } = useTaskEditor();
     const contentRef = useRef<HTMLDivElement>(null);
     const titleRef = useRef<HTMLTextAreaElement>(null);
     const notesRef = useRef<HTMLTextAreaElement>(null);
@@ -99,9 +99,12 @@ function TaskDialogContent({ onClose }: { onClose: () => void }) {
     };
 
     const handleShortcut = useTaskDialogShortcuts({
-        'dialog.date': () => setPicker('date'),
+        // A disabled picker stays closed (and is not opened later).
+        'dialog.date': () =>
+            task.kind === 'series' ? false : setPicker('date'),
         'dialog.time': () => setPicker('time'),
-        'dialog.repeat': () => setPicker('repeat'),
+        'dialog.repeat': () =>
+            canRepeat(task, series) ? setPicker('repeat') : false,
         'dialog.color': () => setPicker('color'),
         'dialog.more': () => setPicker('more'),
         'dialog.title': () => focusField(titleRef.current),
@@ -114,9 +117,10 @@ function TaskDialogContent({ onClose }: { onClose: () => void }) {
             ),
         'dialog.toggleDone': () =>
             write((id) => toggleDone(id), { follow: true }),
-        'dialog.nextDay': () => quick.canMove && quick.tomorrow(),
-        'dialog.nextWeek': () => quick.canMove && quick.nextWeek(),
-        'dialog.someday': () => quick.canMoveToSomeday && quick.someday(),
+        'dialog.nextDay': () => (quick.canMove ? quick.tomorrow() : false),
+        'dialog.nextWeek': () => (quick.canMove ? quick.nextWeek() : false),
+        'dialog.someday': () =>
+            quick.canMoveToSomeday ? quick.someday() : false,
         'dialog.duplicate': quick.duplicate,
         'dialog.delete': () => void handleDelete(),
     });

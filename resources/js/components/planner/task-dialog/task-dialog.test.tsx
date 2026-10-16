@@ -475,6 +475,36 @@ describe('TaskDialog keys', () => {
         expect((await stored(task.id))?.done).toBe(false);
     });
 
+    it('leaves the subtasks their own keys: Delete or x there never acts on the task', async () => {
+        const { task, user, dialog } = await open({
+            subtasks: [{ id: 's1', text: 'Book hotel', done: false }],
+        });
+
+        within(dialog)
+            .getByRole('button', { name: 'Delete "Book hotel"' })
+            .focus();
+        await user.keyboard('{Delete}x');
+        within(dialog)
+            .getByRole('checkbox', { name: 'Complete "Book hotel"' })
+            .focus();
+        await user.keyboard('{Delete}{Backspace}');
+
+        expect(screen.getByRole('dialog', { name: 'Edit task' })).toBeTruthy();
+        expect(await stored(task.id)).toMatchObject({
+            deleted_at: null,
+            done: false,
+        });
+    });
+
+    it('does not delete the task with Backspace', async () => {
+        const { task, user } = await open();
+
+        await user.keyboard('{Backspace}');
+
+        expect(screen.getByRole('dialog', { name: 'Edit task' })).toBeTruthy();
+        expect((await stored(task.id))?.deleted_at).toBeNull();
+    });
+
     // Last: Sonner keeps the "Task deleted." toast across tests.
     it('deletes the task and closes with Delete', async () => {
         const { task, user } = await open();

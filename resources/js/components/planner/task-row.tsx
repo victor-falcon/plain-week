@@ -3,13 +3,11 @@ import { CircleCheck, GripVertical, Repeat } from 'lucide-react';
 import {
     CURSOR_ROW_CLASS,
     useCursorFocus,
+    useKeyboardCursor,
 } from '@/components/planner/keyboard-cursor';
 import { usePlannerDnd } from '@/components/planner/planner-dnd';
 import { useScopedAction } from '@/components/planner/scope-prompt';
-import {
-    ROW_HINT_KEY_CLASS,
-    ShortcutHint,
-} from '@/components/planner/shortcut-hint';
+import { ShortcutHint } from '@/components/planner/shortcut-hint';
 import { TaskContextMenu } from '@/components/planner/task-context-menu';
 import { Button } from '@/components/ui/button';
 import {
@@ -153,6 +151,9 @@ export function TaskRow({
     className,
 }: Props) {
     const openRef = useCursorFocus<HTMLButtonElement>(isCursor);
+    // While the keyboard cursor is shown, keys act on its row, not on the
+    // hovered one: only the cursor's row shows the hint then.
+    const cursorShown = useKeyboardCursor() !== null;
     const repeat = useTaskRepeat(task);
     const label = [
         task.time,
@@ -234,8 +235,12 @@ export function TaskRow({
                         a long text gives way to it instead of being covered. */}
                     <ShortcutHint
                         action="task.open"
-                        className="ms-auto max-w-0 overflow-hidden opacity-0 transition-[max-width,opacity] duration-200 group-hover/task:max-w-8 group-hover/task:opacity-100 group-data-cursor/task:max-w-8 group-data-cursor/task:opacity-100"
-                        keyClassName={ROW_HINT_KEY_CLASS}
+                        size="row"
+                        className={cn(
+                            'ms-auto max-w-0 overflow-hidden opacity-0 transition-[max-width,opacity] duration-200 group-data-cursor/task:max-w-8 group-data-cursor/task:opacity-100',
+                            !cursorShown &&
+                                'group-hover/task:max-w-8 group-hover/task:opacity-100',
+                        )}
                     />
                 </Button>
                 <Button

@@ -304,7 +304,8 @@ export const SHORTCUTS: ShortcutDefinition[] = [
     },
     {
         id: 'dialog.delete',
-        keys: [['Delete'], ['Backspace']],
+        // Not Backspace: easy to press by reflex after typing.
+        keys: [['Delete']],
         label: 'Delete',
         group: 'Task dialog',
     },

@@ -536,8 +536,9 @@ writes the local database (`moveTask`); sync follows in the background.
   so timed tasks keep their place by time; `<` / `>` change the week when the task leaves it), and the context menu's
   `moveWithUndo` (`w`, `s`), `duplicateWithToast` (`y`) and `deleteWithUndo` (`d d`, asking the scope of a recurring
   task first). `m` opens the context menu anchored to the row's start, like Shift+F10. `a` / `i` with no cursor
-  start a task today. With no cursor shown and no row focused, keys act on the row under the mouse, which is what its
-  hint (`o`, `a`) promises. While a task's move or delete is still being written, further moves or deletes of it are
+  start a task today. With no cursor shown and no row focused, `o` and `a` act on the row under the mouse, which is
+  what its hint promises; other keys (deletes, moves) never act on a row the mouse merely rests on. While the cursor
+  is shown, only its row shows a hint. While a task's move or delete is still being written, further moves or deletes of it are
   ignored, so a quick second press never acts on its old state. `u` presses the newest "Undo" toast still on screen,
   then the one before it (after a toast closes, undoing could overwrite later edits); `<` / `>` / `J` / `K` keep the
   task in view and show no toast, like a drag. `,` opens Settings (signed-in users only; guests have no settings
@@ -545,8 +546,10 @@ writes the local database (`moveTask`); sync follows in the background.
 - The registry has two contexts: the planner keys (`PLANNER_SHORTCUTS`) and the task dialog's ("Task dialog" group,
   `TASK_DIALOG_SHORTCUTS`); a key is unique within its context only (`d` is the date in the dialog, `d d` deletes on
   the planner). The dialog's keys are plain keys, so they run only while focus is in the dialog but not in a text
-  field nor in one of its popovers or menus (portaled outside the dialog's element), never with Ctrl, Meta or Alt, and
-  never on Enter or Space. Combos inside text fields were left out: `Alt+letter` types characters on macOS and opens
+  field nor in one of its popovers or menus (portaled outside the dialog's element), nor in a part with keys of its own
+  (`data-own-keys`: the subtasks, so Delete on a subtask's button never deletes the task), never with Ctrl, Meta or
+  Alt, and never on Enter or Space. Delete deletes the task, Backspace does not (easy to press by reflex). A key for a
+  disabled picker (`d` on a series row, `r` on a Someday task) does nothing. Combos inside text fields were left out: `Alt+letter` types characters on macOS and opens
   browser menus on Windows, and `Mod+letter` belongs to the browser; Tab leaves a field, and Esc closes the dialog
   from anywhere. There is no `Mod+Enter`: every edit is already saved as it happens. Which toolbar popover is open
   lives in the dialog (`ToolbarPickerContext`, `task-dialog/toolbar-picker.ts`), so `d`, `t`, `r`, `c` and `m` open

@@ -9,25 +9,10 @@ import {
 import { parseDateKey, toDateKey } from '@/lib/db/dates';
 import { moveTask } from '@/lib/db/tasks';
 import { formatLongDate, formatShortDate } from '@/lib/planner/format';
+import { focusCalendarDay } from './calendar-focus';
 import { useTaskEditor } from './task-editor';
 import { useToolbarPicker } from './toolbar-picker';
 import { TOOLBAR_BUTTON_CLASS, ToolbarTooltip } from './toolbar-tooltip';
-
-/**
- * A calendar popover's `onOpenAutoFocus`: focus goes to its day in the tab
- * order (the selected day, else today) instead of its first button (the
- * previous month), so the arrow keys pick a day at once.
- */
-export function focusCalendarDay(event: Event): void {
-    const day = (event.currentTarget as HTMLElement).querySelector<HTMLElement>(
-        '[role="grid"] button[tabindex="0"]',
-    );
-
-    if (day) {
-        event.preventDefault();
-        day.focus();
-    }
-}
 
 /**
  * The task's date ("Mon, 12 Oct 2026", or "Someday"). It opens a calendar

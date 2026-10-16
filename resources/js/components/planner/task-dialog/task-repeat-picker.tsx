@@ -39,11 +39,26 @@ import {
     isValidEvery,
     occurrenceId,
 } from '@/lib/recurrence/expand';
+import type { PlannerTask, SeriesItem } from '@/lib/recurrence/expand';
 import { cn } from '@/lib/utils';
-import { focusCalendarDay } from './task-date-picker';
+import { focusCalendarDay } from './calendar-focus';
 import { useTaskEditor } from './task-editor';
 import { useToolbarPicker } from './toolbar-picker';
 import { TOOLBAR_BUTTON_CLASS, ToolbarTooltip } from './toolbar-tooltip';
+
+/**
+ * Whether the task can get a repeat rule now: not a Someday task, and a
+ * recurring one once its rule has loaded.
+ */
+export function canRepeat(
+    task: PlannerTask,
+    series: SeriesItem | null | undefined,
+): boolean {
+    return (
+        repeatAnchor(task) !== null &&
+        !(isRecurring(task) && series === undefined)
+    );
+}
 
 const DAYS_OF_MONTH = Array.from({ length: 31 }, (_, i) => i + 1);
 
@@ -63,10 +78,7 @@ export function TaskRepeatPicker() {
     const anchor = repeatAnchor(task);
     const current = series?.recurrence ?? null;
     const picker = useToolbarPicker('repeat');
-    // A Someday task cannot repeat; a recurring one waits for its rule to
-    // load.
-    const disabled =
-        anchor === null || (isRecurring(task) && series === undefined);
+    const disabled = !canRepeat(task, series);
     const open = picker.open && !disabled;
     const [draft, setDraft] = useState<RepeatDraft | null>(null);
 

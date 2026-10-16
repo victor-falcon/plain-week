@@ -349,10 +349,15 @@ export function KeyboardCursorProvider({
         return () => window.removeEventListener('focusin', listener);
     }, []);
 
-    /** The cursor to act on: the shown one, the focused row's or the hovered
-     * row's. */
-    const current = (): Cursor | null =>
-        resolved ?? cursorFromFocus(lists) ?? cursorFromHover(lists);
+    /** The cursor to act on: the shown one, or the focused row's. */
+    const current = (): Cursor | null => resolved ?? cursorFromFocus(lists);
+
+    /**
+     * For `o` and `a` only (the keys the rows hint on hover): also the hovered
+     * row's. Destructive keys never act on a row the mouse just rests on.
+     */
+    const currentOrHovered = (): Cursor | null =>
+        current() ?? cursorFromHover(lists);
 
     const taskAt = (at: Cursor): PlannerTask | null => {
         if (at.taskId === null) {
@@ -493,7 +498,7 @@ export function KeyboardCursorProvider({
             }
         },
         'task.open': () => {
-            const at = current();
+            const at = currentOrHovered();
             const task = at && taskAt(at);
 
             if (task) {
@@ -558,7 +563,7 @@ export function KeyboardCursorProvider({
             }
         }),
         'task.new': () => {
-            const at = current() ?? initialCursor(lists, today);
+            const at = currentOrHovered() ?? initialCursor(lists, today);
 
             return at !== null && focusNewTaskInput(at.listKey);
         },

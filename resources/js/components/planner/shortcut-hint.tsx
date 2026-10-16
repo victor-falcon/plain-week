@@ -5,15 +5,14 @@ import type { ShortcutId } from '@/lib/planner/shortcuts';
 import { cn } from '@/lib/utils';
 
 /** Key caps on a ruled row: a little smaller than the dialog's. */
-export const ROW_HINT_KEY_CLASS =
-    'h-5 min-w-5 rounded-md px-1 text-[0.6875rem]';
+const ROW_KEY_CLASS = 'h-5 min-w-5 rounded-md px-1 text-[0.6875rem]';
 
 type Props = {
     action: ShortcutId;
     /** Every binding ("H ←") instead of the main one only ("H"). */
     all?: boolean;
-    /** Classes for each key cap (size, color). */
-    keyClassName?: string;
+    /** `row`: the smaller caps of a ruled row. */
+    size?: 'default' | 'row';
     className?: string;
 };
 
@@ -21,12 +20,13 @@ type Props = {
  * The key that runs `action`, read from the registry, as a small key cap: a
  * hint for mouse and trackpad users. Nothing is rendered on touch devices
  * (`useKeyHints`). Decorative: hidden from screen readers, which get the
- * action's name from the control it hints.
+ * action's name from the control it hints. The direction is read at render,
+ * like the shortcuts dialog does.
  */
 export function ShortcutHint({
     action,
     all = false,
-    keyClassName,
+    size = 'default',
     className,
 }: Props) {
     const show = useKeyHints();
@@ -48,9 +48,27 @@ export function ShortcutHint({
                 <KeyCaps
                     key={index}
                     sequence={sequence}
-                    className={keyClassName}
+                    className={size === 'row' ? ROW_KEY_CLASS : undefined}
                 />
             ))}
+        </span>
+    );
+}
+
+/** A tooltip's text followed by the keys that do the same. */
+export function HintedLabel({
+    label,
+    action,
+    all = false,
+}: {
+    label: string;
+    action: ShortcutId;
+    all?: boolean;
+}) {
+    return (
+        <span className="flex items-center gap-2">
+            {label}
+            <ShortcutHint action={action} all={all} />
         </span>
     );
 }

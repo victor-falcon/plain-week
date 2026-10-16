@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import { ShortcutHint } from '@/components/planner/shortcut-hint';
+import { HintedLabel } from '@/components/planner/shortcut-hint';
 import {
     Tooltip,
     TooltipContent,
@@ -36,10 +36,7 @@ export function ToolbarTooltip({
                 {children}
             </TooltipTrigger>
             <TooltipContent>
-                <span className="flex items-center gap-2">
-                    {label}
-                    {action && <ShortcutHint action={action} />}
-                </span>
+                {action ? <HintedLabel label={label} action={action} /> : label}
             </TooltipContent>
         </Tooltip>
     );

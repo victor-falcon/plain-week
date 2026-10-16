@@ -2,11 +2,9 @@ import type { FocusEvent, KeyboardEvent, Ref } from 'react';
 import {
     CURSOR_ROW_CLASS,
     useCursorFocus,
+    useKeyboardCursor,
 } from '@/components/planner/keyboard-cursor';
-import {
-    ROW_HINT_KEY_CLASS,
-    ShortcutHint,
-} from '@/components/planner/shortcut-hint';
+import { ShortcutHint } from '@/components/planner/shortcut-hint';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 
@@ -35,6 +33,8 @@ export function NewTaskRow({
     className,
 }: Props) {
     const stopRef = useCursorFocus<HTMLDivElement>(isCursor);
+    // Keys act on the cursor's row while it is shown, not the hovered one.
+    const cursorShown = useKeyboardCursor() !== null;
 
     const take = (input: HTMLInputElement): string => {
         const text = input.value.trim();
@@ -102,8 +102,11 @@ export function NewTaskRow({
             {/* `a` starts typing in this list; gone while typing. */}
             <ShortcutHint
                 action="task.new"
-                className="pointer-events-none absolute end-1.5 top-1/2 -translate-y-1/2 opacity-0 transition-opacity duration-200 group-hover/new:opacity-100 group-data-cursor/new:opacity-100 peer-focus:hidden"
-                keyClassName={ROW_HINT_KEY_CLASS}
+                size="row"
+                className={cn(
+                    'pointer-events-none absolute end-1.5 top-1/2 -translate-y-1/2 opacity-0 transition-opacity duration-200 group-data-cursor/new:opacity-100 peer-focus:hidden',
+                    !cursorShown && 'group-hover/new:opacity-100',
+                )}
             />
         </div>
     );

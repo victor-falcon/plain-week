@@ -306,7 +306,8 @@ shortcuts" in the account menu (the menu item's `?` hint is hidden on touch scre
 `ShortcutHint` (`components/planner/shortcut-hint.tsx`) renders the key of an action id from the registry as small
 `Kbd`s (`all` for every binding, left to right even in RTL, hidden from screen readers). It renders nothing unless the
 device can hover with a fine pointer (`useKeyHints`, `(hover: hover) and (pointer: fine)`), so phones and tablets
-never show a hint. Hints sit only where a key helps:
+never show a hint. Row hints show on hover only while the keyboard cursor is hidden (with the cursor shown, keys act
+on its row, which shows the hint). Hints sit only where a key helps:
 
 | Where                              | Hint                                                                                                                                                  |
 | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |

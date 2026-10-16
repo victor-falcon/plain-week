@@ -1,6 +1,6 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { AccountButton } from '@/components/planner/account-button';
-import { ShortcutHint } from '@/components/planner/shortcut-hint';
+import { HintedLabel } from '@/components/planner/shortcut-hint';
 import { Button } from '@/components/ui/button';
 import {
     Tooltip,
@@ -9,7 +9,6 @@ import {
 } from '@/components/ui/tooltip';
 import { formatMonthTitle, formatWeekNumber } from '@/lib/planner/format';
 import { isoWeekNumber, weekThursday } from '@/lib/planner/week';
-import type { ShortcutId } from '@/lib/planner/shortcuts';
 import { cn } from '@/lib/utils';
 
 type Props = {
@@ -19,22 +18,6 @@ type Props = {
     onNextWeek: () => void;
     onToday: () => void;
 };
-
-/** A tooltip's text with the keys that do the same (mouse users only). */
-function TooltipLabel({
-    label,
-    action,
-}: {
-    label: string;
-    action: ShortcutId;
-}) {
-    return (
-        <span className="flex items-center gap-2">
-            {label}
-            <ShortcutHint action={action} all />
-        </span>
-    );
-}
 
 const navButton =
     'size-10 rounded-full bg-foreground text-background hover:bg-foreground/80';
@@ -85,9 +68,10 @@ export function PlannerHeader({
                     </TooltipTrigger>
                     {!isCurrentWeek && (
                         <TooltipContent side="bottom">
-                            <TooltipLabel
+                            <HintedLabel
                                 label="Current week"
                                 action="week.today"
+                                all
                             />
                         </TooltipContent>
                     )}
@@ -115,9 +99,10 @@ export function PlannerHeader({
                         </Button>
                     </TooltipTrigger>
                     <TooltipContent side="bottom">
-                        <TooltipLabel
+                        <HintedLabel
                             label="Previous week"
                             action="week.previous"
+                            all
                         />
                     </TooltipContent>
                 </Tooltip>
@@ -133,7 +118,7 @@ export function PlannerHeader({
                         </Button>
                     </TooltipTrigger>
                     <TooltipContent side="bottom">
-                        <TooltipLabel label="Next week" action="week.next" />
+                        <HintedLabel label="Next week" action="week.next" all />
                     </TooltipContent>
                 </Tooltip>
             </nav>
