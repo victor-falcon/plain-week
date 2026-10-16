@@ -7,6 +7,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- **Today stands out.** Today's day, header and rows, now sits on a soft accent tint with rounded top corners, so it is
+  easy to spot at a glance. Its weekday label is a touch darker to keep its contrast on the tint.
+
+### Fixed
+
+- In dark mode, hovering a task no longer draws a gray box behind it.
+
 ## [0.0.4] - 2026-10-15
 
 ### Added
