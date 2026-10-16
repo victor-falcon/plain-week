@@ -156,21 +156,24 @@ Configuration:
 - The manifest (name, colors from `--background`, icons) lives in `vite.config.ts`; its `<link>` and the
   `theme-color` metas are in `resources/views/app.blade.php`.
 - Icons: `public/pwa-192x192.png`, `public/pwa-512x512.png`, `public/maskable-icon-512x512.png`,
-  `public/apple-touch-icon.png` and `public/favicon.ico`, rendered from `resources/images/pwa/*.svg`. The mark is seven
-  bars on a 32 grid (`favicon-32.svg`; `favicon-16.svg` is the 16 grid for the 16 px favicon), drawn on whole pixels so
-  every size stays crisp. `public/favicon.svg` is the same mark with a dark variant and is edited by hand, as is
-  `resources/js/components/app-logo-icon.tsx`. After editing an SVG, regenerate them (needs `rsvg-convert` from librsvg
-  and ImageMagick's `magick`):
+  `public/apple-touch-icon.png` and `public/favicon.ico`, rendered from `resources/images/pwa/*.svg`. The mark is one
+  continuous line with round caps drawing a lowercase "pw" on a 32 grid. The app icons are white on ink (`#18181B`)
+  with a faint grid behind the line (`icon.svg` for the 192, 512 and Apple touch icons, the mark at about half the
+  icon; `icon-maskable.svg` keeps it inside the safe zone). The favicon is the same line on an ink rounded tile
+  (`favicon-32.svg`; `favicon-16.svg` redraws it on whole pixels so the 16 px frame stays crisp). `public/favicon.svg`
+  is a copy of `favicon-32.svg`; `resources/js/components/app-logo-icon.tsx` is the bare line and is edited by hand.
+  After editing an SVG, regenerate them (needs `rsvg-convert` from librsvg and ImageMagick's `magick`):
 
     ```sh
     rsvg-convert -w 192 -h 192 resources/images/pwa/icon.svg -o public/pwa-192x192.png
     rsvg-convert -w 512 -h 512 resources/images/pwa/icon.svg -o public/pwa-512x512.png
     rsvg-convert -w 512 -h 512 resources/images/pwa/icon-maskable.svg -o public/maskable-icon-512x512.png
-    rsvg-convert -w 180 -h 180 resources/images/pwa/apple-touch-icon.svg -o public/apple-touch-icon.png
+    rsvg-convert -w 180 -h 180 resources/images/pwa/icon.svg -o public/apple-touch-icon.png
     tmp=$(mktemp -d)
     rsvg-convert -w 16 -h 16 resources/images/pwa/favicon-16.svg -o "$tmp/16.png"
     rsvg-convert -w 32 -h 32 resources/images/pwa/favicon-32.svg -o "$tmp/32.png"
     magick "$tmp/16.png" "$tmp/32.png" public/favicon.ico
+    cp resources/images/pwa/favicon-32.svg public/favicon.svg
     ```
 
 - `public/offline.html` is a self-contained page (no build step); its colors mirror the tokens in

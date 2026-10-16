@@ -7,6 +7,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- **New logo: a single line drawing "pw".** One thick continuous line with round ends writes a lowercase "pw", the p's
+  stem dropping below the baseline. It replaces the seven bars in the sidebar and on the auth pages. The browser tab
+  shows it in white on a black rounded tile, and the installed app icons in white on black over a faint grid.
+
 ## [0.0.5] - 2026-10-16
 
 ### Changed

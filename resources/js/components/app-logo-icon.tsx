@@ -2,13 +2,10 @@ import type { SVGAttributes } from 'react';
 
 import { cn } from '@/lib/utils';
 
-// Seven days as bars on a 32 grid: Monday to Friday in ink (currentColor),
-// the weekend in indigo after a slightly wider gap. Same geometry as
-// public/favicon.svg. The colors are the brand's, not theme tokens, so the
-// mark looks the same whatever the preset.
-const WEEKDAYS = [2, 6, 10, 14, 18];
-const WEEKEND = [24, 28];
-
+// One continuous line drawing a lowercase "pw" on a 32 grid: the p's stem
+// drops below the baseline and the same line runs on into the w. Same
+// geometry as resources/images/pwa/*.svg. Its ink is the brand's, not
+// theme tokens, so it looks the same whatever the preset.
 export default function AppLogoIcon({
     className,
     ...props
@@ -18,29 +15,16 @@ export default function AppLogoIcon({
             {...props}
             viewBox="0 0 32 32"
             xmlns="http://www.w3.org/2000/svg"
-            shapeRendering="crispEdges"
             className={cn('text-[#18181B] dark:text-[#FAFAFA]', className)}
         >
-            {WEEKDAYS.map((x) => (
-                <rect
-                    key={x}
-                    x={x}
-                    y={4}
-                    width={2}
-                    height={24}
-                    fill="currentColor"
-                />
-            ))}
-            {WEEKEND.map((x) => (
-                <rect
-                    key={x}
-                    x={x}
-                    y={4}
-                    width={2}
-                    height={24}
-                    className="fill-[#4F46E5] dark:fill-[#818CF8]"
-                />
-            ))}
+            <path
+                d="M5 25.5V9.75a2.75 2.75 0 0 1 5.5 0v8.5a2.75 2.75 0 0 0 5.5 0v-5.5a2.75 2.75 0 0 1 5.5 0v5.5a2.75 2.75 0 0 0 5.5 0V7.5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={3.5}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
         </svg>
     );
 }
