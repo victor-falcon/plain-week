@@ -1,5 +1,8 @@
 import type { FocusEvent, KeyboardEvent, Ref } from 'react';
-import { useCursorFocus } from '@/components/planner/keyboard-cursor';
+import {
+    CURSOR_ROW_CLASS,
+    useCursorFocus,
+} from '@/components/planner/keyboard-cursor';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 
@@ -66,14 +69,19 @@ export function NewTaskRow({
 
     return (
         // The keyboard cursor stops on the row itself, not its input: keys
-        // pressed there are shortcuts, `a` or `i` start typing.
+        // pressed there are shortcuts; Enter, `a` or `i` start typing.
         <div
             ref={stopRef}
             data-new-task-row
             data-cursor={isCursor || undefined}
             tabIndex={-1}
+            role="group"
+            aria-label={`${label}. Press Enter to type.`}
             className={cn(
-                'h-row border-b border-border outline-none has-[input:focus]:bg-transparent has-[input:focus]:ring-0 data-cursor:rounded-sm data-cursor:bg-accent data-cursor:ring-2 data-cursor:ring-ring data-cursor:ring-inset',
+                'h-row border-b border-border outline-none max-lg:scroll-mt-20',
+                CURSOR_ROW_CLASS,
+                // Typing: the input's own lifted look replaces the cursor.
+                'has-[input:focus]:bg-transparent has-[input:focus]:ring-0',
                 className,
             )}
         >

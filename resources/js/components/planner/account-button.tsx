@@ -9,7 +9,7 @@ import {
     RefreshCw,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { shortcutsDialogStore } from '@/components/planner/shortcuts-dialog';
+import { shortcutsDialogStore } from '@/lib/planner/shortcuts-dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {

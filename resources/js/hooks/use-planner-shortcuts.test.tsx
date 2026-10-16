@@ -146,6 +146,15 @@ describe('usePlannerShortcuts', () => {
         expect(held.defaultPrevented).toBe(true);
     });
 
+    it('never completes a sequence with a held key', () => {
+        const handlers = setup();
+
+        press('g');
+        press('g', { repeat: true });
+
+        expect(handlers['cursor.first']).not.toHaveBeenCalled();
+    });
+
     it('keeps Enter and Space for other focused buttons', () => {
         const handlers = setup();
         const button = document.createElement('button');

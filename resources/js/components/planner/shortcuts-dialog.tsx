@@ -1,4 +1,6 @@
-import { Fragment, useSyncExternalStore } from 'react';
+import { useSyncExternalStore } from 'react';
+import { focusCursorRow } from '@/components/planner/keyboard-cursor';
+import { ShortcutKeys } from '@/components/planner/shortcut-keys';
 import {
     Dialog,
     DialogContent,
@@ -6,77 +8,8 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import { Kbd, KbdGroup } from '@/components/ui/kbd';
-import {
-    SHORTCUTS,
-    SHORTCUT_GROUPS,
-    keyLabel,
-    keyName,
-    keysFor,
-} from '@/lib/planner/shortcuts';
-import type { KeySequence, ShortcutId } from '@/lib/planner/shortcuts';
-
-const listeners = new Set<() => void>();
-let open = false;
-
-function setOpen(value: boolean) {
-    open = value;
-    listeners.forEach((listener) => listener());
-}
-
-/** Whether the shortcuts dialog is open, for `useSyncExternalStore`. */
-export const shortcutsDialogStore = {
-    subscribe: (listener: () => void) => {
-        listeners.add(listener);
-
-        return () => {
-            listeners.delete(listener);
-        };
-    },
-    isOpen: () => open,
-    /** `?`, or "Keyboard shortcuts" in the account menu. */
-    open: () => setOpen(true),
-    close: () => setOpen(false),
-};
-
-function KeySequenceView({ sequence }: { sequence: KeySequence }) {
-    return (
-        <>
-            <span className="sr-only">
-                {sequence.map(keyName).join(' then ')}
-            </span>
-            <KbdGroup aria-hidden>
-                {sequence.map((key, index) => (
-                    <Kbd key={index}>{keyLabel(key)}</Kbd>
-                ))}
-            </KbdGroup>
-        </>
-    );
-}
-
-/** The keys of an action, "j or ↓", as the dialog lists them. */
-export function ShortcutKeys({
-    action,
-    rtl,
-}: {
-    action: ShortcutId;
-    rtl: boolean;
-}) {
-    return (
-        <span className="flex flex-wrap items-center justify-end gap-1.5">
-            {keysFor(action, rtl).map((sequence, index) => (
-                <Fragment key={index}>
-                    {index > 0 && (
-                        <span className="text-xs text-muted-foreground">
-                            or
-                        </span>
-                    )}
-                    <KeySequenceView sequence={sequence} />
-                </Fragment>
-            ))}
-        </span>
-    );
-}
+import { SHORTCUTS, SHORTCUT_GROUPS } from '@/lib/planner/shortcuts';
+import { shortcutsDialogStore } from '@/lib/planner/shortcuts-dialog';
 
 /**
  * Every planner shortcut, by group, generated from `SHORTCUTS` (the list the
@@ -92,9 +25,7 @@ export function ShortcutsDialog({
         shortcutsDialogStore.isOpen,
         () => false,
     );
-    const rtl =
-        typeof document !== 'undefined' &&
-        document.documentElement.dir === 'rtl';
+    const rtl = document.documentElement.dir === 'rtl';
     const shown = SHORTCUTS.filter(
         (shortcut) => canOpenSettings || shortcut.id !== 'general.settings',
     );
@@ -107,13 +38,8 @@ export function ShortcutsDialog({
             <DialogContent
                 // Back to the keyboard cursor's row, if it is shown.
                 onCloseAutoFocus={(event) => {
-                    const row = document.querySelector<HTMLElement>(
-                        '[data-cursor] [data-task-open], [data-cursor][data-new-task-row]',
-                    );
-
-                    if (row) {
+                    if (focusCursorRow()) {
                         event.preventDefault();
-                        row.focus();
                     }
                 }}
                 className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-2xl"

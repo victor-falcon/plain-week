@@ -182,6 +182,41 @@ describe('KeyboardCursorProvider', () => {
         );
     });
 
+    it('undoes the newest undo toast first, then the one before', async () => {
+        const user = userEvent.setup();
+        render(<Planner onOpenTask={() => {}} />);
+        await screen.findByRole('button', { name: 'Buy milk' });
+
+        await user.keyboard('jw');
+        await screen.findByText('Moved to Mon 19 Oct.');
+        await user.keyboard('dd');
+        await waitFor(async () => expect(await textsOf(MONDAY)).toEqual([]));
+
+        await user.keyboard('u');
+        await waitFor(async () =>
+            expect(await textsOf(MONDAY)).toEqual(['Call mom']),
+        );
+
+        await user.keyboard('u');
+        await waitFor(async () =>
+            expect(await textsOf(MONDAY)).toEqual(['Buy milk', 'Call mom']),
+        );
+    });
+
+    it('starts typing with Enter on a new-task row, or a with no cursor', async () => {
+        const user = userEvent.setup();
+        render(<Planner onOpenTask={() => {}} />);
+        await screen.findByRole('button', { name: 'Buy milk' });
+        const [input] = screen.getAllByLabelText(`New task for ${MONDAY}`);
+
+        await user.keyboard('a');
+        expect(document.activeElement).toBe(input);
+
+        await user.keyboard('{Escape}jG');
+        await user.keyboard('j{Enter}');
+        expect(document.activeElement).toBe(input);
+    });
+
     it('starts a new task in the cursor day, and Esc comes back', async () => {
         const user = userEvent.setup();
         render(<Planner onOpenTask={() => {}} />);

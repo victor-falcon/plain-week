@@ -7,14 +7,14 @@
  * `SEQUENCE_TIMEOUT_MS`.
  */
 
-export type ShortcutGroup = 'Navigation' | 'Tasks' | 'Weeks' | 'General';
-
-export const SHORTCUT_GROUPS: ShortcutGroup[] = [
+export const SHORTCUT_GROUPS = [
     'Navigation',
     'Tasks',
     'Weeks',
     'General',
-];
+] as const;
+
+export type ShortcutGroup = (typeof SHORTCUT_GROUPS)[number];
 
 export type ShortcutId =
     | 'cursor.previousDay'
@@ -205,7 +205,7 @@ export const SHORTCUTS: ShortcutDefinition[] = [
     {
         id: 'general.undo',
         keys: [['u']],
-        label: 'Undo',
+        label: 'Undo what the latest toast offers',
         group: 'General',
     },
     {
@@ -273,7 +273,7 @@ export function keyLabel(key: string): string {
     }
 }
 
-/** Accessible name of a key ("Left arrow"), for screen readers. */
+/** Accessible name of a key ("Left arrow", "Shift G"), for screen readers. */
 export function keyName(key: string): string {
     switch (key) {
         case 'ArrowLeft':
@@ -284,21 +284,22 @@ export function keyName(key: string): string {
             return 'Up arrow';
         case 'ArrowDown':
             return 'Down arrow';
-        case 'Backspace':
-            return 'Backspace';
         case 'ContextMenu':
             return 'Context menu key';
-        case 'Shift+F10':
-            return 'Shift F10';
-        case 'G':
-        case 'H':
-        case 'J':
-        case 'K':
-        case 'L':
-            return `Shift ${key}`;
         default:
-            return key;
+            return /^[A-Z]$/.test(key) ? `Shift ${key}` : key.replace('+', ' ');
     }
+}
+
+/** The one-key binding of `token`, if any (for held keys, which never
+ * continue a sequence). */
+export function singleKeyShortcut(
+    token: string,
+    shortcuts: ShortcutDefinition[] = SHORTCUTS,
+): ShortcutDefinition | undefined {
+    return shortcuts.find((shortcut) =>
+        shortcut.keys.some((keys) => keys.length === 1 && keys[0] === token),
+    );
 }
 
 /**
@@ -337,7 +338,7 @@ function startsWith(sequence: KeySequence, prefix: string[]): boolean {
 /**
  * Turns key presses into shortcuts, with vim-like sequences: a key that
  * starts a sequence waits up to `timeout` ms for the next one; a key that
- * does not continue it starts over on its own.
+ * does not continue it is tried again on its own ("g" then "j" is "j").
  */
 export function createShortcutMatcher(
     shortcuts: ShortcutDefinition[] = SHORTCUTS,

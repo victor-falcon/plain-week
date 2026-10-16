@@ -1,8 +1,10 @@
-import { useEffect, useEffectEvent, useRef } from 'react';
+import { useEffect, useEffectEvent, useRef, useState } from 'react';
+import { CURSOR_STOP_SELECTOR } from '@/lib/planner/cursor';
 import {
     createShortcutMatcher,
     effectiveAction,
     keyToken,
+    singleKeyShortcut,
 } from '@/lib/planner/shortcuts';
 import type { ShortcutId } from '@/lib/planner/shortcuts';
 
@@ -21,13 +23,6 @@ export type ShortcutHandlers = Partial<
 export const OVERLAY_SELECTOR =
     '[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"], [data-drag-overlay]';
 
-/**
- * Where Enter and Space act on the cursor: nowhere in particular (the page),
- * a task's text button or a new-task row stop. Elsewhere (a header button, a
- * task's check button) they keep their own meaning.
- */
-const CURSOR_TARGET_SELECTOR = '[data-task-open], [data-new-task-row]';
-
 function isEditable(target: EventTarget | null): boolean {
     return (
         target instanceof HTMLElement &&
@@ -37,13 +32,18 @@ function isEditable(target: EventTarget | null): boolean {
     );
 }
 
+/**
+ * Where Enter and Space act on the cursor: nowhere in particular (the page)
+ * or a cursor stop. Elsewhere (a header button, a task's check button) they
+ * keep their own meaning.
+ */
 function isCursorTarget(target: EventTarget | null): boolean {
     return (
         target === null ||
         target === document.body ||
         target === document.documentElement ||
         (target instanceof Element &&
-            target.closest(CURSOR_TARGET_SELECTOR) !== null)
+            target.closest(CURSOR_STOP_SELECTOR) !== null)
     );
 }
 
@@ -55,7 +55,7 @@ function isCursorTarget(target: EventTarget | null): boolean {
  * no task is being dragged. Held keys repeat only cursor motions.
  */
 export function usePlannerShortcuts(handlers: ShortcutHandlers): void {
-    const matcher = useRef(createShortcutMatcher());
+    const [matcher] = useState(createShortcutMatcher);
     // Space activates a focused button on key up: the press it was handled
     // as must not also click it.
     const swallowSpaceUp = useRef(false);
@@ -70,7 +70,7 @@ export function usePlannerShortcuts(handlers: ShortcutHandlers): void {
             isEditable(event.target) ||
             document.querySelector(OVERLAY_SELECTOR) !== null
         ) {
-            matcher.current.reset();
+            matcher.reset();
 
             return;
         }
@@ -81,25 +81,27 @@ export function usePlannerShortcuts(handlers: ShortcutHandlers): void {
             (token === 'Enter' || token === 'Space') &&
             !isCursorTarget(event.target)
         ) {
-            matcher.current.reset();
+            matcher.reset();
 
             return;
         }
 
-        const result = matcher.current.press(token, Date.now());
+        // A held key never continues a sequence (holding "g" is not "g g").
+        let shortcut = singleKeyShortcut(token);
 
-        if (result.type !== 'match') {
-            return;
+        if (!event.repeat) {
+            const result = matcher.press(token, Date.now());
+            shortcut = result.type === 'match' ? result.shortcut : undefined;
         }
 
         const rtl = document.documentElement.dir === 'rtl';
-        const handler = handlers[effectiveAction(result.shortcut, rtl)];
+        const handler = shortcut && handlers[effectiveAction(shortcut, rtl)];
 
-        if (!handler) {
+        if (!shortcut || !handler) {
             return;
         }
 
-        if (event.repeat && !result.shortcut.repeats) {
+        if (event.repeat && !shortcut.repeats) {
             // Holding a key repeats it: one week per press is enough.
             event.preventDefault();
 

@@ -503,15 +503,17 @@ writes the local database (`moveTask`); sync follows in the background.
 | `hooks/use-planner-shortcuts.ts`                                    | The one `window` keydown listener: guards, sequences, RTL mirroring, held keys                                               |
 | `lib/planner/cursor.ts`                                             | Pure cursor model: resolve, move, first / last, after a removal, carried to another week                                     |
 | `KeyboardCursorProvider` (`components/planner/keyboard-cursor.tsx`) | Cursor state, the lists on screen (each `TaskList` registers its tasks), and what every shortcut does                        |
-| `ShortcutsDialog` (`components/planner/shortcuts-dialog.tsx`)       | The `?` dialog, generated from the registry; `shortcutsDialogStore` opens it from the account menu                           |
-| `lib/planner/undo.ts`                                               | `toastWithUndo` for every "Undo" toast, and `undoLatest` behind `u`                                                          |
+| `ShortcutsDialog` (`components/planner/shortcuts-dialog.tsx`)       | The `?` dialog, generated from the registry; `shortcutsDialogStore` (`lib/planner/shortcuts-dialog.ts`) opens it             |
+| `ShortcutKeys` (`components/planner/shortcut-keys.tsx`)             | The keys of an action id as `Kbd`s, in the current direction (left to right, so `<` / `>` never mirror)                      |
+| `lib/planner/undo.ts`                                               | `toastWithUndo` for every "Undo" toast (menu, dialog, drops), and `undoLatest` behind `u`                                    |
 
-- Shortcuts only run when focus is not in a text field, no dialog or menu (`role="dialog" | "alertdialog" | "menu" |
-"listbox"`) is open, no task is being dragged (`[data-drag-overlay]`) and no Ctrl, Meta or Alt is held. Keys are
-  case-sensitive (`G` is Shift+G). Sequences (`g g`, `d d`) wait 1 s for their second key; a key that does not
-  continue a sequence runs on its own. Held keys repeat cursor motions only. Enter and Space act on the cursor only
-  when focus is on the page, a task's text button or a new-task row stop, so other buttons keep them. A shortcut with
-  nothing to act on (Space without a cursor) leaves the key's default alone.
+- Shortcuts only run when focus is not in a text field, no dialog or menu
+  (`role="dialog" | "alertdialog" | "menu" | "listbox"`) is open, no task is being dragged (`[data-drag-overlay]`)
+  and no Ctrl, Meta or Alt is held. Keys are case-sensitive (`G` is Shift+G). Sequences (`g g`, `d d`) wait 1 s for
+  their second key; a key that does not continue a sequence runs on its own. Held keys repeat cursor motions only and
+  never complete a sequence. Enter and Space act on the cursor only when focus is on the page, a task's text button
+  or a new-task row stop, so other buttons keep them. A shortcut with nothing to act on (Space without a cursor)
+  leaves the key's default alone.
 - Keys that point left or right are mirrored in RTL: `h` / `←` / `H` go to the next day or week there. `<` / `>` move a
   task to the previous / next day in either direction.
 - The cursor is one task, or one list's new-task row (the last stop of each list). Lists are in visual order: Monday to
@@ -521,16 +523,20 @@ writes the local database (`moveTask`); sync follows in the background.
   the same weekday and row; `t` puts it on today. The first motion with no cursor starts on today's first task (the
   first list in another week), or on the focused row when Tab got there first.
 - Focus is real and roving: the cursor's task text button, or the new-task row itself (`tabIndex=-1`, not its input,
-  so keys there are still shortcuts; `a` / `i` focus the input and Esc in it comes back), takes focus when the cursor
-  moves by key, so screen readers announce it. Focus inside the row, in a field or in a dialog is never taken. While
-  shown, the cursor follows focus (Tab, the task dialog and context menu handing focus back to their task). The task
-  dialog, the context menu and the shortcuts dialog return focus to the cursor's row when they close.
+  so keys there are still shortcuts; Enter, `a` or `i` focus the input and Esc in it comes back), takes focus when the
+  cursor moves by key, so screen readers announce it (the new-task row is a group named "New task for Mon 12 Oct.
+  Press Enter to type."). Focus inside the row, in a field or in a dialog is never taken. While shown, the cursor
+  follows focus (Tab, the task dialog and context menu handing focus back to their task). The task dialog, the context
+  menu and the shortcuts dialog return focus to the cursor's row when they close.
 - Actions go through the same local writes as the mouse: `toggleDone`, `moveTask` (`J` / `K` use `resolveListDrop`,
   so timed tasks keep their place by time; `<` / `>` change the week when the task leaves it), and the context menu's
   `moveWithUndo` (`w`, `s`), `duplicateWithToast` (`y`) and `deleteWithUndo` (`d d`, asking the scope of a recurring
-  task first). `m` opens the context menu anchored to the row's start, like Shift+F10. `u` presses the latest "Undo"
-  toast while it is on screen (after it closes, undoing could overwrite later edits). `,` opens Settings (signed-in
-  users only; guests have no settings page, so the dialog leaves it out).
+  task first). `m` opens the context menu anchored to the row's start, like Shift+F10. `a` / `i` with no cursor
+  start a task today. While a task's move or delete is still being written, further moves or deletes of it are
+  ignored, so a quick second press never acts on its old state. `u` presses the newest "Undo" toast still on screen,
+  then the one before it (after a toast closes, undoing could overwrite later edits); `<` / `>` / `J` / `K` keep the
+  task in view and show no toast, like a drag. `,` opens Settings (signed-in users only; guests have no settings
+  page, so the dialog leaves it out).
 
 ## Offline app shell
 

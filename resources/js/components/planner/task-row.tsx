@@ -1,6 +1,9 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CircleCheck, GripVertical, Repeat } from 'lucide-react';
-import { useCursorFocus } from '@/components/planner/keyboard-cursor';
+import {
+    CURSOR_ROW_CLASS,
+    useCursorFocus,
+} from '@/components/planner/keyboard-cursor';
 import { usePlannerDnd } from '@/components/planner/planner-dnd';
 import { useScopedAction } from '@/components/planner/scope-prompt';
 import { TaskContextMenu } from '@/components/planner/task-context-menu';
@@ -204,8 +207,10 @@ export function TaskRow({
                     'group/task relative flex h-row items-center gap-1 border-b border-border select-none [-webkit-touch-callout:none]',
                     task.done && 'text-muted-foreground',
                     isDragging && 'opacity-40',
-                    // The keyboard cursor; its text button also has focus.
-                    'data-cursor:rounded-sm data-cursor:bg-accent data-cursor:ring-2 data-cursor:ring-ring data-cursor:ring-inset',
+                    // The keyboard cursor (its text button also has focus),
+                    // scrolled clear of the sticky header on phones.
+                    CURSOR_ROW_CLASS,
+                    'max-lg:scroll-mt-20',
                     className,
                 )}
             >

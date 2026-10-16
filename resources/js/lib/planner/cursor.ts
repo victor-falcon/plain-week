@@ -1,4 +1,5 @@
 import { parseDateKey, toDateKey } from '@/lib/db/dates';
+import { isSomedayKey } from '@/lib/planner/drop';
 import { addDays } from '@/lib/planner/week';
 
 /**
@@ -6,6 +7,17 @@ import { addDays } from '@/lib/planner/week';
  * row, of the lists on screen. The planner keeps the cursor in state
  * (`components/planner/keyboard-cursor.tsx`) and moves it with these.
  */
+
+/**
+ * The elements the cursor can stop on, which take focus: a task's text button
+ * (`data-task-open`, inside its `data-task-id` row) or a new-task row. The
+ * row under the cursor carries `data-cursor`; each list is `data-list`.
+ */
+export const CURSOR_STOP_SELECTOR = '[data-task-open], [data-new-task-row]';
+
+/** The focusable stop of the row under the cursor. */
+export const CURSOR_ROW_STOP_SELECTOR =
+    '[data-cursor] [data-task-open], [data-cursor][data-new-task-row]';
 
 /** A day or Someday column on screen, keyed like `placementKey`. */
 export type CursorList = { key: string; taskIds: string[] };
@@ -36,8 +48,8 @@ export type CursorMotion = 'up' | 'down' | 'previousList' | 'nextList';
  * column after Sunday).
  */
 export function compareListKeys(a: string, b: string): number {
-    const aSomeday = a.startsWith('someday-');
-    const bSomeday = b.startsWith('someday-');
+    const aSomeday = isSomedayKey(a);
+    const bSomeday = isSomedayKey(b);
 
     if (aSomeday !== bSomeday) {
         return aSomeday ? 1 : -1;
@@ -68,19 +80,32 @@ export function resolveCursor(
         return null;
     }
 
-    if (cursor.taskId !== null) {
-        for (const list of lists) {
-            const index = list.taskIds.indexOf(cursor.taskId);
+    const onTask =
+        cursor.taskId !== null ? cursorOnTask(lists, cursor.taskId) : null;
 
-            if (index !== -1) {
-                return { listKey: list.key, taskId: cursor.taskId, index };
-            }
-        }
+    if (onTask) {
+        return onTask;
     }
 
     const list = lists.find(({ key }) => key === cursor.listKey);
 
     return list ? at(list, cursor.index) : null;
+}
+
+/** The cursor on task `taskId`, wherever it is shown. */
+export function cursorOnTask(
+    lists: CursorList[],
+    taskId: string,
+): Cursor | null {
+    for (const list of lists) {
+        const index = list.taskIds.indexOf(taskId);
+
+        if (index !== -1) {
+            return { listKey: list.key, taskId, index };
+        }
+    }
+
+    return null;
 }
 
 /**
@@ -168,7 +193,7 @@ export function cursorAfterRemoval(
  * columns are on every week and stay as they are.
  */
 export function shiftCursorWeeks(cursor: Cursor, weeks: number): Cursor {
-    if (cursor.listKey.startsWith('someday-')) {
+    if (isSomedayKey(cursor.listKey)) {
         return cursor;
     }
 

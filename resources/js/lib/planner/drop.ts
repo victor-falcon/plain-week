@@ -61,6 +61,11 @@ export function placementKey(placement: TaskPlacement): string {
         : `someday-${placement.someday_column}`;
 }
 
+/** Whether a `placementKey` is a Someday column's. */
+export function isSomedayKey(key: string): boolean {
+    return key.startsWith('someday-');
+}
+
 /** "Mon 12 Oct" or "Someday column 2", for screen reader announcements. */
 export function placementLabel(placement: TaskPlacement): string {
     return placement.date !== null

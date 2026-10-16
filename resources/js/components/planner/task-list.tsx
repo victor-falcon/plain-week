@@ -118,7 +118,7 @@ export function TaskList({
         }
     };
 
-    // Esc leaves the list, even right after Enter while the task still saves.
+    // Esc leaves the list, even right after Enter while the task still saves,
     // and puts the keyboard cursor on this list's new-task row.
     const handleCancel = () => {
         focusAfterCreate.current = false;
@@ -172,6 +172,8 @@ export function TaskList({
                             };
                         }}
                         label={newTaskLabel}
+                        // The first empty row is the list's cursor stop (the
+                        // only one shown on phones).
                         isCursor={index === 0 && cursorOnNewRow}
                         onSubmit={handleSubmit}
                         onCancel={handleCancel}

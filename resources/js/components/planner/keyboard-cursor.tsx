@@ -12,15 +12,18 @@ import {
 import type { ReactNode, RefObject } from 'react';
 import { toast } from 'sonner';
 import { useScopePrompt } from '@/components/planner/scope-prompt';
-import { shortcutsDialogStore } from '@/components/planner/shortcuts-dialog';
 import { openContextMenuAt } from '@/components/planner/task-context-menu';
 import { usePlannerShortcuts } from '@/hooks/use-planner-shortcuts';
 import type { ShortcutHandlers } from '@/hooks/use-planner-shortcuts';
 import { parseDateKey, toDateKey, weekDateKeys } from '@/lib/db/dates';
+import { placementOf } from '@/lib/db/queries';
 import { moveTask, toggleDone } from '@/lib/db/tasks';
 import type { MoveTaskInput, TaskPlacement } from '@/lib/db/tasks';
 import {
+    CURSOR_ROW_STOP_SELECTOR,
+    CURSOR_STOP_SELECTOR,
     compareListKeys,
+    cursorOnTask,
     cursorAfterRemoval,
     firstInList,
     initialCursor,
@@ -31,8 +34,8 @@ import {
     shiftCursorWeeks,
 } from '@/lib/planner/cursor';
 import type { Cursor, CursorList } from '@/lib/planner/cursor';
-import { placementOf } from '@/lib/db/queries';
 import { placementKey, resolveListDrop } from '@/lib/planner/drop';
+import { shortcutsDialogStore } from '@/lib/planner/shortcuts-dialog';
 import {
     SOMEDAY_MOVE,
     deleteWithUndo,
@@ -53,16 +56,20 @@ type CursorApi = {
     registerList: (key: string, entry: ListEntry) => () => void;
     /** Esc in a list's new-task input: back to the cursor, on that list. */
     returnToList: (key: string) => void;
-    /** Set when the cursor moved with a key: its row takes focus. */
-    focusRequest: RefObject<boolean>;
-    /** Set while the cursor focuses its row, which focus-follow ignores. */
-    focusing: RefObject<boolean>;
+    /** Whether the cursor moved with a key since its row last took focus. */
+    takeFocusRequest: () => boolean;
+    /** Focuses the cursor's row (focus-follow ignores it). */
+    focusRow: (element: HTMLElement) => void;
 };
 
 const CursorContext = createContext<Cursor | null>(null);
 /** Counts the key-driven cursor moves: each one gives the cursor's row focus. */
 const FocusTickContext = createContext(0);
 const CursorApiContext = createContext<CursorApi | null>(null);
+
+/** How the row under the cursor looks (task rows and new-task rows). */
+export const CURSOR_ROW_CLASS =
+    'data-cursor:rounded-sm data-cursor:bg-accent data-cursor:ring-2 data-cursor:ring-ring data-cursor:ring-inset';
 
 /** The keyboard cursor (resolved), or `null` when it is hidden. */
 export function useKeyboardCursor(): Cursor | null {
@@ -72,8 +79,8 @@ export function useKeyboardCursor(): Cursor | null {
 const NOOP_API: CursorApi = {
     registerList: () => () => {},
     returnToList: () => {},
-    focusRequest: { current: false },
-    focusing: { current: false },
+    takeFocusRequest: () => false,
+    focusRow: (element) => element.focus(),
 };
 
 /** The cursor's API; a no-op outside the planner (component tests). */
@@ -92,7 +99,7 @@ export function useCursorFocus<T extends HTMLElement>(
     isCursor: boolean,
 ): RefObject<T | null> {
     const ref = useRef<T>(null);
-    const { focusRequest, focusing } = useKeyboardCursorApi();
+    const { takeFocusRequest, focusRow } = useKeyboardCursorApi();
     const focusTick = use(FocusTickContext);
 
     useLayoutEffect(() => {
@@ -105,27 +112,34 @@ export function useCursorFocus<T extends HTMLElement>(
         const row =
             element.closest('[data-task-id], [data-new-task-row]') ?? element;
         const active = document.activeElement;
+        const requested = takeFocusRequest();
 
         if (row.contains(active)) {
-            focusRequest.current = false;
-
             return;
         }
 
         const lost =
             active === null ||
             active === document.body ||
-            active.matches('[data-task-open], [data-new-task-row]');
+            active.matches(CURSOR_STOP_SELECTOR);
 
-        if (focusRequest.current || lost) {
-            focusRequest.current = false;
-            focusing.current = true;
-            element.focus();
-            focusing.current = false;
+        if (requested || lost) {
+            focusRow(element);
         }
-    }, [isCursor, focusTick, focusRequest, focusing]);
+    }, [isCursor, focusTick, takeFocusRequest, focusRow]);
 
     return ref;
+}
+
+/**
+ * Hands focus back to the row under the cursor (a dialog closing). Returns
+ * whether the cursor is shown.
+ */
+export function focusCursorRow(): boolean {
+    const stop = document.querySelector<HTMLElement>(CURSOR_ROW_STOP_SELECTOR);
+    stop?.focus();
+
+    return stop !== null;
 }
 
 /** The cursor of the task or new-task row that has focus, if any. */
@@ -136,7 +150,7 @@ function cursorFromFocus(lists: CursorList[]): Cursor | null {
         ?.getAttribute('data-task-id');
 
     if (taskId) {
-        return resolveCursor(lists, { listKey: '', taskId, index: 0 });
+        return cursorOnTask(lists, taskId);
     }
 
     const listKey = active
@@ -160,6 +174,16 @@ function rowOf(taskId: string): HTMLElement | null {
     return document.querySelector<HTMLElement>(
         `[data-task-id="${CSS.escape(taskId)}"]`,
     );
+}
+
+/** Starts typing a new task in a list: focuses its first empty row. */
+function focusNewTaskInput(listKey: string): boolean {
+    const input = document.querySelector<HTMLInputElement>(
+        `[data-list="${CSS.escape(listKey)}"] [data-new-task-row] input`,
+    );
+    input?.focus();
+
+    return input !== null;
 }
 
 type Navigation = {
@@ -206,6 +230,9 @@ export function KeyboardCursorProvider({
     const focusing = useRef(false);
     const [focusTick, setFocusTick] = useState(0);
     const entriesRef = useRef(entries);
+    // Tasks with a move or delete in flight: a quick second press would act
+    // on their state from before the first one.
+    const busy = useRef(new Set<string>());
     const askScope = useScopePrompt();
 
     const lists = useMemo<CursorList[]>(
@@ -247,12 +274,21 @@ export function KeyboardCursorProvider({
     const api = useMemo<CursorApi>(
         () => ({
             registerList,
-            focusRequest,
-            focusing,
             returnToList: (key) => {
                 if (entriesRef.current.has(key)) {
                     show(newTaskRowCursor(key));
                 }
+            },
+            takeFocusRequest: () => {
+                const requested = focusRequest.current;
+                focusRequest.current = false;
+
+                return requested;
+            },
+            focusRow: (element) => {
+                focusing.current = true;
+                element.focus();
+                focusing.current = false;
             },
         }),
         [registerList, show],
@@ -260,7 +296,10 @@ export function KeyboardCursorProvider({
 
     // Mouse and touch users never see the cursor.
     useEffect(() => {
-        const hide = () => setCursor(null);
+        const hide = () => {
+            focusRequest.current = false;
+            setCursor(null);
+        };
         window.addEventListener('pointerdown', hide, { capture: true });
 
         return () =>
@@ -323,26 +362,33 @@ export function KeyboardCursorProvider({
             return true;
         };
 
-    const write = (id: string, input: MoveTaskInput) =>
-        moveTask(id, input).catch(() => {
-            toast.error('Could not move the task.');
+    /** The cursor stays on a task whose id changed (an occurrence written). */
+    const follow = (from: string, to: string) =>
+        setCursor((at) => (at?.taskId === from ? { ...at, taskId: to } : at));
 
-            return undefined;
-        });
+    /** Runs a write on `task` unless one is still in flight. */
+    const once = <T,>(task: PlannerTask, write: () => Promise<T>) => {
+        if (busy.current.has(task.id)) {
+            return;
+        }
 
-    /** Moves the task and keeps the cursor on it (an occurrence's id changes). */
-    const moveAndFollow = (task: PlannerTask, input: MoveTaskInput) => {
-        focusRequest.current = true;
-        void write(task.id, input).then((moved) => {
-            if (moved) {
-                show({
-                    listKey: placementKey(placementOf(moved)),
-                    taskId: moved.id,
-                    index: 0,
-                });
-            }
-        });
+        busy.current.add(task.id);
+        void write().finally(() => busy.current.delete(task.id));
     };
+
+    /** Moves the task and keeps the cursor on it. */
+    const moveAndFollow = (task: PlannerTask, input: MoveTaskInput) =>
+        once(task, () =>
+            moveTask(task.id, input).then(
+                (moved) =>
+                    show({
+                        listKey: placementKey(placementOf(moved)),
+                        taskId: moved.id,
+                        index: 0,
+                    }),
+                () => toast.error('Could not move the task.'),
+            ),
+        );
 
     const reorder = (direction: -1 | 1) =>
         onTask((task, at) => {
@@ -413,39 +459,58 @@ export function KeyboardCursorProvider({
                 (document.activeElement as HTMLElement).blur();
             }
         },
-        'task.open': onTask((task) => onOpenTask(task.id)),
+        'task.open': () => {
+            const at = current();
+            const task = at && taskAt(at);
+
+            if (task) {
+                onOpenTask(task.id);
+
+                return true;
+            }
+
+            // Enter on a new-task row starts typing there.
+            return at !== null && focusNewTaskInput(at.listKey);
+        },
         'task.toggleDone': onTask((task) => {
-            toggleDone(task.id).catch(() =>
-                toast.error('Could not update the task.'),
+            toggleDone(task.id).then(
+                (toggled) => follow(task.id, toggled.id),
+                () => toast.error('Could not update the task.'),
             );
         }),
         'task.moveDown': reorder(1),
         'task.moveUp': reorder(-1),
         'task.nextDay': shiftDay(1),
         'task.previousDay': shiftDay(-1),
-        'task.nextWeek': onTask((task, at) => {
-            leave(at);
-            void moveWithUndo(task.id, nextWeekMove(task));
-        }),
+        'task.nextWeek': onTask((task, at) =>
+            once(task, () => {
+                leave(at);
+
+                return moveWithUndo(task.id, nextWeekMove(task));
+            }),
+        ),
         'task.someday': onTask((task, at) => {
             if (task.date !== null) {
-                leave(at);
-                void moveWithUndo(task.id, SOMEDAY_MOVE);
+                once(task, () => {
+                    leave(at);
+
+                    return moveWithUndo(task.id, SOMEDAY_MOVE);
+                });
             }
         }),
         'task.duplicate': onTask((task) => void duplicateWithToast(task.id)),
-        'task.delete': onTask((task, at) => {
-            void (async () => {
+        'task.delete': onTask((task, at) =>
+            once(task, async () => {
                 const scope = (await needsScope(task))
                     ? await askScope('delete')
                     : undefined;
 
                 if (scope !== null) {
                     leave(at);
-                    void deleteWithUndo(task.id, scope);
+                    await deleteWithUndo(task.id, scope);
                 }
-            })();
-        }),
+            }),
+        ),
         'task.menu': onTask((task) => {
             const row = rowOf(task.id);
 
@@ -460,18 +525,9 @@ export function KeyboardCursorProvider({
             }
         }),
         'task.new': () => {
-            const at = current();
-            const input = at
-                ? document.querySelector<HTMLInputElement>(
-                      `[data-list="${CSS.escape(at.listKey)}"] [data-new-task-row] input`,
-                  )
-                : null;
+            const at = current() ?? initialCursor(lists, today);
 
-            if (!input) {
-                return false;
-            }
-
-            input.focus();
+            return at !== null && focusNewTaskInput(at.listKey);
         },
         'week.previous': changeWeek(-1),
         'week.next': changeWeek(1),
