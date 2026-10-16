@@ -12,8 +12,9 @@ accounts that sync, no billing UI, and every route below answers `404`.
     - **Weekly**: a Cashier subscription (type `default`) on `STRIPE_PRICE_WEEKLY` (`plainweek_weekly`).
     - **Lifetime**: a one-time Checkout payment on `STRIPE_PRICE_LIFETIME` (`plainweek_lifetime`), with the coupon in
       `SAAS_LAUNCH_COUPON` applied when it is set and valid (`LAUNCH75`: 75% off).
-- Flow: register (Fortify, "Step 1 of 2") → paywall (`/plans`, "Step 2 of 2") → Stripe Checkout → back to the
-  planner. Both steps are floating cards over the planner (see [style.md](./style.md#floating-card)).
+- Flow: landing card (guests, first visit) → register (Fortify, "Step 1 of 2") → paywall (`/plans`, "Step 2 of 2") →
+  Stripe Checkout → back to the planner. All are floating cards over the planner (see
+  [style.md](./style.md#landing-card)). A plan picked on the landing card is preselected on the paywall.
 
 ## Entitlement
 
@@ -45,6 +46,7 @@ All behind `EnsureSaasEnabled` (`404` when SaaS mode is off), in `routes/billing
 | `GET /billing/success`                | `billing.success`        | `auth`. Checkout's success URL: fulfills the session right away (idempotent), then `/` or `/plans?processing=1`                                  |
 | `GET /billing/portal`                 | `billing.portal`         | `auth`. Redirects to the Stripe customer portal (cancel, payment method, invoices)                                                               |
 | `GET /settings/billing`               | `billing.edit`           | `auth`. Settings › Billing: plan, renewal date, portal, "Upgrade to lifetime"                                                                    |
+| `GET /billing/prices`                 | `billing.prices`         | Public, `throttle:60,1`. `{ plans }`: the prices formatted from Stripe (cached an hour), for the landing card                                    |
 | `GET /terms`, `GET /privacy`          | `legal.*`                | Public. Terms of Service and Privacy Policy (seller from `SAAS_SELLER_NAME` / `SAAS_CONTACT_EMAIL`)                                              |
 | `POST /stripe/webhook`                | `cashier.webhook`        | Outside the web group, Stripe signature checked with `STRIPE_WEBHOOK_SECRET`                                                                     |
 

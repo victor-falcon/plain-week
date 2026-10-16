@@ -20,7 +20,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   is checked for the chosen plan, shows the price it gives and replaces the launch coupon at Checkout. A 100% code on
   Lifetime makes a no-cost order (no card) that grants lifetime like a paid one.
 
+- **Landing card (SaaS mode).** A guest's first visit shows a floating card over the planner (a bottom sheet on
+  phones): what Plain Week is, product shots, the Weekly and Lifetime prices from Stripe (with the launch discount),
+  self-hosting and a FAQ. "Start now" (or Esc) closes it for good on that device, "Log in" opens the log in card, and a
+  plan picked there is preselected on the plan choice after signing up. Self-hosted instances never show it. The
+  prices come from the new public `GET /billing/prices`.
+
 ### Changed
+
+- **Sync status dot and "Sync your week".** The account avatar always shows a sync status dot at its corner: green
+  synced, pulsing indigo syncing (no pulse with reduced motion), amber offline, red error (with "Retry sync" in the
+  menu) and grey when a SaaS plan ended. Guests get a "Sync your week" pill to sign-up, with Log in in a small menu.
 
 - **Log in, sign up and the plan choice float over the planner.** `/login`, `/register`, the password reset pages,
   email verification, two-factor and password confirmation are now floating cards over the dimmed planner (a bottom

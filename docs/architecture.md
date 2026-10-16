@@ -137,7 +137,8 @@ a `422` (it is not clamped).
 - SaaS mode: the engine does not start for an account without a paid plan (`account.hasAccess` shared prop), and a
   `402` stops it without retrying. Local data and the outbox are kept, and the page goes to the paywall (`/plans`);
   after paying, the next start pushes what was kept.
-- The engine exposes a sync status for the UI: `idle` | `syncing` | `offline` | `error`.
+- The engine exposes a sync status for the UI: `idle` | `syncing` | `offline` | `error`. The account button shows it
+  as a dot (see [style.md](./style.md#sync-status-dot)), plus `paused` when a SaaS account has no paid plan.
 
 ## Client data layer
 
@@ -204,11 +205,9 @@ cleared. Someday columns are shown in position order.
 | `useTask(id)`                   | The item (`id` may be an occurrence id), `null` if missing/deleted, `undefined` while loading (also right after `id` changes) |
 | `useSeries(item)`               | The live series of an occurrence or exception (a series: itself), `null` for a plain task                                     |
 | `useSyncStatus()`               | `'idle' \| 'syncing' \| 'offline' \| 'error'` (`idle` for guests)                                                             |
-| `usePendingChangeCount()`       | Number of local changes not accepted by the server yet (outbox size)                                                          |
 
-`usePendingChangeCount` (query `queryPendingChangeCount`) was added for the planner header: for a guest, a non-zero
-count means work that only lives on this device, so the account button turns into a "save" button that leads to
-registration. The UI may not read the outbox table itself, hence the query.
+The UI may not read the outbox table itself: `queryPendingChangeCount` counts the local changes the server has not
+accepted yet.
 
 The data hooks return `undefined` only during the first local read. Dates are local calendar days
 (`toDateKey`/`weekDateKeys` in `lib/db/dates.ts`). The queries behind the hooks are plain async functions in
@@ -439,7 +438,7 @@ Import **adds** tasks; it never changes or removes existing ones (importing the 
 `resources/js/pages/planner.tsx` composes the components in `resources/js/components/planner/` (layout and
 measurements in [style.md](./style.md#planner-layout)). It follows the offline-first rule:
 
-- Data comes only from the live hooks (`useWeekTasks`, `useSomedayTasks`, `usePendingChangeCount`); writes go through
+- Data comes only from the live hooks (`useWeekTasks`, `useSomedayTasks`); writes go through
   the repository (`createTask`, `toggleDone`, and in the task dialog `updateTask`, `updateSubtasks`, `moveTask`,
   `duplicateTask`, `deleteTask`, `setRecurrence`, undone with an `UndoLog`) without awaiting them. Write failures show
   a toast.
@@ -531,7 +530,7 @@ The data layer only helps offline if the app itself loads offline. A service wor
 - **Registration** happens in `resources/js/lib/pwa/register.ts`, called from `app.tsx`. Under the Vite dev server it
   instead unregisters any worker left over from testing a production build on the same origin.
 - **Offline UX.** Nothing extra is shown while offline: the planner works from IndexedDB and the account button's sync
-  status covers connectivity. Only server pages need the network. A full-page load of one gets the static
+  status dot covers connectivity. Only server pages need the network. A full-page load of one gets the static
   `/offline.html` page (with a link back to the planner); an in-app Inertia visit to one shows a "You're offline" toast
   (`lib/pwa/offline-visits.ts`). Failed hover prefetches stay silent.
 

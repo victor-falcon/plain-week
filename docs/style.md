@@ -90,6 +90,7 @@ Installed in `resources/js/components/ui/` and where they are used:
 | `checkbox`                                                         | Subtasks, "Remember me" on login                                                       |
 | `dialog`                                                           | Task dialog, `FloatingCard`; account deletion, passkeys and 2FA setup in settings      |
 | `radio-group`                                                      | Plan choice (`/plans`)                                                                 |
+| `accordion`                                                        | Landing card FAQ                                                                       |
 | `alert-dialog`                                                     | Scope prompt of recurring tasks (`scope-prompt.tsx`), import preview (Settings › Data) |
 | `progress`                                                         | Import progress (Settings › Data)                                                      |
 | `popover`                                                          | Task dialog date, time, repeat and color pickers                                       |
@@ -105,7 +106,7 @@ Installed in `resources/js/components/ui/` and where they are used:
 | `direction`                                                        | `app.tsx` (RTL)                                                                        |
 | `alert`, `card`, `label`, `spinner`, `input-otp`, `separator`      | Auth cards and settings pages (from the Laravel starter kit)                           |
 | `sidebar` (+ `skeleton`), `sheet`, `navigation-menu`, `breadcrumb` | Starter kit app shell around the settings pages                                        |
-| `badge`                                                            | Launch discount on the plan choice and Settings › Billing                              |
+| `badge`                                                            | Launch discount on the plan choice, the landing card and Settings › Billing            |
 | `collapsible`                                                      | Installed, not used yet                                                                |
 
 `icon.tsx` and `placeholder-pattern.tsx` in the same folder are starter kit helpers, not shadcn components.
@@ -154,7 +155,7 @@ Installed in `resources/js/components/ui/` and where they are used:
 ## Floating card
 
 `resources/js/components/floating-card.tsx`: the card that floats over the planner for log in, sign up, the password
-pages and the plan choice (and, next, the landing card). It is a shadcn `Dialog` that is always open while mounted;
+pages, the plan choice and the landing card. It is a shadcn `Dialog` that is always open while mounted;
 a page renders it and leaving the page closes it.
 
 ```tsx
@@ -165,6 +166,9 @@ a page renders it and leaving the page closes it.
     onBack={...} // optional: back button at the start of the top bar
     toolbar={<span>Step 1 of 2</span>} // optional: between the back and close buttons
     icon={<AppLogoIcon className="size-9" />} // optional: above the title
+    hideCloseButton // optional: no close button, Esc still calls onClose (the landing card)
+    titleClassName="..." // optional: e.g. the landing card's larger heading
+    descriptionClassName="..."
 >
     {/* the form */}
 </FloatingCard>
@@ -209,6 +213,28 @@ button) reveals a promotion code `Input` with an outline "Apply" button; a valid
 the amount due today with the price without the code struck through, an invalid one an inline error (see
 [saas.md](./saas.md#promotion-codes)). The plan card cannot be
 dismissed (no close button, Esc does nothing): an account without a plan pays or logs out.
+
+### Landing card
+
+`components/landing/landing-card.tsx`, rendered by the planner page in SaaS mode for guests until they press "Start
+now" (or Esc), remembered per device in `localStorage` (`plain-week.landing-dismissed`, `lib/landing.ts`); "About Plain
+Week" in the guest menu shows it again until the next load. Never shown to signed-in users or on a self-hosted instance. It is a
+`FloatingCard` 520px wide (36px padding, `gap-6`) without a close button:
+
+| Part          | Content and style                                                                                                                                                                                                                                                                                                          |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Top bar       | 40px logo + "Plain Week" (`font-heading text-xl font-extrabold`) at the start, "Open source" (GitHub) at the end                                                                                                                                                                                                           |
+| Heading       | "A minimal weekly planner that feels like paper." 44px bold, `tracking-[-0.04em]` (34px on phones); the description under a 1px border, 18px                                                                                                                                                                               |
+| Actions       | "Log in" (2px `border-foreground` outline pill, opens `/login`) and "Start now" (`bg-foreground` pill, focused on open), both 48px; "Free in your browser, no account needed. Sync is a paid plan."                                                                                                                        |
+| Product shots | `public/images/landing/{desktop,mobile}-{light,dark}.webp` (from `docs/images`), the theme's pair, on a `bg-muted` 300px panel (240px on phones)                                                                                                                                                                           |
+| Why it works  | Four points in two columns (one on phones)                                                                                                                                                                                                                                                                                 |
+| Pricing       | Weekly and Lifetime cards with the prices from `GET /billing/prices` (cached in `localStorage` for offline, a `Skeleton` while loading, "Price shown at sign-up" when they cannot be loaded); Lifetime has a 2px `border-foreground`, the regular price struck through and a "Launch −75%" `Badge` while the coupon is set |
+| Self-hosting  | Always dark (`.dark` on the block): copy, the `docker run` command, GitHub and the self-hosting guide                                                                                                                                                                                                                      |
+| Questions     | Five FAQ items, a single collapsible `Accordion` (keyboard: Tab, Enter/Space)                                                                                                                                                                                                                                              |
+| Footer        | Terms, Privacy, GitHub, Changelog, © year                                                                                                                                                                                                                                                                                  |
+
+"Choose weekly" and "Get lifetime" store the plan in `sessionStorage` and open `/register`; the plan choice then starts
+on that plan.
 
 ## Planner layout
 
@@ -260,6 +286,24 @@ Drag and drop (behaviour in [architecture.md](./architecture.md#drag-and-drop)):
 
 Keyboard shortcuts (only when focus is not in a text field, no dialog or menu is open and no task is being dragged): ← / → previous / next week
 (mirrored in RTL), T current week. Held keys do not repeat.
+
+## Sync status dot
+
+The account button (`components/planner/account-button.tsx`) carries a 14px dot at its top-end corner with a 2.5px
+`border-background` ring, always visible for signed-in users. Its tooltip (and the button's label) says what it means:
+
+| State     | Token                      | Tooltip                                                                                        |
+| --------- | -------------------------- | ---------------------------------------------------------------------------------------------- |
+| `idle`    | `bg-sync-synced` (green)   | All changes synced                                                                             |
+| `syncing` | `bg-sync-syncing` (indigo) | Syncing… (a pulsing ring, `motion-safe:animate-sync-pulse`, none with reduced motion)          |
+| `offline` | `bg-sync-offline` (amber)  | Offline. Changes sync when you are back.                                                       |
+| `error`   | `bg-sync-error` (red)      | Some changes could not be synced. Click to retry. (the menu starts with "Retry sync")          |
+| `paused`  | `bg-sync-paused` (grey)    | Sync paused. Renew your plan to sync again. (SaaS, no paid plan; the menu has "Choose a plan") |
+
+The `--sync-*` tokens are in `app.css` for light and dark. Guests get a `bg-foreground` pill instead, "Sync your week" with a grey dot, to `/register` (SaaS: then the plan
+choice), tooltip "Only on this device. Sync your week across devices.", joined to a chevron that opens a menu with Log in
+(and "About Plain Week" in SaaS mode). Phones have no room for the pill next to the title: a 40px round button with a
+cloud icon and the grey dot opens the same menu, "Sync your week" first.
 
 ## Task dialog
 

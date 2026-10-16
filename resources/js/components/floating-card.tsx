@@ -19,6 +19,8 @@ type FloatingCardProps = {
      * cannot be dismissed (e.g. the paywall).
      */
     onClose?: () => void;
+    /** Hides the close button while Esc still calls `onClose` (the landing card). */
+    hideCloseButton?: boolean;
     /** Shows a back button at the start of the top bar. */
     onBack?: () => void;
     /** Content between the back and close buttons (a step label, the logo, a link). */
@@ -27,6 +29,8 @@ type FloatingCardProps = {
     icon?: ReactNode;
     children?: ReactNode;
     className?: string;
+    titleClassName?: string;
+    descriptionClassName?: string;
 } & Pick<ComponentProps<typeof DialogContent>, 'onOpenAutoFocus'>;
 
 function RoundIconButton({
@@ -59,14 +63,18 @@ export function FloatingCard({
     title,
     description,
     onClose,
+    hideCloseButton = false,
     onBack,
     toolbar,
     icon,
     children,
     className,
+    titleClassName,
+    descriptionClassName,
     onOpenAutoFocus,
 }: FloatingCardProps) {
-    const hasTopBar = onBack !== undefined || onClose !== undefined || toolbar;
+    const showCloseButton = onClose !== undefined && !hideCloseButton;
+    const hasTopBar = onBack !== undefined || showCloseButton || toolbar;
 
     return (
         <Dialog
@@ -110,7 +118,7 @@ export function FloatingCard({
                         <div className="flex min-w-0 grow items-center justify-between gap-3 text-sm text-muted-foreground">
                             {toolbar}
                         </div>
-                        {onClose && (
+                        {showCloseButton && (
                             <RoundIconButton
                                 label="Close"
                                 onClick={onClose}
@@ -125,11 +133,21 @@ export function FloatingCard({
                 {icon}
 
                 <div className="flex flex-col gap-2">
-                    <DialogTitle className="font-sans text-3xl leading-tight font-bold tracking-tight">
+                    <DialogTitle
+                        className={cn(
+                            'font-sans text-3xl leading-tight font-bold tracking-tight',
+                            titleClassName,
+                        )}
+                    >
                         {title}
                     </DialogTitle>
                     {description && (
-                        <DialogDescription className="text-[0.9375rem] text-muted-foreground">
+                        <DialogDescription
+                            className={cn(
+                                'text-[0.9375rem] text-muted-foreground',
+                                descriptionClassName,
+                            )}
+                        >
                             {description}
                         </DialogDescription>
                     )}

@@ -16,6 +16,7 @@ describe('SaaS mode off (self-hosted)', function () {
         $this->call($method, $uri)->assertNotFound();
     })->with([
         ['GET', '/plans'],
+        ['GET', '/billing/prices'],
         ['POST', '/billing/checkout/weekly'],
         ['GET', '/billing/success'],
         ['GET', '/billing/portal'],
@@ -69,6 +70,15 @@ describe('SaaS mode on', function () {
                 ->where('plans.lifetime.regularPrice', '€64')
                 ->where('plans.lifetime.discountPercent', 75)
                 ->where('processing', false));
+    });
+
+    test('guests get the prices for the landing card', function () {
+        $this->getJson(route('billing.prices'))
+            ->assertOk()
+            ->assertExactJson(['plans' => [
+                'weekly' => ['price' => '€2.99'],
+                'lifetime' => ['price' => '€16', 'regularPrice' => '€64', 'discountPercent' => 75],
+            ]]);
     });
 
     test('the paywall has no discount without a launch coupon', function () {
