@@ -1,5 +1,6 @@
 import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import { CURSOR_STOP_SELECTOR } from '@/lib/planner/cursor';
+import { isEditable, isPlainKeyPress } from '@/lib/planner/key-events';
 import {
     createShortcutMatcher,
     effectiveAction,
@@ -22,15 +23,6 @@ export type ShortcutHandlers = Partial<
  */
 export const OVERLAY_SELECTOR =
     '[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"], [data-drag-overlay]';
-
-function isEditable(target: EventTarget | null): boolean {
-    return (
-        target instanceof HTMLElement &&
-        (target.isContentEditable ||
-            target.closest('input, textarea, select, [contenteditable]') !==
-                null)
-    );
-}
 
 /**
  * Where Enter and Space act on the cursor: nowhere in particular (the page)
@@ -63,10 +55,7 @@ export function usePlannerShortcuts(handlers: ShortcutHandlers): void {
     const onKeyDown = useEffectEvent((event: KeyboardEvent) => {
         if (
             event.defaultPrevented ||
-            event.isComposing ||
-            event.altKey ||
-            event.ctrlKey ||
-            event.metaKey ||
+            !isPlainKeyPress(event) ||
             isEditable(event.target) ||
             document.querySelector(OVERLAY_SELECTOR) !== null
         ) {

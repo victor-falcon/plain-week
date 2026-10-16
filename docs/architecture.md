@@ -497,15 +497,18 @@ writes the local database (`moveTask`); sync follows in the background.
 
 ### Keyboard shortcuts
 
-| Piece                                                               | Role                                                                                                                         |
-| ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `lib/planner/shortcuts.ts`                                          | The registry (id, keys, label, group, RTL mirror) and the key-sequence matcher; the single source for the handler and dialog |
-| `hooks/use-planner-shortcuts.ts`                                    | The one `window` keydown listener: guards, sequences, RTL mirroring, held keys                                               |
-| `lib/planner/cursor.ts`                                             | Pure cursor model: resolve, move, first / last, after a removal, carried to another week                                     |
-| `KeyboardCursorProvider` (`components/planner/keyboard-cursor.tsx`) | Cursor state, the lists on screen (each `TaskList` registers its tasks), and what every shortcut does                        |
-| `ShortcutsDialog` (`components/planner/shortcuts-dialog.tsx`)       | The `?` dialog, generated from the registry; `shortcutsDialogStore` (`lib/planner/shortcuts-dialog.ts`) opens it             |
-| `ShortcutKeys` (`components/planner/shortcut-keys.tsx`)             | The keys of an action id as `Kbd`s, in the current direction (left to right, so `<` / `>` never mirror)                      |
-| `lib/planner/undo.ts`                                               | `toastWithUndo` for every "Undo" toast (menu, dialog, drops), and `undoLatest` behind `u`                                    |
+| Piece                                                               | Role                                                                                                                      |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `lib/planner/shortcuts.ts`                                          | The registry (id, keys, label, group, RTL mirror) and the key-sequence matcher; the source for handlers, dialog and hints |
+| `hooks/use-planner-shortcuts.ts`                                    | The one `window` keydown listener: guards, sequences, RTL mirroring, held keys                                            |
+| `hooks/use-task-dialog-shortcuts.ts`                                | The task dialog's `onKeyDown`: its own keys (the "Task dialog" group)                                                     |
+| `hooks/use-menu-shortcuts.ts`                                       | A menu's `onKeyDown`: an item's key picks it (`data-shortcut="<id>"`) while the menu is open                              |
+| `ShortcutHint` (`components/planner/shortcut-hint.tsx`)             | The key hint of an action id, for mouse users only (`hooks/use-key-hints.ts`)                                             |
+| `lib/planner/cursor.ts`                                             | Pure cursor model: resolve, move, first / last, after a removal, carried to another week                                  |
+| `KeyboardCursorProvider` (`components/planner/keyboard-cursor.tsx`) | Cursor state, the lists on screen (each `TaskList` registers its tasks), and what every shortcut does                     |
+| `ShortcutsDialog` (`components/planner/shortcuts-dialog.tsx`)       | The `?` dialog, generated from the registry; `shortcutsDialogStore` (`lib/planner/shortcuts-dialog.ts`) opens it          |
+| `ShortcutKeys` (`components/planner/shortcut-keys.tsx`)             | The keys of an action id as `Kbd`s, in the current direction (left to right, so `<` / `>` never mirror)                   |
+| `lib/planner/undo.ts`                                               | `toastWithUndo` for every "Undo" toast (menu, dialog, drops), and `undoLatest` behind `u`                                 |
 
 - Shortcuts only run when focus is not in a text field, no dialog or menu
   (`role="dialog" | "alertdialog" | "menu" | "listbox"`) is open, no task is being dragged (`[data-drag-overlay]`)
@@ -519,9 +522,10 @@ writes the local database (`moveTask`); sync follows in the background.
 - The cursor is one task, or one list's new-task row (the last stop of each list). Lists are in visual order: Monday to
   Sunday, then the Someday columns (`h` / `l` from Sunday goes on to Someday). It is stored as list, task id and row
   index: it follows its task when the task moves (an occurrence moved becomes an exception with a new id, taken from
-  the move's result), and lands on the same row of its list when the task is gone. `H` / `L` / `←` / `→` carry it to
-  the same weekday and row; `t` puts it on today. The first motion with no cursor starts on today's first task (the
-  first list in another week), or on the focused row when Tab got there first.
+  the move's result), and lands on the same row of its list when the task is gone. `h` / `l` go back to the row the
+  cursor was last on in the list they enter (remembered per list until the week changes), or else the same row.
+  `H` / `L` / `←` / `→` carry it to the same weekday and row; `t` puts it on today. The first motion with no cursor
+  starts on today's first task (the first list in another week), or on the focused row when Tab got there first.
 - Focus is real and roving: the cursor's task text button, or the new-task row itself (`tabIndex=-1`, not its input,
   so keys there are still shortcuts; Enter, `a` or `i` focus the input and Esc in it comes back), takes focus when the
   cursor moves by key, so screen readers announce it (the new-task row is a group named "New task for Mon 12 Oct.
@@ -532,11 +536,26 @@ writes the local database (`moveTask`); sync follows in the background.
   so timed tasks keep their place by time; `<` / `>` change the week when the task leaves it), and the context menu's
   `moveWithUndo` (`w`, `s`), `duplicateWithToast` (`y`) and `deleteWithUndo` (`d d`, asking the scope of a recurring
   task first). `m` opens the context menu anchored to the row's start, like Shift+F10. `a` / `i` with no cursor
-  start a task today. While a task's move or delete is still being written, further moves or deletes of it are
+  start a task today. With no cursor shown and no row focused, `o` and `a` act on the row under the mouse, which is
+  what its hint promises; other keys (deletes, moves) never act on a row the mouse merely rests on. While the cursor
+  is shown, only its row shows a hint. While a task's move or delete is still being written, further moves or deletes of it are
   ignored, so a quick second press never acts on its old state. `u` presses the newest "Undo" toast still on screen,
   then the one before it (after a toast closes, undoing could overwrite later edits); `<` / `>` / `J` / `K` keep the
   task in view and show no toast, like a drag. `,` opens Settings (signed-in users only; guests have no settings
   page, so the dialog leaves it out).
+- The registry has two contexts: the planner keys (`PLANNER_SHORTCUTS`) and the task dialog's ("Task dialog" group,
+  `TASK_DIALOG_SHORTCUTS`); a key is unique within its context only (`d` is the date in the dialog, `d d` deletes on
+  the planner). The dialog's keys are plain keys, so they run only while focus is in the dialog but not in a text
+  field nor in one of its popovers or menus (portaled outside the dialog's element), nor in a part with keys of its own
+  (`data-own-keys`: the subtasks, so Delete on a subtask's button never deletes the task), never with Ctrl, Meta or
+  Alt, and never on Enter or Space. Delete deletes the task, Backspace does not (easy to press by reflex). A key for a
+  disabled picker (`d` on a series row, `r` on a Someday task) does nothing. Combos inside text fields were left out: `Alt+letter` types characters on macOS and opens
+  browser menus on Windows, and `Mod+letter` belongs to the browser; Tab leaves a field, and Esc closes the dialog
+  from anywhere. There is no `Mod+Enter`: every edit is already saved as it happens. Which toolbar popover is open
+  lives in the dialog (`ToolbarPickerContext`, `task-dialog/toolbar-picker.ts`), so `d`, `t`, `r`, `c` and `m` open
+  them; one is open at a time.
+- Menus (the task context menu, the dialog's More menu) pick an item when its key is pressed while open; the first key
+  of a sequence (`d` of `d d`) is held back from the menu's typeahead.
 
 ## Offline app shell
 

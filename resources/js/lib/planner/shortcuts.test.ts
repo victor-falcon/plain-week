@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vite-plus/test';
 import {
     SEQUENCE_TIMEOUT_MS,
+    PLANNER_SHORTCUTS,
     SHORTCUTS,
+    TASK_DIALOG_SHORTCUTS,
     createShortcutMatcher,
     effectiveAction,
     keyToken,
@@ -21,27 +23,43 @@ describe('SHORTCUTS', () => {
         expect(new Set(ids).size).toBe(ids.length);
     });
 
-    it('binds each key sequence to one action only', () => {
-        const sequences = SHORTCUTS.flatMap((shortcut) =>
-            shortcut.keys.map((keys) => keys.join(' ')),
+    it('splits into the planner keys and the task dialog keys', () => {
+        expect(PLANNER_SHORTCUTS.length + TASK_DIALOG_SHORTCUTS.length).toBe(
+            SHORTCUTS.length,
         );
-
-        expect(new Set(sequences).size).toBe(sequences.length);
+        expect(
+            TASK_DIALOG_SHORTCUTS.every(
+                (shortcut) => shortcut.group === 'Task dialog',
+            ),
+        ).toBe(true);
     });
 
-    it('never binds a single key that also starts a sequence', () => {
-        const singles = new Set(
-            SHORTCUTS.flatMap((shortcut) =>
-                shortcut.keys.filter((keys) => keys.length === 1).flat(),
-            ),
-        );
-        const starts = SHORTCUTS.flatMap((shortcut) =>
-            shortcut.keys
-                .filter((keys) => keys.length > 1)
-                .map(([first]) => first),
-        );
+    describe.each([
+        ['planner', PLANNER_SHORTCUTS],
+        ['task dialog', TASK_DIALOG_SHORTCUTS],
+    ])('in the %s', (_, shortcuts) => {
+        it('binds each key sequence to one action only', () => {
+            const sequences = shortcuts.flatMap((shortcut) =>
+                shortcut.keys.map((keys) => keys.join(' ')),
+            );
 
-        expect(starts.filter((key) => singles.has(key))).toEqual([]);
+            expect(new Set(sequences).size).toBe(sequences.length);
+        });
+
+        it('never binds a single key that also starts a sequence', () => {
+            const singles = new Set(
+                shortcuts.flatMap((shortcut) =>
+                    shortcut.keys.filter((keys) => keys.length === 1).flat(),
+                ),
+            );
+            const starts = shortcuts.flatMap((shortcut) =>
+                shortcut.keys
+                    .filter((keys) => keys.length > 1)
+                    .map(([first]) => first),
+            );
+
+            expect(starts.filter((key) => singles.has(key))).toEqual([]);
+        });
     });
 
     it('mirrors in pairs', () => {

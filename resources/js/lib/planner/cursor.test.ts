@@ -116,6 +116,18 @@ describe('moveCursor', () => {
         ).toBe('a');
     });
 
+    it('goes back to the row it was last on in a list', () => {
+        const rows = new Map([['2026-10-12', 2]]);
+
+        expect(
+            moveCursor(LISTS, on('2026-10-13', 0), 'previousList', rows),
+        ).toEqual({ listKey: '2026-10-12', taskId: 'c', index: 2 });
+        // A list it has not been on: the same row.
+        expect(
+            moveCursor(LISTS, on('2026-10-13', 0), 'nextList', rows).listKey,
+        ).toBe('2026-10-14');
+    });
+
     it('goes from Sunday on to Someday, and stops at the ends', () => {
         expect(moveCursor(LISTS, on('2026-10-14', 0), 'nextList').taskId).toBe(
             's',

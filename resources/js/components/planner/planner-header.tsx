@@ -1,5 +1,6 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { AccountButton } from '@/components/planner/account-button';
+import { HintedLabel } from '@/components/planner/shortcut-hint';
 import { Button } from '@/components/ui/button';
 import {
     Tooltip,
@@ -40,26 +41,41 @@ export function PlannerHeader({
     return (
         <header className="sticky top-0 z-20 flex items-center justify-between gap-3 bg-background/95 px-4 py-3 backdrop-blur-sm lg:static lg:px-6 lg:pt-5 lg:pb-0 lg:backdrop-blur-none">
             <h1 className="flex min-w-0 items-baseline gap-2.5 text-3xl leading-tight font-bold tracking-tighter lg:text-4xl">
-                <Button
-                    variant="ghost"
-                    onClick={onToday}
-                    disabled={isCurrentWeek}
-                    aria-label={
-                        isCurrentWeek ? undefined : 'Go to the current week (t)'
-                    }
-                    className={cn(
-                        'h-auto min-w-0 truncate rounded-md p-0 font-[inherit] text-3xl leading-[inherit] tracking-[inherit] hover:bg-transparent disabled:opacity-100 lg:text-4xl',
-                        !isCurrentWeek &&
-                            'text-planner-accent hover:text-planner-accent/80',
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Button
+                            variant="ghost"
+                            onClick={onToday}
+                            disabled={isCurrentWeek}
+                            aria-label={
+                                isCurrentWeek
+                                    ? undefined
+                                    : 'Go to the current week (t)'
+                            }
+                            className={cn(
+                                'h-auto min-w-0 truncate rounded-md p-0 font-[inherit] text-3xl leading-[inherit] tracking-[inherit] hover:bg-transparent disabled:opacity-100 lg:text-4xl',
+                                !isCurrentWeek &&
+                                    'text-planner-accent hover:text-planner-accent/80',
+                            )}
+                        >
+                            <span className="lg:hidden">
+                                {formatMonthTitle(thursday, 'short')}
+                            </span>
+                            <span className="max-lg:hidden">
+                                {formatMonthTitle(thursday, 'long')}
+                            </span>
+                        </Button>
+                    </TooltipTrigger>
+                    {!isCurrentWeek && (
+                        <TooltipContent side="bottom">
+                            <HintedLabel
+                                label="Current week"
+                                action="week.today"
+                                all
+                            />
+                        </TooltipContent>
                     )}
-                >
-                    <span className="lg:hidden">
-                        {formatMonthTitle(thursday, 'short')}
-                    </span>
-                    <span className="max-lg:hidden">
-                        {formatMonthTitle(thursday, 'long')}
-                    </span>
-                </Button>
+                </Tooltip>
                 <span className="shrink-0 text-muted-foreground/50">
                     <abbr title={`Week ${week}`} className="no-underline">
                         {formatWeekNumber(week)}
@@ -83,7 +99,11 @@ export function PlannerHeader({
                         </Button>
                     </TooltipTrigger>
                     <TooltipContent side="bottom">
-                        Previous week (←)
+                        <HintedLabel
+                            label="Previous week"
+                            action="week.previous"
+                            all
+                        />
                     </TooltipContent>
                 </Tooltip>
                 <Tooltip>
@@ -97,7 +117,9 @@ export function PlannerHeader({
                             <ChevronRight className="size-5 rtl:rotate-180" />
                         </Button>
                     </TooltipTrigger>
-                    <TooltipContent side="bottom">Next week (→)</TooltipContent>
+                    <TooltipContent side="bottom">
+                        <HintedLabel label="Next week" action="week.next" all />
+                    </TooltipContent>
                 </Tooltip>
             </nav>
         </header>

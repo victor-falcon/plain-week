@@ -75,7 +75,9 @@ export function TaskSubtasks() {
     }, []);
 
     return (
-        <ul className="flex flex-col">
+        // Its checkboxes and buttons keep their keys (`data-own-keys`):
+        // Delete there must not delete the task.
+        <ul data-own-keys className="flex flex-col">
             {task.subtasks.map((subtask) => (
                 <li
                     key={subtask.id}
@@ -139,6 +141,7 @@ export function TaskSubtasks() {
                 <Plus className="size-4 shrink-0" />
                 <Input
                     ref={addInputRef}
+                    data-add-subtask
                     aria-label="Add subtask"
                     onBlur={(event) => add(event.currentTarget)}
                     placeholder="Add subtask..."

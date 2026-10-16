@@ -55,6 +55,23 @@ type Prompt = AskOptions & { action: ScopeAction };
 const ScopePromptContext = createContext<AskScope | null>(null);
 
 /**
+ * Focus back where the prompt was asked from; when that is gone (a color
+ * swatch in a popover that has closed), the dialog still open under it (the
+ * task dialog), so its keys keep working. Returns whether it focused one.
+ */
+function restoreFocus(target: HTMLElement | null): boolean {
+    const fallback = [
+        ...document.querySelectorAll<HTMLElement>(
+            '[role="dialog"][data-state="open"]',
+        ),
+    ].at(-1);
+    const element = target?.isConnected ? target : fallback;
+    element?.focus();
+
+    return element !== undefined;
+}
+
+/**
  * Hosts the "Only this task / This and all future" prompt for recurring tasks.
  * Mounted once by the planner page; `useScopePrompt()` asks.
  */
@@ -89,10 +106,7 @@ export function ScopePromptProvider({ children }: { children: ReactNode }) {
         // back right away rather than after the closing animation: keys
         // typed just after answering land in the field.
         flushSync(() => setOpen(false));
-
-        if (returnFocus.current?.isConnected) {
-            returnFocus.current.focus();
-        }
+        restoreFocus(returnFocus.current);
     };
 
     const copy = prompt ? COPY[prompt.action] : null;
@@ -108,11 +122,8 @@ export function ScopePromptProvider({ children }: { children: ReactNode }) {
                 {copy && (
                     <AlertDialogContent
                         onCloseAutoFocus={(event) => {
-                            const target = returnFocus.current;
-
-                            if (target?.isConnected) {
+                            if (restoreFocus(returnFocus.current)) {
                                 event.preventDefault();
-                                target.focus();
                             }
                         }}
                     >

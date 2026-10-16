@@ -14,6 +14,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   previous / next day, `w` next week, `s` Someday, `y` duplicate, `d d` / Delete delete, `m` menu, `a` / `i` new task),
   weeks (`H` / `L`, ← / →, `t`), `u` undo, `,` settings and a `?` dialog listing them all (also in the account menu).
   Mirrored in RTL, never while typing, with a dialog open or while dragging, and hidden from mouse users.
+- **Key hints for mouse and trackpad users.** Hovering a task shows `o`, an empty row `a`; the header tooltips show
+  `t`, `H` / `←` and `L` / `→`; the task menu and the task dialog's More menu show each item's key (which also picks
+  the item while the menu is open); a quiet "? Keyboard shortcuts" button sits at the end of the planner. All read
+  from the shortcut list, and never shown on touch screens. With no keyboard cursor, `o` and `a` act on the row under
+  the mouse.
+- **Task dialog keys.** With focus in the dialog but not in a text field: `d` date, `t` time, `r` repeat, `c` color,
+  `m` More, `e` title, `n` notes, `a` add a subtask, `x` done, `>` next day, `w` next week, `s` Someday, `y`
+  duplicate, Delete delete, Esc close. They show in the toolbar tooltips and in a "Task dialog" group of the `?`
+  dialog. The date pickers open on the task's day, so the arrow keys pick a day at once.
+- **`h` / `l` remember the row in each day.** Going back to a day puts the cursor on the row it left there.
 
 ### Changed
 

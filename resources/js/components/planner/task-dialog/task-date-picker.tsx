@@ -1,5 +1,4 @@
 import { CalendarDays } from 'lucide-react';
-import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import {
@@ -10,8 +9,10 @@ import {
 import { parseDateKey, toDateKey } from '@/lib/db/dates';
 import { moveTask } from '@/lib/db/tasks';
 import { formatLongDate, formatShortDate } from '@/lib/planner/format';
+import { focusCalendarDay } from './calendar-focus';
 import { useTaskEditor } from './task-editor';
-import { TOOLBAR_BUTTON_CLASS } from './toolbar-tooltip';
+import { useToolbarPicker } from './toolbar-picker';
+import { TOOLBAR_BUTTON_CLASS, ToolbarTooltip } from './toolbar-tooltip';
 
 /**
  * The task's date ("Mon, 12 Oct 2026", or "Someday"). It opens a calendar
@@ -21,14 +22,15 @@ import { TOOLBAR_BUTTON_CLASS } from './toolbar-tooltip';
  */
 export function TaskDatePicker() {
     const { task, write } = useTaskEditor();
-    const [open, setOpen] = useState(false);
+    const { open, onOpenChange } = useToolbarPicker('date');
+    const disabled = task.kind === 'series';
     const selected = task.date ? parseDateKey(task.date) : undefined;
     const label = task.date ? formatLongDate(task.date) : 'Someday';
     // Phones show "12 Oct" so the toolbar stays on one line.
     const shortLabel = task.date ? formatShortDate(task.date) : 'Someday';
 
     const handleSelect = (date: Date | undefined) => {
-        setOpen(false);
+        onOpenChange(false);
 
         if (date && toDateKey(date) !== task.date) {
             write((id) => moveTask(id, { date: toDateKey(date) }), {
@@ -39,26 +41,32 @@ export function TaskDatePicker() {
     };
 
     return (
-        <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger asChild>
-                <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    aria-label={`Date: ${label}`}
-                    disabled={task.kind === 'series'}
-                    className={`${TOOLBAR_BUTTON_CLASS} min-w-0 shrink font-medium`}
-                >
-                    <CalendarDays data-icon="inline-start" />
-                    <span className="min-w-0 truncate sm:hidden">
-                        {shortLabel}
-                    </span>
-                    <span className="min-w-0 truncate max-sm:hidden">
-                        {label}
-                    </span>
-                </Button>
-            </PopoverTrigger>
-            <PopoverContent align="start" className="w-auto p-0">
+        <Popover open={open && !disabled} onOpenChange={onOpenChange}>
+            <ToolbarTooltip label="Date" action="dialog.date">
+                <PopoverTrigger asChild>
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        aria-label={`Date: ${label}`}
+                        disabled={disabled}
+                        className={`${TOOLBAR_BUTTON_CLASS} min-w-0 shrink font-medium`}
+                    >
+                        <CalendarDays data-icon="inline-start" />
+                        <span className="min-w-0 truncate sm:hidden">
+                            {shortLabel}
+                        </span>
+                        <span className="min-w-0 truncate max-sm:hidden">
+                            {label}
+                        </span>
+                    </Button>
+                </PopoverTrigger>
+            </ToolbarTooltip>
+            <PopoverContent
+                align="start"
+                onOpenAutoFocus={focusCalendarDay}
+                className="w-auto p-0"
+            >
                 <Calendar
                     mode="single"
                     weekStartsOn={1}

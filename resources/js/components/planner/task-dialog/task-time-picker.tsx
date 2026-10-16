@@ -1,5 +1,4 @@
 import { Clock } from 'lucide-react';
-import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -10,7 +9,8 @@ import {
 import { updateTask } from '@/lib/db/tasks';
 import { cn } from '@/lib/utils';
 import { useTaskEditor } from './task-editor';
-import { TOOLBAR_BUTTON_CLASS } from './toolbar-tooltip';
+import { useToolbarPicker } from './toolbar-picker';
+import { TOOLBAR_BUTTON_CLASS, ToolbarTooltip } from './toolbar-tooltip';
 
 const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 
@@ -20,7 +20,7 @@ const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
  */
 export function TaskTimePicker() {
     const { task, edit } = useTaskEditor();
-    const [open, setOpen] = useState(false);
+    const { open, onOpenChange } = useToolbarPicker('time');
 
     const handleChange = (field: HTMLInputElement) => {
         const value = field.value;
@@ -37,27 +37,33 @@ export function TaskTimePicker() {
     };
 
     const handleClear = () => {
-        setOpen(false);
+        onOpenChange(false);
         edit((id, scope) => updateTask(id, { time: null }, { scope }));
     };
 
     return (
-        <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger asChild>
-                <Button
-                    type="button"
-                    variant="ghost"
-                    size={task.time ? 'sm' : 'icon-sm'}
-                    aria-label={task.time ? `Time: ${task.time}` : 'Set time'}
-                    className={cn(
-                        TOOLBAR_BUTTON_CLASS,
-                        'font-medium tabular-nums',
-                    )}
-                >
-                    <Clock data-icon={task.time ? 'inline-start' : undefined} />
-                    {task.time}
-                </Button>
-            </PopoverTrigger>
+        <Popover open={open} onOpenChange={onOpenChange}>
+            <ToolbarTooltip label="Time" action="dialog.time">
+                <PopoverTrigger asChild>
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size={task.time ? 'sm' : 'icon-sm'}
+                        aria-label={
+                            task.time ? `Time: ${task.time}` : 'Set time'
+                        }
+                        className={cn(
+                            TOOLBAR_BUTTON_CLASS,
+                            'font-medium tabular-nums',
+                        )}
+                    >
+                        <Clock
+                            data-icon={task.time ? 'inline-start' : undefined}
+                        />
+                        {task.time}
+                    </Button>
+                </PopoverTrigger>
+            </ToolbarTooltip>
             <PopoverContent align="start" className="w-auto flex-row gap-2">
                 <Input
                     type="time"

@@ -39,9 +39,26 @@ import {
     isValidEvery,
     occurrenceId,
 } from '@/lib/recurrence/expand';
+import type { PlannerTask, SeriesItem } from '@/lib/recurrence/expand';
 import { cn } from '@/lib/utils';
+import { focusCalendarDay } from './calendar-focus';
 import { useTaskEditor } from './task-editor';
+import { useToolbarPicker } from './toolbar-picker';
 import { TOOLBAR_BUTTON_CLASS, ToolbarTooltip } from './toolbar-tooltip';
+
+/**
+ * Whether the task can get a repeat rule now: not a Someday task, and a
+ * recurring one once its rule has loaded.
+ */
+export function canRepeat(
+    task: PlannerTask,
+    series: SeriesItem | null | undefined,
+): boolean {
+    return (
+        repeatAnchor(task) !== null &&
+        !(isRecurring(task) && series === undefined)
+    );
+}
 
 const DAYS_OF_MONTH = Array.from({ length: 31 }, (_, i) => i + 1);
 
@@ -60,8 +77,18 @@ export function TaskRepeatPicker() {
     const { task, series, recurring, write, askScope } = useTaskEditor();
     const anchor = repeatAnchor(task);
     const current = series?.recurrence ?? null;
-    const [open, setOpen] = useState(false);
+    const picker = useToolbarPicker('repeat');
+    const disabled = !canRepeat(task, series);
+    const open = picker.open && !disabled;
     const [draft, setDraft] = useState<RepeatDraft | null>(null);
+
+    // Every opening (a click or `r`) starts from what is stored.
+    if (open && draft === null && anchor) {
+        setDraft(repeatDraft(anchor, current));
+    } else if (!open && draft !== null) {
+        setDraft(null);
+    }
+
     const wholeSeries = recurring && !!series && isSeriesStart(task, series);
     const asksForScope = recurring && !!series && !wholeSeries;
 
@@ -69,14 +96,8 @@ export function TaskRepeatPicker() {
         ? `Repeat: ${summarizeRecurrence(current)}`
         : 'Repeat';
 
-    const handleOpenChange = (next: boolean) => {
-        setOpen(next);
-        // Every opening starts from what is stored.
-        setDraft(next && anchor ? repeatDraft(anchor, current) : null);
-    };
-
     const apply = async () => {
-        handleOpenChange(false);
+        picker.onOpenChange(false);
 
         if (!draft) {
             return;
@@ -114,20 +135,15 @@ export function TaskRepeatPicker() {
     };
 
     return (
-        <Popover open={open} onOpenChange={handleOpenChange}>
-            <ToolbarTooltip label={label}>
+        <Popover open={open} onOpenChange={picker.onOpenChange}>
+            <ToolbarTooltip label={label} action="dialog.repeat">
                 <PopoverTrigger asChild>
                     <Button
                         type="button"
                         variant="ghost"
                         size="icon-sm"
                         aria-label={label}
-                        // A Someday task cannot repeat; a recurring one waits
-                        // for its rule to load.
-                        disabled={
-                            anchor === null ||
-                            (isRecurring(task) && series === undefined)
-                        }
+                        disabled={disabled}
                         className={cn(
                             TOOLBAR_BUTTON_CLASS,
                             current && 'text-foreground',
@@ -437,7 +453,11 @@ function RepeatEnd({
                         {label}
                     </Button>
                 </PopoverTrigger>
-                <PopoverContent align="start" className="w-auto p-0">
+                <PopoverContent
+                    align="start"
+                    onOpenAutoFocus={focusCalendarDay}
+                    className="w-auto p-0"
+                >
                     <Calendar
                         mode="single"
                         weekStartsOn={1}

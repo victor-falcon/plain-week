@@ -3,9 +3,11 @@ import { CircleCheck, GripVertical, Repeat } from 'lucide-react';
 import {
     CURSOR_ROW_CLASS,
     useCursorFocus,
+    useKeyboardCursor,
 } from '@/components/planner/keyboard-cursor';
 import { usePlannerDnd } from '@/components/planner/planner-dnd';
 import { useScopedAction } from '@/components/planner/scope-prompt';
+import { ShortcutHint } from '@/components/planner/shortcut-hint';
 import { TaskContextMenu } from '@/components/planner/task-context-menu';
 import { Button } from '@/components/ui/button';
 import {
@@ -149,6 +151,9 @@ export function TaskRow({
     className,
 }: Props) {
     const openRef = useCursorFocus<HTMLButtonElement>(isCursor);
+    // While the keyboard cursor is shown, keys act on its row, not on the
+    // hovered one: only the cursor's row shows the hint then.
+    const cursorShown = useKeyboardCursor() !== null;
     const repeat = useTaskRepeat(task);
     const label = [
         task.time,
@@ -226,6 +231,17 @@ export function TaskRow({
                     className="h-full min-w-0 flex-1 justify-start gap-0 rounded-none px-0 text-base font-normal text-inherit after:pointer-events-none after:absolute after:inset-0 after:rounded-sm after:border after:border-transparent hover:bg-transparent hover:text-inherit focus-visible:border-transparent focus-visible:ring-0 focus-visible:after:border-ring focus-visible:after:ring-3 focus-visible:after:ring-ring/30 active:not-aria-[haspopup]:translate-y-0 lg:text-sm dark:hover:bg-transparent"
                 >
                     <TaskLabelView task={task} repeat={repeat} />
+                    {/* Grows in on hover: it takes no room until then, and
+                        a long text gives way to it instead of being covered. */}
+                    <ShortcutHint
+                        action="task.open"
+                        size="row"
+                        className={cn(
+                            'ms-auto max-w-0 overflow-hidden opacity-0 transition-[max-width,opacity] duration-200 group-data-cursor/task:max-w-8 group-data-cursor/task:opacity-100',
+                            !cursorShown &&
+                                'group-hover/task:max-w-8 group-hover/task:opacity-100',
+                        )}
+                    />
                 </Button>
                 <Button
                     ref={setActivatorNodeRef}

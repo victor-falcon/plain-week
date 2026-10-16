@@ -11,6 +11,7 @@ import { updateTask } from '@/lib/db/tasks';
 import { TASK_COLOR_STYLES, isTaskColor } from '@/lib/planner/task-colors';
 import { cn } from '@/lib/utils';
 import { useTaskEditor } from './task-editor';
+import { useToolbarPicker } from './toolbar-picker';
 import { TOOLBAR_BUTTON_CLASS, ToolbarTooltip } from './toolbar-tooltip';
 
 /**
@@ -20,10 +21,11 @@ import { TOOLBAR_BUTTON_CLASS, ToolbarTooltip } from './toolbar-tooltip';
 export function TaskColorPicker() {
     const { task, edit } = useTaskEditor();
     const current = TASK_COLOR_STYLES[task.color];
+    const picker = useToolbarPicker('color');
 
     return (
-        <Popover>
-            <ToolbarTooltip label="Color">
+        <Popover {...picker}>
+            <ToolbarTooltip label="Color" action="dialog.color">
                 <PopoverTrigger asChild>
                     <Button
                         type="button"
