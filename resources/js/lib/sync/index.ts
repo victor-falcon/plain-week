@@ -58,11 +58,11 @@ sessionChannel?.addEventListener('message', () => {
 function confirmEndedSessionDiscard(pendingChanges: number): boolean {
     const changes =
         pendingChanges === 1
-            ? '1 change has not been synced'
-            : `${pendingChanges} changes have not been synced`;
+            ? '1 change has not been synced. Discard it'
+            : `${pendingChanges} changes have not been synced. Discard them`;
 
     return window.confirm(
-        `Your session has ended and ${changes}. Discard them and clear this device? Cancel to keep them and log in again.`,
+        `Your session has ended and ${changes} and clear this device? Cancel to keep everything and log in again.`,
     );
 }
 
