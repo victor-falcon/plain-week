@@ -15,6 +15,8 @@ export function createFakeSyncServer() {
         requests: [] as Array<{ url: string; init?: RequestInit }>,
         /** Status to answer every request with instead of handling it. */
         failWith: null as number | null,
+        /** Status to answer pushes only with (e.g. 419 for a lost session). */
+        failPushWith: null as number | null,
         /** Push batches containing a matching task are refused with 422. */
         isInvalid: (() => false) as (task: Task) => boolean,
         /** Awaited before answering a push (to simulate a slow network). */
@@ -30,6 +32,10 @@ export function createFakeSyncServer() {
 
             if (server.failWith !== null) {
                 return new Response('{}', { status: server.failWith });
+            }
+
+            if (url.startsWith('/sync/push') && server.failPushWith !== null) {
+                return new Response('{}', { status: server.failPushWith });
             }
 
             if (url.startsWith('/sync/push')) {

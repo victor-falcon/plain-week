@@ -445,17 +445,84 @@ describe('lifecycle', () => {
         expect((await db.meta.get('user_id'))?.value).toBe('1');
     });
 
-    it('stops quietly on 401', async () => {
-        server.failWith = 401;
-        await startAndSync();
+    it('wipes the local database and stops when the session is gone (401)', async () => {
+        const onSessionExpired = vi.fn();
 
-        expect(engine.getStatus()).toBe('idle');
+        engine = new SyncEngine({
+            db,
+            transport: fetchTransport,
+            environment,
+            onSessionExpired,
+        });
+        await startAndSync();
+        await createTask({ text: 'private', date: '2026-10-12' });
+        server.failWith = 401;
+
+        await engine.sync({ force: true });
+
+        expect(await db.tasks.count()).toBe(0);
+        expect(await db.outbox.count()).toBe(0);
+        expect(await db.meta.count()).toBe(0);
+        expect(engine.isStarted).toBe(false);
+        expect(onSessionExpired).toHaveBeenCalledOnce();
 
         const count = server.requests.length;
 
         environment.emit('focus');
         await engine.sync();
         expect(server.requests.length).toBe(count);
+    });
+
+    it('keeps unsynced changes when the user declines to discard them', async () => {
+        const onSessionExpired = vi.fn();
+        const confirmDiscard = vi.fn(() => false);
+
+        engine = new SyncEngine({
+            db,
+            transport: fetchTransport,
+            environment,
+            onSessionExpired,
+            confirmDiscard,
+        });
+        await createTask({ text: 'offline work', date: '2026-10-12' });
+        server.failWith = 401;
+
+        await startAndSync();
+
+        expect(confirmDiscard).toHaveBeenCalledWith(1);
+        expect(await db.tasks.count()).toBe(1);
+        expect(await db.outbox.count()).toBe(1);
+        expect(engine.isStarted).toBe(false);
+        expect(onSessionExpired).not.toHaveBeenCalled();
+    });
+
+    it('treats a 419 on push as a lost session once a pull confirms it', async () => {
+        const onSessionExpired = vi.fn();
+
+        engine = new SyncEngine({
+            db,
+            transport: fetchTransport,
+            environment,
+            onSessionExpired,
+        });
+        await createTask({ text: 'private', date: '2026-10-12' });
+        server.failPushWith = 419;
+        server.failWith = null;
+
+        // The pull answers normally: the session is alive, keep everything.
+        await startAndSync();
+        expect(await db.tasks.count()).toBe(1);
+        expect(await db.outbox.count()).toBe(1);
+        expect(engine.getStatus()).toBe('error');
+        expect(onSessionExpired).not.toHaveBeenCalled();
+
+        // The pull answers 401: the session is gone.
+        server.failWith = 401;
+        await engine.sync({ force: true });
+
+        expect(await db.tasks.count()).toBe(0);
+        expect(await db.outbox.count()).toBe(0);
+        expect(onSessionExpired).toHaveBeenCalledOnce();
     });
 
     it('reports errors, backs off and recovers', async () => {
