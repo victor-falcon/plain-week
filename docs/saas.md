@@ -12,7 +12,8 @@ accounts that sync, no billing UI, and every route below answers `404`.
     - **Weekly**: a Cashier subscription (type `default`) on `STRIPE_PRICE_WEEKLY` (`plainweek_weekly`).
     - **Lifetime**: a one-time Checkout payment on `STRIPE_PRICE_LIFETIME` (`plainweek_lifetime`), with the coupon in
       `SAAS_LAUNCH_COUPON` applied when it is set and valid (`LAUNCH75`: 75% off).
-- Flow: register (Fortify) → paywall (`/plans`) → Stripe Checkout → back to the planner.
+- Flow: register (Fortify, "Step 1 of 2") → paywall (`/plans`, "Step 2 of 2") → Stripe Checkout → back to the
+  planner. Both steps are floating cards over the planner (see [style.md](./style.md#floating-card)).
 
 ## Entitlement
 
@@ -36,15 +37,15 @@ no access but blocks a second weekly checkout: Settings › Billing shows it wit
 
 All behind `EnsureSaasEnabled` (`404` when SaaS mode is off), in `routes/billing.php` and `bootstrap/app.php`:
 
-| Route                                | Name               | Notes                                                                                                                   |
-| ------------------------------------ | ------------------ | ----------------------------------------------------------------------------------------------------------------------- |
-| `GET /plans`                         | `billing.plans`    | `auth`. The paywall (Inertia `billing/plans`); `?processing=1` polls until a pending payment is confirmed. JSON: prices |
-| `GET\|POST /billing/checkout/{plan}` | `billing.checkout` | `auth`, `weekly` or `lifetime`. Inertia: external redirect to Checkout; plain JSON: `{ url }` (`409` if already owned)  |
-| `GET /billing/success`               | `billing.success`  | `auth`. Checkout's success URL: fulfills the session right away (idempotent), then `/` or `/plans?processing=1`         |
-| `GET /billing/portal`                | `billing.portal`   | `auth`. Redirects to the Stripe customer portal (cancel, payment method, invoices)                                      |
-| `GET /settings/billing`              | `billing.edit`     | `auth`. Settings › Billing: plan, renewal date, portal, "Upgrade to lifetime"                                           |
-| `GET /terms`, `GET /privacy`         | `legal.*`          | Public. Terms of Service and Privacy Policy (seller from `SAAS_SELLER_NAME` / `SAAS_CONTACT_EMAIL`)                     |
-| `POST /stripe/webhook`               | `cashier.webhook`  | Outside the web group, Stripe signature checked with `STRIPE_WEBHOOK_SECRET`                                            |
+| Route                                | Name               | Notes                                                                                                                                            |
+| ------------------------------------ | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `GET /plans`                         | `billing.plans`    | `auth`. The paywall (Inertia `billing/plans`, a card over the planner); `?processing=1` polls until a pending payment is confirmed. JSON: prices |
+| `GET\|POST /billing/checkout/{plan}` | `billing.checkout` | `auth`, `weekly` or `lifetime`. Inertia: external redirect to Checkout; plain JSON: `{ url }` (`409` if already owned)                           |
+| `GET /billing/success`               | `billing.success`  | `auth`. Checkout's success URL: fulfills the session right away (idempotent), then `/` or `/plans?processing=1`                                  |
+| `GET /billing/portal`                | `billing.portal`   | `auth`. Redirects to the Stripe customer portal (cancel, payment method, invoices)                                                               |
+| `GET /settings/billing`              | `billing.edit`     | `auth`. Settings › Billing: plan, renewal date, portal, "Upgrade to lifetime"                                                                    |
+| `GET /terms`, `GET /privacy`         | `legal.*`          | Public. Terms of Service and Privacy Policy (seller from `SAAS_SELLER_NAME` / `SAAS_CONTACT_EMAIL`)                                              |
+| `POST /stripe/webhook`               | `cashier.webhook`  | Outside the web group, Stripe signature checked with `STRIPE_WEBHOOK_SECRET`                                                                     |
 
 `GET` on the checkout route lets a guest pick a plan before having an account: `auth` stores it as the intended URL,
 and Fortify sends the user back to it after logging in or registering.

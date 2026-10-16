@@ -88,7 +88,8 @@ Installed in `resources/js/components/ui/` and where they are used:
 | `input`                                                            | Empty task rows (`new-task-row.tsx`), subtasks, time picker, auth and settings forms   |
 | `textarea`                                                         | Task dialog title and notes                                                            |
 | `checkbox`                                                         | Subtasks, "Remember me" on login                                                       |
-| `dialog`                                                           | Task dialog; account deletion, passkeys and 2FA setup in settings                      |
+| `dialog`                                                           | Task dialog, `FloatingCard`; account deletion, passkeys and 2FA setup in settings      |
+| `radio-group`                                                      | Plan choice (`/plans`)                                                                 |
 | `alert-dialog`                                                     | Scope prompt of recurring tasks (`scope-prompt.tsx`), import preview (Settings › Data) |
 | `progress`                                                         | Import progress (Settings › Data)                                                      |
 | `popover`                                                          | Task dialog date, time, repeat and color pickers                                       |
@@ -102,9 +103,10 @@ Installed in `resources/js/components/ui/` and where they are used:
 | `sonner`                                                           | `AppToaster`; planner code calls `toast` from the `sonner` package                     |
 | `avatar`                                                           | Account button, app header, user info                                                  |
 | `direction`                                                        | `app.tsx` (RTL)                                                                        |
-| `alert`, `card`, `label`, `spinner`, `input-otp`, `separator`      | Auth and settings pages (from the Laravel starter kit)                                 |
+| `alert`, `card`, `label`, `spinner`, `input-otp`, `separator`      | Auth cards and settings pages (from the Laravel starter kit)                           |
 | `sidebar` (+ `skeleton`), `sheet`, `navigation-menu`, `breadcrumb` | Starter kit app shell around the settings pages                                        |
-| `badge`, `collapsible`                                             | Installed, not used yet                                                                |
+| `badge`                                                            | Launch discount on the plan choice and Settings › Billing                              |
+| `collapsible`                                                      | Installed, not used yet                                                                |
 
 `icon.tsx` and `placeholder-pattern.tsx` in the same folder are starter kit helpers, not shadcn components.
 
@@ -148,6 +150,61 @@ Installed in `resources/js/components/ui/` and where they are used:
 7. Test it: a Testing Library test (`*.test.tsx`, happy-dom, real local database) and a headless browser check on a
    phone and a desktop viewport, light and dark (see [stack.md](./stack.md#testing)).
 8. Update this document (measurements, inventory, patterns) in the same pull request.
+
+## Floating card
+
+`resources/js/components/floating-card.tsx`: the card that floats over the planner for log in, sign up, the password
+pages and the plan choice (and, next, the landing card). It is a shadcn `Dialog` that is always open while mounted;
+a page renders it and leaving the page closes it.
+
+```tsx
+<FloatingCard
+    title="Welcome back" // the heading; names the dialog
+    description="Log in to sync your week." // optional; describes the dialog
+    onClose={closeToPlanner} // optional: close button + Esc; without it the card cannot be dismissed
+    onBack={...} // optional: back button at the start of the top bar
+    toolbar={<span>Step 1 of 2</span>} // optional: between the back and close buttons
+    icon={<AppLogoIcon className="size-9" />} // optional: above the title
+>
+    {/* the form */}
+</FloatingCard>
+```
+
+| Part     | Desktop and tablet (≥640px, `sm:`)                                                          | Phone (<640px)                                                                          |
+| -------- | ------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Surface  | Centered, 480px wide, 24px radius, 32px padding, `bg-background`, `shadow-2xl`              | Bottom sheet from 48px below the top, rounded top corners, 20px side padding, slides up |
+| Overflow | Scrolls inside, at most the viewport height minus 32px                                      | Scrolls inside the sheet                                                                |
+| Overlay  | The dialog's translucent dark overlay over the planner                                      | Same                                                                                    |
+| Top bar  | 36px round `secondary` icon buttons: Back (`rtl:rotate-180`) at the start, Close at the end | Same                                                                                    |
+| Title    | `text-3xl font-bold tracking-tight` (Inter), description `text-muted-foreground`            | Same                                                                                    |
+
+Focus moves into the card (the first field when it has `autoFocus`) and stays there; Esc closes it when `onClose` is
+set; a click outside never does, so a half-filled form is not lost.
+
+The auth cards build on it with `components/auth/auth-form.tsx`: `AuthField` (label row with an optional aside such as
+"Forgot it?", the input, the error), `authInputClass` (44px inputs), `AuthSubmit` (the 48px `bg-foreground` pill),
+`AuthFootnote`, `AuthStatus` and `closeToPlanner()`.
+
+### Auth cards over the planner
+
+The planner is a persistent Inertia layout (`layouts/planner-layout.tsx`, chosen in `app.tsx`) for the `planner`,
+`auth/*` and `billing/plans` pages: the planner page renders nothing on top, the others render their `FloatingCard`.
+Moving between `/`, `/login`, `/register` and `/plans` keeps the planner mounted (same week, no reload), and every page
+keeps its own URL, so Fortify redirects, validation errors and the intended URL work as before. Closing a card visits
+`/` (password confirmation goes back instead, since it is reached from the settings).
+
+| Page               | Top bar                           | Copy and fields                                                                                                                                      |
+| ------------------ | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/register`        | Back, "Step 1 of 2" (SaaS), Close | Logo, "Create your account", name, email, password (asked once), Continue ("Create account" self-hosted), log in link, Terms and Privacy line (SaaS) |
+| `/login`           | Logo, Close                       | "Welcome back", passkey, email, password with "Forgot it?", Remember me (on), Log in, "No account yet? Sync your week" ("Sign up" self-hosted)       |
+| `/forgot-password` | Back (to log in), Close           | Email, "Email reset link"                                                                                                                            |
+| `/reset-password`  | Close                             | Email (read only), new password and confirmation                                                                                                     |
+| `/plans` (SaaS)    | "Step 2 of 2", Log out            | Lifetime and Weekly as `RadioGroup` cards, "Due today, VAT included", "Continue to payment", Stripe note, logout and export note, legal links        |
+
+The plan cards show the prices `GET /plans` formats from Stripe: Lifetime (selected by default) with the discounted
+price, the regular one struck through and a "Launch −75%" `Badge` while `SAAS_LAUNCH_COUPON` is set, otherwise the full
+price and no badge; Weekly with "per week". The selected card has a 2px `border-foreground`. The plan card cannot be
+dismissed (no close button, Esc does nothing): an account without a plan pays or logs out.
 
 ## Planner layout
 

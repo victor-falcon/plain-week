@@ -17,6 +17,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   and `php artisan plainweek:grant-lifetime`. Self-hosted instances are unchanged: free accounts, no billing, and the
   new routes are `404`. See [docs/saas.md](docs/saas.md).
 
+### Changed
+
+- **Log in, sign up and the plan choice float over the planner.** `/login`, `/register`, the password reset pages,
+  email verification, two-factor and password confirmation are now floating cards over the dimmed planner (a bottom
+  sheet on phones) instead of separate pages; closing one (close button or Esc) goes back to the planner. Sign-up asks
+  for the password once (it can be shown). In SaaS mode sign-up is step 1 of 2 and `/plans` is step 2: Lifetime or
+  Weekly as radio cards, the amount due today and "Continue to payment".
+
 ### Fixed
 
 - **Logging out leaves nothing behind and shows the demo again.** Logout wipes every local table and flag, so the
