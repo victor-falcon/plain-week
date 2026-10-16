@@ -473,6 +473,43 @@ describe('lifecycle', () => {
         expect(server.requests.length).toBe(count);
     });
 
+    it('stops without retrying and keeps local data when a plan is required (402)', async () => {
+        const onPaymentRequired = vi.fn();
+        const onSessionExpired = vi.fn();
+
+        engine = new SyncEngine({
+            db,
+            transport: fetchTransport,
+            environment,
+            onPaymentRequired,
+            onSessionExpired,
+        });
+        const task = await createTask({ text: 'unpaid', date: '2026-10-12' });
+        server.failWith = 402;
+
+        await startAndSync();
+
+        expect(onPaymentRequired).toHaveBeenCalledOnce();
+        expect(onSessionExpired).not.toHaveBeenCalled();
+        expect(engine.isStarted).toBe(false);
+        expect(engine.getStatus()).toBe('idle');
+        expect(await db.tasks.get(task.id)).toBeDefined();
+        expect(await db.outbox.count()).toBe(1);
+
+        // No retry loop: triggers and timers do nothing once stopped.
+        const count = server.requests.length;
+
+        environment.emit('focus');
+        environment.emit('online');
+        await engine.sync({ force: true });
+        expect(server.requests.length).toBe(count);
+
+        // After paying, the next start pushes what was kept.
+        server.failWith = null;
+        await startAndSync();
+        expect(server.rows.get(task.id)?.text).toBe('unpaid');
+    });
+
     it('keeps unsynced changes when the user declines to discard them', async () => {
         const onSessionExpired = vi.fn();
         const confirmDiscard = vi.fn(() => false);

@@ -8,7 +8,8 @@ ARG PHP_VERSION=8.5
 
 FROM dunglas/frankenphp:1-php${PHP_VERSION} AS base
 
-RUN install-php-extensions intl
+# bcmath: Cashier (moneyphp/money) needs it, even with SaaS mode off.
+RUN install-php-extensions intl bcmath
 
 WORKDIR /app
 
@@ -46,6 +47,7 @@ ARG USER=plainweek
 ENV SERVER_NAME=:8080 \
     APP_ENV=production \
     APP_DEBUG=false \
+    SAAS_ENABLED=false \
     LOG_CHANNEL=stderr \
     DB_CONNECTION=sqlite \
     DB_DATABASE=/app/storage/database/database.sqlite \

@@ -1,9 +1,11 @@
 <?php
 
 use App\Actions\Sync\SyncFormat;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
+use Tests\Support\FakeStripe;
 use Tests\TestCase;
 
 /*
@@ -91,4 +93,86 @@ function push(array $tasks, ?SyncFormat $format = SyncFormat::DailyRules): TestR
     $headers = $format === null ? [] : [SyncFormat::HEADER => (string) $format->value];
 
     return test()->postJson(route('sync.push'), ['tasks' => $tasks], $headers);
+}
+
+/**
+ * SaaS mode on, with a fake Stripe that knows the two prices and the launch coupon.
+ */
+function enableSaas(): FakeStripe
+{
+    config([
+        'saas.enabled' => true,
+        'saas.launch_coupon' => 'LAUNCH75',
+        'cashier.secret' => 'sk_test_fake',
+        'cashier.webhook.secret' => 'whsec_test',
+    ]);
+
+    $prices = [
+        'plainweek_weekly' => ['id' => 'price_weekly', 'object' => 'price', 'unit_amount' => 299, 'currency' => 'eur', 'lookup_key' => 'plainweek_weekly'],
+        'plainweek_lifetime' => ['id' => 'price_lifetime', 'object' => 'price', 'unit_amount' => 6400, 'currency' => 'eur', 'lookup_key' => 'plainweek_lifetime'],
+    ];
+
+    return FakeStripe::install()
+        ->on('get', '/v1/prices', fn (array $params) => [
+            'object' => 'list',
+            'url' => '/v1/prices',
+            'has_more' => false,
+            'data' => array_values(array_intersect_key($prices, array_flip($params['lookup_keys']))),
+        ])
+        ->on('get', '/v1/coupons/LAUNCH75', ['id' => 'LAUNCH75', 'object' => 'coupon', 'percent_off' => 75, 'valid' => true])
+        ->on('post', '/v1/customers', ['id' => 'cus_test', 'object' => 'customer'])
+        ->on('get', '/v1/customers/cus_test', ['id' => 'cus_test', 'object' => 'customer'])
+        ->on('post', '/v1/checkout/sessions', ['id' => 'cs_test', 'object' => 'checkout.session', 'url' => 'https://checkout.stripe.com/c/pay/cs_test']);
+}
+
+/**
+ * A Stripe subscription as the API returns it.
+ *
+ * @param  array<string, mixed>  $overrides
+ * @return array<string, mixed>
+ */
+function stripeSubscription(array $overrides = []): array
+{
+    return array_merge([
+        'id' => 'sub_test',
+        'object' => 'subscription',
+        'customer' => 'cus_test',
+        'status' => 'active',
+        'cancel_at_period_end' => false,
+        'metadata' => ['type' => 'default'],
+        'items' => [
+            'object' => 'list',
+            'data' => [[
+                'id' => 'si_test',
+                'object' => 'subscription_item',
+                'quantity' => 1,
+                'current_period_end' => now()->addWeek()->timestamp,
+                'price' => ['id' => 'price_weekly', 'object' => 'price', 'product' => 'prod_weekly'],
+            ]],
+        ],
+    ], $overrides);
+}
+
+/**
+ * A user with an active weekly subscription stored locally.
+ */
+function weeklySubscriber(string $status = 'active', ?DateTimeInterface $endsAt = null): User
+{
+    $user = User::factory()->create(['stripe_id' => 'cus_test']);
+
+    $user->subscriptions()->create([
+        'type' => 'default',
+        'stripe_id' => 'sub_test',
+        'stripe_status' => $status,
+        'stripe_price' => 'price_weekly',
+        'quantity' => 1,
+        'ends_at' => $endsAt,
+    ])->items()->create([
+        'stripe_id' => 'si_test',
+        'stripe_product' => 'prod_weekly',
+        'stripe_price' => 'price_weekly',
+        'quantity' => 1,
+    ]);
+
+    return $user;
 }

@@ -1,4 +1,5 @@
 import { db, wipeLocalDatabase } from '@/lib/db/database';
+import { plans } from '@/routes/billing';
 import { SyncEngine, claimDatabaseFor } from './engine';
 import { withSyncLock } from './lock';
 import { fetchTransport, isSessionGone, requestLogout } from './transport';
@@ -11,7 +12,23 @@ export const syncEngine = new SyncEngine({
     transport: fetchTransport,
     onSessionExpired: leaveEndedSession,
     confirmDiscard: confirmEndedSessionDiscard,
+    onPaymentRequired: showPaywall,
 });
+
+/** True while `logOut` runs: its last sync may get a 402 too. */
+let loggingOut = false;
+
+/**
+ * SaaS mode: the account has no paid plan (never had one, or it ended), so
+ * the server refuses to sync. Local data stays; the user picks a plan.
+ */
+function showPaywall(): void {
+    const paywall = plans.url();
+
+    if (!loggingOut && window.location.pathname !== paywall) {
+        window.location.assign(paywall);
+    }
+}
 
 /**
  * Gets the local database ready for the signed-in user outside the planner
@@ -148,8 +165,14 @@ export async function logOut({
 }: LogOutOptions): Promise<string | null> {
     const wasStarted = syncEngine.isStarted;
 
-    syncEngine.start(userId);
-    await syncEngine.sync({ force: true });
+    loggingOut = true;
+
+    try {
+        syncEngine.start(userId);
+        await syncEngine.sync({ force: true });
+    } finally {
+        loggingOut = false;
+    }
 
     const pending = await syncEngine.pendingCount();
 

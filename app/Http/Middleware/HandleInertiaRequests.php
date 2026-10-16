@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\User;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -35,12 +36,22 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
+        $user = $request->user();
+
         return [
             ...parent::share($request),
             'name' => config('app.name'),
             'auth' => [
                 'user' => $request->user(),
             ],
+            'saas' => [
+                'enabled' => (bool) config('saas.enabled'),
+            ],
+            // Lazy: computed per request only for signed-in users (it may query the subscription).
+            'account' => fn () => $user instanceof User ? [
+                'hasAccess' => $user->hasAccess(),
+                'plan' => $user->plan()?->value,
+            ] : null,
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];
     }

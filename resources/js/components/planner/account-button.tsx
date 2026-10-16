@@ -110,8 +110,16 @@ function UserAccountMenu({ user }: { user: User }) {
 
 /** Highlighted, pulsing button inviting a guest with local work to sign up. */
 function GuestSaveButton() {
+    const saasEnabled = usePage().props.saas?.enabled ?? false;
+
     return (
-        <WithTooltip label="Save your tasks: create a free account to sync them">
+        <WithTooltip
+            label={
+                saasEnabled
+                    ? 'Save your tasks: create an account to sync them'
+                    : 'Save your tasks: create a free account to sync them'
+            }
+        >
             <Button
                 asChild
                 size="icon-lg"
