@@ -10,9 +10,12 @@ import { home } from '@/routes';
 /** Classes for the text inputs of the floating auth cards (44px). */
 export const authInputClass = 'h-11 px-4';
 
-/** Leaves a floating auth card for the planner underneath it. */
+/**
+ * Leaves a floating auth card for the planner underneath it. It replaces the
+ * card's history entry, so the browser's back button does not reopen it.
+ */
 export function closeToPlanner(): void {
-    router.visit(home());
+    router.visit(home(), { replace: true });
 }
 
 /** A labelled field with its validation error. */

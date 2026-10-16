@@ -191,15 +191,16 @@ The planner is a persistent Inertia layout (`layouts/planner-layout.tsx`, chosen
 `auth/*` and `billing/plans` pages: the planner page renders nothing on top, the others render their `FloatingCard`.
 Moving between `/`, `/login`, `/register` and `/plans` keeps the planner mounted (same week, no reload), and every page
 keeps its own URL, so Fortify redirects, validation errors and the intended URL work as before. Closing a card visits
-`/` (password confirmation goes back instead, since it is reached from the settings).
+`/`, replacing the card's history entry. Password confirmation is the exception: it is reached from Settings ›
+Security, so its card floats over the settings layout and closing it opens Settings › Profile.
 
-| Page               | Top bar                           | Copy and fields                                                                                                                                      |
-| ------------------ | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/register`        | Back, "Step 1 of 2" (SaaS), Close | Logo, "Create your account", name, email, password (asked once), Continue ("Create account" self-hosted), log in link, Terms and Privacy line (SaaS) |
-| `/login`           | Logo, Close                       | "Welcome back", passkey, email, password with "Forgot it?", Remember me (on), Log in, "No account yet? Sync your week" ("Sign up" self-hosted)       |
-| `/forgot-password` | Back (to log in), Close           | Email, "Email reset link"                                                                                                                            |
-| `/reset-password`  | Close                             | Email (read only), new password and confirmation                                                                                                     |
-| `/plans` (SaaS)    | "Step 2 of 2", Log out            | Lifetime and Weekly as `RadioGroup` cards, "Due today, VAT included", "Continue to payment", Stripe note, logout and export note, legal links        |
+| Page               | Top bar                           | Copy and fields                                                                                                                                             |
+| ------------------ | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/register`        | Back, "Step 1 of 2" (SaaS), Close | Logo, "Create your account", name, email, password (asked once), Continue ("Create account" self-hosted), log in link, Terms and Privacy line (SaaS)        |
+| `/login`           | Logo, Close                       | "Welcome back", passkey, email, password with "Forgot it?", Remember me (on), Log in, "No account yet? Sync your week" ("Sign up" self-hosted)              |
+| `/forgot-password` | Back (to log in), Close           | Email, "Email reset link"                                                                                                                                   |
+| `/reset-password`  | Close                             | Email (read only), new password and confirmation                                                                                                            |
+| `/plans` (SaaS)    | "Step 2 of 2", Log out            | Lifetime and Weekly as `RadioGroup` cards, "Due today, VAT included", "Continue to payment", Stripe note, "Not now?" note with the export link, legal links |
 
 The plan cards show the prices `GET /plans` formats from Stripe: Lifetime (selected by default) with the discounted
 price, the regular one struck through and a "Launch −75%" `Badge` while `SAAS_LAUNCH_COUPON` is set, otherwise the full

@@ -189,7 +189,7 @@ export default function Plans({ plans, processing }: Props) {
                         Due today, VAT included
                     </span>
                     <span className="font-bold" data-test="due-today">
-                        {plan === 'lifetime' ? lifetime.price : weekly.price}
+                        {plans[plan].price}
                     </span>
                 </div>
 
@@ -209,14 +209,7 @@ export default function Plans({ plans, processing }: Props) {
                 </div>
 
                 <AuthFootnote className="text-xs">
-                    Not now?{' '}
-                    <Button
-                        variant="link"
-                        className="h-auto p-0 text-xs text-muted-foreground underline"
-                        onClick={logOut}
-                    >
-                        Keep using Plain Week on this device for free.
-                    </Button>
+                    Not now? Keep using Plain Week on this device for free.
                     <br />
                     Logging out removes this account's tasks from this device;{' '}
                     <TextLink href={editData()}>export them</TextLink> first to

@@ -14,6 +14,9 @@ void createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),
     layout: (name) => {
         switch (true) {
+            // Reached from Settings › Security: its card floats over the settings.
+            case name === 'auth/confirm-password':
+                return [AppLayout, SettingsLayout];
             // The same layout instance stays mounted between these pages,
             // so the planner keeps running under their floating cards.
             case name === 'planner':

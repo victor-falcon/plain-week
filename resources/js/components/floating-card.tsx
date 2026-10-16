@@ -80,6 +80,7 @@ export function FloatingCard({
             <DialogContent
                 showCloseButton={false}
                 onOpenAutoFocus={onOpenAutoFocus}
+                // No description: tell Radix on purpose, so it does not warn.
                 {...(description === undefined && {
                     'aria-describedby': undefined,
                 })}

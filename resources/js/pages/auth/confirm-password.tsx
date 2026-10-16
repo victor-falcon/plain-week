@@ -1,4 +1,4 @@
-import { Form, Head } from '@inertiajs/react';
+import { Form, Head, router } from '@inertiajs/react';
 import {
     index as confirmOptions,
     store as confirmStore,
@@ -7,24 +7,21 @@ import {
     AuthField,
     AuthSubmit,
     authInputClass,
-    closeToPlanner,
 } from '@/components/auth/auth-form';
 import { FloatingCard } from '@/components/floating-card';
 import PasskeyVerify from '@/components/passkey-verify';
 import PasswordInput from '@/components/password-input';
 import { store } from '@/routes/password/confirm';
+import { edit as editProfile } from '@/routes/profile';
 
+/** Closing goes to the settings the card floats over, not to the protected page. */
 function leave(): void {
-    if (window.history.length > 1) {
-        window.history.back();
-    } else {
-        closeToPlanner();
-    }
+    router.visit(editProfile(), { replace: true });
 }
 
 /**
- * Asked before a sensitive setting (passkeys, two-factor). It is always
- * reached from inside the app, so closing it goes back there.
+ * Asked before a sensitive setting (Settings › Security: password, passkeys,
+ * two-factor), as a card over the settings.
  */
 export default function ConfirmPassword() {
     return (
