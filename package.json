@@ -55,6 +55,7 @@
         "babel-plugin-react-compiler": "^1.0.0",
         "fake-indexeddb": "^6.2.5",
         "happy-dom": "^21.0.1",
+        "playwright": "^1.58.2",
         "vite-plugin-pwa": "^2.0.0",
         "vite-plus": "0.3.0",
         "workbox-cacheable-response": "^7.4.1",

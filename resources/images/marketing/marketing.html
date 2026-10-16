@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <!--
+            Source of the og:image (public/og-image.png) and the README header (docs/images/header-*.png).
+            One page, four variants picked by the query string:
+                ?kind=og|header&theme=light|dark
+            Render them with `bun scripts/marketing-images.ts` (docs/stack.md#marketing-images). The fonts come from
+            the @fontsource-variable packages in node_modules, so run `bun install` first.
+        -->
+        <title>Plain Week marketing image</title>
+        <style>
+            @font-face {
+                font-family: 'Inter';
+                font-weight: 100 900;
+                src: url('../../../node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2')
+                    format('woff2');
+            }
+
+            @font-face {
+                font-family: 'JetBrains Mono';
+                font-weight: 100 800;
+                src: url('../../../node_modules/@fontsource-variable/jetbrains-mono/files/jetbrains-mono-latin-wght-normal.woff2')
+                    format('woff2');
+            }
+
+            body {
+                margin: 0;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="image"></div>
+        <script>
+            const params = new URLSearchParams(location.search);
+            const header = params.get('kind') === 'header';
+            const dark = params.get('theme') === 'dark';
+
+            // Layout of each kind. The week card bleeds off the right edge on purpose.
+            const size = header
+                ? {
+                      width: 1600,
+                      height: 560,
+                      grid: 32,
+                      text: { left: 96, top: 72, width: 620 },
+                      brand: 36,
+                      gap: 20,
+                      title: { size: 64, spacing: -2.6 },
+                      pitch: 'A minimal weekly planner and to-do list.<br><span style="white-space: nowrap">Free forever, MIT licensed, offline-first and easy to self-host.</span>',
+                      chips: [
+                          'Offline-first',
+                          'Free · MIT',
+                          'Self-hostable',
+                          'Installable app',
+                      ],
+                      card: {
+                          left: 800,
+                          top: 72,
+                          width: 900,
+                          height: 470,
+                          gap: 20,
+                      },
+                      rows: 9,
+                      row: { height: 40, text: 15, chip: 12, chipLine: 17 },
+                      head: 18,
+                  }
+                : {
+                      width: 1200,
+                      height: 630,
+                      grid: 30,
+                      text: { left: 80, top: 80, width: 470 },
+                      brand: 34,
+                      gap: 22,
+                      title: { size: 60, spacing: -2.4 },
+                      pitch: 'A minimal weekly planner and to-do list. Free, open source and offline-first.',
+                      chips: ['Offline-first', 'Free · MIT', 'Self-hostable'],
+                      card: {
+                          left: 620,
+                          top: 96,
+                          width: 760,
+                          height: 480,
+                          gap: 18,
+                      },
+                      rows: 8,
+                      row: { height: 38, text: 14, chip: 11, chipLine: 16 },
+                      head: 17,
+                  };
+
+            const ink = dark ? '#FAFAFA' : '#18181B';
+            const line = dark ? '#3F3F46' : '#E4E4E7';
+            const muted = dark ? '#A1A1AA' : '#52525B';
+            const accent = dark ? '#A5B4FC' : '#1447E6';
+            const gridLine = dark ? 'rgba(255,255,255,0.06)' : '#EDEDEF';
+
+            const week = [
+                {
+                    d: '12 Oct',
+                    w: 'Mon',
+                    tasks: [
+                        { t: 'Plan the week' },
+                        { t: 'Reply to Ana', done: true },
+                        { t: 'Groceries' },
+                    ],
+                },
+                {
+                    d: '13 Oct',
+                    w: 'Tue',
+                    tasks: [
+                        { t: 'Gym', time: '17:30' },
+                        { t: 'Book flights', pill: '#FAEB4F' },
+                    ],
+                },
+                {
+                    d: '14 Oct',
+                    w: 'Wed',
+                    tasks: [
+                        { t: 'Dentist', time: '09:00' },
+                        { t: 'Read 20 pages' },
+                    ],
+                },
+                {
+                    d: '15 Oct',
+                    w: 'Thu',
+                    today: true,
+                    tasks: [
+                        { t: 'Ship v1', pill: '#C9F5E2' },
+                        { t: 'Call mum' },
+                        { t: 'Water plants' },
+                    ],
+                },
+                {
+                    d: '16 Oct',
+                    w: 'Fri',
+                    tasks: [
+                        { t: 'Weekly review' },
+                        { t: 'Pizza night', pill: '#F9C6DA' },
+                    ],
+                },
+            ];
+
+            const chip = `padding: 8px 14px; border-radius: 999px; font-size: 16px; font-weight: 500; color: ${ink}; border: 1.5px solid ${dark ? '#52525B' : '#D4D4D8'}; background: ${dark ? '#18181B' : '#FFFFFF'}`;
+
+            const escape = (value) =>
+                value.replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
+
+            const dayColumn = (day) => {
+                const rows = [];
+                for (let r = 0; r < size.rows; r++) {
+                    const task = day.tasks[r] || {};
+                    let text = `font-size: ${size.row.text}px; color: ${task.done ? muted : ink}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis`;
+                    if (task.done) text += '; text-decoration: line-through';
+                    if (task.pill)
+                        text += `; background: ${task.pill}; color: #18181B; padding: 2px 8px; border-radius: 999px; margin-inline-start: -4px`;
+                    const time = task.time
+                        ? `<span style="padding: 0 6px; border: 1px solid ${ink}; color: ${ink}; border-radius: 999px; font-size: ${size.row.chip}px; line-height: ${size.row.chipLine}px">${task.time}</span>`
+                        : '';
+                    rows.push(
+                        `<div style="height: ${size.row.height}px; box-sizing: border-box; border-bottom: 1px solid ${line}; display: flex; align-items: center; gap: 6px; padding: 0 4px">${time}<span style="${text}">${escape(task.t || '')}</span></div>`,
+                    );
+                }
+                const today = day.today
+                    ? `; background: ${dark ? 'rgba(165,180,252,0.10)' : 'rgba(20,71,230,0.06)'}; border-radius: 10px 10px 0 0; margin: -8px -8px 0; padding: 8px 8px 0`
+                    : '';
+                const color = day.today ? accent : ink;
+                return `<div style="display: flex; flex-direction: column; min-width: 0${today}">
+                    <div style="display: flex; align-items: baseline; justify-content: space-between; padding-bottom: 10px; border-bottom: 2px solid ${color}; font-size: ${size.head}px; color: ${color}">
+                        <span style="font-weight: 700">${day.d}</span><span style="color: ${day.today ? accent : dark ? '#71717A' : '#A1A1AA'}">${day.w}</span>
+                    </div>
+                    ${rows.join('')}
+                </div>`;
+            };
+
+            document.getElementById('image').outerHTML = `
+                <div id="image" style="background-color: ${dark ? '#18181B' : '#FAFAFA'}; background-image: linear-gradient(${gridLine} 1px, transparent 1px), linear-gradient(90deg, ${gridLine} 1px, transparent 1px); background-size: ${size.grid}px ${size.grid}px; width: ${size.width}px; height: ${size.height}px; box-sizing: border-box; position: relative; overflow: hidden; font-family: 'Inter', sans-serif">
+                    <div style="position: absolute; left: ${size.text.left}px; top: ${size.text.top}px; bottom: ${size.text.top}px; width: ${size.text.width}px; display: flex; flex-direction: column; justify-content: space-between">
+                        <div style="display: flex; align-items: center; gap: 18px">
+                            <svg width="72" height="72" viewBox="0 0 32 32" role="img" aria-label="Plain Week logo"><path d="M5 25.5V9.75a2.75 2.75 0 0 1 5.5 0v8.5a2.75 2.75 0 0 0 5.5 0v-5.5a2.75 2.75 0 0 1 5.5 0v5.5a2.75 2.75 0 0 0 5.5 0V7.5" fill="none" stroke="${ink}" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                            <span style="color: ${ink}; font-family: 'JetBrains Mono', monospace; font-size: ${size.brand}px; font-weight: 800; letter-spacing: -1px">Plain Week</span>
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: ${size.gap}px">
+                            <h1 style="color: ${ink}; margin: 0; font-size: ${size.title.size}px; line-height: 1.04; font-weight: 700; letter-spacing: ${size.title.spacing}px">Your week,<br>plain and simple.</h1>
+                            <p style="color: ${muted}; margin: 0; font-size: 22px; line-height: 1.45">${size.pitch}</p>
+                        </div>
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap">
+                            ${size.chips.map((label) => `<span style="${chip}">${label}</span>`).join('')}
+                        </div>
+                    </div>
+                    <div style="background: ${dark ? '#09090B' : '#FFFFFF'}; border: 1px solid ${line}; box-shadow: 0 24px 60px -20px rgba(0,0,0,${dark ? '0.6' : '0.18'}); position: absolute; left: ${size.card.left}px; top: ${size.card.top}px; width: ${size.card.width}px; height: ${size.card.height}px; box-sizing: border-box; padding: 28px; border-radius: 18px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: ${size.card.gap}px">
+                        ${week.map(dayColumn).join('')}
+                    </div>
+                </div>`;
+        </script>
+    </body>
+</html>

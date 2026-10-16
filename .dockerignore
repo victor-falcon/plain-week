@@ -50,9 +50,11 @@ storage/framework/views/*
 storage/logs/*
 storage/pail
 
-# Tests, docs and test artifacts (not needed at runtime)
+# Tests, docs, image scripts and test artifacts (not needed at runtime)
 tests
 docs
+scripts
+resources/images/marketing
 .phpunit.cache
 .phpunit.result.cache
 coverage
