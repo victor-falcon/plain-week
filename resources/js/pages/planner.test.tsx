@@ -160,6 +160,7 @@ describe('Planner landing card', () => {
             'https://github.com/victor-falcon/plain-week/blob/main/docs/self-hosting.md',
         );
         expect(links[0].getAttribute('target')).toBe('_blank');
+        expect(links[0].textContent).toContain('Self-hosting guide');
         expect(block.querySelector('pre')).toBeNull();
     });
 
