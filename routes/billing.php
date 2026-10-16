@@ -9,6 +9,10 @@ use Illuminate\Support\Facades\Route;
 Route::middleware(EnsureSaasEnabled::class)->group(function () {
     Route::get('terms', [LegalController::class, 'terms'])->name('legal.terms');
     Route::get('privacy', [LegalController::class, 'privacy'])->name('legal.privacy');
+    // Public: the landing card shows the prices to guests.
+    Route::get('billing/prices', [BillingController::class, 'prices'])
+        ->middleware('throttle:60,1')
+        ->name('billing.prices');
 
     Route::middleware('auth')->group(function () {
         Route::get('plans', [BillingController::class, 'plans'])->name('billing.plans');

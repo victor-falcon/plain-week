@@ -90,7 +90,10 @@ Browser QA for UI changes runs against a production build, so the service worker
 2. Drive it with headless Playwright (Chromium). Useful hooks: the empty rows are inputs labelled
    `New task for Mon 12 Oct` / `New Someday task (column 1)`, task rows are `[data-task-id]` with a button named after
    the task (`17:30 Gym`, `Call mom (done)`), the task dialog is the dialog named `Edit task`, and the account button is
-   `[data-test="account-button"]` (`[data-test="save-button"]` for a guest with local work). Settings › Data
+   `[data-test="account-button"]` with its sync dot `[data-sync-status]` (a guest's menu next to
+   `[data-test="sync-your-week"]`; on phones `[data-test="guest-menu-compact"]`). In SaaS mode a guest's first visit shows the landing card (dialog named "A minimal
+   weekly planner that feels like paper."): press `[data-test="landing-start"]` first, or set `localStorage`
+   `plain-week.landing-dismissed`. Settings › Data
    (`/settings/data`) has `[data-test="export-data"]` / `[data-test="import-data"]`; the import reads the hidden
    `[data-test="import-file-input"]`, so `setInputFiles` on it skips the native file picker.
 3. Offline: wait for `navigator.serviceWorker.ready`, then `context.setOffline(true)` and reload.

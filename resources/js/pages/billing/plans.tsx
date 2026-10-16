@@ -18,6 +18,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Spinner } from '@/components/ui/spinner';
 import { useCheckout } from '@/hooks/use-checkout';
 import { useLogout } from '@/hooks/use-logout';
+import { chosenPlan, forgetChosenPlan } from '@/lib/landing';
 import { edit as editData } from '@/routes/data';
 import type { Plan } from '@/types';
 
@@ -118,12 +119,17 @@ function PlanOption({
  * go but Checkout or logging out. Guests never see it.
  */
 export default function Plans({ plans, processing }: Props) {
-    const [plan, setPlan] = useState<Plan>('lifetime');
+    // A plan picked on the landing card before signing up comes preselected.
+    const [plan, setPlan] = useState<Plan>(() => chosenPlan() ?? 'lifetime');
     const { start, pending } = useCheckout();
     const promotion = usePromotionCode();
     const logOut = useLogout();
     const { lifetime, weekly } = plans;
     const applied = promotion.appliedTo(plan);
+
+    useEffect(() => {
+        forgetChosenPlan();
+    }, []);
 
     const choose = (next: Plan) => {
         setPlan(next);

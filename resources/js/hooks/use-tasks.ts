@@ -1,7 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { toDateKey } from '@/lib/db/dates';
 import {
-    queryPendingChangeCount,
     querySeries,
     querySomedayTasks,
     queryTask,
@@ -69,12 +68,4 @@ export function useSeries(
     return result !== undefined && result.seriesId === seriesId
         ? result.series
         : undefined;
-}
-
-/**
- * Live number of local changes the server has not accepted yet (for guests:
- * everything they created on this device). `undefined` while loading.
- */
-export function usePendingChangeCount(): number | undefined {
-    return useLiveQuery(() => queryPendingChangeCount(), []);
 }

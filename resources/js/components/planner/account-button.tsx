@@ -1,12 +1,11 @@
 import { Link, usePage } from '@inertiajs/react';
 import {
-    CloudAlert,
-    CloudOff,
+    ChevronDown,
     CloudUpload,
+    CreditCard,
+    Info,
     LogIn,
     RefreshCw,
-    User as UserIcon,
-    UserPlus,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -15,6 +14,7 @@ import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
+    DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
@@ -24,38 +24,45 @@ import {
 } from '@/components/ui/tooltip';
 import { UserMenuContent } from '@/components/user-menu-content';
 import { useInitials } from '@/hooks/use-initials';
-import { usePendingChangeCount } from '@/hooks/use-tasks';
 import { useVisibleSyncStatus } from '@/hooks/use-visible-sync-status';
+import { landingStore } from '@/lib/landing';
+import { syncEngine } from '@/lib/sync';
 import type { SyncStatus } from '@/lib/sync';
+import { cn } from '@/lib/utils';
 import type { User } from '@/types';
 import { login, register } from '@/routes';
+import { plans } from '@/routes/billing';
 
-const STATUS_LABELS: Record<SyncStatus, string> = {
+/** What the dot shows: the engine's status, or `paused` when the plan ended (SaaS). */
+type DotStatus = SyncStatus | 'paused';
+
+const STATUS_LABELS: Record<DotStatus, string> = {
     idle: 'All changes synced',
     syncing: 'Syncing…',
-    offline: 'Offline. Changes are saved on this device and sync later.',
-    error: 'Some changes could not be synced.',
+    offline: 'Offline. Changes sync when you are back.',
+    error: 'Some changes could not be synced. Click to retry.',
+    paused: 'Sync paused. Renew your plan to sync again.',
 };
 
-function StatusBadge({ status }: { status: SyncStatus }) {
-    const icon = {
-        idle: null,
-        syncing: <RefreshCw className="size-3 animate-spin" />,
-        offline: <CloudOff className="size-3" />,
-        error: <CloudAlert className="size-3 text-destructive" />,
-    }[status];
+const DOT_COLORS: Record<DotStatus, string> = {
+    idle: 'bg-sync-synced',
+    syncing: 'bg-sync-syncing motion-safe:animate-sync-pulse',
+    offline: 'bg-sync-offline',
+    error: 'bg-sync-error',
+    paused: 'bg-sync-paused',
+};
 
-    if (icon === null) {
-        return null;
-    }
-
+/** Always-visible sync status at the avatar's top-end corner. */
+function StatusDot({ status }: { status: DotStatus }) {
     return (
         <span
+            aria-hidden
             data-sync-status={status}
-            className="absolute -end-0.5 -bottom-0.5 flex size-4.5 items-center justify-center rounded-full bg-background shadow-sm ring-1 ring-border"
-        >
-            {icon}
-        </span>
+            className={cn(
+                'absolute -end-px -top-px size-3.5 rounded-full border-[2.5px] border-background',
+                DOT_COLORS[status],
+            )}
+        />
     );
 }
 
@@ -74,11 +81,13 @@ function WithTooltip({
     );
 }
 
-const roundButton = 'relative size-10 rounded-full';
-
 function UserAccountMenu({ user }: { user: User }) {
-    const status = useVisibleSyncStatus();
+    const { account } = usePage().props;
+    const engineStatus = useVisibleSyncStatus();
     const getInitials = useInitials();
+    // SaaS mode: without a paid plan the engine does not run (the server answers 402).
+    const status: DotStatus =
+        account?.hasAccess === false ? 'paused' : engineStatus;
 
     return (
         <DropdownMenu>
@@ -87,7 +96,7 @@ function UserAccountMenu({ user }: { user: User }) {
                     <Button
                         variant="secondary"
                         size="icon-lg"
-                        className={roundButton}
+                        className="relative size-10 rounded-full"
                         aria-label={`Account menu. ${STATUS_LABELS[status]}`}
                         data-test="account-button"
                     >
@@ -97,94 +106,159 @@ function UserAccountMenu({ user }: { user: User }) {
                                 {getInitials(user.name)}
                             </AvatarFallback>
                         </Avatar>
-                        <StatusBadge status={status} />
+                        <StatusDot status={status} />
                     </Button>
                 </DropdownMenuTrigger>
             </WithTooltip>
             <DropdownMenuContent className="min-w-56" align="end">
+                {status === 'error' && (
+                    <>
+                        <DropdownMenuItem
+                            className="cursor-pointer"
+                            onSelect={() =>
+                                void syncEngine.sync({ force: true })
+                            }
+                            data-test="retry-sync"
+                        >
+                            <RefreshCw className="me-2" />
+                            Retry sync
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                    </>
+                )}
+                {status === 'paused' && (
+                    <>
+                        <DropdownMenuItem asChild>
+                            <Link href={plans()} className="cursor-pointer">
+                                <CreditCard className="me-2" />
+                                Choose a plan
+                            </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                    </>
+                )}
                 <UserMenuContent user={user} />
             </DropdownMenuContent>
         </DropdownMenu>
     );
 }
 
-/** Highlighted, pulsing button inviting a guest with local work to sign up. */
-function GuestSaveButton() {
+const guestSegment =
+    'h-10 bg-foreground text-sm font-semibold text-background hover:bg-foreground/85';
+
+const GUEST_TOOLTIP = 'Only on this device. Sync your week across devices.';
+
+/** Grey: nothing leaves this device yet. */
+function GuestDot({ className }: { className?: string }) {
+    return (
+        <span
+            aria-hidden
+            data-sync-status="guest"
+            className={cn('size-2.5 rounded-full bg-sync-paused', className)}
+        />
+    );
+}
+
+function GuestMenuItems({ withSignUp }: { withSignUp: boolean }) {
     const saasEnabled = usePage().props.saas?.enabled ?? false;
 
     return (
-        <WithTooltip
-            label={
-                saasEnabled
-                    ? 'Save your tasks: create an account to sync them'
-                    : 'Save your tasks: create a free account to sync them'
-            }
-        >
-            <Button
-                asChild
-                size="icon-lg"
-                className={roundButton}
-                data-test="save-button"
-            >
-                <Link
-                    href={register()}
-                    aria-label="Save your tasks: create an account"
-                >
-                    <span
-                        aria-hidden
-                        className="absolute -inset-1 animate-pulse rounded-full border-2 border-primary/50 motion-reduce:animate-none"
-                    />
-                    <CloudUpload className="size-5" />
-                </Link>
-            </Button>
-        </WithTooltip>
-    );
-}
-
-function GuestMenu() {
-    return (
-        <DropdownMenu>
-            <WithTooltip label="Log in to sync your tasks">
-                <DropdownMenuTrigger asChild>
-                    <Button
-                        variant="secondary"
-                        size="icon-lg"
-                        className={roundButton}
-                        aria-label="Account"
-                        data-test="account-button"
-                    >
-                        <UserIcon className="size-5" />
-                    </Button>
-                </DropdownMenuTrigger>
-            </WithTooltip>
-            <DropdownMenuContent className="min-w-48" align="end">
-                <DropdownMenuItem asChild>
-                    <Link href={login()} className="cursor-pointer">
-                        <LogIn className="me-2" />
-                        Log in
-                    </Link>
-                </DropdownMenuItem>
+        <>
+            {withSignUp && (
                 <DropdownMenuItem asChild>
                     <Link href={register()} className="cursor-pointer">
-                        <UserPlus className="me-2" />
-                        Create account
+                        <CloudUpload className="me-2" />
+                        Sync your week
                     </Link>
                 </DropdownMenuItem>
-            </DropdownMenuContent>
-        </DropdownMenu>
+            )}
+            <DropdownMenuItem asChild>
+                <Link href={login()} className="cursor-pointer">
+                    <LogIn className="me-2" />
+                    Log in
+                </Link>
+            </DropdownMenuItem>
+            {saasEnabled && (
+                <DropdownMenuItem
+                    className="cursor-pointer"
+                    onSelect={landingStore.reopen}
+                    data-test="about-plain-week"
+                >
+                    <Info className="me-2" />
+                    About Plain Week
+                </DropdownMenuItem>
+            )}
+        </>
     );
-}
-
-function GuestAccountButton() {
-    const pendingChanges = usePendingChangeCount() ?? 0;
-
-    return pendingChanges > 0 ? <GuestSaveButton /> : <GuestMenu />;
 }
 
 /**
- * The account button of the planner header. Users get their menu and a subtle
- * sync status; guests get log in / register, and once they have local work a
- * highlighted "save" button that leads to registration.
+ * Guests: "Sync your week" (to sign-up; in SaaS mode the plan choice follows)
+ * with a grey dot, joined to a small menu with Log in and, in SaaS mode, the
+ * landing card again. Phones have no room for the pill next to the title: a
+ * round button with the dot opens the same menu, sign-up first.
+ */
+function GuestSyncButton() {
+    return (
+        <>
+            <div className="flex items-center max-sm:hidden">
+                <WithTooltip label={GUEST_TOOLTIP}>
+                    <Button
+                        asChild
+                        className={cn(
+                            guestSegment,
+                            'gap-2 rounded-s-full rounded-e-none ps-3 pe-4',
+                        )}
+                    >
+                        <Link href={register()} data-test="sync-your-week">
+                            <GuestDot className="ring-2 ring-background/25" />
+                            Sync your week
+                        </Link>
+                    </Button>
+                </WithTooltip>
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button
+                            className={cn(
+                                guestSegment,
+                                'w-8 rounded-s-none rounded-e-full border-s border-s-background/20 ps-1.5 pe-2',
+                            )}
+                            aria-label="More account options"
+                            data-test="account-button"
+                        >
+                            <ChevronDown className="size-4" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="min-w-48" align="end">
+                        <GuestMenuItems withSignUp={false} />
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            </div>
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button
+                        className={cn(
+                            guestSegment,
+                            'relative size-10 rounded-full sm:hidden',
+                        )}
+                        aria-label={`Sync your week. ${GUEST_TOOLTIP}`}
+                        data-test="guest-menu-compact"
+                    >
+                        <CloudUpload className="size-5" />
+                        <GuestDot className="absolute -end-px -top-px size-3.5 border-[2.5px] border-background" />
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="min-w-48" align="end">
+                    <GuestMenuItems withSignUp />
+                </DropdownMenuContent>
+            </DropdownMenu>
+        </>
+    );
+}
+
+/**
+ * The account button of the planner header. Users get their menu with an
+ * always-visible sync status dot; guests get "Sync your week".
  */
 export function AccountButton() {
     const { auth } = usePage().props;
@@ -192,6 +266,6 @@ export function AccountButton() {
     return auth.user ? (
         <UserAccountMenu user={auth.user} />
     ) : (
-        <GuestAccountButton />
+        <GuestSyncButton />
     );
 }

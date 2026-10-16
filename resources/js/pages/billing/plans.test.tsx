@@ -96,6 +96,19 @@ describe('Plans', () => {
         ).toBe('€16');
     });
 
+    it('preselects the plan picked on the landing card, once', () => {
+        sessionStorage.setItem('plain-week.chosen-plan', 'weekly');
+
+        render(<Plans plans={launchOffers} processing={false} />);
+
+        expect(
+            screen
+                .getByRole('radio', { name: /Weekly/ })
+                .getAttribute('aria-checked'),
+        ).toBe('true');
+        expect(sessionStorage.getItem('plain-week.chosen-plan')).toBeNull();
+    });
+
     it('starts checkout for the chosen plan', async () => {
         const user = userEvent.setup();
 

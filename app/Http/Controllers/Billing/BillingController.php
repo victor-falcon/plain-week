@@ -27,7 +27,7 @@ class BillingController extends Controller
     public function plans(Request $request, StripeCatalog $catalog): Response|RedirectResponse|JsonResponse
     {
         if ($this->wantsPlainJson($request)) {
-            return response()->json(['plans' => $this->offers($catalog)]);
+            return $this->prices($catalog);
         }
 
         if ($this->user($request)->hasAccess()) {
@@ -39,6 +39,15 @@ class BillingController extends Controller
             // Back from Checkout before Stripe confirmed the payment: the page polls until access starts.
             'processing' => $request->boolean('processing'),
         ]);
+    }
+
+    /**
+     * The prices of the plans as JSON, for anyone (the landing card shows
+     * them to guests).
+     */
+    public function prices(StripeCatalog $catalog): JsonResponse
+    {
+        return response()->json(['plans' => $this->offers($catalog)]);
     }
 
     /**
