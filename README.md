@@ -1,30 +1,63 @@
-# Plain Week
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="./docs/images/header-dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="./docs/images/header-light.png">
+    <img src="./docs/images/header-light.png" alt="Plain Week: your week, plain and simple. A minimal weekly planner and to-do list." width="100%">
+  </picture>
+</p>
 
-A minimal, open-source weekly planner and to-do list. Free forever, MIT licensed, offline-first and easy to self-host.
+<h1 align="center">Plain Week</h1>
+
+<p align="center">
+  <strong>Your week, plain and simple.</strong><br>
+  A minimal weekly planner and to-do list that works offline, syncs if you want it to, and runs on your own server.
+</p>
+
+<p align="center">
+  <a href="./LICENSE"><img src="https://img.shields.io/github/license/victor-falcon/plain-week" alt="License: MIT"></a>
+  <a href="https://github.com/victor-falcon/plain-week/releases/latest"><img src="https://img.shields.io/github/v/release/victor-falcon/plain-week" alt="Latest release"></a>
+  <a href="https://github.com/victor-falcon/plain-week/actions/workflows/tests.yml"><img src="https://github.com/victor-falcon/plain-week/actions/workflows/tests.yml/badge.svg?branch=main" alt="Tests"></a>
+  <a href="https://github.com/victor-falcon/plain-week/pkgs/container/plain-week"><img src="https://img.shields.io/badge/ghcr.io-victor--falcon%2Fplain--week-2496ED?logo=docker&amp;logoColor=white" alt="Docker image on GHCR"></a>
+</p>
+
+- **One week, one screen.** A column per day and a Someday list for everything without a date. Nothing else.
+- **Instant, even offline.** Your planner lives in your browser, so it opens and saves without waiting on a server.
+- **Yours.** Free forever, MIT licensed, no premium tier, no tracking. Use it without an account or host it yourself.
 
 ![Plain Week: the week view in light mode](./docs/images/desktop-light.png)
 
 ## Features
 
-- **Your week at a glance.** One column per day, Saturday and Sunday stacked in the last one, and a three-column
-  Someday list for everything without a date.
-- **Fast entry.** Click any empty row, type, press Enter, keep typing. "17:30 Gym" sets the time for you.
-- **Everything about a task in one dialog.** Date, time, nine colors, notes, subtasks, quick moves (tomorrow, next
-  week, Someday), duplicate, and delete with undo.
-- **Drag and drop.** Reorder within a day, move across days and to Someday, or drop on the screen edge to send a task
-  to another week. Mouse, touch and keyboard.
+- **Fast entry.** Click an empty row, type, press Enter, keep typing. "17:30 Gym" sets the time for you.
+- **Recurring tasks.** Repeat every N days, weekly on any weekdays or monthly on a day, with an optional end date.
+  Change or move one occurrence, or this and all the following ones.
+- **Colors, notes and subtasks.** Eight colors, plain-text notes and a checklist, all in one task dialog.
+- **Drag and drop.** Reorder within a day, move across days and to Someday, or drop on the screen edge to send a task to
+  another week. Mouse, touch and keyboard.
+- **Right click for the rest.** A context menu to color, duplicate, delete or move a task to tomorrow, next week or
+  Someday, with undo.
 - **Keyboard shortcuts.** ← / → to change weeks, T to jump back to today.
-- **Offline-first.** Your planner lives in your browser (IndexedDB). It loads and works without a connection, and
-  every action is instant. Install it as an app (PWA).
-- **Optional account and sync.** Use it as a guest, fully local. Create an account to sync between devices; your local
+- **Offline-first and installable.** Data lives in IndexedDB; the app loads and works without a connection and installs
+  as an app (PWA).
+- **Optional account and sync.** Start as a guest, fully local. Create an account to sync between devices; your local
   work comes with you.
-- **Light and dark mode, RTL support.**
-- **Self-hostable.** A plain Laravel app with SQLite. No external services required.
-- **Free.** No premium tier; every feature is available to everyone.
+- **Export and import.** With an account, download all your tasks as JSON from Settings › Data and bring them back on
+  any instance.
+- **Light and dark mode, right-to-left layouts.**
+- **Self-hosting in one container.** A Docker image on GHCR, a one-click Coolify template, SQLite and no other
+  services.
 
 | Dark mode                                                     | Task dialog                                        |
 | ------------------------------------------------------------- | -------------------------------------------------- |
 | ![The week view in dark mode](./docs/images/desktop-dark.png) | ![The task dialog](./docs/images/dialog-light.png) |
+
+| Repeat every N days                                             | Right-click menu                                               |
+| --------------------------------------------------------------- | -------------------------------------------------------------- |
+| ![The repeat options of a task](./docs/images/repeat-light.png) | ![The task context menu](./docs/images/context-menu-light.png) |
+
+| Export and import                                                            | Task dialog, dark                                              |
+| ---------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| ![Settings › Data: export and import](./docs/images/settings-data-light.png) | ![The task dialog in dark mode](./docs/images/dialog-dark.png) |
 
 | Phone, light                                                              | Phone, dark                                                             |
 | ------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
