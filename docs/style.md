@@ -161,7 +161,7 @@ follow Tweek; colors, radius and font come from the tokens.
 | Title           | `text-planner-accent` when the shown week is not the current one; clicking it returns to today                                                                                      | Same                                                                       |
 | Week grid       | 6 equal columns: Monday to Friday, then Saturday stacked directly over Sunday; Sunday's header takes one row slot, so the column ends level with the weekdays (5 + 1 + 4 = 10 rows) | One column, days one after another (40px apart)                            |
 | Day header      | Date (`font-bold tracking-tight`) at the start, weekday (`text-muted-foreground/70`) at the end, `pb-3`, 2px `border-foreground` bottom                                             | Same                                                                       |
-| Today           | Header text and border `planner-accent`, weekday `planner-accent-muted`                                                                                                             | Same                                                                       |
+| Today           | Header text and border `planner-accent`, weekday `planner-accent-muted`; whole day on a `bg-planner-accent/6` tint (`/10` dark), `rounded-t-lg`, 10px bleed (start, end, top)       | Same                                                                       |
 | Rows            | `h-row` (42px, `--spacing-row`), 1px `border-border` bottom                                                                                                                         | Same                                                                       |
 | Empty rows      | Always filled up to 10 per weekday, 5 for Saturday, 4 for Sunday, 2 per Someday column (and at least one after the last task)                                                       | Only one empty row after the tasks                                         |
 | Someday         | Below the week, full width, 3 columns of ruled rows; the "Someday" title sits above them                                                                                            | The three columns stacked                                                  |
@@ -348,10 +348,17 @@ border) and `--planner-accent-muted` (today's weekday), exposed as `text-planner
 `text-planner-accent-muted`. They follow the preset's blue but are tuned per theme for contrast (WCAG AA for normal
 text, 4.5:1), because the dark-mode `--primary` is only 2.2:1 on the dark background.
 
-| Token                    | Light                                           | Dark                            |
-| ------------------------ | ----------------------------------------------- | ------------------------------- |
-| `--planner-accent`       | `oklch(0.488 0.243 264.376)` (= primary), 6.8:1 | `oklch(0.75 0.14 264.4)`, 8.7:1 |
-| `--planner-accent-muted` | `oklch(0.56 0.2 264.4)`, 4.9:1                  | `oklch(0.62 0.14 264.4)`, 5.3:1 |
+Today's whole day (header and rows) also sits on a translucent tint, `bg-planner-accent/6` in light and
+`dark:bg-planner-accent/10` in dark (the dark accent is lighter, so it needs more to read the same). It has rounded top
+corners (`rounded-t-lg`) and bleeds 10px past the start, end and top (`-mx-2.5 -mt-2.5` with matching `px-2.5 pt-2.5`),
+so the header text and row rules stay exactly where the other days have them. On desktop Sunday skips the top bleed
+(`lg:not-first:mt-0 lg:not-first:pt-0`), since it sits right under Saturday's last row. The contrast ratios below for
+`--planner-accent-muted` are measured on that tint, since today's weekday is the only place it is used.
+
+| Token                    | Light                                           | Dark                                        |
+| ------------------------ | ----------------------------------------------- | ------------------------------------------- |
+| `--planner-accent`       | `oklch(0.488 0.243 264.376)` (= primary), 6.8:1 | `oklch(0.75 0.14 264.4)`, 8.7:1             |
+| `--planner-accent-muted` | `oklch(0.54 0.2 264.4)`, 4.8:1 on the tint      | `oklch(0.62 0.14 264.4)`, 4.7:1 on the tint |
 
 ## Task colors
 

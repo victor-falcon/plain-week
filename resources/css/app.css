@@ -45,9 +45,9 @@
     --sidebar-border: oklch(0.923 0.003 48.717);
     --sidebar-ring: oklch(0.709 0.01 56.259);
 
-    /* Today and the other-week title (docs/style.md): 6.8:1 and 4.9:1 on the background. */
+    /* Today and the other-week title (docs/style.md): 6.8:1 on the background, 4.8:1 on today's tint. */
     --planner-accent: oklch(0.488 0.243 264.376);
-    --planner-accent-muted: oklch(0.56 0.2 264.4);
+    --planner-accent-muted: oklch(0.54 0.2 264.4);
 
     /* Task colors (docs/style.md). Each has a pill background and a text color. */
     --task-pink: oklch(0.552 0.196 8.6);
@@ -102,7 +102,7 @@
     --sidebar-border: oklch(1 0 0 / 10%);
     --sidebar-ring: oklch(0.553 0.013 58.071);
 
-    /* 8.7:1 and 5.3:1 on the dark background (the dark primary is only 2.2:1). */
+    /* 8.7:1 on the dark background (the dark primary is only 2.2:1), 4.7:1 on today's tint. */
     --planner-accent: oklch(0.75 0.14 264.4);
     --planner-accent-muted: oklch(0.62 0.14 264.4);
 
