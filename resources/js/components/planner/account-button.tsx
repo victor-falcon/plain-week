@@ -88,7 +88,7 @@ function WithTooltip({
 function ShortcutsMenuItem() {
     return (
         <DropdownMenuItem
-            className="cursor-pointer"
+            className="cursor-pointer whitespace-nowrap"
             onSelect={shortcutsDialogStore.open}
             data-test="keyboard-shortcuts"
         >
@@ -252,7 +252,7 @@ function GuestSyncButton() {
                             <ChevronDown className="size-4" />
                         </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent className="min-w-48" align="end">
+                    <DropdownMenuContent className="min-w-56" align="end">
                         <GuestMenuItems withSignUp={false} />
                     </DropdownMenuContent>
                 </DropdownMenu>
@@ -271,7 +271,7 @@ function GuestSyncButton() {
                         <GuestDot className="absolute -end-px -top-px size-3.5 border-[2.5px] border-background" />
                     </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent className="min-w-48" align="end">
+                <DropdownMenuContent className="min-w-56" align="end">
                     <GuestMenuItems withSignUp />
                 </DropdownMenuContent>
             </DropdownMenu>

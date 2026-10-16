@@ -179,7 +179,7 @@ export const SHORTCUTS: ShortcutDefinition[] = [
     {
         id: 'task.menu',
         keys: [['m'], ['Shift+F10'], ['ContextMenu']],
-        label: 'Task menu (color, more)',
+        label: 'Task menu',
         group: 'Tasks',
     },
     {
