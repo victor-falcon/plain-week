@@ -1,120 +1,144 @@
-import { Form, Head } from '@inertiajs/react';
-import InputError from '@/components/input-error';
+import { Form, Head, usePage } from '@inertiajs/react';
+import AppLogoIcon from '@/components/app-logo-icon';
+import {
+    AuthField,
+    AuthFootnote,
+    AuthSubmit,
+    authInputClass,
+    closeToPlanner,
+} from '@/components/auth/auth-form';
+import { FloatingCard } from '@/components/floating-card';
 import PasswordInput from '@/components/password-input';
 import TextLink from '@/components/text-link';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Spinner } from '@/components/ui/spinner';
 import { login } from '@/routes';
+import { privacy, terms } from '@/routes/legal';
 import { store } from '@/routes/register';
 
 type Props = {
     passwordRules: string;
 };
 
+/**
+ * Sign-up. In SaaS mode it is step 1 of 2: the server then sends the new
+ * account to the plan choice (`/plans`).
+ */
 export default function Register({ passwordRules }: Props) {
+    const saasEnabled = usePage().props.saas?.enabled ?? false;
+
     return (
         <>
             <Head title="Register" />
-            <Form
-                {...store.form()}
-                resetOnSuccess={['password', 'password_confirmation']}
-                disableWhileProcessing
-                className="flex flex-col gap-6"
+
+            <FloatingCard
+                title="Create your account"
+                description={
+                    saasEnabled
+                        ? 'Then choose how to pay. Your tasks on this device come with you.'
+                        : 'Your tasks on this device come with you.'
+                }
+                onBack={closeToPlanner}
+                onClose={closeToPlanner}
+                icon={<AppLogoIcon className="size-9 shrink-0" aria-hidden />}
+                toolbar={
+                    saasEnabled && <span className="mx-auto">Step 1 of 2</span>
+                }
             >
-                {({ processing, errors }) => (
-                    <>
-                        <div className="grid gap-6">
-                            <div className="grid gap-2">
-                                <Label htmlFor="name">Name</Label>
+                <Form
+                    {...store.form()}
+                    resetOnSuccess={['password']}
+                    disableWhileProcessing
+                    className="flex flex-col gap-5"
+                >
+                    {({ processing, errors }) => (
+                        <>
+                            <AuthField
+                                id="name"
+                                label="Name"
+                                error={errors.name}
+                            >
                                 <Input
                                     id="name"
                                     type="text"
+                                    name="name"
                                     required
                                     autoFocus
-                                    tabIndex={1}
                                     autoComplete="name"
-                                    name="name"
-                                    placeholder="Full name"
+                                    placeholder="Your name"
+                                    aria-invalid={!!errors.name}
+                                    className={authInputClass}
                                 />
-                                <InputError
-                                    message={errors.name}
-                                    className="mt-2"
-                                />
-                            </div>
+                            </AuthField>
 
-                            <div className="grid gap-2">
-                                <Label htmlFor="email">Email address</Label>
+                            <AuthField
+                                id="email"
+                                label="Email"
+                                error={errors.email}
+                            >
                                 <Input
                                     id="email"
                                     type="email"
-                                    required
-                                    tabIndex={2}
-                                    autoComplete="email"
                                     name="email"
-                                    placeholder="email@example.com"
+                                    required
+                                    autoComplete="email"
+                                    placeholder="you@example.com"
+                                    aria-invalid={!!errors.email}
+                                    className={authInputClass}
                                 />
-                                <InputError message={errors.email} />
-                            </div>
+                            </AuthField>
 
-                            <div className="grid gap-2">
-                                <Label htmlFor="password">Password</Label>
+                            <AuthField
+                                id="password"
+                                label="Password"
+                                error={errors.password}
+                            >
                                 <PasswordInput
                                     id="password"
-                                    required
-                                    tabIndex={3}
-                                    autoComplete="new-password"
                                     name="password"
-                                    placeholder="Password"
-                                    passwordrules={passwordRules}
-                                />
-                                <InputError message={errors.password} />
-                            </div>
-
-                            <div className="grid gap-2">
-                                <Label htmlFor="password_confirmation">
-                                    Confirm password
-                                </Label>
-                                <PasswordInput
-                                    id="password_confirmation"
                                     required
-                                    tabIndex={4}
                                     autoComplete="new-password"
-                                    name="password_confirmation"
-                                    placeholder="Confirm password"
+                                    placeholder="Choose a password"
                                     passwordrules={passwordRules}
+                                    aria-invalid={!!errors.password}
+                                    className={authInputClass}
                                 />
-                                <InputError
-                                    message={errors.password_confirmation}
-                                />
-                            </div>
+                            </AuthField>
 
-                            <Button
-                                type="submit"
-                                className="mt-2 w-full"
-                                tabIndex={5}
+                            <AuthSubmit
+                                processing={processing}
                                 data-test="register-user-button"
                             >
-                                {processing && <Spinner />}
-                                Create account
-                            </Button>
-                        </div>
+                                {saasEnabled ? 'Continue' : 'Create account'}
+                            </AuthSubmit>
+                        </>
+                    )}
+                </Form>
 
-                        <div className="text-center text-sm text-muted-foreground">
-                            Already have an account?{' '}
-                            <TextLink href={login()} tabIndex={6}>
-                                Log in
-                            </TextLink>
-                        </div>
-                    </>
+                <AuthFootnote>
+                    Already have an account?{' '}
+                    <TextLink href={login()}>Log in</TextLink>
+                </AuthFootnote>
+
+                {saasEnabled && (
+                    <AuthFootnote className="-mt-2 text-xs">
+                        By continuing you accept the{' '}
+                        <TextLink
+                            href={terms()}
+                            className="text-muted-foreground"
+                        >
+                            Terms
+                        </TextLink>{' '}
+                        and{' '}
+                        <TextLink
+                            href={privacy()}
+                            className="text-muted-foreground"
+                        >
+                            Privacy
+                        </TextLink>
+                        .
+                    </AuthFootnote>
                 )}
-            </Form>
+            </FloatingCard>
         </>
     );
 }
-
-Register.layout = {
-    title: 'Create an account',
-    description: 'Enter your details below to create your account',
-};

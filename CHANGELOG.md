@@ -16,6 +16,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   portal, upgrade to lifetime), Terms of Service and Privacy Policy pages, Stripe webhooks (refunds revoke lifetime)
   and `php artisan plainweek:grant-lifetime`. Self-hosted instances are unchanged: free accounts, no billing, and the
   new routes are `404`. See [docs/saas.md](docs/saas.md).
+- **Promotion codes (SaaS mode).** The plan choice has a "Have a code?" field: a code created in the Stripe Dashboard
+  is checked for the chosen plan, shows the price it gives and replaces the launch coupon at Checkout. A 100% code on
+  Lifetime makes a no-cost order (no card) that grants lifetime like a paid one.
+
+### Changed
+
+- **Log in, sign up and the plan choice float over the planner.** `/login`, `/register`, the password reset pages,
+  email verification, two-factor and password confirmation are now floating cards over the dimmed planner (a bottom
+  sheet on phones) instead of separate pages; closing one (close button or Esc) goes back to the planner. Sign-up asks
+  for the password once (it can be shown). In SaaS mode sign-up is step 1 of 2 and `/plans` is step 2: Lifetime or
+  Weekly as radio cards, the amount due today and "Continue to payment".
 
 ### Fixed
 

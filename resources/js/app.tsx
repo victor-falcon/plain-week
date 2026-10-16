@@ -4,8 +4,8 @@ import { DirectionProvider } from '@/components/ui/direction';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { initializeTheme } from '@/hooks/use-appearance';
 import AppLayout from '@/layouts/app-layout';
-import AuthLayout from '@/layouts/auth-layout';
 import SettingsLayout from '@/layouts/settings/layout';
+import PlannerLayout from '@/layouts/planner-layout';
 import { registerServiceWorker } from '@/lib/pwa/register';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Plain Week';
@@ -14,12 +14,17 @@ void createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),
     layout: (name) => {
         switch (true) {
+            // Reached from Settings › Security: its card floats over the settings.
+            case name === 'auth/confirm-password':
+                return [AppLayout, SettingsLayout];
+            // The same layout instance stays mounted between these pages,
+            // so the planner keeps running under their floating cards.
             case name === 'planner':
-            case name.startsWith('billing/'):
+            case name === 'billing/plans':
+            case name.startsWith('auth/'):
+                return PlannerLayout;
             case name.startsWith('legal/'):
                 return null;
-            case name.startsWith('auth/'):
-                return AuthLayout;
             case name.startsWith('settings/'):
                 return [AppLayout, SettingsLayout];
             default:

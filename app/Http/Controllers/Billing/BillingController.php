@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Billing;
 
 use App\Billing\FulfillCheckout;
 use App\Billing\Plan;
+use App\Billing\PromotionCodes;
 use App\Billing\StartCheckout;
 use App\Billing\StripeCatalog;
 use App\Http\Controllers\Controller;
@@ -14,6 +15,7 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 use Laravel\Cashier\Cashier;
+use Stripe\Exception\InvalidRequestException;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
 class BillingController extends Controller
@@ -44,9 +46,10 @@ class BillingController extends Controller
      * a guest who picks a plan comes back here after logging in or signing up.
      * A plain JSON request gets `{ url }` (or a 409) instead of a redirect.
      */
-    public function checkout(Request $request, Plan $plan, StartCheckout $startCheckout): HttpResponse
+    public function checkout(Request $request, Plan $plan, StartCheckout $startCheckout, PromotionCodes $promotionCodes): HttpResponse
     {
         $user = $this->user($request);
+        $code = $this->code($request);
 
         // A subscription that has not ended (even unpaid) is fixed in the portal, never doubled.
         $subscription = $user->subscription('default');
@@ -61,9 +64,41 @@ class BillingController extends Controller
             return to_route('billing.edit');
         }
 
-        $url = (string) $startCheckout($user, $plan)->asStripeCheckoutSession()->url;
+        // An invalid code is a validation error shown next to it, never a checkout without it.
+        $promotionCodeId = $code === null ? null : $promotionCodes->resolve($code, $plan, $user)['id'];
+
+        try {
+            $url = (string) $startCheckout($user, $plan, $promotionCodeId)->asStripeCheckoutSession()->url;
+        } catch (InvalidRequestException $e) {
+            // Stripe refused the code for a reason checked only at Checkout (e.g. first-time customers only).
+            if ($promotionCodeId === null) {
+                throw $e;
+            }
+
+            report($e);
+
+            throw PromotionCodes::invalid();
+        }
 
         return $this->wantsPlainJson($request) ? response()->json(['url' => $url]) : Inertia::location($url);
+    }
+
+    /**
+     * Checks a promotion code for a plan and answers with the price it gives,
+     * so the plan choice can show it before Checkout. `422` when it is not
+     * valid for the plan.
+     */
+    public function promotionCode(Request $request, Plan $plan, PromotionCodes $promotionCodes): JsonResponse
+    {
+        $request->validate(['code' => ['required', 'string', 'max:64']]);
+
+        $offer = $promotionCodes->resolve((string) $this->code($request), $plan, $this->user($request));
+
+        return response()->json([
+            'code' => $offer['code'],
+            'price' => $this->format($offer['amount'], $offer['currency']),
+            'free' => $offer['amount'] === 0,
+        ]);
     }
 
     /**
@@ -126,6 +161,16 @@ class BillingController extends Controller
     private function wantsPlainJson(Request $request): bool
     {
         return $request->expectsJson() && ! $request->inertia();
+    }
+
+    /**
+     * The promotion code typed on the plan choice, if any.
+     */
+    private function code(Request $request): ?string
+    {
+        $code = $request->input('code');
+
+        return is_string($code) && trim($code) !== '' ? trim($code) : null;
     }
 
     private function user(Request $request): User

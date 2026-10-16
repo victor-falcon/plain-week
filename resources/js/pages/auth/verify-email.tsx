@@ -1,10 +1,13 @@
-// Components
 import { Form, Head } from '@inertiajs/react';
-import TextLink from '@/components/text-link';
+import {
+    AuthFootnote,
+    AuthStatus,
+    AuthSubmit,
+    closeToPlanner,
+} from '@/components/auth/auth-form';
+import { FloatingCard } from '@/components/floating-card';
 import { Button } from '@/components/ui/button';
-import { Spinner } from '@/components/ui/spinner';
 import { useLogout } from '@/hooks/use-logout';
-import { logout } from '@/routes';
 import { send } from '@/routes/verification';
 
 export default function VerifyEmail({ status }: { status?: string }) {
@@ -14,40 +17,32 @@ export default function VerifyEmail({ status }: { status?: string }) {
         <>
             <Head title="Email verification" />
 
-            {status === 'verification-link-sent' && (
-                <div className="mb-4 text-center text-sm font-medium text-green-600">
-                    A new verification link has been sent to the email address
-                    you provided during registration.
-                </div>
-            )}
-
-            <Form {...send.form()} className="space-y-6 text-center">
-                {({ processing }) => (
-                    <>
-                        <Button disabled={processing} variant="secondary">
-                            {processing && <Spinner />}
-                            Resend verification email
-                        </Button>
-
-                        <TextLink
-                            href={logout()}
-                            onClick={(event) => {
-                                event.preventDefault();
-                                handleLogout();
-                            }}
-                            className="mx-auto block text-sm"
-                        >
-                            Log out
-                        </TextLink>
-                    </>
+            <FloatingCard
+                title="Check your email"
+                description="Click the link we just emailed you to verify your address."
+                onClose={closeToPlanner}
+            >
+                {status === 'verification-link-sent' && (
+                    <AuthStatus>
+                        A new verification link has been sent to the email
+                        address you signed up with.
+                    </AuthStatus>
                 )}
-            </Form>
+
+                <Form {...send.form()}>
+                    {({ processing }) => (
+                        <AuthSubmit processing={processing}>
+                            Resend verification email
+                        </AuthSubmit>
+                    )}
+                </Form>
+
+                <AuthFootnote>
+                    <Button variant="link" onClick={handleLogout}>
+                        Log out
+                    </Button>
+                </AuthFootnote>
+            </FloatingCard>
         </>
     );
 }
-
-VerifyEmail.layout = {
-    title: 'Email verification',
-    description:
-        'Please verify your email address by clicking on the link we just emailed to you.',
-};

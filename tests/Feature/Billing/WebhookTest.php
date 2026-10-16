@@ -148,3 +148,19 @@ test('a retried event cancels the weekly plan if cancelling failed the first tim
     expect($this->stripe->lastRequest('post', '/v1/subscriptions/sub_test'))->not->toBeNull()
         ->and($user->refresh()->subscription('default')?->onGracePeriod())->toBeTrue();
 });
+
+test('a free lifetime order (a 100% promotion code) grants lifetime access', function () {
+    $user = User::factory()->create(['stripe_id' => 'cus_test']);
+
+    webhook('checkout.session.completed', lifetimeSession([
+        'payment_status' => 'no_payment_required', 'payment_intent' => null,
+    ]))->assertOk();
+
+    expect($user->refresh())->hasLifetime()->toBeTrue()->lifetime_payment_id->toBeNull();
+
+    // A refund of some other payment never revokes it.
+    webhook('charge.refunded', ['id' => 'ch_other', 'object' => 'charge', 'refunded' => true, 'payment_intent' => 'pi_other'])
+        ->assertOk();
+
+    expect($user->refresh()->hasLifetime())->toBeTrue();
+});

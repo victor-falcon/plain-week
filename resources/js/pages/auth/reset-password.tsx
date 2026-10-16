@@ -1,10 +1,13 @@
 import { Form, Head } from '@inertiajs/react';
-import InputError from '@/components/input-error';
+import {
+    AuthField,
+    AuthSubmit,
+    authInputClass,
+    closeToPlanner,
+} from '@/components/auth/auth-form';
+import { FloatingCard } from '@/components/floating-card';
 import PasswordInput from '@/components/password-input';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Spinner } from '@/components/ui/spinner';
 import { update } from '@/routes/password';
 
 type Props = {
@@ -18,79 +21,80 @@ export default function ResetPassword({ token, email, passwordRules }: Props) {
         <>
             <Head title="Reset password" />
 
-            <Form
-                {...update.form()}
-                transform={(data) => ({ ...data, token, email })}
-                resetOnSuccess={['password', 'password_confirmation']}
+            <FloatingCard
+                title="Choose a new password"
+                description="Then log in with it on every device."
+                onClose={closeToPlanner}
             >
-                {({ processing, errors }) => (
-                    <div className="grid gap-6">
-                        <div className="grid gap-2">
-                            <Label htmlFor="email">Email</Label>
-                            <Input
+                <Form
+                    {...update.form()}
+                    transform={(data) => ({ ...data, token, email })}
+                    resetOnSuccess={['password', 'password_confirmation']}
+                    className="flex flex-col gap-5"
+                >
+                    {({ processing, errors }) => (
+                        <>
+                            <AuthField
                                 id="email"
-                                type="email"
-                                name="email"
-                                autoComplete="email"
-                                value={email}
-                                className="mt-1 block w-full"
-                                readOnly
-                            />
-                            <InputError
-                                message={errors.email}
-                                className="mt-2"
-                            />
-                        </div>
+                                label="Email"
+                                error={errors.email}
+                            >
+                                <Input
+                                    id="email"
+                                    type="email"
+                                    name="email"
+                                    autoComplete="email"
+                                    value={email}
+                                    readOnly
+                                    className={authInputClass}
+                                />
+                            </AuthField>
 
-                        <div className="grid gap-2">
-                            <Label htmlFor="password">Password</Label>
-                            <PasswordInput
+                            <AuthField
                                 id="password"
-                                name="password"
-                                autoComplete="new-password"
-                                className="mt-1 block w-full"
-                                autoFocus
-                                placeholder="Password"
-                                passwordrules={passwordRules}
-                            />
-                            <InputError message={errors.password} />
-                        </div>
+                                label="New password"
+                                error={errors.password}
+                            >
+                                <PasswordInput
+                                    id="password"
+                                    name="password"
+                                    autoComplete="new-password"
+                                    autoFocus
+                                    placeholder="Choose a password"
+                                    passwordrules={passwordRules}
+                                    aria-invalid={!!errors.password}
+                                    className={authInputClass}
+                                />
+                            </AuthField>
 
-                        <div className="grid gap-2">
-                            <Label htmlFor="password_confirmation">
-                                Confirm password
-                            </Label>
-                            <PasswordInput
+                            <AuthField
                                 id="password_confirmation"
-                                name="password_confirmation"
-                                autoComplete="new-password"
-                                className="mt-1 block w-full"
-                                placeholder="Confirm password"
-                                passwordrules={passwordRules}
-                            />
-                            <InputError
-                                message={errors.password_confirmation}
-                                className="mt-2"
-                            />
-                        </div>
+                                label="Confirm password"
+                                error={errors.password_confirmation}
+                            >
+                                <PasswordInput
+                                    id="password_confirmation"
+                                    name="password_confirmation"
+                                    autoComplete="new-password"
+                                    placeholder="Repeat it"
+                                    passwordrules={passwordRules}
+                                    aria-invalid={
+                                        !!errors.password_confirmation
+                                    }
+                                    className={authInputClass}
+                                />
+                            </AuthField>
 
-                        <Button
-                            type="submit"
-                            className="mt-4 w-full"
-                            disabled={processing}
-                            data-test="reset-password-button"
-                        >
-                            {processing && <Spinner />}
-                            Reset password
-                        </Button>
-                    </div>
-                )}
-            </Form>
+                            <AuthSubmit
+                                processing={processing}
+                                data-test="reset-password-button"
+                            >
+                                Reset password
+                            </AuthSubmit>
+                        </>
+                    )}
+                </Form>
+            </FloatingCard>
         </>
     );
 }
-
-ResetPassword.layout = {
-    title: 'Reset password',
-    description: 'Please enter your new password below',
-};

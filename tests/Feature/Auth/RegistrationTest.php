@@ -36,4 +36,26 @@ class RegistrationTest extends TestCase
         $this->assertAuthenticated();
         $response->assertRedirect(route('home', absolute: false));
     }
+
+    public function test_the_password_is_asked_once()
+    {
+        $this->post(route('register.store'), [
+            'name' => 'Test User',
+            'email' => 'test@example.com',
+            'password' => 'password',
+        ])->assertSessionHasNoErrors();
+
+        $this->assertAuthenticated();
+    }
+
+    public function test_the_password_is_still_validated()
+    {
+        $this->post(route('register.store'), [
+            'name' => 'Test User',
+            'email' => 'test@example.com',
+            'password' => 'short',
+        ])->assertSessionHasErrors('password');
+
+        $this->assertGuest();
+    }
 }

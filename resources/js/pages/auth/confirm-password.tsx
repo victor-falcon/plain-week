@@ -1,66 +1,81 @@
-import { Form, Head } from '@inertiajs/react';
-import InputError from '@/components/input-error';
-import PasswordInput from '@/components/password-input';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { Spinner } from '@/components/ui/spinner';
-import { store } from '@/routes/password/confirm';
+import { Form, Head, router } from '@inertiajs/react';
 import {
     index as confirmOptions,
     store as confirmStore,
 } from '@/actions/Laravel/Passkeys/Http/Controllers/PasskeyConfirmationController';
+import {
+    AuthField,
+    AuthSubmit,
+    authInputClass,
+} from '@/components/auth/auth-form';
+import { FloatingCard } from '@/components/floating-card';
 import PasskeyVerify from '@/components/passkey-verify';
+import PasswordInput from '@/components/password-input';
+import { store } from '@/routes/password/confirm';
+import { edit as editProfile } from '@/routes/profile';
 
+/** Closing goes to the settings the card floats over, not to the protected page. */
+function leave(): void {
+    router.visit(editProfile(), { replace: true });
+}
+
+/**
+ * Asked before a sensitive setting (Settings › Security: password, passkeys,
+ * two-factor), as a card over the settings.
+ */
 export default function ConfirmPassword() {
     return (
         <>
             <Head title="Confirm password" />
 
-            <PasskeyVerify
-                routes={{
-                    options: confirmOptions(),
-                    submit: confirmStore(),
-                }}
-                label="Confirm with passkey"
-                loadingLabel="Confirming..."
-                separator="Or confirm with password"
-            />
+            <FloatingCard
+                title="Confirm your password"
+                description="This is a secure area. Confirm your password before continuing."
+                onClose={leave}
+            >
+                <PasskeyVerify
+                    routes={{
+                        options: confirmOptions(),
+                        submit: confirmStore(),
+                    }}
+                    label="Confirm with passkey"
+                    loadingLabel="Confirming..."
+                    separator="Or confirm with password"
+                />
 
-            <Form {...store.form()} resetOnSuccess={['password']}>
-                {({ processing, errors }) => (
-                    <div className="space-y-6">
-                        <div className="grid gap-2">
-                            <Label htmlFor="password">Password</Label>
-                            <PasswordInput
+                <Form
+                    {...store.form()}
+                    resetOnSuccess={['password']}
+                    className="flex flex-col gap-5"
+                >
+                    {({ processing, errors }) => (
+                        <>
+                            <AuthField
                                 id="password"
-                                name="password"
-                                placeholder="Password"
-                                autoComplete="current-password"
-                                autoFocus
-                            />
+                                label="Password"
+                                error={errors.password}
+                            >
+                                <PasswordInput
+                                    id="password"
+                                    name="password"
+                                    placeholder="Your password"
+                                    autoComplete="current-password"
+                                    autoFocus
+                                    aria-invalid={!!errors.password}
+                                    className={authInputClass}
+                                />
+                            </AuthField>
 
-                            <InputError message={errors.password} />
-                        </div>
-
-                        <div className="flex items-center">
-                            <Button
-                                className="w-full"
-                                disabled={processing}
+                            <AuthSubmit
+                                processing={processing}
                                 data-test="confirm-password-button"
                             >
-                                {processing && <Spinner />}
                                 Confirm password
-                            </Button>
-                        </div>
-                    </div>
-                )}
-            </Form>
+                            </AuthSubmit>
+                        </>
+                    )}
+                </Form>
+            </FloatingCard>
         </>
     );
 }
-
-ConfirmPassword.layout = {
-    title: 'Confirm password',
-    description:
-        'This is a secure area of the application. Please confirm your password before continuing.',
-};

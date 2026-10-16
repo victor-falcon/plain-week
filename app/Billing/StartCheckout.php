@@ -14,7 +14,10 @@ class StartCheckout
 {
     public function __construct(private readonly StripeCatalog $catalog) {}
 
-    public function __invoke(User $user, Plan $plan): Checkout
+    /**
+     * @param  string|null  $promotionCodeId  A code checked by `PromotionCodes`; it replaces the launch coupon.
+     */
+    public function __invoke(User $user, Plan $plan, ?string $promotionCodeId = null): Checkout
     {
         $options = [
             'client_reference_id' => (string) $user->id,
@@ -43,10 +46,14 @@ class StartCheckout
         if ($plan === Plan::Weekly) {
             return $user->newSubscription('default', $priceId)
                 ->collectTaxIds()
+                ->withPromotionCode($promotionCodeId)
                 ->checkout($options);
         }
 
-        if ($this->catalog->launchDiscountPercent() !== null) {
+        // One discount per session: a promotion code wins over the launch coupon.
+        if ($promotionCodeId !== null) {
+            $options['discounts'] = [['promotion_code' => $promotionCodeId]];
+        } elseif ($this->catalog->launchDiscountPercent() !== null) {
             $options['discounts'] = [['coupon' => config('saas.launch_coupon')]];
         }
 
