@@ -108,8 +108,8 @@ function enableSaas(): FakeStripe
     ]);
 
     $prices = [
-        'plainweek_weekly' => ['id' => 'price_weekly', 'object' => 'price', 'unit_amount' => 299, 'currency' => 'eur', 'lookup_key' => 'plainweek_weekly'],
-        'plainweek_lifetime' => ['id' => 'price_lifetime', 'object' => 'price', 'unit_amount' => 6400, 'currency' => 'eur', 'lookup_key' => 'plainweek_lifetime'],
+        'plainweek_weekly' => ['id' => 'price_weekly', 'object' => 'price', 'unit_amount' => 299, 'currency' => 'eur', 'lookup_key' => 'plainweek_weekly', 'product' => 'prod_weekly'],
+        'plainweek_lifetime' => ['id' => 'price_lifetime', 'object' => 'price', 'unit_amount' => 6400, 'currency' => 'eur', 'lookup_key' => 'plainweek_lifetime', 'product' => 'prod_lifetime'],
     ];
 
     return FakeStripe::install()

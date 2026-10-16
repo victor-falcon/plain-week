@@ -15,6 +15,9 @@ Route::middleware(EnsureSaasEnabled::class)->group(function () {
         Route::match(['get', 'post'], 'billing/checkout/{plan}', [BillingController::class, 'checkout'])
             ->middleware('throttle:10,1')
             ->name('billing.checkout');
+        Route::post('billing/promotion-code/{plan}', [BillingController::class, 'promotionCode'])
+            ->middleware('throttle:20,1')
+            ->name('billing.promotion-code');
         Route::get('billing/success', [BillingController::class, 'success'])->name('billing.success');
         Route::get('billing/portal', [BillingController::class, 'portal'])->name('billing.portal');
         Route::get('settings/billing', [BillingController::class, 'edit'])->name('billing.edit');

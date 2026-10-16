@@ -5,6 +5,10 @@ import type { ReactNode } from 'react';
 import { AuthFootnote, AuthSubmit } from '@/components/auth/auth-form';
 import { LegalLinks } from '@/components/billing/legal-links';
 import type { Offers } from '@/components/billing/offers';
+import {
+    PromotionCodeField,
+    usePromotionCode,
+} from '@/components/billing/promotion-code';
 import { FloatingCard } from '@/components/floating-card';
 import TextLink from '@/components/text-link';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -116,8 +120,29 @@ function PlanOption({
 export default function Plans({ plans, processing }: Props) {
     const [plan, setPlan] = useState<Plan>('lifetime');
     const { start, pending } = useCheckout();
+    const promotion = usePromotionCode();
     const logOut = useLogout();
     const { lifetime, weekly } = plans;
+    const applied = promotion.appliedTo(plan);
+
+    const choose = (next: Plan) => {
+        setPlan(next);
+
+        // A code applies to one plan: check it again for the new one.
+        if (promotion.checked) {
+            promotion.apply(next);
+        }
+    };
+
+    const continueToPayment = () =>
+        start(plan, {
+            code: promotion.typed,
+            onError: (errors) => {
+                if (errors.code) {
+                    promotion.setError(errors.code);
+                }
+            },
+        });
 
     return (
         <>
@@ -150,7 +175,7 @@ export default function Plans({ plans, processing }: Props) {
 
                 <RadioGroup
                     value={plan}
-                    onValueChange={(value) => setPlan(value as Plan)}
+                    onValueChange={(value) => choose(value as Plan)}
                     aria-label="Plan"
                     className="gap-4 pt-1"
                 >
@@ -184,12 +209,24 @@ export default function Plans({ plans, processing }: Props) {
                     />
                 </RadioGroup>
 
+                <PromotionCodeField state={promotion} plan={plan} />
+
                 <div className="flex justify-between gap-3 px-0.5 text-sm">
                     <span className="text-muted-foreground">
                         Due today, VAT included
                     </span>
-                    <span className="font-bold" data-test="due-today">
-                        {plans[plan].price}
+                    <span className="flex items-baseline gap-2">
+                        {applied && (
+                            <span className="text-muted-foreground line-through">
+                                <span className="sr-only">
+                                    Without the code:{' '}
+                                </span>
+                                {plans[plan].price}
+                            </span>
+                        )}
+                        <span className="font-bold" data-test="due-today">
+                            {applied?.price ?? plans[plan].price}
+                        </span>
                     </span>
                 </div>
 
@@ -197,7 +234,7 @@ export default function Plans({ plans, processing }: Props) {
                     <AuthSubmit
                         type="button"
                         processing={pending !== null}
-                        onClick={() => start(plan)}
+                        onClick={continueToPayment}
                         data-test="checkout-button"
                     >
                         Continue to payment

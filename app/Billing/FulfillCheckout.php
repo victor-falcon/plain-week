@@ -56,8 +56,9 @@ class FulfillCheckout
         }
 
         if ($session->mode === Session::MODE_PAYMENT) {
+            // A 100% promotion code makes a no-cost order: nothing to pay, and no payment intent to refund later.
             if (Plan::tryFrom($session->metadata['plan'] ?? '') === Plan::Lifetime
-                && $session->payment_status === Session::PAYMENT_STATUS_PAID) {
+                && in_array($session->payment_status, [Session::PAYMENT_STATUS_PAID, Session::PAYMENT_STATUS_NO_PAYMENT_REQUIRED], true)) {
                 $this->lifetime->grant($user, is_string($session->payment_intent) ? $session->payment_intent : $session->payment_intent?->id);
             }
 

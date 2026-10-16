@@ -16,6 +16,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   portal, upgrade to lifetime), Terms of Service and Privacy Policy pages, Stripe webhooks (refunds revoke lifetime)
   and `php artisan plainweek:grant-lifetime`. Self-hosted instances are unchanged: free accounts, no billing, and the
   new routes are `404`. See [docs/saas.md](docs/saas.md).
+- **Promotion codes (SaaS mode).** The plan choice has a "Have a code?" field: a code created in the Stripe Dashboard
+  is checked for the chosen plan, shows the price it gives and replaces the launch coupon at Checkout. A 100% code on
+  Lifetime makes a no-cost order (no card) that grants lifetime like a paid one.
 
 ### Changed
 

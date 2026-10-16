@@ -194,17 +194,20 @@ keeps its own URL, so Fortify redirects, validation errors and the intended URL 
 `/`, replacing the card's history entry. Password confirmation is the exception: it is reached from Settings ›
 Security, so its card floats over the settings layout and closing it opens Settings › Profile.
 
-| Page               | Top bar                           | Copy and fields                                                                                                                                             |
-| ------------------ | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/register`        | Back, "Step 1 of 2" (SaaS), Close | Logo, "Create your account", name, email, password (asked once), Continue ("Create account" self-hosted), log in link, Terms and Privacy line (SaaS)        |
-| `/login`           | Logo, Close                       | "Welcome back", passkey, email, password with "Forgot it?", Remember me (on), Log in, "No account yet? Sync your week" ("Sign up" self-hosted)              |
-| `/forgot-password` | Back (to log in), Close           | Email, "Email reset link"                                                                                                                                   |
-| `/reset-password`  | Close                             | Email (read only), new password and confirmation                                                                                                            |
-| `/plans` (SaaS)    | "Step 2 of 2", Log out            | Lifetime and Weekly as `RadioGroup` cards, "Due today, VAT included", "Continue to payment", Stripe note, "Not now?" note with the export link, legal links |
+| Page               | Top bar                           | Copy and fields                                                                                                                                                                   |
+| ------------------ | --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/register`        | Back, "Step 1 of 2" (SaaS), Close | Logo, "Create your account", name, email, password (asked once), Continue ("Create account" self-hosted), log in link, Terms and Privacy line (SaaS)                              |
+| `/login`           | Logo, Close                       | "Welcome back", passkey, email, password with "Forgot it?", Remember me (on), Log in, "No account yet? Sync your week" ("Sign up" self-hosted)                                    |
+| `/forgot-password` | Back (to log in), Close           | Email, "Email reset link"                                                                                                                                                         |
+| `/reset-password`  | Close                             | Email (read only), new password and confirmation                                                                                                                                  |
+| `/plans` (SaaS)    | "Step 2 of 2", Log out            | Lifetime and Weekly as `RadioGroup` cards, "Have a code?" field, "Due today, VAT included", "Continue to payment", Stripe note, "Not now?" note with the export link, legal links |
 
 The plan cards show the prices `GET /plans` formats from Stripe: Lifetime (selected by default) with the discounted
 price, the regular one struck through and a "Launch −75%" `Badge` while `SAAS_LAUNCH_COUPON` is set, otherwise the full
-price and no badge; Weekly with "per week". The selected card has a 2px `border-foreground`. The plan card cannot be
+price and no badge; Weekly with "per week". The selected card has a 2px `border-foreground`. "Have a code?" (a link
+button) reveals a promotion code `Input` with an outline "Apply" button; a valid code shows "PWFRIENDS26 applied." and
+the amount due today with the price without the code struck through, an invalid one an inline error (see
+[saas.md](./saas.md#promotion-codes)). The plan card cannot be
 dismissed (no close button, Esc does nothing): an account without a plan pays or logs out.
 
 ## Planner layout

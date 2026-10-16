@@ -22,14 +22,14 @@ class StripeCatalog
     }
 
     /**
-     * @return array{id: string, amount: int, currency: string}
+     * @return array{id: string, amount: int, currency: string, product: string}
      */
     public function price(Plan $plan): array
     {
         $key = $plan->lookupKey();
 
-        /** @var array{id: string, amount: int, currency: string}|null $price */
-        $price = Cache::remember("saas.price.{$key}", self::TTL_SECONDS, function () use ($key) {
+        /** @var array{id: string, amount: int, currency: string, product: string}|null $price */
+        $price = Cache::remember("saas.price.v2.{$key}", self::TTL_SECONDS, function () use ($key) {
             /** @var Price|null $price */
             $price = Cashier::stripe()->prices->all(['lookup_keys' => [$key], 'active' => true, 'limit' => 1])->first();
 
@@ -37,6 +37,7 @@ class StripeCatalog
                 'id' => $price->id,
                 'amount' => (int) $price->unit_amount,
                 'currency' => $price->currency,
+                'product' => is_string($price->product) ? $price->product : $price->product->id,
             ];
         });
 
