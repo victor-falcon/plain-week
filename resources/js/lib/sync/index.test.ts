@@ -10,7 +10,12 @@ import { db, wipeLocalDatabase } from '@/lib/db/database';
 import { seedDemoTasks } from '@/lib/db/demo-tasks';
 import { createTask } from '@/lib/db/tasks';
 import { createFakeSyncServer } from '@/test/fake-sync-server';
-import { forgetEndedSession, logOut, syncEngine } from './index';
+import {
+    forgetEndedSession,
+    logOut,
+    prepareLocalData,
+    syncEngine,
+} from './index';
 
 const SESSION_CHANNEL = 'plain-week-session';
 
@@ -35,7 +40,66 @@ beforeEach(async () => {
 
 afterEach(() => {
     syncEngine.stop();
+    vi.useRealTimers();
     vi.unstubAllGlobals();
+});
+
+/** Lets IndexedDB and pending promises run (real macrotasks). */
+async function flush() {
+    for (let i = 0; i < 50; i++) {
+        await new Promise((resolve) => setImmediate(resolve));
+    }
+}
+
+describe('a connection that never answers', () => {
+    beforeEach(() => {
+        vi.useFakeTimers({
+            toFake: [
+                'setTimeout',
+                'clearTimeout',
+                'setInterval',
+                'clearInterval',
+                'Date',
+            ],
+        });
+        vi.stubGlobal('fetch', (url: string, init?: RequestInit) =>
+            url.startsWith('/sync/')
+                ? new Promise(() => {})
+                : server.fetch(url, init),
+        );
+    });
+
+    it('does not hold the logout: after 10 s it asks about unsynced changes', async () => {
+        await createTask({ text: 'A', date: '2026-10-12' });
+        const confirmDiscard = vi.fn(() => true);
+        const loggingOut = logOut({
+            userId: 1,
+            logoutUrl: '/logout',
+            confirmDiscard,
+        });
+
+        await flush();
+        await vi.advanceTimersByTimeAsync(9_999);
+        expect(confirmDiscard).not.toHaveBeenCalled();
+
+        await vi.advanceTimersByTimeAsync(1);
+        await flush();
+
+        await expect(loggingOut).resolves.toBe('/');
+        expect(confirmDiscard).toHaveBeenCalledWith(1);
+        expect(await db.tasks.count()).toBe(0);
+    });
+
+    it('lets the data settings go on after 3 s, saying the data may be stale', async () => {
+        syncEngine.start(1);
+        await flush();
+        const preparing = prepareLocalData(1);
+
+        await flush();
+        await vi.advanceTimersByTimeAsync(3000);
+
+        await expect(preparing).resolves.toBe(false);
+    });
 });
 
 describe('logOut', () => {

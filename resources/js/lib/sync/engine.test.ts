@@ -28,10 +28,13 @@ function createEnvironment() {
     const listeners = new Map<string, Set<() => void>>();
     const environment: SyncEnvironment & {
         online: boolean;
+        visible: boolean;
         emit(type: string): void;
     } = {
         online: true,
+        visible: true,
         isOnline: () => environment.online,
+        isVisible: () => environment.visible,
         addEventListener: (type, listener) => {
             listeners.set(
                 type,
@@ -546,11 +549,12 @@ describe('lifecycle', () => {
         server.failPushWith = 419;
         server.failWith = null;
 
-        // The pull answers normally: the session is alive, keep everything.
+        // The pull answers normally: the session is alive (and its response
+        // refreshed the XSRF token), keep everything and retry soon.
         await startAndSync();
         expect(await db.tasks.count()).toBe(1);
         expect(await db.outbox.count()).toBe(1);
-        expect(engine.getStatus()).toBe('error');
+        expect(engine.getStatus()).toBe('syncing');
         expect(onSessionExpired).not.toHaveBeenCalled();
 
         // The pull answers 401: the session is gone.
@@ -562,17 +566,17 @@ describe('lifecycle', () => {
         expect(onSessionExpired).toHaveBeenCalledOnce();
     });
 
-    it('reports errors, backs off and recovers', async () => {
+    it('keeps trying after a server error, backs off and recovers', async () => {
         server.failWith = 500;
         await startAndSync();
-        expect(engine.getStatus()).toBe('error');
+        expect(engine.getStatus()).toBe('syncing');
 
         server.failWith = null;
         const count = server.requests.length;
 
         await engine.sync();
         expect(server.requests.length).toBe(count);
-        expect(engine.getStatus()).toBe('error');
+        expect(engine.getStatus()).toBe('syncing');
 
         await engine.sync({ force: true });
         expect(engine.getStatus()).toBe('idle');

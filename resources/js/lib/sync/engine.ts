@@ -9,7 +9,15 @@ import { compareTimestamps } from '@/lib/db/dates';
 import { purgeDemoTasks } from '@/lib/db/demo';
 import type { OutboxEntry, Task } from '@/lib/db/types';
 import { withSyncLock } from './lock';
-import { SYNC_FORMAT, SyncHttpError, isSessionGone } from './transport';
+import {
+    hasStatus,
+    isNetworkFailure,
+    isPermanentFailure,
+    isTransientFailure,
+    retryAfterOf,
+    retryDelay,
+} from './retry';
+import { REQUEST_TIMEOUT_MS, SYNC_FORMAT, SyncTimeoutError } from './transport';
 import type { SyncTransport } from './transport';
 
 export type SyncStatus = 'idle' | 'syncing' | 'offline' | 'error';
@@ -17,6 +25,8 @@ export type SyncStatus = 'idle' | 'syncing' | 'offline' | 'error';
 /** The browser APIs the engine relies on, injectable for tests. */
 export type SyncEnvironment = {
     isOnline(): boolean;
+    /** Whether the page is shown; the periodic sync only runs then. */
+    isVisible(): boolean;
     addEventListener(type: string, listener: () => void): void;
     removeEventListener(type: string, listener: () => void): void;
 };
@@ -25,16 +35,28 @@ export type SyncEngineOptions = {
     db: PlainWeekDatabase;
     transport: SyncTransport;
     environment?: SyncEnvironment;
-    /** Max records per push request (the server accepts up to 500). */
+    /**
+     * Max records per push request (the server accepts up to 500). Halved
+     * after each timeout, so a slow uplink still gets through; restored by a
+     * successful run.
+     */
     pushBatchSize?: number;
-    /** `limit` of each pull request (the server accepts up to 1000). */
+    /** `limit` of each pull request (the server accepts up to 1000); halved like the push batch. */
     pullLimit?: number;
     /** Delay between a local mutation and the sync it triggers. */
     debounceMs?: number;
-    /** Background sync interval. */
+    /** Background sync interval (only while the page is visible). */
     intervalMs?: number;
-    /** First retry delay after a retryable failure; doubles up to 5 min. */
+    /** First retry delay after a failure; doubles up to 5 min, with jitter. */
     retryBaseMs?: number;
+    /** A request without an answer after this long is aborted and retried. */
+    requestTimeoutMs?: number;
+    /** How long to wait for another tab's run before trying again later. */
+    lockTimeoutMs?: number;
+    /** Transient failures only turn the status to `error` after this long. */
+    errorAfterMs?: number;
+    /** Source of the retry jitter, in [0, 1). */
+    random?: () => number;
     /**
      * Called after the engine found the server session gone, wiped the local
      * database and stopped.
@@ -53,26 +75,28 @@ export type SyncEngineOptions = {
     onPaymentRequired?: () => void;
 };
 
-const MAX_RETRY_MS = 5 * 60_000;
-
-/** The server refused the payload itself: retrying it unchanged cannot work. */
-function isPermanentFailure(error: unknown): boolean {
-    return (
-        error instanceof SyncHttpError &&
-        (error.status === 422 || error.status === 413)
-    );
-}
-
 function isPending(entry: OutboxEntry): boolean {
     return entry.failed_revision !== entry.revision;
 }
 
+/** Where a browser event fires: `visibilitychange` on the document. */
+function eventTarget(type: string): EventTarget | null {
+    if (type !== 'visibilitychange') {
+        return window;
+    }
+
+    return typeof document === 'undefined' ? null : document;
+}
+
 const browserEnvironment: SyncEnvironment = {
     isOnline: () => navigator.onLine,
+    isVisible: () =>
+        typeof document === 'undefined' ||
+        document.visibilityState !== 'hidden',
     addEventListener: (type, listener) =>
-        window.addEventListener(type, listener),
+        eventTarget(type)?.addEventListener(type, listener),
     removeEventListener: (type, listener) =>
-        window.removeEventListener(type, listener),
+        eventTarget(type)?.removeEventListener(type, listener),
 };
 
 /** Thrown inside a run when the engine was stopped or switched user. */
@@ -129,10 +153,13 @@ export function claimDatabaseFor(
 /**
  * Background sync: pushes the outbox, then pulls remote changes, applying them
  * with last-write-wins. It never blocks the UI; the UI keeps reading Dexie.
- * See docs/architecture.md for the full lifecycle.
+ * Failures are retried on their own (exponential backoff with jitter, and at
+ * once when the device comes back online or the page is shown again). See
+ * docs/architecture.md for the full lifecycle.
  */
 export class SyncEngine {
     private readonly db: PlainWeekDatabase;
+    /** The injected transport, every call bounded by the request timeout. */
     private readonly transport: SyncTransport;
     private readonly environment: SyncEnvironment;
     private readonly pushBatchSize: number;
@@ -140,6 +167,10 @@ export class SyncEngine {
     private readonly debounceMs: number;
     private readonly intervalMs: number;
     private readonly retryBaseMs: number;
+    private readonly requestTimeoutMs: number;
+    private readonly lockTimeoutMs: number;
+    private readonly errorAfterMs: number;
+    private readonly random: () => number;
     private readonly onSessionExpired: () => void;
     private readonly confirmDiscard: (pendingChanges: number) => boolean;
     private readonly onPaymentRequired: () => void;
@@ -153,18 +184,39 @@ export class SyncEngine {
     private readonly statusListeners = new Set<() => void>();
     private debounceTimer: ReturnType<typeof setTimeout> | null = null;
     private teardown: Array<() => void> = [];
+    /** Consecutive failed runs; drives the backoff. */
     private failures = 0;
+    /** When the server started failing (network failures do not count). */
+    private failingSince: number | null = null;
     private retryAt = 0;
+    /** The server's `Retry-After`: not even focus or `online` retry sooner. */
+    private notBefore = 0;
+    /** Batch sizes are scaled by this; halved after each timeout. */
+    private batchScale = 1;
+    private retryTimer: ReturnType<typeof setTimeout> | null = null;
+    /** Cancels the request in flight, if any. */
+    private cancelRequest: (() => void) | null = null;
 
     constructor(options: SyncEngineOptions) {
+        const transport = options.transport;
+
         this.db = options.db;
-        this.transport = options.transport;
+        this.transport = {
+            push: (tasks) =>
+                this.request((signal) => transport.push(tasks, signal)),
+            pull: (cursor, limit) =>
+                this.request((signal) => transport.pull(cursor, limit, signal)),
+        };
         this.environment = options.environment ?? browserEnvironment;
         this.pushBatchSize = options.pushBatchSize ?? 500;
         this.pullLimit = options.pullLimit ?? 500;
         this.debounceMs = options.debounceMs ?? 1000;
         this.intervalMs = options.intervalMs ?? 30_000;
-        this.retryBaseMs = options.retryBaseMs ?? 5000;
+        this.retryBaseMs = options.retryBaseMs ?? 2000;
+        this.requestTimeoutMs = options.requestTimeoutMs ?? REQUEST_TIMEOUT_MS;
+        this.lockTimeoutMs = options.lockTimeoutMs ?? 60_000;
+        this.errorAfterMs = options.errorAfterMs ?? 2 * 60_000;
+        this.random = options.random ?? Math.random;
         this.onSessionExpired = options.onSessionExpired ?? (() => {});
         this.confirmDiscard = options.confirmDiscard ?? (() => true);
         this.onPaymentRequired = options.onPaymentRequired ?? (() => {});
@@ -195,27 +247,49 @@ export class SyncEngine {
         this.userId = String(userId);
         this.generation++;
 
-        const sync = () => void this.sync();
+        const { environment } = this;
+        const syncNow = () => void this.syncNow();
         const goOffline = () => this.setStatus('offline');
+        const onVisibilityChange = () => {
+            if (environment.isVisible()) {
+                syncNow();
+            }
+        };
         const unsubscribe = onLocalChange(() => this.scheduleSync());
-        const interval = setInterval(sync, this.intervalMs);
+        // The periodic pull only matters while someone looks at the page.
+        const interval = setInterval(() => {
+            if (environment.isVisible()) {
+                void this.sync();
+            }
+        }, this.intervalMs);
+        const listeners: Array<[string, () => void]> = [
+            ['online', syncNow],
+            ['offline', goOffline],
+            ['focus', syncNow],
+            ['visibilitychange', onVisibilityChange],
+        ];
 
-        this.environment.addEventListener('online', sync);
-        this.environment.addEventListener('offline', goOffline);
-        this.environment.addEventListener('focus', sync);
+        listeners.forEach(([type, listener]) =>
+            environment.addEventListener(type, listener),
+        );
 
         this.teardown = [
             unsubscribe,
             () => clearInterval(interval),
-            () => this.environment.removeEventListener('online', sync),
-            () => this.environment.removeEventListener('offline', goOffline),
-            () => this.environment.removeEventListener('focus', sync),
+            ...listeners.map(
+                ([type, listener]) =>
+                    () =>
+                        environment.removeEventListener(type, listener),
+            ),
         ];
 
-        sync();
+        void this.sync();
     }
 
-    /** Stops syncing; an in-flight run finishes without writing anything. */
+    /**
+     * Stops syncing; an in-flight request is aborted and the run finishes
+     * without writing anything.
+     */
     stop(): void {
         this.teardown.forEach((dispose) => dispose());
         this.teardown = [];
@@ -228,8 +302,9 @@ export class SyncEngine {
         this.userId = null;
         this.generation++;
         this.rerunRequested = false;
-        this.failures = 0;
-        this.retryAt = 0;
+        this.cancelRequest?.();
+        this.resetBackoff();
+        this.batchScale = 1;
         this.setStatus('idle');
     }
 
@@ -251,12 +326,18 @@ export class SyncEngine {
 
     /**
      * Runs a sync now (or right after the current one) and resolves when the
-     * outbox has been pushed and remote changes pulled. Never rejects. While
-     * backing off after a failure it does nothing unless `force` is set.
+     * outbox has been pushed and remote changes pulled, or the run failed.
+     * Never rejects. While backing off after a failure it does nothing (the
+     * retry timer runs it) unless `force` is set, which also resets the
+     * backoff (the manual "Retry sync").
      */
     sync({ force = false }: { force?: boolean } = {}): Promise<void> {
         if (this.userId === null) {
             return Promise.resolve();
+        }
+
+        if (force) {
+            this.resetBackoff();
         }
 
         if (!this.environment.isOnline()) {
@@ -271,14 +352,14 @@ export class SyncEngine {
             return this.running;
         }
 
-        if (!force && Date.now() < this.retryAt) {
+        if (Date.now() < this.retryAt) {
             return Promise.resolve();
         }
 
         this.running = (async () => {
             do {
                 this.rerunRequested = false;
-                await withSyncLock(() => this.run(this.generation));
+                await this.runLocked(this.generation);
             } while (
                 this.rerunRequested &&
                 this.userId !== null &&
@@ -297,6 +378,23 @@ export class SyncEngine {
         return this.db.outbox.count();
     }
 
+    /**
+     * A sign the connection may be back (`online`, focus, the page shown
+     * again): try at once instead of waiting for the retry timer, unless the
+     * server asked to wait (`Retry-After`). The failure streak is kept, so the
+     * backoff keeps growing if it fails again.
+     */
+    private syncNow(): Promise<void> {
+        if (Date.now() < this.notBefore) {
+            return Promise.resolve();
+        }
+
+        this.clearRetryTimer();
+        this.retryAt = 0;
+
+        return this.sync();
+    }
+
     private setStatus(status: SyncStatus): void {
         if (this.status === status) {
             return;
@@ -312,6 +410,52 @@ export class SyncEngine {
         }
     }
 
+    /**
+     * Runs `call` with a signal that aborts it after the request timeout or on
+     * `stop()`. The returned promise settles then even if the transport
+     * ignores the signal, so a dead connection never holds a run, nor the
+     * cross-tab lock, forever.
+     */
+    private request<T>(call: (signal: AbortSignal) => Promise<T>): Promise<T> {
+        const controller = new AbortController();
+
+        return new Promise<T>((resolve, reject) => {
+            const abort = (reason: Error) => {
+                reject(reason);
+                controller.abort();
+            };
+            const timer = setTimeout(
+                () => abort(new SyncTimeoutError(this.requestTimeoutMs)),
+                this.requestTimeoutMs,
+            );
+            const cancel = () => abort(new SyncCancelled());
+
+            this.cancelRequest = cancel;
+            call(controller.signal)
+                .then(resolve, reject)
+                .finally(() => {
+                    clearTimeout(timer);
+
+                    if (this.cancelRequest === cancel) {
+                        this.cancelRequest = null;
+                    }
+                });
+        });
+    }
+
+    /** One run under the cross-tab lock. Never rejects. */
+    private async runLocked(generation: number): Promise<void> {
+        try {
+            await withSyncLock(() => this.run(generation), {
+                timeoutMs: this.lockTimeoutMs,
+            });
+        } catch (error) {
+            // The lock was not granted in time, or the failure handling
+            // itself failed (e.g. IndexedDB): retry like any failed run.
+            this.recordFailure(error, generation);
+        }
+    }
+
     private async run(generation: number): Promise<void> {
         this.setStatus('syncing');
 
@@ -319,59 +463,136 @@ export class SyncEngine {
             await this.claimDatabase(generation);
             await this.push(generation);
             await this.pull(generation);
-            this.failures = 0;
-            this.retryAt = 0;
+            this.resetBackoff();
+            this.batchScale = 1;
             await this.settleStatus();
         } catch (error) {
-            if (error instanceof SyncCancelled) {
-                return;
-            }
+            await this.handleFailure(error, generation);
+        }
+    }
 
-            if (error instanceof SyncHttpError && error.status === 402) {
-                // No paid plan: retrying cannot help. Stop without a retry
-                // loop; the outbox keeps the changes for after the payment.
-                this.stop();
-                this.onPaymentRequired();
+    private async handleFailure(
+        error: unknown,
+        generation: number,
+    ): Promise<void> {
+        if (error instanceof SyncCancelled) {
+            return;
+        }
 
-                return;
-            }
+        const failure = hasStatus(error, 419)
+            ? await this.confirmSession(error)
+            : error;
 
-            if (await this.sessionEnded(error)) {
-                await this.forgetUser(generation);
+        if (generation !== this.generation) {
+            return;
+        }
 
-                return;
-            }
+        if (hasStatus(failure, 402)) {
+            // No paid plan: retrying cannot help. Stop without a retry
+            // loop; the outbox keeps the changes for after the payment.
+            this.stop();
+            this.onPaymentRequired();
 
-            this.failures++;
-            this.retryAt =
-                Date.now() +
-                Math.min(
-                    this.retryBaseMs * 2 ** (this.failures - 1),
-                    MAX_RETRY_MS,
-                );
-            // A network failure (fetch TypeError) means we are effectively
-            // offline even when `navigator.onLine` says otherwise.
-            this.setStatus(
-                !this.environment.isOnline() || error instanceof TypeError
-                    ? 'offline'
-                    : 'error',
-            );
+            return;
+        }
+
+        if (hasStatus(failure, 401)) {
+            await this.forgetUser(generation);
+
+            return;
+        }
+
+        this.recordFailure(failure, generation);
+    }
+
+    /**
+     * A 419 on push usually means the XSRF token of an ended session. A pull
+     * (no token needed) tells: its `401` (session gone) or `402` (no plan)
+     * replaces the 419; when it succeeds the session is alive and its
+     * response refreshed the token, so the 419 is retried like any transient
+     * failure.
+     */
+    private async confirmSession(error: unknown): Promise<unknown> {
+        try {
+            await this.transport.pull(0, 1);
+
+            return error;
+        } catch (pullError) {
+            return hasStatus(pullError, 401) || hasStatus(pullError, 402)
+                ? pullError
+                : error;
         }
     }
 
     /**
-     * A 401 means the session is gone. A 419 on push usually means the same
-     * (the XSRF token of an ended session), but it is confirmed with a pull
-     * before anything gets wiped.
+     * Schedules the retry and reports the failure. Network failures read as
+     * `offline`. Other transient ones read as `syncing` (it is still trying)
+     * until the server has been failing for `errorAfterMs`; anything else is
+     * an `error` at once. Every failure is retried, so a cause that goes away
+     * (a deploy, a server bug fixed) heals by itself.
      */
-    private async sessionEnded(error: unknown): Promise<boolean> {
-        if (!(error instanceof SyncHttpError)) {
-            return false;
+    private recordFailure(error: unknown, generation: number): void {
+        if (generation !== this.generation || this.userId === null) {
+            return;
         }
 
-        return error.status === 419
-            ? isSessionGone(this.transport)
-            : error.status === 401;
+        const now = Date.now();
+        const retryAfter = retryAfterOf(error);
+        const delay = retryDelay(
+            ++this.failures,
+            this.retryBaseMs,
+            this.random(),
+            retryAfter,
+        );
+
+        this.retryAt = now + delay;
+        this.notBefore = retryAfter > 0 ? this.retryAt : 0;
+        this.clearRetryTimer();
+        this.retryTimer = setTimeout(() => {
+            this.retryTimer = null;
+            // Due now, even if the clock moved back meanwhile.
+            this.retryAt = 0;
+            void this.sync();
+        }, delay);
+
+        if (error instanceof SyncTimeoutError) {
+            this.batchScale = Math.max(this.batchScale / 2, 1 / 64);
+        }
+
+        if (!this.environment.isOnline() || isNetworkFailure(error)) {
+            // Time offline does not count towards `error`.
+            this.failingSince = null;
+            this.setStatus('offline');
+
+            return;
+        }
+
+        this.failingSince ??= now;
+        this.setStatus(
+            isTransientFailure(error) &&
+                now - this.failingSince < this.errorAfterMs
+                ? 'syncing'
+                : 'error',
+        );
+    }
+
+    private resetBackoff(): void {
+        this.failures = 0;
+        this.failingSince = null;
+        this.retryAt = 0;
+        this.notBefore = 0;
+        this.clearRetryTimer();
+    }
+
+    private scaled(size: number): number {
+        return Math.max(1, Math.floor(size * this.batchScale));
+    }
+
+    private clearRetryTimer(): void {
+        if (this.retryTimer !== null) {
+            clearTimeout(this.retryTimer);
+            this.retryTimer = null;
+        }
     }
 
     /**
@@ -434,7 +655,7 @@ export class SyncEngine {
             const entries = (await db.outbox.toArray())
                 .filter((entry) => isPending(entry))
                 .filter((entry) => !attempted.has(entry.task_id))
-                .slice(0, this.pushBatchSize);
+                .slice(0, this.scaled(this.pushBatchSize));
 
             if (entries.length === 0) {
                 return;
@@ -542,7 +763,10 @@ export class SyncEngine {
         for (;;) {
             this.assertCurrent(generation);
 
-            const page = await this.transport.pull(cursor, this.pullLimit);
+            const page = await this.transport.pull(
+                cursor,
+                this.scaled(this.pullLimit),
+            );
             const next = Number(page.cursor);
 
             await db.transaction('rw', allTables(db), async () => {
