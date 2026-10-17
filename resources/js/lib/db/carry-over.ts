@@ -19,11 +19,10 @@ export function isCarriedOver(task: Task, today: string): boolean {
     );
 }
 
-/** Oldest day first, then the order each day had (position). */
+/**
+ * Oldest day first, then the order each day had (position). Only for tasks
+ * that pass `isCarriedOver`, so both have a date.
+ */
 export function compareCarryOverOrder(a: Task, b: Task): number {
-    if (a.date !== b.date) {
-        return (a.date ?? '') < (b.date ?? '') ? -1 : 1;
-    }
-
-    return compareTaskOrder(a, b);
+    return (a.date ?? '').localeCompare(b.date ?? '') || compareTaskOrder(a, b);
 }

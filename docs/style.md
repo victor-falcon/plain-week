@@ -492,7 +492,8 @@ Planner behaviour, per device, at `/settings/preferences` (`pages/settings/prefe
 Data in the settings nav; registered users only, like every settings page). One small `Heading` section, "Planner",
 holds a row per preference: a `Label` with a short `text-muted-foreground` explanation on the start side and a
 `Switch` on the end side (`flex items-start justify-between gap-4`, so it mirrors in RTL). The only preference so far is
-"Move unfinished tasks to today", on by default; it applies at once, with no save button. Behaviour is in
+"Move unfinished tasks to today", on by default; it applies at once, with no save button. When it moves tasks the
+planner shows one plain toast ("Moved 3 unfinished tasks to today"). Behaviour is in
 [architecture.md](./architecture.md#carry-over-unfinished-tasks).
 
 ## Planner accent

@@ -70,8 +70,11 @@ function start(): () => void {
 /**
  * The single source of today's local 'YYYY-MM-DD' key, as an external store
  * for `useSyncExternalStore` (see `useToday`). While anything is subscribed
- * it watches the clock: a timeout to midnight, a cheap interval, and the
- * focus, pageshow, online and visibilitychange events.
+ * it watches the clock: a timeout to midnight (so the day changes right on
+ * time while the machine is awake), a cheap interval (the safety net after a
+ * sleep), and the focus, pageshow, online and visibilitychange events.
+ * `getToday` may cache a value before anything subscribes; the first
+ * subscription refreshes it.
  */
 export const todayStore = {
     subscribe: (listener: () => void): (() => void) => {

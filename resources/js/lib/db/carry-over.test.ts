@@ -123,4 +123,11 @@ describe('carryOverTasks', () => {
         expect(await carryOverTasks(TODAY)).toBe(0);
         expect(await db.outbox.count()).toBe(0);
     });
+
+    it('never moves demo tasks seeded while it runs', async () => {
+        await Promise.all([seedDemoTasks(TODAY), carryOverTasks(TODAY)]);
+
+        expect(await carryOverTasks(TODAY)).toBe(0);
+        expect(await db.outbox.count()).toBe(0);
+    });
 });

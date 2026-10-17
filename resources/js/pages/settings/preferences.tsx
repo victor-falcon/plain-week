@@ -2,7 +2,7 @@ import { Head } from '@inertiajs/react';
 import Heading from '@/components/heading';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { useCarryOverSetting } from '@/hooks/use-carry-over';
+import { useCarryOverSetting } from '@/hooks/use-carry-over-setting';
 import { carryOverSetting } from '@/lib/planner/preferences';
 import { edit as editPreferences } from '@/routes/preferences';
 
@@ -31,9 +31,10 @@ export default function Preferences() {
                             Move unfinished tasks to today
                         </Label>
                         <p className="text-sm text-muted-foreground">
-                            Tasks from earlier days that are not done move to
-                            today, after today&apos;s tasks. Recurring tasks
-                            stay on their day.
+                            When the planner opens and when the day changes,
+                            tasks from earlier days that are not done move to
+                            the end of today. Recurring and Someday tasks stay
+                            where they are. Applies to this device only.
                         </p>
                     </div>
                     <Switch

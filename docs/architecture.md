@@ -486,10 +486,16 @@ forward, like a paper planner rewritten each morning.
   carrying would show it twice. Demo tasks the guest never touched stay on the day they teach (they are released, and
   carried, once edited).
 - **Where.** At the end of today, after its existing tasks (occurrences included), oldest day first and in each day's
-  position order. Subtasks are part of the row, so they travel with it. There is no toast.
+  position order. Subtasks are part of the row, so they travel with it. One
+  quiet toast per run says how many moved ("Moved 3 unfinished tasks to today"), never one per task; only the tab whose
+  transaction moved them shows it.
 - **Safety.** The repository reads and writes in one transaction through the usual `write()` (rows plus outbox entries,
   newer `updated_at`), so it is idempotent and two tabs never move a task twice. Two devices doing it converge through
   LWW: a move keeps the id, so it never duplicates; the later move's position wins.
+- **Known limits.** Last-write-wins is per record: if another device marks a task done while offline and this device
+  moves it before that change is pushed, the newer move wins and the task comes back unfinished on today. It runs only
+  at start and on rollover, so a past-dated task that arrives later (pulled from a device with the setting off, or put
+  back on a past day by an undo or a drag) waits there until the next start or midnight.
 - **Setting storage.** Per device in `localStorage` (`plain-week.carry-over`, only `off` is stored; absent means on), in
   `lib/planner/preferences.ts`, followed across tabs through the `storage` event. Plain Week has no synced preferences,
   and this way it works offline and for guests. Settings pages are for registered users, so guests have no switch and
