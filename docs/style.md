@@ -108,6 +108,7 @@ Installed in `resources/js/components/ui/` and where they are used:
 | `alert`, `card`, `label`, `spinner`, `input-otp`, `separator`      | Auth cards and settings pages (from the Laravel starter kit)                           |
 | `sidebar` (+ `skeleton`), `sheet`, `navigation-menu`, `breadcrumb` | Starter kit app shell around the settings pages                                        |
 | `badge`                                                            | Launch discount on the plan choice, the landing card and Settings › Billing            |
+| `switch`                                                           | Settings › Preferences ("Move unfinished tasks to today")                              |
 | `collapsible`                                                      | Installed, not used yet                                                                |
 
 `icon.tsx` and `placeholder-pattern.tsx` in the same folder are starter kit helpers, not shadcn components.
@@ -484,6 +485,16 @@ tasks"). The rows are planned when Import is pressed, so positions follow any ta
 second click does nothing. An invalid file never opens the dialog: a `toast.error` says why ("This is not a Plain Week
 export file."). The hook and dialog live in `components/data-transfer.tsx` (`useDataTransfer`); behaviour is in
 [architecture.md](./architecture.md#export-format).
+
+## Settings › Preferences
+
+Planner behaviour, per device, at `/settings/preferences` (`pages/settings/preferences.tsx`, between Appearance and
+Data in the settings nav; registered users only, like every settings page). One small `Heading` section, "Planner",
+holds a row per preference: a `Label` with a short `text-muted-foreground` explanation on the start side and a
+`Switch` on the end side (`flex items-start justify-between gap-4`, so it mirrors in RTL). The only preference so far is
+"Move unfinished tasks to today", on by default; it applies at once, with no save button. When it moves tasks the
+planner shows one plain toast ("Moved 3 unfinished tasks to today"). Behaviour is in
+[architecture.md](./architecture.md#carry-over-unfinished-tasks).
 
 ## Planner accent
 

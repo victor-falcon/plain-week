@@ -11,6 +11,7 @@ import { SomedaySection } from '@/components/planner/someday-section';
 import { TaskDialog } from '@/components/planner/task-dialog/task-dialog';
 import { WeekGrid } from '@/components/planner/week-grid';
 import { SyncProvider } from '@/components/sync-provider';
+import { useCarryOver } from '@/hooks/use-carry-over';
 import { useGuestOnboarding } from '@/hooks/use-guest-onboarding';
 import { useToday } from '@/hooks/use-today';
 import { useWeekNavigation } from '@/hooks/use-week-navigation';
@@ -33,6 +34,7 @@ export default function PlannerLayout({ children }: { children: ReactNode }) {
     const openSettings = useCallback(() => router.visit(settings()), []);
 
     useGuestOnboarding(today, navigation.isCurrentWeek);
+    useCarryOver(today);
 
     return (
         <SyncProvider>

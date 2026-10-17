@@ -22,6 +22,9 @@ Route::middleware(['auth'])->group(function () {
 
     Route::inertia('settings/appearance', 'settings/appearance')->name('appearance.edit');
 
+    // Planner preferences are stored per device in the browser; the server only serves the page.
+    Route::inertia('settings/preferences', 'settings/preferences')->name('preferences.edit');
+
     // Export and import run in the browser against IndexedDB; the server only serves the page.
     Route::inertia('settings/data', 'settings/data')->name('data.edit');
 });
