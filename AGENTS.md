@@ -33,3 +33,8 @@ bun run build
 
 UI changes also get a headless browser check ([stack.md](./docs/stack.md#testing)). Keep `docs/` and `CHANGELOG.md`
 current with what you change. Never commit anything under `docs/research/`.
+
+## Releases
+
+Cut a **patch** release (`x.y.Z`) by default: bump `package.json`, move the `Unreleased` CHANGELOG entries under the
+new version and update the compare links. Only bump the minor or major version when the owner explicitly asks for it.
