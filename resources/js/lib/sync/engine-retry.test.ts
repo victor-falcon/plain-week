@@ -11,7 +11,7 @@ import { createTask } from '@/lib/db/tasks';
 import { createFakeLocks } from '@/test/fake-locks';
 import { SyncEngine } from './engine';
 import type { SyncEngineOptions, SyncEnvironment } from './engine';
-import { SyncHttpError } from './transport';
+import { SyncHttpError, SyncNetworkError } from './transport';
 import type { SyncTransport } from './transport';
 
 /**
@@ -45,42 +45,59 @@ function createEnvironment() {
     return environment;
 }
 
-/** Every request answers with `outcome`: success, an error, or never. */
+type Outcome = 'ok' | 'hang' | Error;
+
+/**
+ * Every request answers with `outcome` (success, an error, or never); pushes
+ * with `pushOutcome` when set.
+ */
 function createTransport() {
     const state = {
-        outcome: 'ok' as 'ok' | 'hang' | Error,
+        outcome: 'ok' as Outcome,
+        pushOutcome: null as Outcome | null,
         requests: 0,
         pushes: 0,
+        pushSizes: [] as number[],
         signals: [] as AbortSignal[],
     };
 
-    function answer<T>(value: T, signal?: AbortSignal): Promise<T> {
+    function answer<T>(
+        value: T,
+        outcome: Outcome,
+        signal?: AbortSignal,
+    ): Promise<T> {
         state.requests++;
 
         if (signal) {
             state.signals.push(signal);
         }
 
-        if (state.outcome === 'hang') {
+        if (outcome === 'hang') {
             return new Promise<T>(() => {});
         }
 
-        return state.outcome === 'ok'
+        return outcome === 'ok'
             ? Promise.resolve(value)
-            : Promise.reject(state.outcome);
+            : Promise.reject(outcome);
     }
 
     const transport: SyncTransport = {
         push: (tasks, signal) => {
             state.pushes++;
+            state.pushSizes.push(tasks.length);
 
             return answer(
                 { applied: tasks.map((t) => t.id), rejected: [], cursor: 0 },
+                state.pushOutcome ?? state.outcome,
                 signal,
             );
         },
         pull: (cursor, _limit, signal) =>
-            answer({ tasks: [], cursor, has_more: false }, signal),
+            answer(
+                { tasks: [], cursor, has_more: false },
+                state.outcome,
+                signal,
+            ),
     };
 
     return { state, transport };
@@ -238,7 +255,9 @@ describe('automatic retries', () => {
     });
 
     it('reports network failures as offline and retries them', async () => {
-        server.state.outcome = new TypeError('Failed to fetch');
+        server.state.outcome = new SyncNetworkError(
+            new TypeError('Failed to fetch'),
+        );
         await start();
 
         expect(engine.getStatus()).toBe('offline');
@@ -246,6 +265,28 @@ describe('automatic retries', () => {
         server.state.outcome = 'ok';
         await advance(1000);
         expect(engine.getStatus()).toBe('idle');
+    });
+
+    it('reports a local bug as an error, not as offline', async () => {
+        server.state.outcome = new TypeError('page.tasks is undefined');
+        await start();
+
+        expect(engine.getStatus()).toBe('error');
+    });
+
+    it('does not count time offline towards an error', async () => {
+        createEngine({ errorAfterMs: 10_000, random: () => 1 });
+        server.state.outcome = new SyncNetworkError(new TypeError('offline'));
+        await start();
+        await advance(2000);
+        await advance(4000);
+        await advance(8000);
+        expect(engine.getStatus()).toBe('offline');
+
+        // Back online, the server hiccups once: still trying, not red.
+        server.state.outcome = new SyncHttpError(503);
+        await advance(16_000);
+        expect(engine.getStatus()).toBe('syncing');
     });
 
     it('never pushes a change twice once it was accepted', async () => {
@@ -263,6 +304,31 @@ describe('automatic retries', () => {
 });
 
 describe('timeouts', () => {
+    it('halves the batches after a timeout and restores them after a success', async () => {
+        await Promise.all(
+            ['A', 'B', 'C', 'D'].map((text) =>
+                createTask({ text, date: '2026-10-12' }),
+            ),
+        );
+        createEngine({ pushBatchSize: 4, requestTimeoutMs: 20_000 });
+        server.state.outcome = 'hang';
+        await start();
+        await advance(20_000);
+
+        server.state.outcome = 'ok';
+        await advance(1000);
+        expect(server.state.pushSizes).toEqual([4, 2, 2]);
+
+        await Promise.all(
+            ['E', 'F', 'G', 'H'].map((text) =>
+                createTask({ text, date: '2026-10-12' }),
+            ),
+        );
+        await engine.sync();
+        expect(server.state.pushSizes.at(-1)).toBe(4);
+        expect(await db.outbox.count()).toBe(0);
+    });
+
     it('aborts a request that gets no answer, reports offline and retries', async () => {
         createEngine({ requestTimeoutMs: 20_000 });
         server.state.outcome = 'hang';
@@ -397,6 +463,20 @@ describe('triggers', () => {
         expect(server.state.requests).toBe(3);
     });
 
+    it('waits for Retry-After even on focus or online', async () => {
+        server.state.outcome = new SyncHttpError(429, 30_000);
+        await start();
+
+        environment.emit('focus');
+        environment.emit('online');
+        environment.emit('visibilitychange');
+        await flush();
+        expect(server.state.requests).toBe(1);
+
+        await advance(30_000);
+        expect(server.state.requests).toBe(2);
+    });
+
     it('a manual retry runs at once and resets the backoff', async () => {
         server.state.outcome = new SyncHttpError(500);
         await start();
@@ -429,6 +509,20 @@ describe('failures that are not retried', () => {
         environment.emit('focus');
         await advance(10 * 60_000);
         expect(server.state.requests).toBe(1);
+    });
+
+    it('pauses on a 419 whose confirming pull answers 402', async () => {
+        const onPaymentRequired = vi.fn();
+
+        await createTask({ text: 'A', date: '2026-10-12' });
+        createEngine({ onPaymentRequired });
+        server.state.pushOutcome = new SyncHttpError(419);
+        server.state.outcome = new SyncHttpError(402);
+        await start();
+
+        expect(onPaymentRequired).toHaveBeenCalledOnce();
+        expect(engine.isStarted).toBe(false);
+        expect(await db.outbox.count()).toBe(1);
     });
 
     it('forgets the user on 401 without retrying', async () => {

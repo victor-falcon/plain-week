@@ -46,6 +46,14 @@ export class SyncHttpError extends Error {
     }
 }
 
+/** The request never reached the server, or its answer never came back. */
+export class SyncNetworkError extends Error {
+    constructor(cause: unknown) {
+        super('Sync request failed: the network is unreachable.', { cause });
+        this.name = 'SyncNetworkError';
+    }
+}
+
 /** A sync request got no answer in time (a dead or very slow connection). */
 export class SyncTimeoutError extends Error {
     constructor(timeoutMs: number) {
@@ -81,7 +89,11 @@ function xsrfToken(): string | null {
     return match ? decodeURIComponent(match[1]) : null;
 }
 
-/** Requests without a caller's signal (logout, session checks) give up after this. */
+/**
+ * How long a request may go unanswered. The engine enforces it itself (see
+ * `SyncEngine`); `send` applies it to requests without a caller's signal
+ * (logout, session checks).
+ */
 export const REQUEST_TIMEOUT_MS = 20_000;
 
 /**
@@ -102,12 +114,23 @@ async function send(url: string, init: RequestInit = {}): Promise<Response> {
         headers.set('X-XSRF-TOKEN', token);
     }
 
-    const response = await fetch(url, {
-        ...init,
-        headers,
-        credentials: 'same-origin',
-        signal: init.signal ?? AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    });
+    let response: Response;
+
+    try {
+        response = await fetch(url, {
+            ...init,
+            headers,
+            credentials: 'same-origin',
+            signal: init.signal ?? AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+        });
+    } catch (error) {
+        // The caller aborted it (timeout, stop): theirs to report.
+        if (init.signal?.aborted) {
+            throw error;
+        }
+
+        throw new SyncNetworkError(error);
+    }
 
     if (!response.ok) {
         throw new SyncHttpError(

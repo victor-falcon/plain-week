@@ -15,7 +15,10 @@ export const syncEngine = new SyncEngine({
     onPaymentRequired: showPaywall,
 });
 
-/** True while `logOut` runs: its last sync may get a 402 too. */
+/**
+ * True while `logOut` runs: its sync may get a 402 too, and the paywall must
+ * not take the page away from the logout.
+ */
 let loggingOut = false;
 
 /** How long the settings' export and import wait for a fresh sync. */
@@ -29,10 +32,12 @@ function settleWithin(promise: Promise<unknown>, ms: number): Promise<void> {
     return new Promise((resolve) => {
         const timer = setTimeout(resolve, ms);
 
-        void promise.finally(() => {
+        const done = () => {
             clearTimeout(timer);
             resolve();
-        });
+        };
+
+        promise.then(done, done);
     });
 }
 

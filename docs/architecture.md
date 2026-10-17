@@ -326,18 +326,21 @@ defaults them to `null` on pull.
       lock, stops, and `onSessionExpired` tells the other tabs and reloads the page as a guest. If changes are still
       pending (edits made offline before the session expired) it asks first, like logout; declining keeps everything
       and only stops the engine, so the changes are pushed when the same user signs in again. A `419` on push (the XSRF token of an ended session) is confirmed first with a `pull` (no token needed):
-      only a `401` there wipes; otherwise it is an ordinary `error`.
+      a `401` there wipes, a `402` pauses (below); otherwise the session is alive, that pull refreshed the token, and
+      the `419` is retried like any transient failure.
     - `422`/`413` are permanent: the batch is split until the invalid records are isolated; each is quarantined
       (`failed_revision` = its revision, logged with `console.warn`) and skipped until the task changes again. The rest
       of the outbox and the pull carry on; the status stays `error` while a record is quarantined.
     - Every other failure is retried on its own: a timer with exponential backoff and "equal" jitter (2 s doubling up
       to 5 min, each delay between half and all of that), never sooner than a `Retry-After` the server sent (`429`,
-      `503`; capped at 5 min too). `online`, window focus and the page becoming visible retry at once; the failure
-      streak is kept, so the backoff keeps growing while it fails. A success resets it. Re-pushing after a request that
+      `503`; capped at 5 min too). `online`, window focus and the page becoming visible retry at once (but never
+      before a `Retry-After`); the failure streak is kept, so the backoff keeps growing while it fails. A success
+      resets it. After a timeout the push batch and the pull `limit` are halved (down to 1/64), so a slow uplink still
+      gets through; a successful run restores them. Re-pushing after a request that
       timed out is safe: push is idempotent under last-write-wins, and an outbox entry is only cleared by a response.
-    - Status while retrying: network failures and timeouts read as `offline`. Other transient failures (`5xx`, `408`,
-      `429`, a `419` with a live session, the lock not granted) read as `syncing` until they have lasted 2 min, then
-      `error`. Any other failure (an unexpected `4xx`, a local error) is `error` at once, and still retried.
+    - Status while retrying: network failures (`SyncNetworkError`: `fetch` itself failed) and timeouts read as
+      `offline`. Other transient failures (`5xx`, `408`, `429`, a `419` with a live session, the lock not granted) read
+      as `syncing` until the server has been failing for 2 min (time offline does not count), then `error`. Any other failure (an unexpected `4xx`, a local error) is `error` at once, and still retried.
     - "Retry sync" (account menu, shown on `error`) calls `sync({ force: true })`: it runs at once and resets the
       backoff. Runs are cancelled by `stop()` and never write after it.
 - Status: `syncing` during a run, then `idle`, `offline` or `error` (or `syncing` while retrying, see above).

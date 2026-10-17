@@ -8,13 +8,16 @@ import type { PlainWeekDatabase } from '@/lib/db/database';
 import { compareTimestamps } from '@/lib/db/dates';
 import { purgeDemoTasks } from '@/lib/db/demo';
 import type { OutboxEntry, Task } from '@/lib/db/types';
-import { SyncLockTimeout, withSyncLock } from './lock';
+import { withSyncLock } from './lock';
 import {
-    SYNC_FORMAT,
-    SyncHttpError,
-    SyncTimeoutError,
-    isSessionGone,
-} from './transport';
+    hasStatus,
+    isNetworkFailure,
+    isPermanentFailure,
+    isTransientFailure,
+    retryAfterOf,
+    retryDelay,
+} from './retry';
+import { REQUEST_TIMEOUT_MS, SYNC_FORMAT, SyncTimeoutError } from './transport';
 import type { SyncTransport } from './transport';
 
 export type SyncStatus = 'idle' | 'syncing' | 'offline' | 'error';
@@ -32,9 +35,13 @@ export type SyncEngineOptions = {
     db: PlainWeekDatabase;
     transport: SyncTransport;
     environment?: SyncEnvironment;
-    /** Max records per push request (the server accepts up to 500). */
+    /**
+     * Max records per push request (the server accepts up to 500). Halved
+     * after each timeout, so a slow uplink still gets through; restored by a
+     * successful run.
+     */
     pushBatchSize?: number;
-    /** `limit` of each pull request (the server accepts up to 1000). */
+    /** `limit` of each pull request (the server accepts up to 1000); halved like the push batch. */
     pullLimit?: number;
     /** Delay between a local mutation and the sync it triggers. */
     debounceMs?: number;
@@ -67,44 +74,6 @@ export type SyncEngineOptions = {
      */
     onPaymentRequired?: () => void;
 };
-
-const MAX_RETRY_MS = 5 * 60_000;
-
-/** The server refused the payload itself: retrying it unchanged cannot work. */
-function isPermanentFailure(error: unknown): boolean {
-    return (
-        error instanceof SyncHttpError &&
-        (error.status === 422 || error.status === 413)
-    );
-}
-
-/**
- * No answer from the server (fetch's network `TypeError`, a timeout): the
- * device is effectively offline, whatever `navigator.onLine` says.
- */
-function isNetworkFailure(error: unknown): boolean {
-    return error instanceof TypeError || error instanceof SyncTimeoutError;
-}
-
-/**
- * A failure the same request may well get past soon: the network, a busy or
- * restarting server, rate limiting, a stale XSRF token (a 419 only gets here
- * once a pull showed the session is alive, and that pull refreshed the
- * token), or another tab holding the lock.
- */
-function isTransientFailure(error: unknown): boolean {
-    if (isNetworkFailure(error) || error instanceof SyncLockTimeout) {
-        return true;
-    }
-
-    return (
-        error instanceof SyncHttpError &&
-        (error.status >= 500 ||
-            error.status === 408 ||
-            error.status === 419 ||
-            error.status === 429)
-    );
-}
 
 function isPending(entry: OutboxEntry): boolean {
     return entry.failed_revision !== entry.revision;
@@ -217,9 +186,13 @@ export class SyncEngine {
     private teardown: Array<() => void> = [];
     /** Consecutive failed runs; drives the backoff. */
     private failures = 0;
-    /** When the current streak of failures started. */
+    /** When the server started failing (network failures do not count). */
     private failingSince: number | null = null;
     private retryAt = 0;
+    /** The server's `Retry-After`: not even focus or `online` retry sooner. */
+    private notBefore = 0;
+    /** Batch sizes are scaled by this; halved after each timeout. */
+    private batchScale = 1;
     private retryTimer: ReturnType<typeof setTimeout> | null = null;
     /** Cancels the request in flight, if any. */
     private cancelRequest: (() => void) | null = null;
@@ -240,7 +213,7 @@ export class SyncEngine {
         this.debounceMs = options.debounceMs ?? 1000;
         this.intervalMs = options.intervalMs ?? 30_000;
         this.retryBaseMs = options.retryBaseMs ?? 2000;
-        this.requestTimeoutMs = options.requestTimeoutMs ?? 20_000;
+        this.requestTimeoutMs = options.requestTimeoutMs ?? REQUEST_TIMEOUT_MS;
         this.lockTimeoutMs = options.lockTimeoutMs ?? 60_000;
         this.errorAfterMs = options.errorAfterMs ?? 2 * 60_000;
         this.random = options.random ?? Math.random;
@@ -331,6 +304,7 @@ export class SyncEngine {
         this.rerunRequested = false;
         this.cancelRequest?.();
         this.resetBackoff();
+        this.batchScale = 1;
         this.setStatus('idle');
     }
 
@@ -406,10 +380,15 @@ export class SyncEngine {
 
     /**
      * A sign the connection may be back (`online`, focus, the page shown
-     * again): try at once instead of waiting for the retry timer. The failure
-     * streak is kept, so the backoff keeps growing if it fails again.
+     * again): try at once instead of waiting for the retry timer, unless the
+     * server asked to wait (`Retry-After`). The failure streak is kept, so the
+     * backoff keeps growing if it fails again.
      */
     private syncNow(): Promise<void> {
+        if (Date.now() < this.notBefore) {
+            return Promise.resolve();
+        }
+
         this.clearRetryTimer();
         this.retryAt = 0;
 
@@ -485,6 +464,7 @@ export class SyncEngine {
             await this.push(generation);
             await this.pull(generation);
             this.resetBackoff();
+            this.batchScale = 1;
             await this.settleStatus();
         } catch (error) {
             await this.handleFailure(error, generation);
@@ -495,11 +475,19 @@ export class SyncEngine {
         error: unknown,
         generation: number,
     ): Promise<void> {
-        if (error instanceof SyncCancelled || generation !== this.generation) {
+        if (error instanceof SyncCancelled) {
             return;
         }
 
-        if (error instanceof SyncHttpError && error.status === 402) {
+        const failure = hasStatus(error, 419)
+            ? await this.confirmSession(error)
+            : error;
+
+        if (generation !== this.generation) {
+            return;
+        }
+
+        if (hasStatus(failure, 402)) {
             // No paid plan: retrying cannot help. Stop without a retry
             // loop; the outbox keeps the changes for after the payment.
             this.stop();
@@ -508,21 +496,40 @@ export class SyncEngine {
             return;
         }
 
-        if (await this.sessionEnded(error)) {
+        if (hasStatus(failure, 401)) {
             await this.forgetUser(generation);
 
             return;
         }
 
-        this.recordFailure(error, generation);
+        this.recordFailure(failure, generation);
+    }
+
+    /**
+     * A 419 on push usually means the XSRF token of an ended session. A pull
+     * (no token needed) tells: its `401` (session gone) or `402` (no plan)
+     * replaces the 419; when it succeeds the session is alive and its
+     * response refreshed the token, so the 419 is retried like any transient
+     * failure.
+     */
+    private async confirmSession(error: unknown): Promise<unknown> {
+        try {
+            await this.transport.pull(0, 1);
+
+            return error;
+        } catch (pullError) {
+            return hasStatus(pullError, 401) || hasStatus(pullError, 402)
+                ? pullError
+                : error;
+        }
     }
 
     /**
      * Schedules the retry and reports the failure. Network failures read as
      * `offline`. Other transient ones read as `syncing` (it is still trying)
-     * until they have lasted `errorAfterMs`; anything else is an `error` at
-     * once. Every failure is retried, so a cause that goes away (a deploy, a
-     * server bug fixed) heals by itself.
+     * until the server has been failing for `errorAfterMs`; anything else is
+     * an `error` at once. Every failure is retried, so a cause that goes away
+     * (a deploy, a server bug fixed) heals by itself.
      */
     private recordFailure(error: unknown, generation: number): void {
         if (generation !== this.generation || this.userId === null) {
@@ -530,45 +537,55 @@ export class SyncEngine {
         }
 
         const now = Date.now();
-
-        this.failures++;
-        this.failingSince ??= now;
-
-        const backoff = Math.min(
-            this.retryBaseMs * 2 ** (this.failures - 1),
-            MAX_RETRY_MS,
+        const retryAfter = retryAfterOf(error);
+        const delay = retryDelay(
+            ++this.failures,
+            this.retryBaseMs,
+            this.random(),
+            retryAfter,
         );
-        // "Equal jitter": half fixed, half random, so tabs and devices that
-        // failed together do not retry in lockstep.
-        const jittered = backoff / 2 + (this.random() * backoff) / 2;
-        const retryAfter =
-            error instanceof SyncHttpError ? (error.retryAfterMs ?? 0) : 0;
-        const delay = Math.min(Math.max(jittered, retryAfter), MAX_RETRY_MS);
 
         this.retryAt = now + delay;
+        this.notBefore = retryAfter > 0 ? this.retryAt : 0;
         this.clearRetryTimer();
         this.retryTimer = setTimeout(() => {
             this.retryTimer = null;
+            // Due now, even if the clock moved back meanwhile.
+            this.retryAt = 0;
             void this.sync();
         }, delay);
 
-        if (!this.environment.isOnline() || isNetworkFailure(error)) {
-            this.setStatus('offline');
-        } else if (
-            isTransientFailure(error) &&
-            now - this.failingSince < this.errorAfterMs
-        ) {
-            this.setStatus('syncing');
-        } else {
-            this.setStatus('error');
+        if (error instanceof SyncTimeoutError) {
+            this.batchScale = Math.max(this.batchScale / 2, 1 / 64);
         }
+
+        if (!this.environment.isOnline() || isNetworkFailure(error)) {
+            // Time offline does not count towards `error`.
+            this.failingSince = null;
+            this.setStatus('offline');
+
+            return;
+        }
+
+        this.failingSince ??= now;
+        this.setStatus(
+            isTransientFailure(error) &&
+                now - this.failingSince < this.errorAfterMs
+                ? 'syncing'
+                : 'error',
+        );
     }
 
     private resetBackoff(): void {
         this.failures = 0;
         this.failingSince = null;
         this.retryAt = 0;
+        this.notBefore = 0;
         this.clearRetryTimer();
+    }
+
+    private scaled(size: number): number {
+        return Math.max(1, Math.floor(size * this.batchScale));
     }
 
     private clearRetryTimer(): void {
@@ -576,21 +593,6 @@ export class SyncEngine {
             clearTimeout(this.retryTimer);
             this.retryTimer = null;
         }
-    }
-
-    /**
-     * A 401 means the session is gone. A 419 on push usually means the same
-     * (the XSRF token of an ended session), but it is confirmed with a pull
-     * before anything gets wiped.
-     */
-    private async sessionEnded(error: unknown): Promise<boolean> {
-        if (!(error instanceof SyncHttpError)) {
-            return false;
-        }
-
-        return error.status === 419
-            ? isSessionGone(this.transport)
-            : error.status === 401;
     }
 
     /**
@@ -653,7 +655,7 @@ export class SyncEngine {
             const entries = (await db.outbox.toArray())
                 .filter((entry) => isPending(entry))
                 .filter((entry) => !attempted.has(entry.task_id))
-                .slice(0, this.pushBatchSize);
+                .slice(0, this.scaled(this.pushBatchSize));
 
             if (entries.length === 0) {
                 return;
@@ -761,7 +763,10 @@ export class SyncEngine {
         for (;;) {
             this.assertCurrent(generation);
 
-            const page = await this.transport.pull(cursor, this.pullLimit);
+            const page = await this.transport.pull(
+                cursor,
+                this.scaled(this.pullLimit),
+            );
             const next = Number(page.cursor);
 
             await db.transaction('rw', allTables(db), async () => {

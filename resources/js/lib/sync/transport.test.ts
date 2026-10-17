@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
-import { SyncHttpError, fetchTransport, parseRetryAfter } from './transport';
+import {
+    SyncHttpError,
+    SyncNetworkError,
+    fetchTransport,
+    parseRetryAfter,
+} from './transport';
 
 afterEach(() => {
     vi.useRealTimers();
@@ -51,5 +56,28 @@ describe('fetchTransport', () => {
 
         expect(error).toBeInstanceOf(SyncHttpError);
         expect(error).toMatchObject({ status: 429, retryAfterMs: 12_000 });
+    });
+
+    it('reports a request that never reached the server as a network error', async () => {
+        vi.stubGlobal('fetch', () => Promise.reject(new TypeError('offline')));
+
+        await expect(fetchTransport.pull(0, 1)).rejects.toBeInstanceOf(
+            SyncNetworkError,
+        );
+    });
+
+    it('leaves the caller’s own abort as it is', async () => {
+        const controller = new AbortController();
+        const abort = new DOMException('Aborted.', 'AbortError');
+
+        vi.stubGlobal('fetch', () => {
+            controller.abort();
+
+            return Promise.reject(abort);
+        });
+
+        await expect(fetchTransport.pull(0, 1, controller.signal)).rejects.toBe(
+            abort,
+        );
     });
 });
