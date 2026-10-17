@@ -18,6 +18,24 @@ export const syncEngine = new SyncEngine({
 /** True while `logOut` runs: its last sync may get a 402 too. */
 let loggingOut = false;
 
+/** How long the settings' export and import wait for a fresh sync. */
+const PREPARE_SYNC_WAIT_MS = 3000;
+
+/** How long logout waits for pending changes to reach the server. */
+const LOGOUT_SYNC_WAIT_MS = 10_000;
+
+/** Resolves when `promise` settles or after `ms`, whichever comes first. */
+function settleWithin(promise: Promise<unknown>, ms: number): Promise<void> {
+    return new Promise((resolve) => {
+        const timer = setTimeout(resolve, ms);
+
+        void promise.finally(() => {
+            clearTimeout(timer);
+            resolve();
+        });
+    });
+}
+
 /**
  * SaaS mode: the account has no paid plan (never had one, or it ended), so
  * the server refuses to sync. Local data stays; the user picks a plan.
@@ -34,15 +52,23 @@ function showPaywall(): void {
  * Gets the local database ready for the signed-in user outside the planner
  * (Settings › Data): claims it like a sync run does (another user's leftover
  * data is wiped, guest work kept), so a later run never wipes what is written
- * now, then runs one sync (needs a started engine, see `SyncProvider`).
- * Resolves with true when the local data is up to date with the server, false
- * when that sync could not finish (offline, errors).
+ * now, then runs one sync (needs a started engine, see `SyncProvider`), waiting
+ * for it a few seconds at most. Resolves with true when the local data is up
+ * to date with the server, false when that sync did not finish (offline,
+ * errors, a slow connection).
  */
 export async function prepareLocalData(
     userId: string | number,
 ): Promise<boolean> {
-    await withSyncLock(() => claimDatabaseFor(db, String(userId)));
-    await syncEngine.sync({ force: true });
+    const owner = await db.meta.get('user_id');
+
+    // Already claimed for this user (the usual case): no need to wait for
+    // the lock, which another tab's run may hold.
+    if (owner === undefined || String(owner.value) !== String(userId)) {
+        await withSyncLock(() => claimDatabaseFor(db, String(userId)));
+    }
+
+    await settleWithin(syncEngine.sync({ force: true }), PREPARE_SYNC_WAIT_MS);
 
     return syncEngine.isStarted && syncEngine.getStatus() === 'idle';
 }
@@ -149,7 +175,8 @@ export type LogOutOptions = {
 
 /**
  * Logs out without silently losing data:
- * 1. pushes pending changes,
+ * 1. pushes pending changes (waiting 10 s at most, so a bad connection does
+ *    not hold the logout),
  * 2. asks before discarding any that could not be pushed,
  * 3. ends the server session,
  * 4. only then wipes the local database (privacy on shared devices), so the
@@ -169,37 +196,41 @@ export async function logOut({
 
     try {
         syncEngine.start(userId);
-        await syncEngine.sync({ force: true });
+        await settleWithin(
+            syncEngine.sync({ force: true }),
+            LOGOUT_SYNC_WAIT_MS,
+        );
+
+        const pending = await syncEngine.pendingCount();
+
+        if (pending > 0 && !confirmDiscard(pending)) {
+            if (!wasStarted) {
+                syncEngine.stop();
+            }
+
+            return null;
+        }
+
+        // Also aborts a push still in flight.
+        syncEngine.stop();
+
+        let redirectTo: string;
+
+        try {
+            redirectTo = await requestLogout(logoutUrl);
+        } catch (error) {
+            if (wasStarted) {
+                syncEngine.start(userId);
+            }
+
+            throw error;
+        }
+
+        await withSyncLock(() => wipeLocalDatabase(db));
+        sessionChannel?.postMessage('logged-out');
+
+        return redirectTo;
     } finally {
         loggingOut = false;
     }
-
-    const pending = await syncEngine.pendingCount();
-
-    if (pending > 0 && !confirmDiscard(pending)) {
-        if (!wasStarted) {
-            syncEngine.stop();
-        }
-
-        return null;
-    }
-
-    syncEngine.stop();
-
-    let redirectTo: string;
-
-    try {
-        redirectTo = await requestLogout(logoutUrl);
-    } catch (error) {
-        if (wasStarted) {
-            syncEngine.start(userId);
-        }
-
-        throw error;
-    }
-
-    await withSyncLock(() => wipeLocalDatabase(db));
-    sessionChannel?.postMessage('logged-out');
-
-    return redirectTo;
 }

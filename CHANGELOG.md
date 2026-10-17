@@ -31,6 +31,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **The planner moves on to the new day without a reload.** It used to stay on yesterday after midnight when the laptop
   had slept or the tab never became hidden. It now also checks the date on focus, on wake, when coming back online and
   every 30 seconds, and if the current week was on screen it follows into the new week.
+- **Sync heals by itself.** A failed sync is retried on its own, with exponential backoff and jitter (2 s up to 5 min,
+  honouring `Retry-After`), and at once when the device comes back online, the window gets focus or the tab is shown
+  again. Server hiccups read as "Syncing…" and only turn red once they have lasted 2 minutes; "Retry sync" still runs at
+  once and resets the backoff. A `402` still pauses sync until the plan changes.
+- **A bad connection never makes anything hang.** Every sync request gives up after 20 s (it used to be 30 s, and a
+  stuck request could hold the cross-tab sync lock), logout waits at most 10 s for pending changes before asking about
+  them, and Settings › Data waits at most 3 s for a fresh sync. A retry while offline no longer flashes the dot green.
+  The periodic pull only runs while the tab is visible.
 
 ## [0.2.0] - 2026-10-16
 
