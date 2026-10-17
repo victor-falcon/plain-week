@@ -131,7 +131,7 @@ export const SHORTCUTS: ShortcutDefinition[] = [
         id: 'task.open',
         // On a new-task row, Enter starts typing (the row's hint shows it).
         keys: [['Enter']],
-        label: 'Open, or type on an empty row',
+        label: 'Open',
         group: 'Tasks',
     },
     {

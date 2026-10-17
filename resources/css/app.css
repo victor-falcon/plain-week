@@ -9,6 +9,8 @@
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 
 @custom-variant dark (&:is(.dark *));
+/* A planner row under the keyboard cursor, or a task row whose text button has keyboard focus. */
+@custom-variant cursor-row (&[data-cursor], &:has([data-task-open]:focus-visible));
 
 :root {
     --background: oklch(1 0 0);

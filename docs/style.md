@@ -296,9 +296,9 @@ shortcuts" in the account menu (the menu item's `?` hint is hidden on touch scre
 - The keyboard cursor sits on one task or on a list's new-task row (`CURSOR_ROW_CLASS`): a full-row `bg-muted/60`
   tint between the row's ruled lines and a 2px `bg-foreground` bar on its start edge (`before:start-0`, so it mirrors
   in RTL). No border, ring or rounding. The bar is also the focus indicator: a task's text button with keyboard focus
-  draws the same tint and bar instead of a ring. Plain mouse hover gets no tint, only the row's key hint. The cursor
-  is hidden until a shortcut key is pressed and hides again on any pointer press, so mouse and touch users never see
-  it. While the new-task input is being typed in, the input's own lifted style replaces it.
+  draws the same tint and bar instead of a ring (the `cursor-row` variant in `app.css`); forced-colors mode keeps the
+  bar as `Highlight`. Plain mouse hover gets no tint, only the row's key hint. The cursor is hidden until a shortcut
+  key is pressed and hides again on any pointer press, so mouse and touch users never see it. While the new-task input is being typed in, the input's own lifted style replaces it.
 - The shortcuts dialog is a shadcn `Dialog` (`sm:max-w-2xl`, two columns from `sm`, one on phones, scrolling when
   taller than the screen) with the keys as shadcn `Kbd`s; alternatives are joined by "or", a sequence is two `Kbd`s.
   In RTL it lists the keys that run each action there (`h` under "Next day"). Its last group, "Task dialog", lists

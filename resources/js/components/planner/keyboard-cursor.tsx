@@ -69,11 +69,12 @@ const CursorApiContext = createContext<CursorApi | null>(null);
 
 /**
  * How the row under the cursor looks (task rows and new-task rows): a faint
- * full-row tint and a 2px bar on its start edge, which is also its focus
- * indicator.
+ * full-row tint and a 2px bar on its start edge. A task row whose text
+ * button has keyboard focus looks the same (`cursor-row` in `app.css`): the
+ * bar is its focus indicator, kept in forced colors (as `Highlight`).
  */
 export const CURSOR_ROW_CLASS =
-    'data-cursor:bg-muted/60 data-cursor:before:pointer-events-none data-cursor:before:absolute data-cursor:before:inset-y-0 data-cursor:before:start-0 data-cursor:before:w-0.5 data-cursor:before:bg-foreground';
+    'cursor-row:bg-muted/60 cursor-row:before:pointer-events-none cursor-row:before:absolute cursor-row:before:inset-y-0 cursor-row:before:start-0 cursor-row:before:w-0.5 cursor-row:before:bg-foreground forced-colors:cursor-row:before:bg-[Highlight] forced-colors:cursor-row:before:forced-color-adjust-none';
 
 /** The keyboard cursor (resolved), or `null` when it is hidden. */
 export function useKeyboardCursor(): Cursor | null {
