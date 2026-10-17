@@ -52,13 +52,31 @@ export type WeekNavigation = {
  * `today` is the local 'YYYY-MM-DD' key (see `useToday`). The planner is
  * client-only (its data lives in IndexedDB), so reading `window` on the first
  * render is fine.
+ *
+ * When `today` moves into a new week (midnight between Sunday and Monday)
+ * while the current week is shown, the planner follows to the new current
+ * week; a week the user navigated to stays put.
  */
 export function useWeekNavigation(today: string): WeekNavigation {
     const todayDate = parseDateKey(today);
     const [weekStart, setWeekStart] = useState(() =>
         weekFromUrl(window.location.href, todayDate),
     );
+    const [previousToday, setPreviousToday] = useState(today);
     const currentWeek = startOfWeek(todayDate);
+
+    // Adjusting state while rendering (not in an effect) so the planner never
+    // paints the old week with the new day.
+    if (previousToday !== today) {
+        setPreviousToday(today);
+
+        const previousWeek = startOfWeek(parseDateKey(previousToday));
+
+        if (toDateKey(weekStart) === toDateKey(previousWeek)) {
+            setWeekStart(currentWeek);
+        }
+    }
+
     const isCurrentWeek = toDateKey(weekStart) === toDateKey(currentWeek);
     // True until Inertia has recorded the loaded page in history.
     const loading = useRef(true);

@@ -11,6 +11,7 @@ import {
 } from 'vite-plus/test';
 import type { Offers } from '@/components/billing/offers';
 import { landingStore } from '@/lib/landing';
+import { memoryStorage } from '@/test/storage';
 import Planner from './planner';
 
 let props: {
@@ -48,22 +49,6 @@ const offers: Offers = {
     weekly: { price: '€2.99' },
     lifetime: { price: '€16', regularPrice: '€64', discountPercent: 75 },
 };
-
-/** Node's own `localStorage` (unset without `--localstorage-file`) hides happy-dom's. */
-function memoryStorage(): Storage {
-    const items = new Map<string, string>();
-
-    return {
-        get length() {
-            return items.size;
-        },
-        clear: () => items.clear(),
-        getItem: (key) => items.get(key) ?? null,
-        key: (index) => [...items.keys()][index] ?? null,
-        removeItem: (key) => void items.delete(key),
-        setItem: (key, value) => void items.set(key, String(value)),
-    };
-}
 
 beforeEach(() => {
     props = { auth: { user: null }, saas: { enabled: true } };

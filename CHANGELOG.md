@@ -7,6 +7,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **Unfinished tasks move to today.** When the planner opens and when the day changes, tasks from earlier days that
+  are not done move to the end of today, in the order they had, subtasks included. Recurring and Someday tasks stay
+  where they are. On by default; turn it off in the new Settings › Preferences page (stored per device; guests always
+  get it).
+
+### Fixed
+
+- **The planner moves on to the new day without a reload.** It used to stay on yesterday after midnight when the laptop
+  had slept or the tab never became hidden. It now also checks the date on focus, on wake, when coming back online and
+  every 30 seconds, and if the current week was on screen it follows into the new week.
+
 ## [0.2.0] - 2026-10-16
 
 ### Added

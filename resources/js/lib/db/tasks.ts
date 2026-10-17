@@ -14,10 +14,11 @@ import type {
     PlannerTask,
     SeriesItem,
 } from '@/lib/recurrence/expand';
+import { compareCarryOverOrder, isCarriedOver } from './carry-over';
 import { notifyLocalChange } from './changes';
 import { db } from './database';
 import { nextTimestamp } from './dates';
-import { trackDemoRows } from './demo';
+import { demoIds, trackDemoRows } from './demo';
 import type { DemoMode } from './demo';
 import { positionBetween } from './position';
 import {
@@ -646,6 +647,42 @@ export function moveTask(
         options,
         { subjectId: id },
     );
+}
+
+/**
+ * Moves every unfinished plain task dated before `today` to `today` (see
+ * `isCarriedOver`), after the tasks already there and in the order they had.
+ * Subtasks are part of the row, so they travel with it. Untouched demo tasks
+ * stay on the day they teach. Reading and writing in one transaction makes it
+ * idempotent, also across tabs; two devices doing it converge through LWW (a
+ * move keeps the id, so it never duplicates). Resolves with how many moved.
+ */
+export function carryOverTasks(today: string): Promise<number> {
+    return write(async () => {
+        const [past, demo, todays] = await Promise.all([
+            db.tasks.where('date').below(today).toArray(),
+            demoIds(),
+            queryListTasks({ date: today }),
+        ]);
+        let after = todays.at(-1)?.position;
+        const rows = past
+            .filter((task) => isCarriedOver(task, today) && !demo.has(task.id))
+            .sort(compareCarryOverOrder)
+            .map((task): Task => {
+                const position = positionBetween(after, null);
+
+                after = position;
+
+                return {
+                    ...toRow(task),
+                    date: today,
+                    position,
+                    updated_at: nextTimestamp(task.updated_at),
+                };
+            });
+
+        return { rows, result: rows.length };
+    });
 }
 
 /**

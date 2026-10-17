@@ -187,6 +187,7 @@ beats the version it replaces. After commit the mutation schedules a sync.
 | `setRecurrence(id, recurrence \| null, { scope?, undo? })`                                                       | Makes a task repeat, changes or removes the rule (see [Recurring tasks](#recurring-tasks-client)).                                |
 | `createUndoLog()` / `undoChanges(log)`                                                                           | Pass `{ undo: log }` to mutations, then `undoChanges(log)` puts back every row they overwrote and deletes the rows they created.  |
 | `listTasksIn({ date } \| { date: null, someday_column })`                                                        | Sorted, non-deleted items of one list, occurrences included (useful to compute neighbours).                                       |
+| `carryOverTasks(today)`                                                                                          | Moves unfinished plain tasks from earlier days to `today`, after its tasks (see [Carry over](#carry-over-unfinished-tasks)).      |
 
 Every function that takes an `id` also accepts an occurrence id; mutations on a missing or deleted task throw. Order inside a list is `position` (fractional-indexing key), then `id` as a
 tie-break (`compareTaskOrder` in `lib/db/position.ts`).
@@ -456,10 +457,43 @@ measurements in [style.md](./style.md#planner-layout)). It follows the offline-f
     - Every week change after that uses `history.replaceState` directly (keeping Inertia's history state), never a
       server visit; held arrow keys do not repeat and rate-limit errors are ignored.
 - Keyboard shortcuts: see [Keyboard shortcuts](#keyboard-shortcuts).
-- "Today" comes from `useToday()`, which rolls over at local midnight and when the tab becomes visible again.
+- "Today" comes from `useToday()`, the only place the planner reads the date: a shared store (`lib/planner/today.ts`)
+  that, while the planner is open, re-reads the clock on a timeout to local midnight, every 30 s, and on `focus`,
+  `pageshow`, `online` and `visibilitychange` (visible), and re-renders only when the date key changes. The timeout
+  alone was not enough: timers stall while a laptop sleeps, and a tab that was visible when the lid closed is still
+  visible when it opens, so `visibilitychange` never fires and the planner stayed on yesterday until a reload. When the
+  date moves into a new week while the current week is shown, `useWeekNavigation` follows to the new current week; a
+  week the user navigated to stays.
+- Unfinished tasks of earlier days move to today: see [Carry over](#carry-over-unfinished-tasks).
 - Pure logic lives in `lib/planner/` with unit tests: ISO week math and the desktop column layout (`week.ts`), smart
   time (`smart-time.ts`), date labels (`format.ts`), task color styles (`task-colors.ts`) and drop resolution
   (`drop.ts`).
+
+### Carry over unfinished tasks
+
+The "Move unfinished tasks to today" preference (Settings › Preferences, on by default) moves yesterday's leftovers
+forward, like a paper planner rewritten each morning.
+
+- **When.** `useCarryOver(today)` (called by `PlannerLayout`) runs `carryOverTasks(today)` when the planner opens and
+  whenever `useToday()` rolls over, while the setting is on. A signed-in device with a started sync engine first waits
+  for one sync run, so a task completed on another device since the last sync is pulled before this device moves it
+  (with whole-record last-write-wins the newer move would otherwise undo that). The hook relies on parent effects
+  running after their children's: `PlannerLayout` renders `SyncProvider`, so the engine has started by then. Offline
+  the run returns at once and the move is a local edit like any other.
+- **What moves** (`isCarriedOver` in `lib/db/carry-over.ts`): live tasks that are not done, have a date (Someday never
+  falls behind) before today, and are plain tasks. Recurring tasks are never carried: a series row only anchors its
+  rule, an occurrence or its exception row belongs to its date, and the series comes back on its next date anyway, so
+  carrying would show it twice. Demo tasks the guest never touched stay on the day they teach (they are released, and
+  carried, once edited).
+- **Where.** At the end of today, after its existing tasks (occurrences included), oldest day first and in each day's
+  position order. Subtasks are part of the row, so they travel with it. There is no toast.
+- **Safety.** The repository reads and writes in one transaction through the usual `write()` (rows plus outbox entries,
+  newer `updated_at`), so it is idempotent and two tabs never move a task twice. Two devices doing it converge through
+  LWW: a move keeps the id, so it never duplicates; the later move's position wins.
+- **Setting storage.** Per device in `localStorage` (`plain-week.carry-over`, only `off` is stored; absent means on), in
+  `lib/planner/preferences.ts`, followed across tabs through the `storage` event. Plain Week has no synced preferences,
+  and this way it works offline and for guests. Settings pages are for registered users, so guests have no switch and
+  always get the default (on).
 
 ### Drag and drop
 
@@ -605,13 +639,14 @@ Laravel provides:
 
 ### Routes and access
 
-| Route                | Name        | Access                                                                  |
-| -------------------- | ----------- | ----------------------------------------------------------------------- |
-| `GET /`              | `home`      | Public. Renders the Inertia page `planner` for everyone.¹               |
-| `POST /sync/push`    | `sync.push` | `auth` (session + CSRF). `SyncController@push`.¹                        |
-| `GET /sync/pull`     | `sync.pull` | `auth` (session). `SyncController@pull`.¹                               |
-| `/settings/*`        |             | `auth`.                                                                 |
-| `GET /settings/data` | `data.edit` | `auth`. Inertia page `settings/data` (export / import run client-side). |
+| Route                       | Name               | Access                                                                      |
+| --------------------------- | ------------------ | --------------------------------------------------------------------------- |
+| `GET /`                     | `home`             | Public. Renders the Inertia page `planner` for everyone.¹                   |
+| `POST /sync/push`           | `sync.push`        | `auth` (session + CSRF). `SyncController@push`.¹                            |
+| `GET /sync/pull`            | `sync.pull`        | `auth` (session). `SyncController@pull`.¹                                   |
+| `/settings/*`               |                    | `auth`.                                                                     |
+| `GET /settings/data`        | `data.edit`        | `auth`. Inertia page `settings/data` (export / import run client-side).     |
+| `GET /settings/preferences` | `preferences.edit` | `auth`. Inertia page `settings/preferences` (values stored in the browser). |
 
 ¹ Plus `EnsureHasAccess`: in SaaS mode a signed-in account without a paid plan is redirected to the paywall (pages) or
 gets `402` (sync). Billing and legal routes are listed in [saas.md](./saas.md).
