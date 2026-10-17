@@ -5,7 +5,6 @@ import { KeyboardCursorProvider } from '@/components/planner/keyboard-cursor';
 import { PlannerDnd } from '@/components/planner/planner-dnd';
 import { PlannerHeader } from '@/components/planner/planner-header';
 import { ScopePromptProvider } from '@/components/planner/scope-prompt';
-import { ShortcutsButton } from '@/components/planner/shortcuts-button';
 import { ShortcutsDialog } from '@/components/planner/shortcuts-dialog';
 import { SomedaySection } from '@/components/planner/someday-section';
 import { TaskDialog } from '@/components/planner/task-dialog/task-dialog';
@@ -66,7 +65,6 @@ export default function PlannerLayout({ children }: { children: ReactNode }) {
                                 />
                                 <SomedaySection onOpenTask={setOpenTaskId} />
                             </PlannerDnd>
-                            <ShortcutsButton />
                         </main>
                     </div>
                     <TaskDialog taskId={openTaskId} onClose={closeTask} />

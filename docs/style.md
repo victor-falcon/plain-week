@@ -293,10 +293,12 @@ label, group), which both the key handler and the shortcuts dialog read; `?` ope
 shortcuts" in the account menu (the menu item's `?` hint is hidden on touch screens). Behaviour is in
 [architecture.md](./architecture.md#keyboard-shortcuts).
 
-- The keyboard cursor sits on one task or on a list's new-task row: `bg-accent` with an inset `ring-2 ring-ring`,
-  `rounded-sm`, over the row's usual focus ring. It is hidden until a shortcut key is pressed and hides again on any
-  pointer press, so mouse and touch users never see it. While the new-task input is being typed in, the input's own
-  lifted style replaces it.
+- The keyboard cursor sits on one task or on a list's new-task row (`CURSOR_ROW_CLASS`): a full-row `bg-muted/60`
+  tint between the row's ruled lines and a 2px `bg-foreground` bar on its start edge (`before:start-0`, so it mirrors
+  in RTL). No border, ring or rounding. The bar is also the focus indicator: a task's text button with keyboard focus
+  draws the same tint and bar instead of a ring (the `cursor-row` variant in `app.css`); forced-colors mode keeps the
+  bar as `Highlight`. Plain mouse hover gets no tint, only the row's key hint. The cursor is hidden until a shortcut
+  key is pressed and hides again on any pointer press, so mouse and touch users never see it. While the new-task input is being typed in, the input's own lifted style replaces it.
 - The shortcuts dialog is a shadcn `Dialog` (`sm:max-w-2xl`, two columns from `sm`, one on phones, scrolling when
   taller than the screen) with the keys as shadcn `Kbd`s; alternatives are joined by "or", a sequence is two `Kbd`s.
   In RTL it lists the keys that run each action there (`h` under "Next day"). Its last group, "Task dialog", lists
@@ -312,12 +314,12 @@ on its row, which shows the hint). Hints sit only where a key helps:
 
 | Where                              | Hint                                                                                                                                                  |
 | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Task row (hover, or the cursor's)  | `o` at the row's end, before the check; it grows in (`max-w-0` → `max-w-8`, fading in) so it takes no room until shown and never covers the text pill |
-| Empty row (hover, or the cursor's) | `a` at the row's end, absolutely positioned over the empty input; gone while typing                                                                   |
+| Task row (hover, or the cursor's)  | `⏎` at the row's end, before the check; it grows in (`max-w-0` → `max-w-8`, fading in) so it takes no room until shown and never covers the text pill |
+| Empty row (hover, or the cursor's) | `⏎` at the row's end, absolutely positioned over the empty input; gone while typing (`a` and `i` also start typing, but the hint shows Enter)         |
 | Header tooltips                    | "Current week `t`", "Previous week `H` `←`", "Next week `L` `→`" (the mirrored keys in RTL)                                                           |
 | Task menu, More menu               | Each item's key in a `ContextMenuShortcut` / `DropdownMenuShortcut`, before its icon (the empty slot keeps the icon at the end on touch screens)      |
 | Task dialog toolbar tooltips       | "Date `d`", "Time `t`", "Delete `Del`", "Repeat `r`", "Color `c`", "More `m`"                                                                         |
-| Account menu, end of the planner   | `?` next to "Keyboard shortcuts"; a ghost "? Keyboard shortcuts" button at the end of the page (bottom-end, after Someday, out of the toasts' corner) |
+| Account menu                       | `?` next to "Keyboard shortcuts" (the menu item and the `?` key are the ways into the dialog)                                                         |
 
 Row hints use `ROW_HINT_KEY_CLASS` (20px caps, a little smaller than the dialog's); tooltips restyle `Kbd` on their own
 (`in-data-[slot=tooltip-content]`).

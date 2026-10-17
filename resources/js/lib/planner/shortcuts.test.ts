@@ -6,6 +6,8 @@ import {
     TASK_DIALOG_SHORTCUTS,
     createShortcutMatcher,
     effectiveAction,
+    keyLabel,
+    keyName,
     keyToken,
     keysFor,
     shortcutById,
@@ -68,6 +70,17 @@ describe('SHORTCUTS', () => {
                 expect(shortcutById(shortcut.mirror).mirror).toBe(shortcut.id);
             }
         }
+    });
+});
+
+describe('keyLabel', () => {
+    it('prints Enter as ⏎, named "Enter" for screen readers', () => {
+        expect(keyLabel('Enter')).toBe('⏎');
+        expect(keyName('Enter')).toBe('Enter');
+    });
+
+    it('opens a task with Enter only', () => {
+        expect(keysFor('task.open')).toEqual([['Enter']]);
     });
 });
 

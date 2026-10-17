@@ -14,6 +14,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   where they are. On by default; turn it off in the new Settings › Preferences page (stored per device; guests always
   get it).
 
+### Changed
+
+- **Enter opens a task; `o` is gone.** Enter opens the task under the cursor (or the mouse) and starts typing on an
+  empty row, under the mouse too. Both rows hint `⏎`; `a` and `i` still start a new task.
+- **A quieter keyboard cursor.** The cursor's row gets a faint full-row tint and a 2px bar on its start edge (mirrored
+  in RTL) instead of a rounded box with a ring; a focused task shows the same bar. Mouse hover shows only the hint.
+
+### Removed
+
+- **The "? Keyboard shortcuts" button at the end of the planner.** The account menu item and the `?` key open the
+  shortcuts dialog.
+
 ### Fixed
 
 - **The planner moves on to the new day without a reload.** It used to stay on yesterday after midnight when the laptop
