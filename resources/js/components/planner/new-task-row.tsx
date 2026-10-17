@@ -85,7 +85,7 @@ export function NewTaskRow({
                 'group/new relative h-row border-b border-border outline-none max-lg:scroll-mt-20',
                 CURSOR_ROW_CLASS,
                 // Typing: the input's own lifted look replaces the cursor.
-                'has-[input:focus]:bg-transparent has-[input:focus]:ring-0',
+                'has-[input:focus]:bg-transparent has-[input:focus]:before:hidden',
                 className,
             )}
         >
@@ -99,9 +99,10 @@ export function NewTaskRow({
                 onBlur={handleBlur}
                 className="peer relative h-full rounded-none border-0 bg-transparent px-1.5 text-base shadow-none focus-visible:z-10 focus-visible:-mx-2 focus-visible:w-[calc(100%+1rem)] focus-visible:rounded-sm focus-visible:bg-background focus-visible:px-3.5 focus-visible:shadow-md focus-visible:ring-0 lg:text-sm"
             />
-            {/* `a` starts typing in this list; gone while typing. */}
+            {/* Enter starts typing here (`a` and `i` too); gone while
+                typing. */}
             <ShortcutHint
-                action="task.new"
+                action="task.open"
                 size="row"
                 className={cn(
                     'pointer-events-none absolute end-1.5 top-1/2 -translate-y-1/2 opacity-0 transition-opacity duration-200 group-data-cursor/new:opacity-100 peer-focus:hidden',

@@ -67,9 +67,13 @@ const CursorContext = createContext<Cursor | null>(null);
 const FocusTickContext = createContext(0);
 const CursorApiContext = createContext<CursorApi | null>(null);
 
-/** How the row under the cursor looks (task rows and new-task rows). */
+/**
+ * How the row under the cursor looks (task rows and new-task rows): a faint
+ * full-row tint and a 2px bar on its start edge, which is also its focus
+ * indicator.
+ */
 export const CURSOR_ROW_CLASS =
-    'data-cursor:rounded-sm data-cursor:bg-accent data-cursor:ring-2 data-cursor:ring-ring data-cursor:ring-inset';
+    'data-cursor:bg-muted/60 data-cursor:before:pointer-events-none data-cursor:before:absolute data-cursor:before:inset-y-0 data-cursor:before:start-0 data-cursor:before:w-0.5 data-cursor:before:bg-foreground';
 
 /** The keyboard cursor (resolved), or `null` when it is hidden. */
 export function useKeyboardCursor(): Cursor | null {
@@ -170,8 +174,8 @@ function cursorFromFocus(lists: CursorList[]): Cursor | null {
 }
 
 /**
- * The cursor of the row under the mouse, if any: its key hint (`o`, `a`)
- * says a key acts on it.
+ * The cursor of the row under the mouse, if any: its key hint (⏎) says a
+ * key acts on it.
  */
 function cursorFromHover(lists: CursorList[]): Cursor | null {
     return cursorFromElement(
@@ -353,7 +357,7 @@ export function KeyboardCursorProvider({
     const current = (): Cursor | null => resolved ?? cursorFromFocus(lists);
 
     /**
-     * For `o` and `a` only (the keys the rows hint on hover): also the hovered
+     * For Enter and `a` only (what the rows hint on hover): also the hovered
      * row's. Destructive keys never act on a row the mouse just rests on.
      */
     const currentOrHovered = (): Cursor | null =>

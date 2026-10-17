@@ -128,7 +128,7 @@ describe('KeyboardCursorProvider', () => {
         await screen.findByRole('button', { name: 'Buy milk' });
         const [milk] = await listTasksIn({ date: MONDAY });
 
-        await user.keyboard('jo');
+        await user.keyboard('j{Enter}');
         expect(onOpenTask).toHaveBeenCalledWith(milk.id);
 
         await user.keyboard('x');

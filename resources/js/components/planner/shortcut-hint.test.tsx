@@ -43,7 +43,7 @@ describe('ShortcutHint', () => {
         const { container } = render(<ShortcutHint action="task.open" />);
         const hint = container.querySelector('[data-shortcut-hint]');
 
-        expect(hint?.textContent).toBe('o');
+        expect(hint?.textContent).toBe('⏎');
         expect(hint?.getAttribute('aria-hidden')).toBe('true');
     });
 

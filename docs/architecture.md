@@ -576,7 +576,8 @@ writes the local database (`moveTask`); sync follows in the background.
   so timed tasks keep their place by time; `<` / `>` change the week when the task leaves it), and the context menu's
   `moveWithUndo` (`w`, `s`), `duplicateWithToast` (`y`) and `deleteWithUndo` (`d d`, asking the scope of a recurring
   task first). `m` opens the context menu anchored to the row's start, like Shift+F10. `a` / `i` with no cursor
-  start a task today. With no cursor shown and no row focused, `o` and `a` act on the row under the mouse, which is
+  start a task today. Enter opens a task, or starts typing on a new-task row. With no cursor shown and no row
+  focused, Enter and `a` act on the row under the mouse, which is
   what its hint promises; other keys (deletes, moves) never act on a row the mouse merely rests on. While the cursor
   is shown, only its row shows a hint. While a task's move or delete is still being written, further moves or deletes of it are
   ignored, so a quick second press never acts on its old state. `u` presses the newest "Undo" toast still on screen,

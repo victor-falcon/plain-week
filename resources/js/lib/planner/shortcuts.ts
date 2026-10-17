@@ -129,8 +129,9 @@ export const SHORTCUTS: ShortcutDefinition[] = [
     },
     {
         id: 'task.open',
-        keys: [['o'], ['Enter']],
-        label: 'Open',
+        // On a new-task row, Enter starts typing (the row's hint shows it).
+        keys: [['Enter']],
+        label: 'Open, or type on an empty row',
         group: 'Tasks',
     },
     {
@@ -357,7 +358,7 @@ export function keysFor(id: ShortcutId, rtl = false): KeySequence[] {
     return source.keys;
 }
 
-/** How a key is printed in the dialog ("←", "Space", "Shift F10"). */
+/** How a key is printed in the dialog ("←", "⏎", "Space", "Shift F10"). */
 export function keyLabel(key: string): string {
     switch (key) {
         case 'ArrowLeft':
@@ -368,6 +369,8 @@ export function keyLabel(key: string): string {
             return '↑';
         case 'ArrowDown':
             return '↓';
+        case 'Enter':
+            return '⏎';
         case 'Escape':
             return 'Esc';
         case 'Backspace':

@@ -213,8 +213,10 @@ export function TaskRow({
                     task.done && 'text-muted-foreground',
                     isDragging && 'opacity-40',
                     // The keyboard cursor (its text button also has focus),
-                    // scrolled clear of the sticky header on phones.
+                    // scrolled clear of the sticky header on phones; a
+                    // focused text button tints the row the same way.
                     CURSOR_ROW_CLASS,
+                    'has-[[data-task-open]:focus-visible]:bg-muted/60',
                     'max-lg:scroll-mt-20',
                     className,
                 )}
@@ -226,9 +228,9 @@ export function TaskRow({
                     data-task-open
                     aria-label={label}
                     onClick={() => onOpen(task.id)}
-                    // The focus ring is drawn over the whole row (the row is the
-                    // positioned parent), not just the text button.
-                    className="h-full min-w-0 flex-1 justify-start gap-0 rounded-none px-0 text-base font-normal text-inherit after:pointer-events-none after:absolute after:inset-0 after:rounded-sm after:border after:border-transparent hover:bg-transparent hover:text-inherit focus-visible:border-transparent focus-visible:ring-0 focus-visible:after:border-ring focus-visible:after:ring-3 focus-visible:after:ring-ring/30 active:not-aria-[haspopup]:translate-y-0 lg:text-sm dark:hover:bg-transparent"
+                    // Focus shows as the cursor's start-edge bar on the row
+                    // (the row is the positioned parent), not a ring.
+                    className="h-full min-w-0 flex-1 justify-start gap-0 rounded-none px-0 text-base font-normal text-inherit after:pointer-events-none after:absolute after:inset-y-0 after:start-0 after:w-0.5 hover:bg-transparent hover:text-inherit focus-visible:border-transparent focus-visible:ring-0 focus-visible:after:bg-foreground active:not-aria-[haspopup]:translate-y-0 lg:text-sm dark:hover:bg-transparent"
                 >
                     <TaskLabelView task={task} repeat={repeat} />
                     {/* Grows in on hover: it takes no room until then, and
