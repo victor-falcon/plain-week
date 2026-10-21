@@ -4,7 +4,7 @@
 # port 8080 as a non-root user, with SQLite on the /app/storage volume.
 # See docs/self-hosting.md.
 
-ARG PHP_VERSION=8.5
+ARG PHP_VERSION=8.5.12
 
 FROM dunglas/frankenphp:1-php${PHP_VERSION} AS base
 

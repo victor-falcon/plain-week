@@ -7,6 +7,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-10-21
+
+### Security
+
+- **PHP 8.5.12.** The Docker image pins FrankenPHP to the exact `php8.5.12` release, which fixes two critical
+  remote code execution bugs (GHSA-w8hw-w9fx-j79w and GHSA-6wmf-4rv5-p3rp), so a cached base image can't keep
+  shipping the vulnerable build.
+
 ## [0.3.0] - 2026-10-17
 
 ### Added
@@ -234,7 +242,8 @@ between devices.
   app, so an instance without mail works.
 - **Documentation** for contributors and coding agents in `docs/` and `AGENTS.md`.
 
-[Unreleased]: https://github.com/victor-falcon/plain-week/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/victor-falcon/plain-week/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/victor-falcon/plain-week/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/victor-falcon/plain-week/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/victor-falcon/plain-week/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/victor-falcon/plain-week/compare/v0.1.0...v0.1.1
