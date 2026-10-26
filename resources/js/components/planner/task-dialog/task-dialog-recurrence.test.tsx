@@ -38,6 +38,7 @@ function Harness({ taskId }: { taskId: string }) {
     );
 }
 
+/** Opens a task with no series; an occurrence goes through `openOccurrence`. */
 async function openDialog(taskId: string) {
     const user = userEvent.setup();
 
@@ -47,13 +48,23 @@ async function openDialog(taskId: string) {
     return { user, dialog };
 }
 
-/** A weekly series from Monday and the dialog of its Wednesday occurrence. */
-async function openOccurrence() {
+/**
+ * A weekly series from Monday and the dialog of one of its occurrences
+ * (Wednesday by default), once its series has loaded: the dialog opens with
+ * the occurrence, and the series (its rule, whether edits ask for a scope)
+ * arrives from a live query of its own.
+ */
+async function openOccurrence(date = WEDNESDAY) {
     const task = await createTask({ text: 'Gym', date: MONDAY });
     await setRecurrence(task.id, WEEKLY);
-    const id = occurrenceId(task.id, WEDNESDAY);
+    const id = occurrenceId(task.id, date);
+    const opened = await openDialog(id);
 
-    return { seriesId: task.id, id, ...(await openDialog(id)) };
+    await within(opened.dialog).findByRole('button', {
+        name: 'Repeat: Every Mon, Wed, Fri',
+    });
+
+    return { seriesId: task.id, id, ...opened };
 }
 
 async function rows(): Promise<Task[]> {
@@ -305,11 +316,7 @@ describe('Repeat picker', () => {
     });
 
     it('changes the whole series from its first occurrence without asking', async () => {
-        const task = await createTask({ text: 'Gym', date: MONDAY });
-        await setRecurrence(task.id, WEEKLY);
-        const { user, dialog } = await openDialog(
-            occurrenceId(task.id, MONDAY),
-        );
+        const { user, dialog, seriesId } = await openOccurrence(MONDAY);
 
         await user.click(
             within(dialog).getByRole('button', {
@@ -325,16 +332,12 @@ describe('Repeat picker', () => {
         });
         expect(screen.queryByRole('alertdialog')).toBeNull();
         expect(await rows()).toMatchObject([
-            { id: task.id, recurrence: { type: 'weekly', weekdays: [1, 3] } },
+            { id: seriesId, recurrence: { type: 'weekly', weekdays: [1, 3] } },
         ]);
     });
 
     it('stops the whole series from its first occurrence without asking', async () => {
-        const task = await createTask({ text: 'Gym', date: MONDAY });
-        await setRecurrence(task.id, WEEKLY);
-        const { user, dialog } = await openDialog(
-            occurrenceId(task.id, MONDAY),
-        );
+        const { user, dialog } = await openOccurrence(MONDAY);
 
         await user.click(
             within(dialog).getByRole('button', {
