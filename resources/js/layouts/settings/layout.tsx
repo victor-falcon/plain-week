@@ -9,6 +9,7 @@ import { edit as editAppearance } from '@/routes/appearance';
 import { edit as editBilling } from '@/routes/billing';
 import { edit as editData } from '@/routes/data';
 import { edit as editIntegrations } from '@/routes/integrations';
+import { edit as editNotifications } from '@/routes/notifications';
 import { edit as editPreferences } from '@/routes/preferences';
 import { edit } from '@/routes/profile';
 import { edit as editSecurity } from '@/routes/security';
@@ -41,6 +42,12 @@ const sidebarNavItems: SettingsNavItem[] = [
         title: 'Preferences',
         href: editPreferences(),
         icon: null,
+    },
+    {
+        title: 'Notifications',
+        href: editNotifications(),
+        icon: null,
+        visible: (props) => props.notifications?.enabled ?? false,
     },
     {
         title: 'Integrations',

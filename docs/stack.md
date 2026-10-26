@@ -118,7 +118,12 @@ Browser QA for UI changes runs against a production build, so the service worker
 3. Offline: wait for `navigator.serviceWorker.ready`, then `context.setOffline(true)` and reload.
 4. Sync: register in one browser context, check the `tasks` table (`sqlite3 database/database.sqlite`), log in from a
    second context and edit there; the first context picks the change up on its next sync (focus, or within 30 s).
-5. Check a phone viewport (390×844), dark mode (`localStorage.appearance = 'dark'`) and RTL
+5. Web Push (with the VAPID keys set): create the context with `permissions: ['notifications']`, turn on Settings ›
+   Notifications, then deliver a push without a push service through the DevTools protocol
+   (`ServiceWorker.enable`, then `ServiceWorker.deliverPushMessage` with the worker's `registrationId`, `origin` and a
+   JSON `data` string). Headless Chromium shows no notification UI, so check it from the page with
+   `registration.getNotifications()`.
+6. Check a phone viewport (390×844), dark mode (`localStorage.appearance = 'dark'`) and RTL
    (`document.documentElement.dir = 'rtl'`).
 
 ## CI
@@ -196,6 +201,8 @@ Configuration:
   icon; `icon-maskable.svg` keeps it inside the safe zone). The favicon is the same line on an ink rounded tile
   (`favicon-32.svg`; `favicon-16.svg` redraws it on whole pixels so the 16 px frame stays crisp). `public/favicon.svg`
   is a copy of `favicon-32.svg`; `resources/js/components/app-logo-icon.tsx` is the bare line and is edited by hand.
+  `public/notification-badge.png` (Android's small notification icon, from `notification-badge.svg`) is the bare line
+  in white on transparent: Android only uses its alpha.
   After editing an SVG, regenerate them (needs `rsvg-convert` from librsvg and ImageMagick's `magick`):
 
     ```sh
@@ -203,6 +210,7 @@ Configuration:
     rsvg-convert -w 512 -h 512 resources/images/pwa/icon.svg -o public/pwa-512x512.png
     rsvg-convert -w 512 -h 512 resources/images/pwa/icon-maskable.svg -o public/maskable-icon-512x512.png
     rsvg-convert -w 180 -h 180 resources/images/pwa/icon.svg -o public/apple-touch-icon.png
+    rsvg-convert -w 96 -h 96 resources/images/pwa/notification-badge.svg -o public/notification-badge.png
     tmp=$(mktemp -d)
     rsvg-convert -w 16 -h 16 resources/images/pwa/favicon-16.svg -o "$tmp/16.png"
     rsvg-convert -w 32 -h 32 resources/images/pwa/favicon-32.svg -o "$tmp/32.png"

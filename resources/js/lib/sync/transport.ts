@@ -51,12 +51,14 @@ function browserTimeZone(): string | null {
  * request of its own; it is never on the critical path.
  */
 export function syncHeaders(): Record<string, string> {
+    return { 'X-Sync-Format': String(SYNC_FORMAT), ...timeZoneHeader() };
+}
+
+/** `X-Timezone` when the browser reports a time zone (any background request may send it). */
+export function timeZoneHeader(): Record<string, string> {
     const timeZone = browserTimeZone();
 
-    return {
-        'X-Sync-Format': String(SYNC_FORMAT),
-        ...(timeZone ? { 'X-Timezone': timeZone } : {}),
-    };
+    return timeZone ? { 'X-Timezone': timeZone } : {};
 }
 
 export class SyncHttpError extends Error {
@@ -122,9 +124,13 @@ export const REQUEST_TIMEOUT_MS = 20_000;
 
 /**
  * Same-origin fetch with the session cookie and the XSRF header. Without a
- * `signal` in `init` it times out after `REQUEST_TIMEOUT_MS`.
+ * `signal` in `init` it times out after `REQUEST_TIMEOUT_MS`. Also used for
+ * the other background requests (push subscriptions).
  */
-async function send(url: string, init: RequestInit = {}): Promise<Response> {
+export async function send(
+    url: string,
+    init: RequestInit = {},
+): Promise<Response> {
     const headers = new Headers(init.headers);
     const token = xsrfToken();
 

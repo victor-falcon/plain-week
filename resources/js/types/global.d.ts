@@ -1,4 +1,10 @@
-import type { Account, Auth, Integrations, Saas } from '@/types/auth';
+import type {
+    Account,
+    Auth,
+    Integrations,
+    Notifications,
+    Saas,
+} from '@/types/auth';
 
 declare module 'react' {
     interface InputHTMLAttributes<T> {
@@ -13,6 +19,7 @@ declare module '@inertiajs/core' {
             auth: Auth;
             saas: Saas;
             integrations: Integrations;
+            notifications: Notifications;
             account: Account | null;
             sidebarOpen: boolean;
             [key: string]: unknown;
