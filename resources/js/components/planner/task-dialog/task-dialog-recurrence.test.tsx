@@ -38,6 +38,7 @@ function Harness({ taskId }: { taskId: string }) {
     );
 }
 
+/** Opens a task with no series; an occurrence goes through `openOccurrence`. */
 async function openDialog(taskId: string) {
     const user = userEvent.setup();
 
