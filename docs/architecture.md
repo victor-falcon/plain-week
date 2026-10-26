@@ -660,20 +660,28 @@ Laravel provides:
   passkeys) with Inertia pages.
 - The sync endpoints above.
 - The HTML shell and built assets. Planner data is never rendered from server props; pages read it from IndexedDB.
+- Optional integrations that work in the background, never on the path of a planner action (see
+  [Google Calendar](#google-calendar)).
 
 ### Routes and access
 
-| Route                       | Name               | Access                                                                      |
-| --------------------------- | ------------------ | --------------------------------------------------------------------------- |
-| `GET /`                     | `home`             | Public. Renders the Inertia page `planner` for everyone.¹                   |
-| `POST /sync/push`           | `sync.push`        | `auth` (session + CSRF). `SyncController@push`.¹                            |
-| `GET /sync/pull`            | `sync.pull`        | `auth` (session). `SyncController@pull`.¹                                   |
-| `/settings/*`               |                    | `auth`.                                                                     |
-| `GET /settings/data`        | `data.edit`        | `auth`. Inertia page `settings/data` (export / import run client-side).     |
-| `GET /settings/preferences` | `preferences.edit` | `auth`. Inertia page `settings/preferences` (values stored in the browser). |
+| Route                                        | Name                           | Access                                                                               |
+| -------------------------------------------- | ------------------------------ | ------------------------------------------------------------------------------------ |
+| `GET /`                                      | `home`                         | Public. Renders the Inertia page `planner` for everyone.¹                            |
+| `POST /sync/push`                            | `sync.push`                    | `auth` (session + CSRF). `SyncController@push`.¹                                     |
+| `GET /sync/pull`                             | `sync.pull`                    | `auth` (session). `SyncController@pull`.¹                                            |
+| `/settings/*`                                |                                | `auth`.                                                                              |
+| `GET /settings/data`                         | `data.edit`                    | `auth`. Inertia page `settings/data` (export / import run client-side).              |
+| `GET /settings/preferences`                  | `preferences.edit`             | `auth`. Inertia page `settings/preferences` (values stored in the browser).          |
+| `GET /settings/integrations`                 | `integrations.edit`            | `auth`.¹ ² Inertia page `settings/integrations`.                                     |
+| `GET /settings/integrations/google/connect`  | `integrations.google.connect`  | `auth`.¹ ² Redirects to Google's consent screen (`throttle:10,1`).                   |
+| `GET /settings/integrations/google/callback` | `integrations.google.callback` | `auth`.¹ ² Google's OAuth redirect URI: stores the connection, creates the calendar. |
+| `DELETE /settings/integrations/google`       | `integrations.google.destroy`  | `auth`.¹ ² Deletes the calendar, revokes the grant, forgets the connection.          |
 
 ¹ Plus `EnsureHasAccess`: in SaaS mode a signed-in account without a paid plan is redirected to the paywall (pages) or
 gets `402` (sync). Billing and legal routes are listed in [saas.md](./saas.md).
+
+² Plus `EnsureGoogleCalendarConfigured`: `404` unless `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are set.
 
 After login, registration and email verification Fortify redirects to `/` (`config/fortify.php` → `home`).
 
@@ -717,6 +725,20 @@ leading spaces in `text`) round-trip exactly.
 
 `sync_versions`: a single row (`id = 1`) holding the last version handed out, seeded by its migration.
 
+`google_calendar_connections`: at most one per user (see [Google Calendar](#google-calendar)).
+
+| Column                | Type                          | Notes                                                                         |
+| --------------------- | ----------------------------- | ----------------------------------------------------------------------------- |
+| `user_id`             | foreign key → `users`, unique | Cascades on user delete                                                       |
+| `google_email`        | string                        | The connected Google account, from the ID token                               |
+| `access_token`        | text                          | `encrypted` cast (`APP_KEY`)                                                  |
+| `refresh_token`       | text                          | `encrypted` cast (`APP_KEY`)                                                  |
+| `token_expires_at`    | datetime                      | When `access_token` expires                                                   |
+| `calendar_id`         | string, nullable              | The "Plain Week" calendar created on connect                                  |
+| `connected_at`        | datetime                      | Last successful connect                                                       |
+| `last_error`          | text, nullable                | The last error Google returned                                                |
+| `disconnected_reason` | string, nullable              | Set (`invalid_grant`) when Google refuses the tokens: the user must reconnect |
+
 The `Task` model disables Eloquent timestamps (the client owns them). Timestamps go through the
 `App\Casts\UtcMillisDateTime` cast: they are stored as UTC with milliseconds and returned in the wire format
 `Y-m-d\TH:i:s.v\Z` (`2026-10-15T08:35:00.123Z`), so a pushed value comes back byte for byte.
@@ -741,6 +763,28 @@ It is a port of the client's expansion (`lib/recurrence/expand.ts` and `queryRan
 
 `$from` and `$to` are taken as calendar dates (`toDateString()`), so convert them to the user's time zone first. It runs
 three queries: the dated rows by `(user_id, date)`, the series rows, and their exceptions by `(user_id, series_id)`.
+
+### Google Calendar
+
+A one-way sync from Plain Week to Google Calendar, server side and in the background. It exists only when the
+instance has Google OAuth credentials (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` in `config/services.php`; see
+[self-hosting.md](./self-hosting.md#google-calendar)); otherwise its routes are `404` and the settings nav hides it
+(shared Inertia prop `integrations.googleCalendar`). Code lives in `app/Integrations/GoogleCalendar`.
+
+- **Connect** (`GoogleOAuth`): authorization code flow with PKCE and a `state` kept in the session. Scopes `openid`,
+  `email` and `https://www.googleapis.com/auth/calendar.app.created`, so Plain Week only ever sees calendars it
+  created. `access_type=offline` and `prompt=consent` give a refresh token on every connect. The account email comes
+  from the ID token. A grant without the calendar scope (Google lets the user untick it) is refused.
+- **Calendar** (`ConnectGoogleCalendar`): every connection owns a secondary calendar named "Plain Week", created in
+  the user's time zone (`CalendarTimezone`: `users.timezone` when set, else `APP_TIMEZONE`). A reconnect keeps the
+  stored calendar when it still exists and creates a new one otherwise. Nothing is stored when any step fails.
+- **API calls** (`GoogleCalendarClient`): Laravel's `Http` client against the Calendar REST API. The access token is
+  refreshed when it expires within a minute. A refresh that Google answers with `invalid_grant` marks the connection
+  broken (`disconnected_reason`, `last_error`) and throws `GoogleCalendarDisconnected`; Settings › Integrations then
+  offers "Reconnect". Other failures throw the HTTP client's exceptions and are transient. Event calls go here too.
+- **Disconnect** (`DisconnectGoogleCalendar`): deletes the calendar (nothing would keep it current), revokes the
+  grant and deletes the row. Google is cleaned up best effort; the row goes whatever Google answers. A broken
+  connection is just deleted. Deleting the account runs the same cleanup before the cascade.
 
 ### Versioning
 

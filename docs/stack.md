@@ -114,6 +114,7 @@ keeps the GitHub Actions up to date (`.github/dependabot.yml`).
 
 ```
 app/                      Laravel application code (controllers, models, actions, middleware)
+  Integrations/           Optional server-side integrations with other services (Google Calendar)
 bootstrap/                Framework bootstrap
 config/                   Configuration
 deploy/                   Coolify service template and a docker-compose.yml example (docs/self-hosting.md)

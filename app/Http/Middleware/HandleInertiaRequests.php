@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Integrations\GoogleCalendar\GoogleOAuth;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -46,6 +47,10 @@ class HandleInertiaRequests extends Middleware
             ],
             'saas' => [
                 'enabled' => (bool) config('saas.enabled'),
+            ],
+            // Integrations this instance offers (each needs its own credentials).
+            'integrations' => [
+                'googleCalendar' => GoogleOAuth::configured(),
             ],
             // Lazy: computed per request only for signed-in users (it may query the subscription).
             'account' => fn () => $user instanceof User ? [

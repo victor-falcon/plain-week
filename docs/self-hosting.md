@@ -59,6 +59,8 @@ echo "base64:$(openssl rand -base64 32)"
 | `LOG_CHANNEL`           | `stderr`                                | Logs go to the container output (`docker logs`)                                                                                                                                                                                                                             |
 | `LOG_LEVEL`             | `debug`                                 | `warning` keeps the logs quiet                                                                                                                                                                                                                                              |
 | `SAAS_ENABLED`          | `false`                                 | Leave it `false`. `true` turns the instance into the paid hosted service (accounts need a Stripe plan to sync); see [saas.md](./saas.md) for it and its `STRIPE_*` and `SAAS_*` variables                                                                                   |
+| `GOOGLE_CLIENT_ID`      | (empty)                                 | OAuth client id for the optional Google Calendar sync; see [Google Calendar](#google-calendar). Empty hides the integration                                                                                                                                                 |
+| `GOOGLE_CLIENT_SECRET`  | (empty)                                 | OAuth client secret that goes with `GOOGLE_CLIENT_ID`                                                                                                                                                                                                                       |
 
 With `SAAS_ENABLED=false` (the default) accounts are free and sync without limits, there is no billing anywhere and the
 billing, terms and privacy routes are `404`; no Stripe variable is needed. Any other Laravel setting (`config/*.php`)
@@ -121,6 +123,28 @@ file binds it to `127.0.0.1`), or set `TRUSTED_PROXIES` to the proxy's address. 
 session cookie is marked secure.
 
 Serve Plain Week from the root of its domain (not a sub-path): the service worker and the offline shell assume `/`.
+
+## Google Calendar
+
+Optional. Signed-in users can show their dated tasks in a "Plain Week" calendar in their Google account (one way:
+Plain Week → Google). The integration is hidden, and its routes are `404`, until both `GOOGLE_CLIENT_ID` and
+`GOOGLE_CLIENT_SECRET` are set. Everything else works without it.
+
+To get the credentials, in the [Google Cloud console](https://console.cloud.google.com/):
+
+1. Create (or pick) a project and enable the **Google Calendar API** (APIs & Services › Library).
+2. Configure the **OAuth consent screen** (Google Auth Platform › Branding / Audience): app name, support email, and
+   your domain under authorized domains. Add the scope `https://www.googleapis.com/auth/calendar.app.created`
+   (Data Access). While the app is in **Testing**, only the test users you list can connect, and Google expires
+   their access after 7 days; publish it to lift both limits (Google may ask to verify the app first).
+3. Create an **OAuth client ID** (Clients › Create client) of type **Web application**, with the authorized redirect
+   URI `APP_URL/settings/integrations/google/callback`, for example
+   `https://plan.example.com/settings/integrations/google/callback`. `APP_URL` must match the address users reach.
+4. Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` from the client and redeploy.
+
+Users then connect from **Settings › Integrations**. Plain Week asks only for the `calendar.app.created` scope (plus
+the account email), so it can see and change the calendars it creates and nothing else. Tokens are stored encrypted
+with `APP_KEY`; disconnecting deletes the "Plain Week" calendar and revokes the access.
 
 ## Noindex
 

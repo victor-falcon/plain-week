@@ -24,11 +24,12 @@ still in its paid period). `User::plan()` returns `Plan::Lifetime`, `Plan::Weekl
 
 It is used by:
 
-| Where                                 | Effect without access                                                         |
-| ------------------------------------- | ----------------------------------------------------------------------------- |
-| `EnsureHasAccess` on `/` and `sync/*` | Pages redirect to `/plans`; JSON requests (sync) get `402 Payment Required`   |
-| Inertia shared props                  | `saas.enabled`, `account: { hasAccess, plan } \| null` (null for guests)      |
-| `SyncProvider` and the sync engine    | The engine does not start; a `402` stops it, keeps local data, shows `/plans` |
+| Where                                        | Effect without access                                                         |
+| -------------------------------------------- | ----------------------------------------------------------------------------- |
+| `EnsureHasAccess` on `/` and `sync/*`        | Pages redirect to `/plans`; JSON requests (sync) get `402 Payment Required`   |
+| Inertia shared props                         | `saas.enabled`, `account: { hasAccess, plan } \| null` (null for guests)      |
+| `SyncProvider` and the sync engine           | The engine does not start; a `402` stops it, keeps local data, shows `/plans` |
+| `EnsureHasAccess` on Settings › Integrations | Redirect to `/plans`; the settings nav hides the entry                        |
 
 Settings (profile, security, data) stay reachable without a plan, so an account can always export its tasks or be
 deleted; the paywall links to the export. A weekly subscription whose payment failed (`past_due`, `incomplete`) gives

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Settings;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\ProfileDeleteRequest;
 use App\Http\Requests\Settings\ProfileUpdateRequest;
+use App\Integrations\GoogleCalendar\DisconnectGoogleCalendar;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -46,9 +47,14 @@ class ProfileController extends Controller
     /**
      * Delete the user's profile.
      */
-    public function destroy(ProfileDeleteRequest $request): RedirectResponse
+    public function destroy(ProfileDeleteRequest $request, DisconnectGoogleCalendar $disconnectGoogleCalendar): RedirectResponse
     {
         $user = $request->user();
+
+        // The cascade would drop the row but leave the calendar and the grant in the Google account.
+        if ($user->googleCalendarConnection !== null) {
+            $disconnectGoogleCalendar($user->googleCalendarConnection);
+        }
 
         Auth::logout();
 

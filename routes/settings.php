@@ -1,7 +1,10 @@
 <?php
 
+use App\Http\Controllers\Settings\GoogleCalendarController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\SecurityController;
+use App\Http\Middleware\EnsureGoogleCalendarConfigured;
+use App\Http\Middleware\EnsureHasAccess;
 use Illuminate\Auth\Middleware\RequirePassword;
 use Illuminate\Support\Facades\Route;
 
@@ -27,6 +30,19 @@ Route::middleware(['auth'])->group(function () {
 
     // Export and import run in the browser against IndexedDB; the server only serves the page.
     Route::inertia('settings/data', 'settings/data')->name('data.edit');
+
+    // Google Calendar sync: only when the instance has Google OAuth credentials, and a paid feature in SaaS mode.
+    Route::middleware([EnsureGoogleCalendarConfigured::class, EnsureHasAccess::class])
+        ->prefix('settings/integrations')
+        ->name('integrations.')
+        ->group(function () {
+            Route::get('/', [GoogleCalendarController::class, 'edit'])->name('edit');
+            Route::get('google/connect', [GoogleCalendarController::class, 'connect'])
+                ->middleware('throttle:10,1')
+                ->name('google.connect');
+            Route::get('google/callback', [GoogleCalendarController::class, 'callback'])->name('google.callback');
+            Route::delete('google', [GoogleCalendarController::class, 'destroy'])->name('google.destroy');
+        });
 });
 
 Route::get('.well-known/passkey-endpoints', function () {

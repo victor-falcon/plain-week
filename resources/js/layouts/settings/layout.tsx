@@ -8,12 +8,20 @@ import { cn, toUrl } from '@/lib/utils';
 import { edit as editAppearance } from '@/routes/appearance';
 import { edit as editBilling } from '@/routes/billing';
 import { edit as editData } from '@/routes/data';
+import { edit as editIntegrations } from '@/routes/integrations';
 import { edit as editPreferences } from '@/routes/preferences';
 import { edit } from '@/routes/profile';
 import { edit as editSecurity } from '@/routes/security';
 import type { NavItem } from '@/types';
 
-const sidebarNavItems: NavItem[] = [
+type SettingsNavItem = NavItem & {
+    /** Hidden when false (e.g. a feature this instance doesn't offer). */
+    visible?: (props: SharedProps) => boolean;
+};
+
+type SharedProps = ReturnType<typeof usePage>['props'];
+
+const sidebarNavItems: SettingsNavItem[] = [
     {
         title: 'Profile',
         href: edit(),
@@ -35,24 +43,33 @@ const sidebarNavItems: NavItem[] = [
         icon: null,
     },
     {
+        title: 'Integrations',
+        href: editIntegrations(),
+        icon: null,
+        // Needs the instance's Google credentials, and a paid plan in SaaS mode.
+        visible: (props) =>
+            (props.integrations?.googleCalendar ?? false) &&
+            (props.account?.hasAccess ?? false),
+    },
+    {
         title: 'Data',
         href: editData(),
         icon: null,
     },
+    {
+        title: 'Billing',
+        href: editBilling(),
+        icon: null,
+        visible: (props) => props.saas?.enabled ?? false,
+    },
 ];
-
-const billingNavItem: NavItem = {
-    title: 'Billing',
-    href: editBilling(),
-    icon: null,
-};
 
 export default function SettingsLayout({ children }: PropsWithChildren) {
     const { isCurrentOrParentUrl } = useCurrentUrl();
-    const saasEnabled = usePage().props.saas?.enabled ?? false;
-    const navItems = saasEnabled
-        ? [...sidebarNavItems, billingNavItem]
-        : sidebarNavItems;
+    const props = usePage().props;
+    const navItems = sidebarNavItems.filter(
+        (item) => item.visible?.(props) ?? true,
+    );
 
     return (
         <div className="px-4 py-6">
