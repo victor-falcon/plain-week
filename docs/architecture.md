@@ -484,11 +484,12 @@ measurements in [style.md](./style.md#planner-layout)). It follows the offline-f
     - Every week change after that uses `history.replaceState` directly (keeping Inertia's history state), never a
       server visit; held arrow keys do not repeat and rate-limit errors are ignored.
 - Task links: `/?task=<id>` (a task id or an occurrence id `${seriesId}:${YYYY-MM-DD}`) opens the planner on that
-  task's week (Someday: the current week) with its dialog open. Push notifications and calendar events link here.
+  task's week (Someday: the current week) with its dialog open. Push notifications and calendar events link here;
+  for a recurring task they link to the occurrence id (a series id opens the series' first date).
   `useTaskLink` (`hooks/use-task-link.ts`, helpers in `lib/planner/task-link.ts`) reads the parameter once when the
   planner mounts and looks the task up with a live query, so a task that only arrives with the first sync after the
-  load still opens. Once a sync run has finished (at once for guests or offline) and the task is still missing, it gives
-  up silently. Nothing waits on it. `?task=` is dropped from the URL (with `history.replaceState`, keeping `?week=`)
+  load still opens. Once a sync run has finished (at once for guests or offline) and at least 10 s have passed, a task
+  still missing is given up silently. Nothing waits on it. `?task=` is dropped from the URL (with `history.replaceState`, keeping `?week=`)
   when the dialog closes or the lookup gives up; a link that resolves while another task's dialog is open is ignored.
 - Keyboard shortcuts: see [Keyboard shortcuts](#keyboard-shortcuts).
 - "Today" comes from `useToday()`, the only place the planner reads the date: a shared store (`lib/planner/today.ts`)

@@ -47,11 +47,21 @@ php artisan migrate --force --no-interaction
 php artisan optimize --no-interaction
 
 # Runs a command again whenever it exits (a crash, or the worker's --max-time),
-# until the container stops.
+# until the container stops. A command that keeps failing fast is retried
+# less often (5 s, doubling up to 60 s).
 supervise() {
+    delay=5
     while :; do
-        "$@" || echo "plain-week: \"$*\" exited with status $?, restarting" >&2
-        sleep 5
+        started=$(date +%s)
+        # `set -e` must not end the loop when the command fails.
+        status=0
+        "$@" || status=$?
+        if [ $(($(date +%s) - started)) -ge 60 ]; then
+            delay=5
+        fi
+        echo "plain-week: \"$*\" exited with status $status, restarting in ${delay} s" >&2
+        sleep "$delay"
+        delay=$((delay * 2 > 60 ? 60 : delay * 2))
     done
 }
 

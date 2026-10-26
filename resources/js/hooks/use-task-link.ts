@@ -16,18 +16,27 @@ export function clearTaskParam(): void {
 }
 
 /**
+ * How long a link waits at least for its task, so a sync that could not run
+ * right away (the connection coming back, a retry) still gets a chance.
+ */
+export const TASK_LINK_MIN_WAIT_MS = 10_000;
+
+/**
  * Follows a `/?task=<id>` link once, when the planner opens: calls `onFound`
  * with the task as soon as it exists in the local database. It may only
  * arrive with the first sync after the page loaded (a notification about a
  * task made on another device), so the lookup is live. Once a sync run has
- * finished (at once for guests or offline) and the task is still missing, it
- * gives up silently and drops `?task=` from the URL. Nothing waits on it: the
- * planner renders and works meanwhile.
+ * finished (at once for guests or offline) and `minWaitMs` has passed, a task
+ * still missing is given up silently and `?task=` dropped from the URL.
+ * Nothing waits on it: the planner renders and works meanwhile.
  *
  * Call it from the component that renders `SyncProvider` (like
  * `useCarryOver`), so the engine has started when the effect runs.
  */
-export function useTaskLink(onFound: (task: PlannerTask) => void): void {
+export function useTaskLink(
+    onFound: (task: PlannerTask) => void,
+    minWaitMs = TASK_LINK_MIN_WAIT_MS,
+): void {
     const onFoundRef = useRef(onFound);
 
     useEffect(() => {
@@ -42,6 +51,7 @@ export function useTaskLink(onFound: (task: PlannerTask) => void): void {
         }
 
         let settled = false;
+        let subscription: { unsubscribe: () => void } | undefined;
 
         const settle = (task: PlannerTask | null) => {
             if (settled) {
@@ -49,7 +59,7 @@ export function useTaskLink(onFound: (task: PlannerTask) => void): void {
             }
 
             settled = true;
-            subscription.unsubscribe();
+            subscription?.unsubscribe();
 
             if (task) {
                 onFoundRef.current(task);
@@ -58,15 +68,16 @@ export function useTaskLink(onFound: (task: PlannerTask) => void): void {
             }
         };
 
-        const subscription = liveQuery(() => queryTask(id)).subscribe({
+        subscription = liveQuery(() => queryTask(id)).subscribe({
             next: (task) => task && settle(task),
             error: () => settle(null),
         });
 
         const giveUp = async () => {
-            if (syncEngine.isStarted) {
-                await syncEngine.sync();
-            }
+            await Promise.all([
+                syncEngine.isStarted ? syncEngine.sync() : undefined,
+                new Promise((resolve) => setTimeout(resolve, minWaitMs)),
+            ]);
 
             settle(await queryTask(id));
         };
@@ -75,7 +86,7 @@ export function useTaskLink(onFound: (task: PlannerTask) => void): void {
 
         return () => {
             settled = true;
-            subscription.unsubscribe();
+            subscription?.unsubscribe();
         };
-    }, []);
+    }, [minWaitMs]);
 }

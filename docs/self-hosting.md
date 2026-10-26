@@ -75,7 +75,7 @@ Background work runs in the same container, with nothing to configure: next to t
 Laravel scheduler (`php artisan schedule:work`) and one queue worker (`php artisan queue:work`; the queue is a table in
 the SQLite database). Each is restarted if it exits; the worker also restarts every hour to release memory. Their output
 goes to the container logs. `tini` runs as PID 1, so their child processes are reaped and `docker stop` ends all three
-together. Together they add about 60 MB of memory.
+together (a job cut short by a stop is retried later). The whole container uses about 125 MB of memory at rest.
 
 ### Plain Docker
 

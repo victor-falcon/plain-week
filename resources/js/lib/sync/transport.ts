@@ -37,7 +37,7 @@ export const SYNC_FORMAT = 2;
  * The browser's IANA time zone ("Europe/Madrid"), or null if it reports none.
  * Read on every request, so a device that travels keeps the server current.
  */
-export function browserTimeZone(): string | null {
+function browserTimeZone(): string | null {
     try {
         return Intl.DateTimeFormat().resolvedOptions().timeZone || null;
     } catch {

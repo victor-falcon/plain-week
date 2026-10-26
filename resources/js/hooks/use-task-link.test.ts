@@ -45,7 +45,7 @@ describe('useTaskLink', () => {
         const onFound = vi.fn();
         openAt(`/?task=${task.id}`);
 
-        renderHook(() => useTaskLink(onFound));
+        renderHook(() => useTaskLink(onFound, 0));
 
         await waitFor(() =>
             expect(onFound).toHaveBeenCalledWith(
@@ -62,7 +62,7 @@ describe('useTaskLink', () => {
         const onFound = vi.fn();
         openAt(`/?task=${encodeURIComponent(id)}`);
 
-        renderHook(() => useTaskLink(onFound));
+        renderHook(() => useTaskLink(onFound, 0));
 
         await waitFor(() =>
             expect(onFound).toHaveBeenCalledWith(
@@ -80,7 +80,7 @@ describe('useTaskLink', () => {
         const onFound = vi.fn();
         openAt('/?task=from-another-device');
 
-        renderHook(() => useTaskLink(onFound));
+        renderHook(() => useTaskLink(onFound, 0));
         await new Promise((resolve) => setTimeout(resolve, 20));
         expect(onFound).not.toHaveBeenCalled();
 
@@ -108,7 +108,7 @@ describe('useTaskLink', () => {
         const onFound = vi.fn();
         openAt('/?week=2026-10-12&task=missing');
 
-        renderHook(() => useTaskLink(onFound));
+        renderHook(() => useTaskLink(onFound, 0));
         await new Promise((resolve) => setTimeout(resolve, 20));
         expect(window.location.search).toBe('?week=2026-10-12&task=missing');
 
@@ -120,11 +120,26 @@ describe('useTaskLink', () => {
         expect(onFound).not.toHaveBeenCalled();
     });
 
+    it('waits a while before giving up, even when no sync runs', async () => {
+        const onFound = vi.fn();
+        openAt('/?task=late');
+
+        renderHook(() => useTaskLink(onFound, 100));
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        await db.tasks.put(makeTask({ id: 'late' }));
+
+        await waitFor(() =>
+            expect(onFound).toHaveBeenCalledWith(
+                expect.objectContaining({ id: 'late' }),
+            ),
+        );
+    });
+
     it('does nothing without a task link', async () => {
         const onFound = vi.fn();
         openAt('/?week=2026-10-12');
 
-        renderHook(() => useTaskLink(onFound));
+        renderHook(() => useTaskLink(onFound, 0));
         await new Promise((resolve) => setTimeout(resolve, 20));
 
         expect(onFound).not.toHaveBeenCalled();
