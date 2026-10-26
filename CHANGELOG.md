@@ -21,7 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   docs/self-hosting.md); without them it stays hidden.
 - **Task links.** `/?task=<id>` opens the planner on that task's week with its dialog open, also for a task that only
   arrives with the first sync after the page loads (an unknown task is ignored). Closing the dialog drops `?task=` from
-  the address. Calendar events link here, and upcoming notifications will too.
+  the address. Calendar events and notifications link here.
 - **Background work in the Docker image.** The container now runs the Laravel scheduler and a database queue worker
   next to the server, supervised and stopped together with it (`tini` is PID 1). No configuration needed; `composer dev`
   runs the scheduler too. Without Docker, add the scheduler to cron and run a queue worker (see docs/stack.md).
@@ -30,6 +30,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   your morning time (08:00 by default, in your time zone), and a reminder five minutes before every timed task,
   recurring ones included. Done tasks are skipped, nothing is sent twice, and browsers that unsubscribed are
   forgotten. Without the keys it stays off.
+- **Notifications on your devices.** Settings › Notifications turns on push notifications per device: every morning
+  one notification for each task planned that day that isn't done, and one 5 minutes before a task with a time.
+  Opening one opens its task. Choose the morning time there; on iPhone and iPad they work in the app added to the
+  Home Screen (iOS 16.4+). Shown only when the instance has VAPID keys.
 - **Your time zone on the server.** Sync requests send the browser's time zone, and the server keeps it on the account
   so scheduled work can happen at your local time. Nothing to set.
 

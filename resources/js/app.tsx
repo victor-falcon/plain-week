@@ -6,6 +6,7 @@ import { initializeTheme } from '@/hooks/use-appearance';
 import AppLayout from '@/layouts/app-layout';
 import SettingsLayout from '@/layouts/settings/layout';
 import PlannerLayout from '@/layouts/planner-layout';
+import { syncSubscriptionWithSession } from '@/lib/notifications/session';
 import { registerServiceWorker } from '@/lib/pwa/register';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Plain Week';
@@ -54,3 +55,6 @@ initializeTheme();
 
 // Offline app shell: lets the planner load without a network after a visit.
 registerServiceWorker();
+
+// Web Push: keep this device's subscription in step with the session.
+syncSubscriptionWithSession();

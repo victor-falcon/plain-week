@@ -9,6 +9,7 @@
  *   rest.
  * - Other pages are network-only; offline they get `/offline.html`.
  * - Everything else (`/sync/*`, Inertia visits, any non-GET) is untouched.
+ * - Web Push: shows the server's notifications and opens their task link.
  */
 import { CacheableResponsePlugin } from 'workbox-cacheable-response';
 import { clientsClaim } from 'workbox-core';
@@ -21,6 +22,12 @@ import {
 } from 'workbox-precaching';
 import { registerRoute, setCatchHandler } from 'workbox-routing';
 import { CacheFirst, NetworkFirst, NetworkOnly } from 'workbox-strategies';
+import {
+    notificationFor,
+    notificationUrl,
+    openNotificationUrl,
+    parsePushPayload,
+} from '@/lib/pwa/push-handlers';
 import {
     BUILD_ASSETS_CACHE,
     OFFLINE_FALLBACK_URL,
@@ -173,6 +180,25 @@ self.addEventListener('message', (event) => {
     if (type === REFRESH_SHELL_MESSAGE) {
         event.waitUntil(refreshShell());
     }
+});
+
+self.addEventListener('push', (event) => {
+    event.waitUntil(
+        self.registration.showNotification(
+            ...notificationFor(parsePushPayload(event.data)),
+        ),
+    );
+});
+
+self.addEventListener('notificationclick', (event) => {
+    event.notification.close();
+    event.waitUntil(
+        openNotificationUrl(
+            self.clients,
+            notificationUrl(event.notification.data, origin),
+            origin,
+        ),
+    );
 });
 
 clientsClaim();

@@ -4,6 +4,7 @@ import Heading from '@/components/heading';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { useCurrentUrl } from '@/hooks/use-current-url';
+import { edit as editNotifications } from '@/lib/notifications/routes';
 import { cn, toUrl } from '@/lib/utils';
 import { edit as editAppearance } from '@/routes/appearance';
 import { edit as editBilling } from '@/routes/billing';
@@ -41,6 +42,12 @@ const sidebarNavItems: SettingsNavItem[] = [
         title: 'Preferences',
         href: editPreferences(),
         icon: null,
+    },
+    {
+        title: 'Notifications',
+        href: editNotifications(),
+        icon: null,
+        visible: (props) => props.notifications?.enabled ?? false,
     },
     {
         title: 'Integrations',

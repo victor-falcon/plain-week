@@ -122,9 +122,13 @@ export const REQUEST_TIMEOUT_MS = 20_000;
 
 /**
  * Same-origin fetch with the session cookie and the XSRF header. Without a
- * `signal` in `init` it times out after `REQUEST_TIMEOUT_MS`.
+ * `signal` in `init` it times out after `REQUEST_TIMEOUT_MS`. Also used for
+ * the other background requests (push subscriptions).
  */
-async function send(url: string, init: RequestInit = {}): Promise<Response> {
+export async function send(
+    url: string,
+    init: RequestInit = {},
+): Promise<Response> {
     const headers = new Headers(init.headers);
     const token = xsrfToken();
 

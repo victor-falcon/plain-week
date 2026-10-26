@@ -367,6 +367,36 @@ defaults them to `null` on pull.
 - HTTP: `fetchTransport` calls `/sync/push` and `/sync/pull` (Wayfinder helpers `@/routes/sync`) with `credentials: 'same-origin'`, `Accept:
 application/json` and the `X-XSRF-TOKEN` header from Laravel's `XSRF-TOKEN` cookie.
 
+### Notifications (client)
+
+Web Push reminders (the server side sends them in the background). The whole feature exists only when the instance has
+VAPID keys: the shared Inertia prop `notifications: { enabled, vapidPublicKey }` (base64url) hides Settings ›
+Notifications otherwise. `lib/notifications/device.ts` handles this device; nothing in it is on the path of a planner
+action.
+
+- **Per device, no local flag.** Notifications are on here while the browser holds a push subscription and the
+  permission is `granted` (`deviceState()`). `pushSupport()` is `supported`, `unsupported` (no service worker,
+  `PushManager` or `Notification`), or `needs-install` on iOS/iPadOS outside the app added to the Home Screen
+  (`navigator.standalone` / `display-mode: standalone`), where Safari has no Web Push (iOS 16.4+ has it in the
+  installed app).
+- **`enable(key)`** runs from the Settings switch (a user gesture): `Notification.requestPermission()` first, then
+  waits for the active service worker (10 s at most; there is none under the Vite dev server), subscribes with
+  `{ userVisibleOnly: true, applicationServerKey }` and `POST`s `subscription.toJSON()` plus `content_encoding`
+  (`aes128gcm` unless the browser only has `aesgcm`) to `/notifications/subscriptions`. A refused permission resolves
+  `false`; if the server can't be told it throws, and a subscription this call made is dropped again. A subscription
+  made with another key (the server's keys changed) is replaced. Requests go through the sync transport's `send`
+  (session cookie, XSRF header, 20 s timeout).
+- **`disable()`** unsubscribes in the browser first (so it works offline), then `DELETE`s the endpoint, best effort.
+- **Session** (`lib/notifications/session.ts`, from `app.tsx`, on every Inertia `navigate` and `success`, first page included; in the
+  background): signed in on an instance with Web Push, it re-`POST`s an existing subscription once per user and page
+  load (push services rotate endpoints; the server upserts by endpoint), resubscribing if the keys changed, and again
+  on the next page if the server could not be reached. Signed out (a logout here or in another tab, an expired
+  session), it drops the browser subscription without a request, so whoever signs in next on this device never
+  inherits it; the push service then reports the endpoint gone and the server forgets it. Signing back in leaves
+  notifications off on this device until they are turned on again.
+- The URLs come from `lib/notifications/routes.ts`, shaped like Wayfinder's helpers, until the server routes exist on
+  every branch.
+
 ### Guest onboarding: demo tasks
 
 A guest's very first visit gets a few demo tasks in the current week that teach the planner (complete on hover, click to
@@ -668,6 +698,15 @@ The data layer only helps offline if the app itself loads offline. A service wor
   status dot covers connectivity. Only server pages need the network. A full-page load of one gets the static
   `/offline.html` page (with a link back to the planner); an in-app Inertia visit to one shows a "You're offline" toast
   (`lib/pwa/offline-visits.ts`). Failed hover prefetches stay silent.
+- **Web Push.** The worker also shows push notifications (only when the instance has VAPID keys, see
+  [Notifications (client)](#notifications-client)). `push` reads the JSON payload `{ title, body, url, tag }` and calls
+  `showNotification(title, { body, tag, data: { url }, icon: '/pwa-192x192.png', badge: '/notification-badge.png' })`;
+  a malformed payload still shows a plain "Plain Week" notification, because a `userVisibleOnly` push must show one.
+  `notificationclick` loads the notification's URL in an open Plain Week window (the focused one, else a visible one;
+  a full load of `/?task=<id>`, so the task link opens its dialog) and focuses it, or opens a new window when there is
+  none or it can't be navigated. Only same-origin URLs are followed; anything
+  else opens `/`. The logic lives in `lib/pwa/push-handlers.ts` (tested without a worker); `sw.ts` only wires the
+  events.
 
 ## Server side
 

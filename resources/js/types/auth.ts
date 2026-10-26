@@ -24,6 +24,12 @@ export type Integrations = {
     googleCalendar: boolean;
 };
 
+/** Web Push on this instance (`VAPID_*` keys); the key is base64url. */
+export type Notifications = {
+    enabled: boolean;
+    vapidPublicKey: string | null;
+};
+
 export type Plan = 'weekly' | 'lifetime';
 
 /** The signed-in account's entitlement. `hasAccess` is always true when SaaS mode is off. */
