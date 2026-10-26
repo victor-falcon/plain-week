@@ -25,10 +25,11 @@ function normalizeLoadedUrl(canonical: URL, onDone: () => void): void {
 }
 
 /**
- * Records a week change with `history.replaceState`: no server round trip and
- * no new history entry. Inertia's history state is kept as is.
+ * Records a URL change (a week change, a closed task link) with
+ * `history.replaceState`: no server round trip and no new history entry.
+ * Inertia's history state is kept as is.
  */
-function replaceUrl(canonical: URL): void {
+export function replaceUrl(canonical: URL): void {
     try {
         window.history.replaceState(window.history.state, '', canonical);
     } catch {
@@ -44,6 +45,8 @@ export type WeekNavigation = {
     previousWeek: () => void;
     nextWeek: () => void;
     goToToday: () => void;
+    /** Shows the week that contains `date`. */
+    goToWeekOf: (date: Date) => void;
 };
 
 /**
@@ -106,5 +109,6 @@ export function useWeekNavigation(today: string): WeekNavigation {
         previousWeek: () => setWeekStart((week) => addWeeks(week, -1)),
         nextWeek: () => setWeekStart((week) => addWeeks(week, 1)),
         goToToday: () => setWeekStart(currentWeek),
+        goToWeekOf: (date) => setWeekStart(startOfWeek(date)),
     };
 }

@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use Carbon\CarbonImmutable;
+use Illuminate\Foundation\DevCommands;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\ServiceProvider;
@@ -29,6 +30,9 @@ class AppServiceProvider extends ServiceProvider
 
         // Prices are VAT-inclusive; Stripe Tax computes the tax part in Checkout.
         Cashier::calculateTaxes();
+
+        // `composer dev` also runs the scheduler (routes/console.php), like the Docker image does.
+        DevCommands::artisan('schedule:work', 'scheduler');
     }
 
     /**

@@ -1,5 +1,6 @@
 #!/bin/sh
-# Prepares the storage volume and the database, then starts the server.
+# Prepares the storage volume and the database, then starts the server with
+# the scheduler and the queue worker beside it.
 set -eu
 
 cd /app
@@ -44,5 +45,35 @@ fi
 
 php artisan migrate --force --no-interaction
 php artisan optimize --no-interaction
+
+# Runs a command again whenever it exits (a crash, or the worker's --max-time),
+# until the container stops. A command that keeps failing fast is retried
+# less often (5 s, doubling up to 60 s).
+supervise() {
+    delay=5
+    while :; do
+        started=$(date +%s)
+        # `set -e` must not end the loop when the command fails.
+        status=0
+        "$@" || status=$?
+        if [ $(($(date +%s) - started)) -ge 60 ]; then
+            delay=5
+        fi
+        echo "plain-week: \"$*\" exited with status $status, restarting in ${delay} s" >&2
+        sleep "$delay"
+        delay=$((delay * 2 > 60 ? 60 : delay * 2))
+    done
+}
+
+# Next to the server: the Laravel scheduler (routes/console.php) and one
+# worker for the database queue. tini (PID 1, see the Dockerfile) reaps their
+# children and signals the whole group on stop, so they end with the server.
+# Other commands (`docker run ... php artisan ...`) run alone.
+if [ "${1:-}" = "frankenphp" ]; then
+    # A lock left by a scheduled task the last stop killed would block it.
+    php artisan schedule:clear-cache --no-interaction > /dev/null
+    supervise php artisan schedule:work --no-interaction &
+    supervise php artisan queue:work --sleep=5 --max-time=3600 --memory=64 --no-interaction &
+fi
 
 exec "$@"

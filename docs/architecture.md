@@ -97,6 +97,15 @@ up to v0.0.3; `2` adds daily rules. A missing or malformed header counts as `1`;
 knows. The client sends `2` (`SYNC_FORMAT` in `lib/sync/transport.ts`); the server's side is
 `App\Actions\Sync\SyncFormat`. What changes for an older format is in [Recurring tasks](#recurring-tasks).
 
+Both also take an optional `X-Timezone: <IANA name>` header: the browser's time zone
+(`Intl.DateTimeFormat().resolvedOptions().timeZone`, read on every request by `syncHeaders()` in
+`lib/sync/transport.ts`). The `RememberTimezone` middleware stores it in `users.timezone` when it differs from the stored
+one and is a name PHP knows (`DateTimeZone::listIdentifiers(DateTimeZone::ALL_WITH_BC)`, so legacy aliases such as
+`Asia/Calcutta` pass); anything else is ignored and never fails the request. This is how the server learns the user's
+time zone for background work (scheduled notifications, calendar events) without any user action or extra request.
+Server code reads it with `User::timezoneOrDefault()`, which falls back to `config('app.timezone')` (UTC) until the
+first sync.
+
 ### `POST /sync/push`
 
 Request: `{ "tasks": [<Task>, ...] }` with full records, at most 500.
@@ -474,6 +483,14 @@ measurements in [style.md](./style.md#planner-layout)). It follows the offline-f
       request), which goes through Inertia's history queue and keeps its page URL canonical.
     - Every week change after that uses `history.replaceState` directly (keeping Inertia's history state), never a
       server visit; held arrow keys do not repeat and rate-limit errors are ignored.
+- Task links: `/?task=<id>` (a task id or an occurrence id `${seriesId}:${YYYY-MM-DD}`) opens the planner on that
+  task's week (Someday: the current week) with its dialog open. Push notifications and calendar events link here;
+  for a recurring task they link to the occurrence id (a series id opens the series' first date).
+  `useTaskLink` (`hooks/use-task-link.ts`, helpers in `lib/planner/task-link.ts`) reads the parameter once when the
+  planner mounts and looks the task up with a live query, so a task that only arrives with the first sync after the
+  load still opens. Once a sync run has finished (at once for guests or offline) and at least 10 s have passed, a task
+  still missing is given up silently. Nothing waits on it. `?task=` is dropped from the URL (with `history.replaceState`, keeping `?week=`)
+  when the dialog closes or the lookup gives up; a link that resolves while another task's dialog is open is ignored.
 - Keyboard shortcuts: see [Keyboard shortcuts](#keyboard-shortcuts).
 - "Today" comes from `useToday()`, the only place the planner reads the date: a shared store (`lib/planner/today.ts`)
   that, while the planner is open, re-reads the clock on a timeout to local midnight, every 30 s, and on `focus`,
@@ -623,7 +640,7 @@ The data layer only helps offline if the app itself loads offline. A service wor
 | Request                                                                         | Strategy                                                                                      |
 | ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
 | Built JS/CSS/fonts/images under `/build/`, the web manifest and `/offline.html` | Precached on install (Workbox precache manifest)                                              |
-| Full-page load of `/` (any `?week=`)                                            | NetworkFirst (3 s timeout); the cached shell on network errors and on `5xx`                   |
+| Full-page load of `/` (any query: `?week=`, `?task=`)                           | NetworkFirst (3 s timeout); the cached shell on network errors and on `5xx`                   |
 | Full-page load of any other page (settings, login, ...)                         | Network only; offline it gets `/offline.html`                                                 |
 | `/build/` files missing from this worker's precache                             | Any cache first (a waiting worker's precache), then a CacheFirst cache (200 entries, 30 days) |
 | Inertia visits (`X-Inertia` fetches), `/sync/*`, non-GET                        | Not handled: always the network                                                               |
@@ -662,6 +679,9 @@ Laravel provides:
 - The HTML shell and built assets. Planner data is never rendered from server props; pages read it from IndexedDB.
 - Optional integrations that work in the background, never on the path of a planner action (see
   [Google Calendar](#google-calendar)).
+- Background work: the scheduler (tasks registered in `routes/console.php`) and a worker for the database queue. The
+  Docker image runs both next to the server ([self-hosting.md](./self-hosting.md#configuration)), `composer dev` too.
+  It never sits between the user and the planner.
 
 ### Routes and access
 
@@ -724,6 +744,12 @@ leading spaces in `text`) round-trip exactly.
 | `deleted_at`     | datetime(3), nullable      | Tombstone. Not Eloquent soft deletes: tombstones are synced |
 | `version`        | unsigned bigint            | Indexed with `user_id`                                      |
 
+`users` (the Laravel table, plus):
+
+| Column     | Type                 | Notes                                                                                                     |
+| ---------- | -------------------- | --------------------------------------------------------------------------------------------------------- |
+| `timezone` | string(64), nullable | IANA name the browser last reported on sync (see [Sync endpoints](#sync-endpoints)); null until the first |
+
 `sync_versions`: a single row (`id = 1`) holding the last version handed out, seeded by its migration.
 
 `google_calendar_connections`: at most one per user (see [Google Calendar](#google-calendar)).
@@ -778,7 +804,7 @@ instance has Google OAuth credentials (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET
   from the ID token. A grant without the calendar scope or the email (Google lets the user untick them) is refused and
   revoked, as is one whose calendar step fails.
 - **Calendar** (`ConnectGoogleCalendar`): every connection owns a secondary calendar named "Plain Week", created in
-  the user's time zone (`CalendarTimezone`: `users.timezone` when set, else `APP_TIMEZONE`). A reconnect to the same
+  the user's time zone (`User::timezoneOrDefault()`: `users.timezone` when set, else `APP_TIMEZONE`). A reconnect to the same
   Google account keeps the stored calendar when it still exists (`404`/`410`, or a `403` `forbidden`/`notFound`, mean
   gone; other errors such as rate limits fail the connect) and creates a new one otherwise. Connecting another Google
   account disconnects the previous one first. Nothing is stored when a step fails.

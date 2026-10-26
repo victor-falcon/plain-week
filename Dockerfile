@@ -9,7 +9,8 @@ ARG PHP_VERSION=8.5.12
 FROM dunglas/frankenphp:1-php${PHP_VERSION} AS base
 
 # bcmath: Cashier (moneyphp/money) needs it, even with SaaS mode off.
-RUN install-php-extensions intl bcmath
+# pcntl: lets the queue worker enforce job timeouts and stop gracefully.
+RUN install-php-extensions intl bcmath pcntl
 
 WORKDIR /app
 
@@ -53,9 +54,14 @@ ENV SERVER_NAME=:8080 \
     DB_DATABASE=/app/storage/database/database.sqlite \
     TRUSTED_PROXIES=127.0.0.0/8,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,::1,fc00::/7
 
+# tini runs as PID 1: it reaps the scheduler's child processes and stops the
+# server, the scheduler and the queue worker together (docker/entrypoint.sh).
 # Port 8080 needs no privileges: drop the capability so the binary also runs
 # with all capabilities dropped (cap_drop: ALL).
-RUN useradd --create-home --uid 1000 ${USER} \
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends tini \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --create-home --uid 1000 ${USER} \
     && setcap -r /usr/local/bin/frankenphp \
     && chown -R ${USER}:${USER} /config/caddy /data/caddy
 
@@ -72,5 +78,6 @@ EXPOSE 8080
 HEALTHCHECK --interval=10s --timeout=5s --start-period=30s --retries=5 \
     CMD curl -fsS http://127.0.0.1:8080/up > /dev/null || exit 1
 
-ENTRYPOINT ["plain-week-entrypoint"]
+# -g: a stop signal reaches the whole process group, not only FrankenPHP.
+ENTRYPOINT ["tini", "-g", "--", "plain-week-entrypoint"]
 CMD ["frankenphp", "run", "--config", "/etc/frankenphp/Caddyfile"]

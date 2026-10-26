@@ -33,7 +33,31 @@ export type SyncTransport = {
  */
 export const SYNC_FORMAT = 2;
 
-const SYNC_HEADERS = { 'X-Sync-Format': String(SYNC_FORMAT) };
+/**
+ * The browser's IANA time zone ("Europe/Madrid"), or null if it reports none.
+ * Read on every request, so a device that travels keeps the server current.
+ */
+function browserTimeZone(): string | null {
+    try {
+        return Intl.DateTimeFormat().resolvedOptions().timeZone || null;
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Sent on push and pull. `X-Timezone` lets the server store the user's time
+ * zone for background work (notifications, calendar events) without a
+ * request of its own; it is never on the critical path.
+ */
+export function syncHeaders(): Record<string, string> {
+    const timeZone = browserTimeZone();
+
+    return {
+        'X-Sync-Format': String(SYNC_FORMAT),
+        ...(timeZone ? { 'X-Timezone': timeZone } : {}),
+    };
+}
 
 export class SyncHttpError extends Error {
     constructor(
@@ -186,13 +210,13 @@ export const fetchTransport: SyncTransport = {
     push: (tasks, signal) =>
         request<PushResponse>(push.url(), {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...SYNC_HEADERS },
+            headers: { 'Content-Type': 'application/json', ...syncHeaders() },
             body: JSON.stringify({ tasks }),
             signal,
         }),
     pull: (cursor, limit, signal) =>
         request<PullResponse>(pull.url({ query: { cursor, limit } }), {
-            headers: SYNC_HEADERS,
+            headers: syncHeaders(),
             signal,
         }),
 };

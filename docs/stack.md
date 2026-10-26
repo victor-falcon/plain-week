@@ -60,8 +60,11 @@ Requirements: PHP 8.3+ (8.5 recommended), Composer 2, bun 1.3+ and Node.js 24+.
 
 ```sh
 composer setup     # composer install, .env, app key, SQLite migrations, bun install, production build
-composer run dev   # php artisan dev: Laravel server, queue worker, logs and the Vite dev server
+composer run dev   # php artisan dev: Laravel server, queue worker, scheduler, logs and the Vite dev server
 ```
+
+The scheduler (`schedule:work`) is added to `php artisan dev` in `AppServiceProvider`. Scheduled tasks live in
+`routes/console.php`; `php artisan schedule:list` shows them and `php artisan schedule:test` runs one now.
 
 The app runs at http://127.0.0.1:8000. The SQLite file is `database/database.sqlite`; `php artisan migrate:fresh`
 resets it. Planner data lives in the browser (IndexedDB), so to start over as a guest clear the site data in DevTools
@@ -294,7 +297,7 @@ and the generated TypeScript fails to type-check for such routes. Register expli
 
 The Docker image, the Coolify template and every environment variable are documented in
 [self-hosting.md](./self-hosting.md). Without Docker, Plain Week is a plain Laravel app with SQLite: one PHP process and
-one database file, no external services. Deploy it like any Laravel app.
+one database file, no external services (the queue is a table in it). Deploy it like any Laravel app.
 
 1. Build: `composer install --no-dev --optimize-autoloader`, `bun install`, `bun run build`. The build needs PHP
    (the Wayfinder Vite plugin calls `php artisan`) and produces `public/build/` and `public/sw.js`; deploy that output.
@@ -318,7 +321,10 @@ one database file, no external services. Deploy it like any Laravel app.
 4. Serve `public/` from the domain root with PHP-FPM (nginx, Caddy) or `php artisan serve` behind a proxy, over HTTPS
    (service workers require it outside localhost). Keep `sw.js` uncached (see [PWA](#pwa-offline-shell)). `/up` is a
    health check.
-5. Queue worker: optional. Nothing is queued today; run `php artisan queue:work` only if you make mail queued.
+5. Scheduler and queue worker (background work such as notifications): add the scheduler to cron,
+   `* * * * * cd /path/to/plain-week && php artisan schedule:run >> /dev/null 2>&1`, and keep one
+   `php artisan queue:work --max-time=3600` running under a supervisor (systemd, Supervisor) that restarts it when it
+   exits. The Docker image runs both itself.
 6. Backups: back up the SQLite file (for example `sqlite3 database.sqlite ".backup backup.sqlite"`). It holds accounts
    and synced tasks; guest data only lives in the browser.
 

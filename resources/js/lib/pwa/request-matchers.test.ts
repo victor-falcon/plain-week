@@ -20,8 +20,13 @@ function request(
 }
 
 describe('isShellNavigation', () => {
-    it('matches full-page loads of the planner, with or without a week', () => {
-        for (const path of ['/', '/?week=2026-10-12']) {
+    it('matches full-page loads of the planner, with or without a week or task', () => {
+        for (const path of [
+            '/',
+            '/?week=2026-10-12',
+            '/?task=0199a1b2-c3d4',
+            '/?task=0199a1b2-c3d4%3A2026-10-14',
+        ]) {
             const { request: r, url } = request(path);
             expect(isShellNavigation(r, url, origin)).toBe(true);
         }

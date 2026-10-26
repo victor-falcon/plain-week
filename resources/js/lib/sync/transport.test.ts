@@ -4,11 +4,13 @@ import {
     SyncNetworkError,
     fetchTransport,
     parseRetryAfter,
+    syncHeaders,
 } from './transport';
 
 afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
 });
 
 describe('parseRetryAfter', () => {
@@ -28,7 +30,46 @@ describe('parseRetryAfter', () => {
     });
 });
 
+describe('syncHeaders', () => {
+    it('sends the sync format and the browser’s time zone', () => {
+        expect(syncHeaders()).toEqual({
+            'X-Sync-Format': '2',
+            'X-Timezone': Intl.DateTimeFormat().resolvedOptions().timeZone,
+        });
+    });
+
+    it('leaves the time zone out when the browser reports none', () => {
+        vi.spyOn(Intl, 'DateTimeFormat').mockImplementation(() => {
+            throw new RangeError('No time zone data');
+        });
+
+        expect(syncHeaders()).toEqual({ 'X-Sync-Format': '2' });
+    });
+});
+
 describe('fetchTransport', () => {
+    it('sends the sync headers on push and pull', async () => {
+        const fetch = vi.fn(async () =>
+            Response.json({ tasks: [], cursor: 0, has_more: false }),
+        );
+        vi.stubGlobal('fetch', fetch);
+
+        await fetchTransport.pull(0, 10);
+        await fetchTransport.push([]);
+
+        for (const [, init] of fetch.mock.calls as unknown as [
+            string,
+            RequestInit,
+        ][]) {
+            const headers = new Headers(init.headers);
+
+            expect(headers.get('X-Sync-Format')).toBe('2');
+            expect(headers.get('X-Timezone')).toBe(
+                Intl.DateTimeFormat().resolvedOptions().timeZone,
+            );
+        }
+    });
+
     it('passes the caller’s signal to fetch', async () => {
         const fetch = vi.fn(async () =>
             Response.json({ tasks: [], cursor: 0, has_more: false }),

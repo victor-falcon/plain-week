@@ -9,7 +9,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Schema;
 use Inertia\Testing\AssertableInertia as Assert;
 
 uses(RefreshDatabase::class);
@@ -193,10 +192,6 @@ test('the callback stores the connection and creates the Plain Week calendar', f
 });
 
 test('the calendar uses the time zone stored on the account', function () {
-    if (! Schema::hasColumn('users', 'timezone')) {
-        $this->markTestSkipped('users.timezone is not there yet.');
-    }
-
     Http::fake([
         'oauth2.googleapis.com/token' => Http::response(googleTokenResponse()),
         'www.googleapis.com/calendar/v3/calendars' => Http::response(['id' => 'new-cal']),
