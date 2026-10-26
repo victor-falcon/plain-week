@@ -33,12 +33,7 @@ final class TaskOccurrences
             return new Collection;
         }
 
-        $rows = Task::query()
-            ->where('user_id', $user->id)
-            ->whereBetween('date', [$first, $last])
-            ->whereNull('recurrence')
-            ->whereNull('deleted_at')
-            ->get();
+        $rows = $this->datedRows($user, $first, $last);
 
         $series = Task::query()
             ->where('user_id', $user->id)
@@ -53,11 +48,7 @@ final class TaskOccurrences
         $winnersBySeries = $winners->groupBy('series_id');
         $items = [];
 
-        foreach ($rows as $row) {
-            if (self::isException($row) && $winners->get(self::exceptionKey($row))?->id !== $row->id) {
-                continue;
-            }
-
+        foreach (self::withoutLosingExceptions($rows, $winners) as $row) {
             $items[$row->id] = Occurrence::fromRow($row);
         }
 
@@ -68,6 +59,30 @@ final class TaskOccurrences
         }
 
         return (new Collection(array_values($items)))
+            ->sort(self::compare(...))
+            ->values();
+    }
+
+    /**
+     * Like {@see forUser}, but only the rows dated `$from`–`$to` (live plain tasks and winning exception rows): series
+     * do not generate occurrences. For long ranges where only the stored rows matter.
+     *
+     * @return Collection<int, Occurrence>
+     */
+    public function rowsForUser(User $user, CarbonImmutable $from, CarbonImmutable $to): Collection
+    {
+        $first = $from->toDateString();
+        $last = $to->toDateString();
+
+        if ($first > $last) {
+            return new Collection;
+        }
+
+        $rows = $this->datedRows($user, $first, $last);
+        $winners = $this->winningExceptionsFor($user, $rows, new Collection, $first, $last);
+
+        return self::withoutLosingExceptions($rows, $winners)
+            ->map(Occurrence::fromRow(...))
             ->sort(self::compare(...))
             ->values();
     }
@@ -180,6 +195,32 @@ final class TaskOccurrences
             ->groupBy(self::exceptionKey(...))
             ->map(fn (Collection $duplicates) => self::winningException($duplicates))
             ->filter();
+    }
+
+    /**
+     * Live plain tasks and exception rows dated `$first`–`$last`, duplicates included.
+     *
+     * @return Collection<int, Task>
+     */
+    private function datedRows(User $user, string $first, string $last): Collection
+    {
+        return Task::query()
+            ->where('user_id', $user->id)
+            ->whereBetween('date', [$first, $last])
+            ->whereNull('recurrence')
+            ->whereNull('deleted_at')
+            ->get();
+    }
+
+    /**
+     * @param  Collection<int, Task>  $rows
+     * @param  Collection<string, Task>  $winners
+     * @return Collection<int, Task>
+     */
+    private static function withoutLosingExceptions(Collection $rows, Collection $winners): Collection
+    {
+        return $rows->reject(fn (Task $row) => self::isException($row)
+            && $winners->get(self::exceptionKey($row))?->id !== $row->id);
     }
 
     /**

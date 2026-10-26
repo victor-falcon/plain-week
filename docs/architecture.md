@@ -763,8 +763,19 @@ leading spaces in `text`) round-trip exactly.
 | `token_expires_at`    | datetime                      | When `access_token` expires                                                   |
 | `calendar_id`         | string, nullable              | The "Plain Week" calendar created on connect                                  |
 | `connected_at`        | datetime                      | Last successful connect                                                       |
-| `last_error`          | text, nullable                | The last error Google returned                                                |
+| `last_synced_at`      | datetime, nullable            | Last sync run that finished                                                   |
+| `last_error`          | text, nullable                | The last error Google returned (shown on Settings › Integrations)             |
 | `disconnected_reason` | string, nullable              | Set (`invalid_grant`) when Google refuses the tokens: the user must reconnect |
+
+`google_calendar_events`: the events Plain Week sent to a connection's calendar (see [Event sync](#event-sync)).
+
+| Column                          | Type                                        | Notes                                                                            |
+| ------------------------------- | ------------------------------------------- | -------------------------------------------------------------------------------- |
+| `google_calendar_connection_id` | foreign key → `google_calendar_connections` | Cascades on delete, so disconnecting forgets the events                          |
+| `key`                           | string, unique with the connection          | The task id of a plain task, `${series_id}:${occurrence_date}` for an occurrence |
+| `google_event_id`               | string                                      | Chosen by Plain Week (32 hex characters) before the event is created             |
+| `date`                          | date                                        | The date the event is on                                                         |
+| `payload_hash`                  | string(64), nullable                        | SHA-256 of the event last sent; null until Google confirmed it                   |
 
 The `Task` model disables Eloquent timestamps (the client owns them). Timestamps go through the
 `App\Casts\UtcMillisDateTime` cast: they are stored as UTC with milliseconds and returned in the wire format
@@ -790,6 +801,8 @@ It is a port of the client's expansion (`lib/recurrence/expand.ts` and `queryRan
 
 `$from` and `$to` are taken as calendar dates (`toDateString()`), so convert them to the user's time zone first. It runs
 three queries: the dated rows by `(user_id, date)`, the series rows, and their exceptions by `(user_id, series_id)`.
+`rowsForUser($user, $from, $to)` is the same without generating occurrences (live plain tasks and winning exception
+rows only), for ranges too long to expand series over.
 
 ### Google Calendar
 
@@ -816,7 +829,46 @@ instance has Google OAuth credentials (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET
   grant and deletes the row. If the calendar cannot be deleted right now the connection stays and the user gets an
   error to retry; a failed revoke alone does not block it. A broken connection has no working tokens, so it is only
   deleted and the page tells the user to remove the calendar in Google. Deleting the account runs the same cleanup
-  first, best effort: the account is deleted whatever Google answers.
+  first, best effort: the account is deleted whatever Google answers. The `google_calendar_events` rows go with the
+  connection (cascade).
+
+#### Event sync
+
+`SyncGoogleCalendarEvents` keeps one event per planner item in the connection's calendar. It only writes to Google and
+never reads it back: an event edited in Google is overwritten the next time its task changes.
+
+- **What gets an event.** The items `TaskOccurrences` returns, in the user's time zone (`User::timezoneOrDefault()`):
+  live dated plain tasks and exception rows from 30 days ago on, with no limit ahead (`rowsForUser` past the next 60
+  days), and the occurrences series generate from 7 days ago to 60 days ahead, so that window moves forward every day.
+  Someday tasks, tombstones and series rows have none, so moving a task to Someday or deleting it deletes its event.
+  Events dated before the 30-day window are left alone, so the calendar keeps the past, and so is the event of a
+  generated occurrence older than 7 days (kept up to date while it is in the 30 days, never created).
+- **The event.** Untimed: all day on `date`. Timed: 15 minutes from `date time`, sent as an RFC 3339 time with its
+  offset plus `timeZone`, so DST days are right. Summary `🎯 {text}`, `✅ {text}` when done. Description: the notes,
+  a blank line and `Open in Plain Week: APP_URL/?task=<id>` (the [task link](#planner-ui), with the occurrence id for
+  a generated occurrence); `source` points at the same link. `reminders.useDefault` is false with no overrides: Plain
+  Week sends its own notifications. Every event is a separate one (no `RRULE`).
+- **Identity.** Event ids can't contain `:`, so each event has a row in `google_calendar_events`, keyed by the task id
+  of a plain task and by `(series_id, occurrence_date)` for an occurrence, which stays the same when an edit turns the
+  occurrence into an exception row or moves it. The run computes the wanted events, deletes the events whose key is
+  no longer wanted (unless dated before the window), and creates or replaces (`PUT`, so a timed event can become
+  all-day) those whose payload hash changed. Nothing is sent for an unchanged event.
+- **Recovery.** The row and its event id are stored before the event is created, and each call is saved as it
+  succeeds, so a run cut short carries on. A `409` on create means an earlier attempt got through: the event is
+  replaced instead. A `404`/`410` on replace means the user deleted the event in Google: it is created again under a
+  new id (Google keeps the old id as cancelled).
+- **Errors.** A rate limit (`429`, or `403` `rateLimitExceeded`/`userRateLimitExceeded`) puts the job back after
+  `Retry-After` or a growing delay; what got through is kept. A `401` marks the access token expired, so the retry
+  refreshes it. A refused refresh token marks the connection broken and syncing stops until the user reconnects. A
+  calendar deleted in Google stops the run with an error asking to disconnect and connect again. Any other `4xx` on one
+  event is reported and the run goes on with the rest; other failures fail the job, which retries (30 s, 2 min, 10 min)
+  up to 3 times. The last error is stored in `last_error` and shown on Settings › Integrations with `last_synced_at`.
+- **When.** The `SyncGoogleCalendar` job (one per user) runs it. A `POST /sync/push` that applied rows queues it for a
+  connected, working account 10 s later; while one is waiting another is not queued
+  (`ShouldBeUniqueUntilProcessing`), and runs of one user never overlap (`WithoutOverlapping`). Connecting queues it
+  too, after forgetting the events of the previous calendar when the connect created a new one. The scheduler runs
+  `google-calendar:sync` daily at 03:00, which queues one for every working connection to move the occurrence window
+  and catch up anything missed. Nothing of this sits on the sync request's path.
 
 ### Versioning
 

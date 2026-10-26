@@ -33,6 +33,8 @@ class GoogleCalendarController extends Controller
             'googleCalendar' => $connection === null ? null : [
                 'email' => $connection->google_email,
                 'broken' => $connection->isBroken(),
+                'lastSyncedAt' => $connection->last_synced_at?->toIso8601String(),
+                'lastError' => $connection->isBroken() ? null : $connection->last_error,
             ],
         ]);
     }

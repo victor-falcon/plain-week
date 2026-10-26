@@ -1,4 +1,5 @@
 import { Head, router } from '@inertiajs/react';
+import { CircleAlert } from 'lucide-react';
 import { useState } from 'react';
 import Heading from '@/components/heading';
 import {
@@ -12,22 +13,27 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
     Card,
+    CardContent,
     CardDescription,
     CardFooter,
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
 import { Spinner } from '@/components/ui/spinner';
+import { formatTimeAgo } from '@/lib/settings/relative-time';
 import { edit as editIntegrations } from '@/routes/integrations';
 import { connect, destroy } from '@/routes/integrations/google';
 
 type GoogleCalendarConnection = {
     email: string;
     broken: boolean;
+    lastSyncedAt: string | null;
+    lastError: string | null;
 };
 
 type Props = {
@@ -96,6 +102,42 @@ function DisconnectButton({
     );
 }
 
+/**
+ * When the calendar last caught up with the planner, and what Google refused
+ * last, if anything.
+ */
+function SyncState({ connection }: { connection: GoogleCalendarConnection }) {
+    return (
+        <CardContent className="space-y-3" data-test="google-sync-state">
+            <p className="text-sm text-muted-foreground">
+                {connection.lastSyncedAt === null ? (
+                    'Not synced yet. Your tasks show up in a few minutes.'
+                ) : (
+                    <>
+                        Last synced{' '}
+                        <time
+                            dateTime={connection.lastSyncedAt}
+                            title={new Date(
+                                connection.lastSyncedAt,
+                            ).toLocaleString()}
+                        >
+                            {formatTimeAgo(connection.lastSyncedAt)}
+                        </time>
+                        .
+                    </>
+                )}
+            </p>
+            {connection.lastError !== null && (
+                <Alert variant="destructive" data-test="google-sync-error">
+                    <CircleAlert />
+                    <AlertTitle>The last sync had a problem</AlertTitle>
+                    <AlertDescription>{connection.lastError}</AlertDescription>
+                </Alert>
+            )}
+        </CardContent>
+    );
+}
+
 function GoogleCalendarCard({
     connection,
 }: {
@@ -118,6 +160,9 @@ function GoogleCalendarCard({
                           : `Connected to ${connection.email}. Your planned tasks show up in its “Plain Week” calendar.`}
                 </CardDescription>
             </CardHeader>
+            {connection !== null && !connection.broken && (
+                <SyncState connection={connection} />
+            )}
             <CardFooter className="gap-2">
                 {(connection === null || connection.broken) && (
                     <Button asChild>

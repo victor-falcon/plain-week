@@ -8,6 +8,7 @@ use App\Actions\Sync\SyncFormat;
 use App\Http\Requests\Sync\PullRequest;
 use App\Http\Requests\Sync\PushRequest;
 use App\Http\Resources\TaskResource;
+use App\Jobs\SyncGoogleCalendar;
 use Illuminate\Http\JsonResponse;
 
 class SyncController extends Controller
@@ -17,7 +18,13 @@ class SyncController extends Controller
      */
     public function push(PushRequest $request, PushTasks $pushTasks): JsonResponse
     {
-        return response()->json($pushTasks->handle($request->user(), $request->records(), SyncFormat::fromRequest($request)));
+        $result = $pushTasks->handle($request->user(), $request->records(), SyncFormat::fromRequest($request));
+
+        if ($result['applied'] !== []) {
+            SyncGoogleCalendar::dispatchFor($request->user(), SyncGoogleCalendar::DEBOUNCE_SECONDS);
+        }
+
+        return response()->json($result);
     }
 
     /**

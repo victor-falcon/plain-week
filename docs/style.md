@@ -509,7 +509,9 @@ One small `Heading` ("Integrations"), then a `Card` per integration. Google Cale
 
 - **Not connected**: a short description and a filled "Connect" button (a plain link: the browser leaves for Google's
   consent screen and comes back to this page with a toast).
-- **Connected**: "Connected to me@gmail.com…" and an outline "Disconnect" button. It opens an `AlertDialog`
+- **Connected**: "Connected to me@gmail.com…", then in the card content "Last synced 5 minutes ago." (a `<time>` with the
+  full date as its title; "Not synced yet…" before the first run) and, when the last run had a problem, a destructive
+  `Alert` with Google's message. An outline "Disconnect" button. It opens an `AlertDialog`
   ("Disconnect Google Calendar?", Cancel / a destructive Disconnect that shows a `Spinner` while it works); a toast
   confirms, or a `toast.error` asks to retry when Google could not delete the calendar.
 - **Broken** (Google refused the tokens): a destructive `Badge` "Needs reconnecting" next to the title, a description
