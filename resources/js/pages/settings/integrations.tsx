@@ -111,7 +111,7 @@ function SyncState({ connection }: { connection: GoogleCalendarConnection }) {
         <CardContent className="space-y-3" data-test="google-sync-state">
             <p className="text-sm text-muted-foreground">
                 {connection.lastSyncedAt === null ? (
-                    'Not synced yet. Your tasks show up in a few minutes.'
+                    'Waiting for the first sync.'
                 ) : (
                     <>
                         Last synced{' '}

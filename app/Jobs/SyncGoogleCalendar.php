@@ -14,13 +14,15 @@ use Illuminate\Contracts\Queue\ShouldBeUniqueUntilProcessing;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Queue\Middleware\WithoutOverlapping;
-use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Cache;
 use Throwable;
 
 /**
  * Syncs one user's tasks to their Google calendar ({@see SyncGoogleCalendarEvents}), in the background. Queued after a
- * sync push changed their tasks (a few seconds later, so a burst of pushes makes one run), after connecting, and daily
- * for everyone (`google-calendar:sync`). One waits in the queue per user at most, and runs of one user never overlap.
+ * sync push changed their tasks (a few seconds later, so a burst of pushes makes one run), after connecting, when
+ * their time zone changes, and daily for everyone (`google-calendar:sync`). One waits in the queue per user at most,
+ * runs of one user never overlap, and a long sync goes on in several short runs so the single worker is never held
+ * for long.
  */
 class SyncGoogleCalendar implements ShouldBeUniqueUntilProcessing, ShouldQueue
 {
@@ -28,6 +30,12 @@ class SyncGoogleCalendar implements ShouldBeUniqueUntilProcessing, ShouldQueue
 
     /** Seconds a push waits before syncing, so the pushes of one editing session make one run. */
     public const int DEBOUNCE_SECONDS = 10;
+
+    /** A run stops starting calls after this long and goes on in the next one. */
+    private const int RUN_SECONDS = 45;
+
+    /** Below the database queue's `retry_after` (90 s), so a slow run is never handed out twice. */
+    public int $timeout = 80;
 
     /** How long a queued run blocks another one for the same user, in case it is lost from the queue. */
     public int $uniqueFor = 3600;
@@ -37,18 +45,17 @@ class SyncGoogleCalendar implements ShouldBeUniqueUntilProcessing, ShouldQueue
     public function __construct(public readonly int $userId) {}
 
     /**
-     * Queues a sync of the user's calendar if they have a working connection.
+     * Queues a sync of the user's calendar if they have a working connection. Never fails the caller: the sync is
+     * background work, and the daily run catches up on a dispatch that did not happen.
      */
     public static function dispatchFor(User $user, int $delaySeconds = 0): void
     {
-        if (! GoogleOAuth::configured()) {
-            return;
-        }
-
-        $connection = $user->googleCalendarConnection()->first();
-
-        if ($connection !== null && ! $connection->isBroken()) {
-            self::dispatch($user->id)->delay($delaySeconds);
+        try {
+            if (GoogleOAuth::configured() && $user->googleCalendarConnection()->syncable()->exists()) {
+                self::dispatch($user->id)->delay($delaySeconds);
+            }
+        } catch (Throwable $e) {
+            report($e);
         }
     }
 
@@ -62,11 +69,12 @@ class SyncGoogleCalendar implements ShouldBeUniqueUntilProcessing, ShouldQueue
      */
     public function middleware(): array
     {
-        return [(new WithoutOverlapping((string) $this->userId))->releaseAfter(30)->expireAfter(600)];
+        return [(new WithoutOverlapping((string) $this->userId))->releaseAfter(30)->expireAfter(120)];
     }
 
     /**
-     * Rate limits and overlapping runs only delay the job; a run that keeps failing stops at `$maxExceptions`.
+     * Rate limits, long syncs and overlapping runs only delay the job; a run that keeps failing stops at
+     * `$maxExceptions`.
      */
     public function retryUntil(): DateTimeInterface
     {
@@ -85,12 +93,21 @@ class SyncGoogleCalendar implements ShouldBeUniqueUntilProcessing, ShouldQueue
     {
         $connection = $this->connection();
 
-        if ($connection === null || $connection->isBroken()) {
+        if ($connection === null || ! $connection->isSyncable()) {
+            return;
+        }
+
+        // Google asked to slow down: a job queued by a later push waits too.
+        $pausedFor = (int) Cache::get($this->pauseKey(), 0) - now()->getTimestamp();
+
+        if ($pausedFor > 0) {
+            $this->release($pausedFor);
+
             return;
         }
 
         try {
-            $error = $sync($connection);
+            $result = $sync($connection, now()->addSeconds(self::RUN_SECONDS)->toImmutable());
         } catch (GoogleCalendarDisconnected) {
             // The client marked the connection broken; Settings › Integrations asks the user to reconnect.
             return;
@@ -99,21 +116,36 @@ class SyncGoogleCalendar implements ShouldBeUniqueUntilProcessing, ShouldQueue
 
             return;
         } catch (GoogleCalendarRateLimited $e) {
-            $this->release($e->retryAfter ?? min(60 << min(max($this->attempts() - 1, 0), 4), 900));
+            $delay = $e->retryAfter ?? min(60 * $this->attempts(), 900);
+            Cache::put($this->pauseKey(), now()->getTimestamp() + $delay, $delay);
+            $this->release($delay);
 
             return;
         }
 
-        $connection->forceFill(['last_synced_at' => now(), 'last_error' => $error])->save();
+        if (! $result->complete) {
+            $this->release(1);
+
+            return;
+        }
+
+        $connection->forceFill(['last_synced_at' => now(), 'last_error' => $result->error])->save();
     }
 
     public function failed(Throwable $e): void
     {
-        $this->connection()?->forceFill(['last_error' => Str::limit($e->getMessage(), 500)])->save();
+        $this->connection()?->forceFill([
+            'last_error' => __('Google Calendar could not be reached. Plain Week tries again with your next change.'),
+        ])->save();
     }
 
     private function connection(): ?GoogleCalendarConnection
     {
         return GoogleCalendarConnection::query()->where('user_id', $this->userId)->first();
+    }
+
+    private function pauseKey(): string
+    {
+        return "google-calendar:paused:{$this->userId}";
     }
 }

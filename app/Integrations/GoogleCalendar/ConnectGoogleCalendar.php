@@ -69,7 +69,7 @@ class ConnectGoogleCalendar
             $connection->events()->delete();
         }
 
-        SyncGoogleCalendar::dispatch($user->id);
+        SyncGoogleCalendar::dispatchFor($user);
 
         return $connection;
     }

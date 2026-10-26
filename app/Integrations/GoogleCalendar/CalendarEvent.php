@@ -4,6 +4,7 @@ namespace App\Integrations\GoogleCalendar;
 
 use App\Tasks\Occurrence;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Str;
 
 /**
  * The Google Calendar event for one planner item: all day on its date, or 15 minutes from its time in the user's time
@@ -13,6 +14,11 @@ final readonly class CalendarEvent
 {
     /** How long a timed task's event lasts. */
     public const int TIMED_MINUTES = 15;
+
+    /** Google refuses an event whose description is too long (about 8 KB), so long notes are cut. */
+    private const int NOTES_LIMIT = 6000;
+
+    private const int TEXT_LIMIT = 1000;
 
     /**
      * @param  string  $key  What identifies the item across edits and moves (see {@see self::keyFor}).
@@ -29,8 +35,8 @@ final readonly class CalendarEvent
         $link = url('/').'/?task='.rawurlencode($item->id);
 
         return new self(self::keyFor($item), $item->date, [
-            'summary' => ($item->done ? '✅' : '🎯').' '.$item->text,
-            'description' => ltrim(trim($item->notes)."\n\nOpen in Plain Week: {$link}"),
+            'summary' => ($item->done ? '✅' : '🎯').' '.Str::limit($item->text, self::TEXT_LIMIT),
+            'description' => ltrim(Str::limit(trim($item->notes), self::NOTES_LIMIT)."\n\nOpen in Plain Week: {$link}"),
             ...self::when($item, $timeZone),
             'source' => ['title' => 'Plain Week', 'url' => $link],
             // Plain Week sends its own notifications.

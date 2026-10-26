@@ -858,16 +858,25 @@ never reads it back: an event edited in Google is overwritten the next time its 
   replaced instead. A `404`/`410` on replace means the user deleted the event in Google: it is created again under a
   new id (Google keeps the old id as cancelled).
 - **Errors.** A rate limit (`429`, or `403` `rateLimitExceeded`/`userRateLimitExceeded`) puts the job back after
-  `Retry-After` or a growing delay; what got through is kept. A `401` marks the access token expired, so the retry
+  `Retry-After` or a growing delay, and a job queued meanwhile waits too; what got through is kept. A `401` marks the access token expired, so the retry
   refreshes it. A refused refresh token marks the connection broken and syncing stops until the user reconnects. A
   calendar deleted in Google stops the run with an error asking to disconnect and connect again. Any other `4xx` on one
   event is reported and the run goes on with the rest; other failures fail the job, which retries (30 s, 2 min, 10 min)
-  up to 3 times. The last error is stored in `last_error` and shown on Settings › Integrations with `last_synced_at`.
+  up to 3 times (the user then reads "Google Calendar could not be reached…"; the details go to the logs). The last
+  error is stored in `last_error` and shown on Settings › Integrations with `last_synced_at`.
+- **Long syncs.** A run stops starting calls after 45 s (the job's timeout is 80 s, below the database queue's 90 s
+  `retry_after`) and puts itself back to go on, so a first sync of hundreds of events never holds the single worker for
+  long. Notes are cut to 6000 characters and the text to 1000, so Google never refuses an event for its size.
+- **One way.** Google is never read, so an event the user deletes or edits in Google stays that way until its task
+  changes again (then it is replaced, or created again).
 - **When.** The `SyncGoogleCalendar` job (one per user) runs it. A `POST /sync/push` that applied rows queues it for a
   connected, working account 10 s later; while one is waiting another is not queued
   (`ShouldBeUniqueUntilProcessing`), and runs of one user never overlap (`WithoutOverlapping`). Connecting queues it
-  too, after forgetting the events of the previous calendar when the connect created a new one. The scheduler runs
-  `google-calendar:sync` daily at 03:00, which queues one for every working connection to move the occurrence window
+  too, after forgetting the events of the previous calendar when the connect created a new one, and so does a new time
+  zone from `RememberTimezone` (timed events are placed in it). Queuing never fails the request: an error is only
+  reported. The scheduler runs
+  `google-calendar:sync` (`App\Console\Commands\SyncGoogleCalendars`) daily at 03:00, which queues one for every
+  working connection (`GoogleCalendarConnection::syncable()`) to move the occurrence window
   and catch up anything missed. Nothing of this sits on the sync request's path.
 
 ### Versioning

@@ -8,6 +8,7 @@ use App\Models\Task;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -264,6 +265,7 @@ test('a rate limit puts the job back for later, keeping what got through', funct
     $job->assertReleased(42);
     expect(GoogleCalendarEvent::query()->whereNotNull('payload_hash')->count())->toBe(1);
 
+    $this->travel(42)->seconds();
     syncCalendar();
 
     expect(GoogleCalendarEvent::query()->whereNotNull('payload_hash')->count())->toBe(2);
@@ -281,6 +283,15 @@ test('an event Google refuses does not hold back the others', function () {
 
     expect($this->google->events)->toHaveCount(1)
         ->and($this->connection->fresh()->last_error)->toBe('Invalid start time.');
+});
+
+test('long notes are cut so Google accepts the event', function () {
+    calendarTask(['text' => str_repeat('a', 2000), 'notes' => str_repeat('b', 10000)]);
+
+    syncCalendar();
+
+    expect(mb_strlen($this->google->onlyEvent()['description']))->toBeLessThan(8000)
+        ->and(mb_strlen($this->google->onlyEvent()['summary']))->toBeLessThan(1010);
 });
 
 test('a refused token marks the connection broken and stops syncing', function () {
@@ -308,10 +319,55 @@ test('a calendar deleted in Google stops syncing with an error to show', functio
         ->last_synced_at->toBeNull();
 });
 
-test('a failing job leaves its error on the connection', function () {
-    (new SyncGoogleCalendar($this->user->id))->failed(new RuntimeException('Google is down.'));
+test('a failing job leaves a readable error on the connection', function () {
+    (new SyncGoogleCalendar($this->user->id))->failed(new RuntimeException('cURL error 28: timed out for https://www.googleapis.com/…'));
 
-    expect($this->connection->fresh()->last_error)->toBe('Google is down.');
+    expect($this->connection->fresh()->last_error)->toBe('Google Calendar could not be reached. Plain Week tries again with your next change.');
+});
+
+test('a long sync stops at its time limit and goes on in the next run', function () {
+    calendarTask(['id' => 'a']);
+    calendarTask(['id' => 'b']);
+    $sync = app(SyncGoogleCalendarEvents::class);
+
+    $result = $sync($this->connection, CarbonImmutable::now()->subSecond());
+
+    expect($result->complete)->toBeFalse()
+        ->and($this->google->requests)->toBe([]);
+
+    $job = syncCalendar((new SyncGoogleCalendar($this->user->id))->withFakeQueueInteractions());
+
+    $job->assertNotReleased();
+    expect($this->google->events)->toHaveCount(2);
+});
+
+test('a job queued while Google asks to wait waits too', function () {
+    calendarTask();
+    $this->google->queued = [Http::response(['error' => ['code' => 429]], 429, ['Retry-After' => '120'])];
+    syncCalendar((new SyncGoogleCalendar($this->user->id))->withFakeQueueInteractions());
+
+    $this->travel(30)->seconds();
+    $later = syncCalendar((new SyncGoogleCalendar($this->user->id))->withFakeQueueInteractions());
+
+    $later->assertReleased(90);
+    expect($this->google->requests)->toHaveCount(1);
+});
+
+test('a new time zone queues a sync, so timed events move with it', function () {
+    Queue::fake();
+
+    $this->actingAs($this->user)
+        ->getJson(route('sync.pull'), ['X-Timezone' => 'America/New_York'])
+        ->assertOk();
+
+    Queue::assertPushed(SyncGoogleCalendar::class, fn (SyncGoogleCalendar $job) => $job->userId === $this->user->id);
+});
+
+test('a failing dispatch never fails the push', function () {
+    Bus::shouldReceive('dispatch')->once()->andThrow(new RuntimeException('database is locked'));
+    $this->actingAs($this->user);
+
+    push([wireTask()])->assertOk()->assertJsonPath('cursor', 1);
 });
 
 test('disconnecting forgets the events', function () {

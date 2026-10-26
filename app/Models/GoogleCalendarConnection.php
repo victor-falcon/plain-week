@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -62,6 +64,22 @@ class GoogleCalendarConnection extends Model
     public function events(): HasMany
     {
         return $this->hasMany(GoogleCalendarEvent::class);
+    }
+
+    /**
+     * Connections whose calendar Plain Week can keep up to date: working, with a calendar.
+     *
+     * @param  Builder<self>  $query
+     */
+    #[Scope]
+    protected function syncable(Builder $query): void
+    {
+        $query->whereNull('disconnected_reason')->whereNotNull('calendar_id');
+    }
+
+    public function isSyncable(): bool
+    {
+        return ! $this->isBroken() && $this->calendar_id !== null;
     }
 
     /**
