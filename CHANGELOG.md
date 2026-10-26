@@ -7,35 +7,35 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-10-26
+
 ### Added
 
-- **Your tasks in Google Calendar.** Once connected, every dated task shows up as an event in the "Plain Week"
-  calendar: all day, or 15 minutes at its time in your time zone, with 🎯 in the title (✅ once done), your notes and a
-  link that opens the task. Recurring tasks get one event per occurrence for the next 60 days. Edits, moves and
-  deletes follow within seconds of syncing, in the background; changes go one way (Plain Week → Google). Settings ›
-  Integrations shows when it last synced and the last problem, if any. Self-hosted instances need the queue worker and
-  scheduler, which the Docker image already runs.
-- **Connect Google Calendar.** Settings › Integrations connects a Google account and creates a "Plain Week" calendar
-  in it. Disconnecting deletes that calendar and revokes the access, and the page asks you to reconnect if Google
-  stops accepting it. Self-hosted instances turn it on with `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` (see
-  docs/self-hosting.md); without them it stays hidden.
+- **Google Calendar sync.** Settings › Integrations connects a Google account and creates a "Plain Week" calendar in
+  it, where every dated task shows up as an event: all day, or 15 minutes at its time in your time zone, with 🎯 in the
+  title (✅ once done), your notes and a link that opens the task. Recurring tasks get one event per occurrence for the
+  next 60 days. Edits, moves and deletes follow within seconds of syncing, in the background; changes go one way (Plain
+  Week → Google). The page shows when it last synced and the last problem, if any, and asks you to reconnect if Google
+  stops accepting the access. Disconnecting deletes that calendar and revokes the access. Self-hosted instances turn it
+  on with `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` (see docs/self-hosting.md); without them it stays hidden. It
+  needs the queue worker and scheduler, which the Docker image already runs.
+- **Push notifications.** Settings › Notifications turns them on per device: every morning (08:00 by default, at the
+  time you choose there, in your time zone) one notification for each task planned that day that isn't done, and one 5
+  minutes before a task with a time, recurring ones included. Opening one opens its task. Nothing is sent twice, and
+  browsers that unsubscribed are forgotten. On iPhone and iPad they work in the app added to the Home Screen
+  (iOS 16.4+). Self-hosted instances turn them on with `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` and `VAPID_SUBJECT` (see
+  docs/self-hosting.md); without them they stay off and hidden.
 - **Task links.** `/?task=<id>` opens the planner on that task's week with its dialog open, also for a task that only
   arrives with the first sync after the page loads (an unknown task is ignored). Closing the dialog drops `?task=` from
   the address. Calendar events and notifications link here.
+- **Your time zone on the server.** Sync requests send the browser's time zone, and the server keeps it on the account
+  so scheduled work can happen at your local time. Nothing to set.
 - **Background work in the Docker image.** The container now runs the Laravel scheduler and a database queue worker
   next to the server, supervised and stopped together with it (`tini` is PID 1). No configuration needed; `composer dev`
   runs the scheduler too. Without Docker, add the scheduler to cron and run a queue worker (see docs/stack.md).
-- **Push notifications (server).** With VAPID keys set (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`; see
-  docs/self-hosting.md), the scheduler sends every subscribed browser one notification per pending task of the day at
-  your morning time (08:00 by default, in your time zone), and a reminder five minutes before every timed task,
-  recurring ones included. Done tasks are skipped, nothing is sent twice, and browsers that unsubscribed are
-  forgotten. Without the keys it stays off.
-- **Notifications on your devices.** Settings › Notifications turns on push notifications per device: every morning
-  one notification for each task planned that day that isn't done, and one 5 minutes before a task with a time.
-  Opening one opens its task. Choose the morning time there; on iPhone and iPad they work in the app added to the
-  Home Screen (iOS 16.4+). Shown only when the instance has VAPID keys.
-- **Your time zone on the server.** Sync requests send the browser's time zone, and the server keeps it on the account
-  so scheduled work can happen at your local time. Nothing to set.
+- **Google and push settings in the Coolify template.** `deploy/coolify/plain-week.yaml` lists `GOOGLE_CLIENT_ID`,
+  `GOOGLE_CLIENT_SECRET`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` and `VAPID_SUBJECT`, empty by default, so they can be
+  set from Coolify's Environment Variables. Left empty, both features stay off.
 
 ## [0.3.1] - 2026-10-21
 
@@ -272,7 +272,8 @@ between devices.
   app, so an instance without mail works.
 - **Documentation** for contributors and coding agents in `docs/` and `AGENTS.md`.
 
-[Unreleased]: https://github.com/victor-falcon/plain-week/compare/v0.3.1...HEAD
+[Unreleased]: https://github.com/victor-falcon/plain-week/compare/v0.3.2...HEAD
+[0.3.2]: https://github.com/victor-falcon/plain-week/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/victor-falcon/plain-week/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/victor-falcon/plain-week/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/victor-falcon/plain-week/compare/v0.1.1...v0.2.0
