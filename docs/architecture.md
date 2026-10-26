@@ -804,7 +804,7 @@ instance has Google OAuth credentials (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET
   from the ID token. A grant without the calendar scope or the email (Google lets the user untick them) is refused and
   revoked, as is one whose calendar step fails.
 - **Calendar** (`ConnectGoogleCalendar`): every connection owns a secondary calendar named "Plain Week", created in
-  the user's time zone (`CalendarTimezone`: `users.timezone` when set, else `APP_TIMEZONE`). A reconnect to the same
+  the user's time zone (`User::timezoneOrDefault()`: `users.timezone` when set, else `APP_TIMEZONE`). A reconnect to the same
   Google account keeps the stored calendar when it still exists (`404`/`410`, or a `403` `forbidden`/`notFound`, mean
   gone; other errors such as rate limits fail the connect) and creates a new one otherwise. Connecting another Google
   account disconnects the previous one first. Nothing is stored when a step fails.

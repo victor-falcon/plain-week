@@ -59,7 +59,7 @@ class ConnectGoogleCalendar
 
         $connection->calendar_id = $previousCalendarId !== null && $this->client->calendarExists($connection, $previousCalendarId)
             ? $previousCalendarId
-            : $this->client->createCalendar($connection, self::CALENDAR_NAME, CalendarTimezone::for($user));
+            : $this->client->createCalendar($connection, self::CALENDAR_NAME, $user->timezoneOrDefault());
         $connection->save();
 
         return $connection;
