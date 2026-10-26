@@ -12,6 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Inertia\Response;
+use Throwable;
 
 class ProfileController extends Controller
 {
@@ -52,8 +53,13 @@ class ProfileController extends Controller
         $user = $request->user();
 
         // The cascade would drop the row but leave the calendar and the grant in the Google account.
+        // Best effort: the account is deleted whatever Google answers.
         if ($user->googleCalendarConnection !== null) {
-            $disconnectGoogleCalendar($user->googleCalendarConnection);
+            try {
+                $disconnectGoogleCalendar($user->googleCalendarConnection);
+            } catch (Throwable $e) {
+                report($e);
+            }
         }
 
         Auth::logout();

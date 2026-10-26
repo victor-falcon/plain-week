@@ -29,7 +29,7 @@ It is used by:
 | `EnsureHasAccess` on `/` and `sync/*`        | Pages redirect to `/plans`; JSON requests (sync) get `402 Payment Required`   |
 | Inertia shared props                         | `saas.enabled`, `account: { hasAccess, plan } \| null` (null for guests)      |
 | `SyncProvider` and the sync engine           | The engine does not start; a `402` stops it, keeps local data, shows `/plans` |
-| `EnsureHasAccess` on Settings › Integrations | Redirect to `/plans`; the settings nav hides the entry                        |
+| `EnsureHasAccess` on Google Calendar connect | Redirect to `/plans` (the page and disconnecting stay reachable)              |
 
 Settings (profile, security, data) stay reachable without a plan, so an account can always export its tasks or be
 deleted; the paywall links to the export. A weekly subscription whose payment failed (`past_due`, `incomplete`) gives

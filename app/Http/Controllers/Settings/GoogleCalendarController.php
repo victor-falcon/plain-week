@@ -7,6 +7,7 @@ use App\Integrations\GoogleCalendar\ConnectGoogleCalendar;
 use App\Integrations\GoogleCalendar\DisconnectGoogleCalendar;
 use App\Integrations\GoogleCalendar\GoogleCalendarDisconnected;
 use App\Integrations\GoogleCalendar\GoogleOAuth;
+use App\Integrations\GoogleCalendar\GoogleTokens;
 use App\Models\User;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
@@ -74,15 +75,24 @@ class GoogleCalendarController extends Controller
 
         try {
             $tokens = $oauth->exchangeCode($code, $pending['code_verifier']);
+        } catch (RequestException|ConnectionException $e) {
+            report($e);
 
-            // Google lets the user untick the calendar permission on the consent screen.
-            if (! $tokens->grants(GoogleOAuth::CALENDAR_SCOPE) || $tokens->refreshToken === null) {
+            return $this->failed(__('Google did not connect. Please try again.'));
+        }
+
+        try {
+            // Google lets the user untick permissions on the consent screen.
+            if (! $tokens->grants(GoogleOAuth::CALENDAR_SCOPE) || $tokens->refreshToken === null || $tokens->email === null) {
+                $this->revokeQuietly($oauth, $tokens);
+
                 return $this->failed(__('Plain Week needs permission to manage its own calendar. Please connect again and allow it.'));
             }
 
             $connect($this->user($request), $tokens);
         } catch (RequestException|ConnectionException|GoogleCalendarDisconnected $e) {
             report($e);
+            $this->revokeQuietly($oauth, $tokens);
 
             return $this->failed(__('Google did not connect. Please try again.'));
         }
@@ -100,12 +110,30 @@ class GoogleCalendarController extends Controller
         $connection = $this->user($request)->googleCalendarConnection;
 
         if ($connection !== null) {
-            $disconnect($connection);
+            try {
+                $disconnect($connection);
+            } catch (RequestException|ConnectionException $e) {
+                report($e);
+
+                return $this->failed(__('Google could not delete the Plain Week calendar right now. Please try again.'));
+            }
         }
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Google Calendar disconnected.')]);
 
         return to_route('integrations.edit');
+    }
+
+    /**
+     * Gives back a grant that ends up unused (best effort).
+     */
+    private function revokeQuietly(GoogleOAuth $oauth, GoogleTokens $tokens): void
+    {
+        try {
+            $oauth->revoke($tokens->refreshToken ?? $tokens->accessToken);
+        } catch (RequestException|ConnectionException $e) {
+            report($e);
+        }
     }
 
     private function failed(string $message): RedirectResponse

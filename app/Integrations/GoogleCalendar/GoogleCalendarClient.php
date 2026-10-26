@@ -43,8 +43,9 @@ class GoogleCalendarClient
     {
         $response = $this->request($connection)->get('calendars/'.rawurlencode($calendarId));
 
-        // 403/404: deleted, or it belongs to another Google account.
-        if (in_array($response->status(), [403, 404, 410], true)) {
+        // Deleted, or it belongs to another Google account. Other 403s (rate limits, quota) are transient.
+        if (in_array($response->status(), [404, 410], true)
+            || ($response->status() === 403 && in_array($response->json('error.errors.0.reason'), ['forbidden', 'notFound'], true))) {
             return false;
         }
 
@@ -87,7 +88,7 @@ class GoogleCalendarClient
     private function accessToken(GoogleCalendarConnection $connection): string
     {
         if ($connection->isBroken()) {
-            throw new GoogleCalendarDisconnected($connection->disconnected_reason ?? 'invalid_grant');
+            throw new GoogleCalendarDisconnected((string) $connection->disconnected_reason);
         }
 
         if ($connection->token_expires_at->isAfter(now()->addMinute())) {
@@ -98,7 +99,7 @@ class GoogleCalendarClient
             $tokens = $this->oauth->refresh($connection->refresh_token);
         } catch (GoogleCalendarDisconnected $e) {
             $connection->forceFill([
-                'disconnected_reason' => 'invalid_grant',
+                'disconnected_reason' => GoogleCalendarDisconnected::INVALID_GRANT,
                 'last_error' => $e->getMessage(),
             ])->save();
 

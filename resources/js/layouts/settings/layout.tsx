@@ -46,10 +46,7 @@ const sidebarNavItems: SettingsNavItem[] = [
         title: 'Integrations',
         href: editIntegrations(),
         icon: null,
-        // Needs the instance's Google credentials, and a paid plan in SaaS mode.
-        visible: (props) =>
-            (props.integrations?.googleCalendar ?? false) &&
-            (props.account?.hasAccess ?? false),
+        visible: (props) => props.integrations?.googleCalendar ?? false,
     },
     {
         title: 'Data',

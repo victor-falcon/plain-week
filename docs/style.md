@@ -502,7 +502,7 @@ planner shows one plain toast ("Moved 3 unfinished tasks to today"). Behaviour i
 
 Optional connections to other services at `/settings/integrations` (`pages/settings/integrations.tsx`, between
 Preferences and Data in the settings nav). The nav entry and the page exist only when the instance offers an
-integration (shared prop `integrations`) and, in SaaS mode, the account has a plan. Settings nav entries are a list in
+integration (shared prop `integrations`). Settings nav entries are a list in
 `layouts/settings/layout.tsx`; an entry with a `visible(props)` predicate is shown only when it returns true.
 
 One small `Heading` ("Integrations"), then a `Card` per integration. Google Calendar has three states:
@@ -511,9 +511,9 @@ One small `Heading` ("Integrations"), then a `Card` per integration. Google Cale
   consent screen and comes back to this page with a toast).
 - **Connected**: "Connected to me@gmail.com…" and an outline "Disconnect" button. It opens an `AlertDialog`
   ("Disconnect Google Calendar?", Cancel / a destructive Disconnect that shows a `Spinner` while it works); a toast
-  confirms.
+  confirms, or a `toast.error` asks to retry when Google could not delete the calendar.
 - **Broken** (Google refused the tokens): a destructive `Badge` "Needs reconnecting" next to the title, a description
-  saying why, a filled "Reconnect" button and the outline "Disconnect".
+  saying why, a filled "Reconnect" button and the outline "Disconnect" (its dialog says the calendar stays in Google).
 
 Errors from the OAuth round trip (expired sign-in, missing permission, Google down) come back as `toast.error`; a
 cancelled consent screen comes back silently.

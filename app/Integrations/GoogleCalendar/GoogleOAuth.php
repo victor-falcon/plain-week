@@ -30,7 +30,7 @@ class GoogleOAuth
      */
     public static function configured(): bool
     {
-        return filled(config('services.google.client_id')) && filled(config('services.google.client_secret'));
+        return filled(self::clientId()) && filled(self::clientSecret());
     }
 
     /**
@@ -40,7 +40,7 @@ class GoogleOAuth
     public function authorizationUrl(string $state, string $codeVerifier): string
     {
         return self::AUTHORIZE_URL.'?'.http_build_query([
-            'client_id' => config('services.google.client_id'),
+            'client_id' => self::clientId(),
             'redirect_uri' => $this->redirectUri(),
             'response_type' => 'code',
             'scope' => implode(' ', ['openid', 'email', self::CALENDAR_SCOPE]),
@@ -59,8 +59,8 @@ class GoogleOAuth
     public function exchangeCode(string $code, string $codeVerifier): GoogleTokens
     {
         return $this->tokens($this->http()->asForm()->post(self::TOKEN_URL, [
-            'client_id' => config('services.google.client_id'),
-            'client_secret' => config('services.google.client_secret'),
+            'client_id' => self::clientId(),
+            'client_secret' => self::clientSecret(),
             'redirect_uri' => $this->redirectUri(),
             'grant_type' => 'authorization_code',
             'code' => $code,
@@ -77,14 +77,14 @@ class GoogleOAuth
     public function refresh(string $refreshToken): GoogleTokens
     {
         $response = $this->http()->asForm()->post(self::TOKEN_URL, [
-            'client_id' => config('services.google.client_id'),
-            'client_secret' => config('services.google.client_secret'),
+            'client_id' => self::clientId(),
+            'client_secret' => self::clientSecret(),
             'grant_type' => 'refresh_token',
             'refresh_token' => $refreshToken,
         ]);
 
-        if ($response->status() === 400 && $response->json('error') === 'invalid_grant') {
-            throw new GoogleCalendarDisconnected((string) ($response->json('error_description') ?? 'invalid_grant'));
+        if ($response->status() === 400 && $response->json('error') === GoogleCalendarDisconnected::INVALID_GRANT) {
+            throw new GoogleCalendarDisconnected((string) ($response->json('error_description') ?? GoogleCalendarDisconnected::INVALID_GRANT));
         }
 
         return $this->tokens($response->throw());
@@ -108,6 +108,20 @@ class GoogleOAuth
     public function redirectUri(): string
     {
         return route('integrations.google.callback');
+    }
+
+    private static function clientId(): ?string
+    {
+        $value = config('services.google.client_id');
+
+        return is_string($value) ? $value : null;
+    }
+
+    private static function clientSecret(): ?string
+    {
+        $value = config('services.google.client_secret');
+
+        return is_string($value) ? $value : null;
     }
 
     public function newCodeVerifier(): string

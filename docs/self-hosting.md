@@ -146,6 +146,10 @@ Users then connect from **Settings › Integrations**. Plain Week asks only for 
 the account email), so it can see and change the calendars it creates and nothing else. Tokens are stored encrypted
 with `APP_KEY`; disconnecting deletes the "Plain Week" calendar and revokes the access.
 
+If connecting fails ("Google did not connect"), the container logs (`docker logs`) have Google's answer. The usual
+causes are a redirect URI that does not match `APP_URL` exactly, the Calendar API not enabled in the project, or a
+Google account that is not a test user while the consent screen is in Testing.
+
 ## Noindex
 
 With `APP_NOINDEX=true`, every response carries `X-Robots-Tag: noindex, nofollow`, the page has

@@ -34,7 +34,11 @@ type Props = {
     googleCalendar: GoogleCalendarConnection | null;
 };
 
-function DisconnectButton({ email }: { email: string }) {
+function DisconnectButton({
+    connection,
+}: {
+    connection: GoogleCalendarConnection;
+}) {
     const [open, setOpen] = useState(false);
     const [processing, setProcessing] = useState(false);
 
@@ -65,8 +69,9 @@ function DisconnectButton({ email }: { email: string }) {
                         Disconnect Google Calendar?
                     </AlertDialogTitle>
                     <AlertDialogDescription>
-                        The “Plain Week” calendar is deleted from {email}. Your
-                        tasks stay in Plain Week.
+                        {connection.broken
+                            ? `Plain Week can no longer reach ${connection.email}, so its “Plain Week” calendar stays there: delete it in Google Calendar if you don't need it. Your tasks stay in Plain Week.`
+                            : `The “Plain Week” calendar is deleted from ${connection.email}. Your tasks stay in Plain Week.`}
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -122,7 +127,7 @@ function GoogleCalendarCard({
                     </Button>
                 )}
                 {connection !== null && (
-                    <DisconnectButton email={connection.email} />
+                    <DisconnectButton connection={connection} />
                 )}
             </CardFooter>
         </Card>

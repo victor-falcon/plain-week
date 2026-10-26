@@ -673,15 +673,16 @@ Laravel provides:
 | `/settings/*`                                |                                | `auth`.                                                                              |
 | `GET /settings/data`                         | `data.edit`                    | `auth`. Inertia page `settings/data` (export / import run client-side).              |
 | `GET /settings/preferences`                  | `preferences.edit`             | `auth`. Inertia page `settings/preferences` (values stored in the browser).          |
-| `GET /settings/integrations`                 | `integrations.edit`            | `auth`.¹ ² Inertia page `settings/integrations`.                                     |
+| `GET /settings/integrations`                 | `integrations.edit`            | `auth`.² Inertia page `settings/integrations`.                                       |
 | `GET /settings/integrations/google/connect`  | `integrations.google.connect`  | `auth`.¹ ² Redirects to Google's consent screen (`throttle:10,1`).                   |
 | `GET /settings/integrations/google/callback` | `integrations.google.callback` | `auth`.¹ ² Google's OAuth redirect URI: stores the connection, creates the calendar. |
-| `DELETE /settings/integrations/google`       | `integrations.google.destroy`  | `auth`.¹ ² Deletes the calendar, revokes the grant, forgets the connection.          |
+| `DELETE /settings/integrations/google`       | `integrations.google.destroy`  | `auth`.² Deletes the calendar, revokes the grant, forgets the connection.            |
 
 ¹ Plus `EnsureHasAccess`: in SaaS mode a signed-in account without a paid plan is redirected to the paywall (pages) or
 gets `402` (sync). Billing and legal routes are listed in [saas.md](./saas.md).
 
-² Plus `EnsureGoogleCalendarConfigured`: `404` unless `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are set.
+² Plus `EnsureGoogleCalendarConfigured`: `404` unless `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are set. Only
+connecting needs a plan in SaaS mode, so an account whose plan lapsed can still see and remove its connection.
 
 After login, registration and email verification Fortify redirects to `/` (`config/fortify.php` → `home`).
 
@@ -774,17 +775,22 @@ instance has Google OAuth credentials (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET
 - **Connect** (`GoogleOAuth`): authorization code flow with PKCE and a `state` kept in the session. Scopes `openid`,
   `email` and `https://www.googleapis.com/auth/calendar.app.created`, so Plain Week only ever sees calendars it
   created. `access_type=offline` and `prompt=consent` give a refresh token on every connect. The account email comes
-  from the ID token. A grant without the calendar scope (Google lets the user untick it) is refused.
+  from the ID token. A grant without the calendar scope or the email (Google lets the user untick them) is refused and
+  revoked, as is one whose calendar step fails.
 - **Calendar** (`ConnectGoogleCalendar`): every connection owns a secondary calendar named "Plain Week", created in
-  the user's time zone (`CalendarTimezone`: `users.timezone` when set, else `APP_TIMEZONE`). A reconnect keeps the
-  stored calendar when it still exists and creates a new one otherwise. Nothing is stored when any step fails.
+  the user's time zone (`CalendarTimezone`: `users.timezone` when set, else `APP_TIMEZONE`). A reconnect to the same
+  Google account keeps the stored calendar when it still exists (`404`/`410`, or a `403` `forbidden`/`notFound`, mean
+  gone; other errors such as rate limits fail the connect) and creates a new one otherwise. Connecting another Google
+  account disconnects the previous one first. Nothing is stored when a step fails.
 - **API calls** (`GoogleCalendarClient`): Laravel's `Http` client against the Calendar REST API. The access token is
   refreshed when it expires within a minute. A refresh that Google answers with `invalid_grant` marks the connection
   broken (`disconnected_reason`, `last_error`) and throws `GoogleCalendarDisconnected`; Settings › Integrations then
   offers "Reconnect". Other failures throw the HTTP client's exceptions and are transient. Event calls go here too.
 - **Disconnect** (`DisconnectGoogleCalendar`): deletes the calendar (nothing would keep it current), revokes the
-  grant and deletes the row. Google is cleaned up best effort; the row goes whatever Google answers. A broken
-  connection is just deleted. Deleting the account runs the same cleanup before the cascade.
+  grant and deletes the row. If the calendar cannot be deleted right now the connection stays and the user gets an
+  error to retry; a failed revoke alone does not block it. A broken connection has no working tokens, so it is only
+  deleted and the page tells the user to remove the calendar in Google. Deleting the account runs the same cleanup
+  first, best effort: the account is deleted whatever Google answers.
 
 ### Versioning
 
