@@ -14,12 +14,13 @@ use Illuminate\Support\Collection;
  *
  * @phpstan-type Recurrence array{type: 'daily'|'weekly'|'monthly', every?: int, weekdays?: list<int>, day?: int, until?: string|null}
  */
-class TaskOccurrences
+final class TaskOccurrences
 {
     /**
      * Every live item dated `$from`–`$to` (inclusive): plain tasks, exception rows and the occurrences series generate
      * there. Series rows, Someday tasks, tombstones and exceptions that lost to a duplicate are left out. Sorted by
-     * date, then like a day in the planner: timed items first by time, then by position, then by id.
+     * date, then like a day in the planner: timed items first by time, then by position, then by id. Done items are
+     * included. `$from` and `$to` are taken as calendar dates in their own time zone, so pass them in the user's.
      *
      * @return Collection<int, Occurrence>
      */
@@ -49,6 +50,7 @@ class TaskOccurrences
             ->filter(fn (Task $task) => ($task->recurrence['until'] ?? $last) >= $first);
 
         $winners = $this->winningExceptionsFor($user, $rows, $series, $first, $last);
+        $winnersBySeries = $winners->groupBy('series_id');
         $items = [];
 
         foreach ($rows as $row) {
@@ -60,9 +62,7 @@ class TaskOccurrences
         }
 
         foreach ($series as $row) {
-            $exceptions = $winners->filter(fn (Task $exception) => $exception->series_id === $row->id);
-
-            foreach (self::expandSeries($row, $exceptions, $first, $last) as $item) {
+            foreach (self::expandSeries($row, $winnersBySeries->get($row->id, []), $first, $last) as $item) {
                 $items[$item->id] = $item;
             }
         }
@@ -91,18 +91,20 @@ class TaskOccurrences
         $byDate = [];
 
         foreach ($exceptions as $exception) {
-            if ($exception->series_id === $series->id && $exception->occurrence_date !== null) {
+            if (self::isException($exception) && $exception->series_id === $series->id) {
                 $byDate[$exception->occurrence_date][] = $exception;
             }
         }
 
         $winners = array_filter(array_map(self::winningException(...), $byDate));
         $items = [];
-        $start = max($series->date, $first);
-        $end = min($recurrence['until'] ?? $last, $last);
+        $anchor = self::day($series->date);
+        $end = self::day(min($recurrence['until'] ?? $last, $last));
 
-        for ($date = $start; $date <= $end; $date = self::addDays($date, 1)) {
-            if (self::matchesRule($recurrence, $series->date, $date) && ! isset($winners[$date])) {
+        for ($day = self::day(max($series->date, $first)); $day <= $end; $day = $day->addDay()) {
+            $date = $day->toDateString();
+
+            if (self::matchesDay($recurrence, $anchor, $day) && ! isset($winners[$date])) {
                 $items[] = Occurrence::generated($series, $date);
             }
         }
@@ -124,14 +126,7 @@ class TaskOccurrences
      */
     public static function matchesRule(array $recurrence, string $anchor, string $date): bool
     {
-        $day = self::day($date);
-
-        return match ($recurrence['type']) {
-            'daily' => ($days = (int) self::day($anchor)->diffInDays($day, false)) >= 0
-                && $days % max(1, $recurrence['every'] ?? 1) === 0,
-            'weekly' => in_array($day->dayOfWeekIso, $recurrence['weekdays'] ?? [], true),
-            'monthly' => $day->day === min($recurrence['day'] ?? 0, $day->daysInMonth),
-        };
+        return self::matchesDay($recurrence, self::day($anchor), self::day($date));
     }
 
     /**
@@ -147,20 +142,12 @@ class TaskOccurrences
         foreach ($rows as $row) {
             if ($winner === null
                 || $row->updated_at->greaterThan($winner->updated_at)
-                || ($row->updated_at->equalTo($winner->updated_at) && $row->id > $winner->id)) {
+                || ($row->updated_at->equalTo($winner->updated_at) && strcmp($row->id, $winner->id) > 0)) {
                 $winner = $row;
             }
         }
 
         return $winner;
-    }
-
-    /**
-     * The deterministic id of a generated occurrence, the same as on the client.
-     */
-    public static function occurrenceId(string $seriesId, string $date): string
-    {
-        return "{$seriesId}:{$date}";
     }
 
     /**
@@ -207,7 +194,7 @@ class TaskOccurrences
 
     private static function exceptionKey(Task $task): string
     {
-        return self::occurrenceId((string) $task->series_id, (string) $task->occurrence_date);
+        return Occurrence::idFor((string) $task->series_id, (string) $task->occurrence_date);
     }
 
     private static function compare(Occurrence $a, Occurrence $b): int
@@ -230,8 +217,19 @@ class TaskOccurrences
         return CarbonImmutable::createFromFormat('!Y-m-d', $date, 'UTC') ?: throw new \InvalidArgumentException("Invalid date: {$date}.");
     }
 
-    private static function addDays(string $date, int $days): string
+    /**
+     * `matchesRule` on parsed dates.
+     *
+     * @param  Recurrence  $recurrence
+     */
+    private static function matchesDay(array $recurrence, CarbonImmutable $anchor, CarbonImmutable $day): bool
     {
-        return self::day($date)->addDays($days)->toDateString();
+        return match ($recurrence['type']) {
+            'daily' => ($days = (int) $anchor->diffInDays($day, false)) >= 0
+                && $days % max(1, $recurrence['every'] ?? 1) === 0,
+            'weekly' => in_array($day->dayOfWeekIso, $recurrence['weekdays'] ?? [], true),
+            // Monthly. Like the client, an unknown type lands here and, without a `day`, matches nothing.
+            default => $day->day === min($recurrence['day'] ?? 0, $day->daysInMonth),
+        };
     }
 }

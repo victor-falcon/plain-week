@@ -102,6 +102,10 @@ describe('matchesRule', function () {
             ->and(TaskOccurrences::matchesRule($sundays, '2026-10-12', '2026-10-19'))->toBeFalse()
             ->and(TaskOccurrences::matchesRule(WEEKLY_MWF, '2026-10-12', '2026-10-14'))->toBeTrue();
     });
+
+    it('matches nothing for an unknown rule type, like the client', function () {
+        expect(TaskOccurrences::matchesRule(['type' => 'yearly'], '2026-10-12', '2026-10-12'))->toBeFalse();
+    });
 });
 
 describe('series expansion', function () {
@@ -117,6 +121,7 @@ describe('series expansion', function () {
                 id: 'series:2026-10-12',
                 taskId: 'series',
                 seriesId: 'series',
+                occurrenceDate: '2026-10-12',
                 date: '2026-10-12',
                 time: '07:30',
                 text: 'Gym',
@@ -241,6 +246,7 @@ describe('exceptions', function () {
             ->and($items[1])->toHaveProperties([
                 'taskId' => 'exception-2026-10-14',
                 'seriesId' => 'series',
+                'occurrenceDate' => '2026-10-14',
                 'text' => 'Gym (moved)',
                 'done' => true,
             ])
@@ -281,6 +287,16 @@ describe('exceptions', function () {
         expect(array_map(fn (Occurrence $item) => $item->id, occurrencesOn('2026-10-12', '2026-10-18')))
             ->toBe(['exception-2026-10-14']);
     });
+});
+
+it('ignores rows passed as exceptions that are not exception rows', function () {
+    $series = occurrenceSeries(WEEKLY_MWF);
+    $notAnException = occurrenceException('2026-10-14', ['recurrence' => WEEKLY_MWF]);
+
+    expect(array_map(
+        fn (Occurrence $item) => $item->id,
+        TaskOccurrences::expandSeries($series, [$notAnException], '2026-10-12', '2026-10-18'),
+    ))->toBe(['series:2026-10-12', 'series:2026-10-14', 'series:2026-10-16']);
 });
 
 describe('duplicate exceptions', function () {
@@ -336,7 +352,8 @@ describe('forUser', function () {
 
         expect(array_map(fn (Occurrence $item) => $item->id, $items))
             ->toBe(['first', 'early', 'late', 'b-untimed', 'a-untimed'])
-            ->and($items[0])->toHaveProperties(['taskId' => 'first', 'seriesId' => null, 'done' => true]);
+            ->and($items[0])->toHaveProperties(['taskId' => 'first', 'seriesId' => null, 'occurrenceDate' => null, 'done' => true])
+            ->and($items[0]->isGenerated())->toBeFalse();
     });
 
     it('never returns series rows or the series of another user', function () {

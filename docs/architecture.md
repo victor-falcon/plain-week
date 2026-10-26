@@ -725,9 +725,9 @@ The `Task` model disables Eloquent timestamps (the client owns them). Timestamps
 
 Background features (notifications, calendar sync) need what a user's planner shows on some dates, recurring
 occurrences included. `App\Tasks\TaskOccurrences::forUser($user, $from, $to)` returns it as a collection of
-`App\Tasks\Occurrence` (`id`, `taskId`, `seriesId`, `date`, `time`, `text`, `notes`, `done`, `color`, `position`),
-sorted by date and then in the planner's day order (timed first by time, then position, then id). It is a port of the
-client's expansion (`lib/recurrence/expand.ts` and `queryRangeItems`, see
+`App\Tasks\Occurrence` (`id`, `taskId`, `seriesId`, `occurrenceDate`, `date`, `time`, `text`, `notes`, `done`,
+`color`, `position`), sorted by date and then in the planner's day order (timed first by time, then position, then id).
+It is a port of the client's expansion (`lib/recurrence/expand.ts` and `queryRangeItems`, see
 [Recurring tasks (client)](#recurring-tasks-client)) with the same rules and the same test cases
 (`tests/Feature/Tasks/TaskOccurrencesTest.php`), so a change to one side goes into both:
 
@@ -736,6 +736,8 @@ client's expansion (`lib/recurrence/expand.ts` and `queryRangeItems`, see
   occurrences there: `id` is `${series_id}:${YYYY-MM-DD}`, `taskId` the series, content from the series, not done.
 - The winning exception of an occurrence (newest `updated_at`, then greater id) replaces it, wherever it moved, or
   hides it when deleted. A losing duplicate is never returned, and an exception whose series is gone still is.
+- Done items are included. An occurrence keeps its `(seriesId, occurrenceDate)` when it is edited or moved (its `id`
+  turns from the occurrence id into the exception row's id), so key anything stored per occurrence on that pair.
 
 `$from` and `$to` are taken as calendar dates (`toDateString()`), so convert them to the user's time zone first. It runs
 three queries: the dated rows by `(user_id, date)`, the series rows, and their exceptions by `(user_id, series_id)`.
