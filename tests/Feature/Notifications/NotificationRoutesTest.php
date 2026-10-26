@@ -52,6 +52,17 @@ describe('when Web Push is not configured', function () {
     });
 });
 
+// The Coolify template passes the variables as empty strings until they are filled in.
+test('empty VAPID settings count as not configured', function (string $key) {
+    config(["services.webpush.{$key}" => '']);
+
+    $this->actingAs($this->user)->get(route('notifications.edit'))->assertNotFound();
+    $this->actingAs($this->user)
+        ->get(route('preferences.edit'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('notifications', ['enabled' => false, 'vapidPublicKey' => null]));
+})->with(['public_key', 'private_key', 'subject']);
+
 test('the pages get the public key', function () {
     $this->get(route('home'))
         ->assertInertia(fn (Assert $page) => $page

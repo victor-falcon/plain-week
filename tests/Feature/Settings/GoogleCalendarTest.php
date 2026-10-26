@@ -96,6 +96,17 @@ describe('when Google is not configured', function () {
     });
 });
 
+// The Coolify template passes the variables as empty strings until they are filled in.
+test('empty credentials count as not configured', function (string $key) {
+    config(["services.google.{$key}" => '']);
+    $user = User::factory()->create();
+
+    $this->actingAs($user)->get(route('integrations.edit'))->assertNotFound();
+    $this->actingAs($user)
+        ->get(route('profile.edit'))
+        ->assertInertia(fn (Assert $page) => $page->where('integrations.googleCalendar', false));
+})->with(['client_id', 'client_secret']);
+
 test('the integration is offered to the pages when configured', function () {
     $this->actingAs(User::factory()->create())
         ->get(route('profile.edit'))
