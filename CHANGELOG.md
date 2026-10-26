@@ -13,6 +13,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   in it, for the upcoming one-way sync of your tasks. Disconnecting deletes that calendar and revokes the access, and
   the page asks you to reconnect if Google stops accepting it. Self-hosted instances turn it on with
   `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` (see docs/self-hosting.md); without them it stays hidden.
+- **Task links.** `/?task=<id>` opens the planner on that task's week with its dialog open, also for a task that only
+  arrives with the first sync after the page loads (an unknown task is ignored). Closing the dialog drops `?task=` from
+  the address. Upcoming notifications and calendar events will link here.
+- **Background work in the Docker image.** The container now runs the Laravel scheduler and a database queue worker
+  next to the server, supervised and stopped together with it (`tini` is PID 1). No configuration needed; `composer dev`
+  runs the scheduler too. Without Docker, add the scheduler to cron and run a queue worker (see docs/stack.md).
+- **Your time zone on the server.** Sync requests send the browser's time zone, and the server keeps it on the account
+  so scheduled work can happen at your local time. Nothing to set.
 
 ## [0.3.1] - 2026-10-21
 

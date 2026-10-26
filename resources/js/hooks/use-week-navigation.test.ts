@@ -69,4 +69,13 @@ describe('useWeekNavigation', () => {
 
         expect(shownWeek(result)).toBe('2026-10-12');
     });
+
+    it('goes to the week of a given day', () => {
+        const { result } = renderHook(() => useWeekNavigation(SUNDAY));
+
+        act(() => result.current.goToWeekOf(new Date(2026, 10, 5)));
+
+        expect(shownWeek(result)).toBe('2026-11-02');
+        expect(window.location.search).toBe('?week=2026-11-02');
+    });
 });

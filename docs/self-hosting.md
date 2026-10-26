@@ -71,6 +71,12 @@ On start, the container creates the storage layout and the SQLite file if they a
 caches the configuration, routes and views. Then FrankenPHP serves the app on port 8080 as the unprivileged user
 `plainweek` (uid 1000). `/up` is the health check (the image's `HEALTHCHECK` uses it).
 
+Background work runs in the same container, with nothing to configure: next to the server the entrypoint starts the
+Laravel scheduler (`php artisan schedule:work`) and one queue worker (`php artisan queue:work`; the queue is a table in
+the SQLite database). Each is restarted if it exits; the worker also restarts every hour to release memory. Their output
+goes to the container logs. `tini` runs as PID 1, so their child processes are reaped and `docker stop` ends all three
+together. Together they add about 60 MB of memory.
+
 ### Plain Docker
 
 ```sh
@@ -195,9 +201,11 @@ Plain Week is a regular Laravel app: see [stack.md](./stack.md#self-hosting-with
 
 - [`Dockerfile`](../Dockerfile): a build stage (FrankenPHP's PHP plus Composer and bun) installs the PHP
   dependencies without dev packages and runs `bun run build` (the Wayfinder Vite plugin needs PHP); the runtime stage
-  is `dunglas/frankenphp` with the PHP version CI uses, the `intl` extension and the built app.
+  is `dunglas/frankenphp` with the PHP version CI uses, the `intl`, `bcmath` and `pcntl` extensions, `tini` as PID 1
+  and the built app.
 - [`docker/`](../docker): the Caddyfile (port 8080, no TLS, cache headers for `sw.js` and hashed assets, `X-Robots-Tag`
-  on static files when `APP_NOINDEX` is on), the PHP ini and the entrypoint.
+  on static files when `APP_NOINDEX` is on), the PHP ini and the entrypoint (storage layout, migrations, then the
+  server with the scheduler and the queue worker beside it).
 - Build and run it locally:
 
     ```sh

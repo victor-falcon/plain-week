@@ -33,6 +33,7 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
  * @property string|null $stripe_id
  * @property Carbon|null $lifetime_purchased_at
  * @property string|null $lifetime_payment_id
+ * @property string|null $timezone
  */
 #[Fillable(['name', 'email', 'password'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token', 'stripe_id', 'pm_type', 'pm_last_four', 'lifetime_payment_id'])]
@@ -99,5 +100,15 @@ class User extends Authenticatable implements MustVerifyEmail, PasskeyUser
     public function hasLifetime(): bool
     {
         return $this->lifetime_purchased_at !== null;
+    }
+
+    /**
+     * The user's IANA time zone, as their browser last reported it on sync,
+     * or the app's when it never did. Use it for anything scheduled in the
+     * user's local time.
+     */
+    public function timezoneOrDefault(): string
+    {
+        return $this->timezone ?? config()->string('app.timezone');
     }
 }

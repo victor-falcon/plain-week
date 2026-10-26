@@ -12,8 +12,10 @@ import { WeekGrid } from '@/components/planner/week-grid';
 import { SyncProvider } from '@/components/sync-provider';
 import { useCarryOver } from '@/hooks/use-carry-over';
 import { useGuestOnboarding } from '@/hooks/use-guest-onboarding';
+import { clearTaskParam, useTaskLink } from '@/hooks/use-task-link';
 import { useToday } from '@/hooks/use-today';
 import { useWeekNavigation } from '@/hooks/use-week-navigation';
+import { parseDateKey } from '@/lib/db/dates';
 import { edit as settings } from '@/routes/profile';
 
 /**
@@ -27,13 +29,33 @@ export default function PlannerLayout({ children }: { children: ReactNode }) {
     const today = useToday();
     const navigation = useWeekNavigation(today);
     const [openTaskId, setOpenTaskId] = useState<string | null>(null);
-    const closeTask = useCallback(() => setOpenTaskId(null), []);
+    const closeTask = useCallback(() => {
+        setOpenTaskId(null);
+        clearTaskParam();
+    }, []);
 
     const signedIn = Boolean(usePage().props.auth.user);
     const openSettings = useCallback(() => router.visit(settings()), []);
 
     useGuestOnboarding(today, navigation.isCurrentWeek);
     useCarryOver(today);
+    // `/?task=<id>` (notifications, calendar events): show the task's week
+    // (Someday: the current one) and open it, unless a task is already open.
+    useTaskLink((task) => {
+        if (openTaskId !== null) {
+            clearTaskParam();
+
+            return;
+        }
+
+        if (task.date === null) {
+            navigation.goToToday();
+        } else {
+            navigation.goToWeekOf(parseDateKey(task.date));
+        }
+
+        setOpenTaskId(task.id);
+    });
 
     return (
         <SyncProvider>
