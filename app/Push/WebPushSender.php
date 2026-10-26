@@ -21,7 +21,7 @@ final class WebPushSender implements PushSender
     public function send(array $deliveries): PushReport
     {
         if ($deliveries === []) {
-            return new PushReport;
+            return new PushReport([], []);
         }
 
         $factory = new HttpFactory;
@@ -51,26 +51,26 @@ final class WebPushSender implements PushSender
             );
         }
 
-        $delivered = [];
-        $expired = [];
+        // `flush()` sends one request per queued notification, in the order they were queued.
+        $results = [];
 
-        foreach ($webPush->flush() as $report) {
-            $endpoint = $report->getEndpoint();
+        foreach ($webPush->flush() as $index => $report) {
+            $results[$index] = match (true) {
+                $report->isSuccess() => PushResult::Delivered,
+                $report->isSubscriptionExpired() => PushResult::Expired,
+                default => PushResult::Failed,
+            };
 
-            if ($report->isSuccess()) {
-                $delivered[$endpoint] = true;
-            } elseif ($report->isSubscriptionExpired()) {
-                $expired[$endpoint] = true;
-            } else {
+            if ($results[$index] === PushResult::Failed) {
                 Log::warning('Web Push delivery failed.', [
-                    'host' => parse_url($endpoint, PHP_URL_HOST),
+                    'host' => parse_url($report->getEndpoint(), PHP_URL_HOST),
                     'status' => $report->getResponse()?->getStatusCode(),
                     'reason' => $report->getReason(),
                 ]);
             }
         }
 
-        return new PushReport(array_keys($delivered), array_keys($expired));
+        return new PushReport($deliveries, $results);
     }
 
     /**

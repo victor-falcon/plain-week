@@ -3,16 +3,55 @@
 namespace App\Push;
 
 /**
- * What the push services answered, by subscription endpoint. A failure that is neither is transient and only logged.
+ * The outcome of a {@see PushSender::send()}: one result per delivery, under the delivery's index.
  */
 final readonly class PushReport
 {
     /**
-     * @param  list<string>  $delivered  Endpoints that accepted at least one message.
-     * @param  list<string>  $expired  Endpoints that are gone (`404`/`410`): the browser unsubscribed.
+     * @param  list<PushDelivery>  $deliveries
+     * @param  array<int, PushResult>  $results
      */
     public function __construct(
-        public array $delivered = [],
-        public array $expired = [],
+        public array $deliveries,
+        public array $results,
     ) {}
+
+    public function resultOf(int $index): PushResult
+    {
+        return $this->results[$index] ?? PushResult::Failed;
+    }
+
+    /**
+     * The endpoints with at least one delivery that got this result.
+     *
+     * @return list<string>
+     */
+    public function endpoints(PushResult $result): array
+    {
+        $endpoints = [];
+
+        foreach ($this->deliveries as $index => $delivery) {
+            if ($this->resultOf($index) === $result) {
+                $endpoints[$delivery->subscription->endpoint] = true;
+            }
+        }
+
+        return array_keys($endpoints);
+    }
+
+    /**
+     * Whether a message failed everywhere for a reason worth retrying: nothing delivered it and something may later.
+     */
+    public function shouldRetry(PushMessage $message): bool
+    {
+        $results = [];
+
+        foreach ($this->deliveries as $index => $delivery) {
+            if ($delivery->message === $message) {
+                $results[] = $this->resultOf($index);
+            }
+        }
+
+        return ! in_array(PushResult::Delivered, $results, true) && in_array(PushResult::Failed, $results, true);
+    }
 }

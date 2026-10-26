@@ -189,11 +189,17 @@ describe('subscriptions', function () {
         expect(PushSubscription::count())->toBe(1);
     });
 
-    test('an account without a plan in SaaS mode cannot subscribe', function () {
+    test('an account without a plan in SaaS mode cannot subscribe, but can unsubscribe', function () {
+        $this->actingAs($this->user)->postJson(route('notifications.subscriptions.store'), browserSubscription())->assertNoContent();
         config(['saas.enabled' => true]);
 
         $this->actingAs($this->user)
             ->postJson(route('notifications.subscriptions.store'), browserSubscription())
             ->assertStatus(402);
+        $this->actingAs($this->user)
+            ->deleteJson(route('notifications.subscriptions.destroy'), ['endpoint' => 'https://fcm.googleapis.com/fcm/send/abc123'])
+            ->assertNoContent();
+
+        expect(PushSubscription::count())->toBe(0);
     });
 });

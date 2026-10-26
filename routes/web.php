@@ -17,11 +17,14 @@ Route::middleware(['auth', EnsureHasAccess::class, RememberTimezone::class])->pr
 });
 
 // This browser's Web Push subscription (see Settings › Notifications). Only when the instance has VAPID keys.
-Route::middleware(['auth', EnsureWebPushConfigured::class, EnsureHasAccess::class, RememberTimezone::class])
+// Subscribing is a paid feature in SaaS mode; unsubscribing stays reachable after a plan lapses.
+Route::middleware(['auth', EnsureWebPushConfigured::class, RememberTimezone::class])
     ->prefix('notifications/subscriptions')
     ->name('notifications.subscriptions.')
     ->group(function () {
-        Route::post('/', [PushSubscriptionController::class, 'store'])->middleware('throttle:30,1')->name('store');
+        Route::post('/', [PushSubscriptionController::class, 'store'])
+            ->middleware([EnsureHasAccess::class, 'throttle:30,1'])
+            ->name('store');
         Route::delete('/', [PushSubscriptionController::class, 'destroy'])->name('destroy');
     });
 

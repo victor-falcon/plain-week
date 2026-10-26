@@ -21,5 +21,6 @@ Artisan::command('inspire', function () {
 Schedule::command('google-calendar:sync')->dailyAt('03:00');
 
 // Web Push: morning notifications and task reminders (does nothing unless VAPID keys are set).
-Schedule::command('notifications:send')->everyMinute()->withoutOverlapping();
+// The lock expires after 5 minutes, so a run killed mid-way does not stop the next ones for a day.
+Schedule::command('notifications:send')->everyMinute()->withoutOverlapping(5);
 Schedule::command('model:prune', ['--model' => [SentNotification::class]])->daily();

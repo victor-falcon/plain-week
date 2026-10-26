@@ -4,18 +4,23 @@ namespace Tests\Support;
 
 use App\Push\PushDelivery;
 use App\Push\PushReport;
+use App\Push\PushResult;
 use App\Push\PushSender;
+use RuntimeException;
 
 /**
- * Records what would be pushed. Every endpoint accepts its messages except those marked expired.
+ * Records what was pushed (accepted deliveries only). Every endpoint accepts its messages unless marked expired or
+ * failing.
  */
 final class FakePushSender implements PushSender
 {
-    /** @var list<PushDelivery> */
+    /** @var list<PushDelivery> Accepted deliveries. */
     public array $deliveries = [];
 
     /** @var list<string> */
     private array $expired = [];
+
+    private bool $unreachable = false;
 
     public static function install(): self
     {
@@ -25,6 +30,9 @@ final class FakePushSender implements PushSender
         return $fake;
     }
 
+    /** @var list<string> */
+    private array $failing = [];
+
     public function expire(string $endpoint): self
     {
         $this->expired[] = $endpoint;
@@ -32,15 +40,55 @@ final class FakePushSender implements PushSender
         return $this;
     }
 
+    /**
+     * Deliveries to the endpoint fail for a transient reason (5xx, 429) until `recover()`.
+     */
+    public function fail(string $endpoint): self
+    {
+        $this->failing[] = $endpoint;
+
+        return $this;
+    }
+
+    public function recover(): self
+    {
+        $this->failing = [];
+
+        return $this;
+    }
+
+    /**
+     * The next sends throw, like the push services being unreachable.
+     */
+    public function unreachable(bool $unreachable = true): self
+    {
+        $this->unreachable = $unreachable;
+
+        return $this;
+    }
+
     public function send(array $deliveries): PushReport
     {
-        array_push($this->deliveries, ...$deliveries);
-        $endpoints = array_values(array_unique(array_map(fn (PushDelivery $delivery) => $delivery->subscription->endpoint, $deliveries)));
+        if ($this->unreachable) {
+            throw new RuntimeException('Push service unreachable.');
+        }
 
-        return new PushReport(
-            delivered: array_values(array_diff($endpoints, $this->expired)),
-            expired: array_values(array_intersect($endpoints, $this->expired)),
-        );
+        $results = [];
+
+        foreach ($deliveries as $index => $delivery) {
+            $endpoint = $delivery->subscription->endpoint;
+            $results[$index] = match (true) {
+                in_array($endpoint, $this->expired, true) => PushResult::Expired,
+                in_array($endpoint, $this->failing, true) => PushResult::Failed,
+                default => PushResult::Delivered,
+            };
+
+            if ($results[$index] === PushResult::Delivered) {
+                $this->deliveries[] = $delivery;
+            }
+        }
+
+        return new PushReport($deliveries, $results);
     }
 
     /**

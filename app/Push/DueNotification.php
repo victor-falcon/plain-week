@@ -29,15 +29,20 @@ final readonly class DueNotification
             : $this->occurrence->id;
     }
 
+    /**
+     * Push services take about 4 KB of encrypted payload; a task text can be longer.
+     */
+    private const int MAX_TITLE_LENGTH = 120;
+
     public function message(): PushMessage
     {
         $time = $this->occurrence->time;
 
         return new PushMessage(
-            title: $this->occurrence->text,
+            title: mb_strimwidth($this->occurrence->text, 0, self::MAX_TITLE_LENGTH, '…'),
             body: match ($this->kind) {
                 NotificationKind::Morning => $time === null ? __('Today') : __('Today at :time', ['time' => $time]),
-                NotificationKind::Reminder => __('In 5 minutes · :time', ['time' => $time]),
+                NotificationKind::Reminder => __('In :minutes minutes · :time', ['minutes' => DueNotifications::REMINDER_LEAD_MINUTES, 'time' => $time]),
             },
             url: '/?task='.rawurlencode($this->occurrence->id),
             tag: "{$this->kind->value}:{$this->occurrence->id}:{$this->date}",

@@ -253,6 +253,52 @@ describe('delivery', function () {
         expect($this->sender->tags())->toBe(['morning:series:2026-10-27:2026-10-27']);
     });
 
+    test('a send that fails is retried by the next run', function () {
+        notifiedTask(['id' => 'task-1']);
+        $this->sender->unreachable();
+
+        expect(fn () => sendNotificationsAt('2026-10-27 08:00:00'))->toThrow(RuntimeException::class);
+        expect(SentNotification::count())->toBe(0);
+
+        $this->sender->unreachable(false);
+        sendNotificationsAt('2026-10-27 08:01:00');
+        expect($this->sender->tags())->toBe(['morning:task-1:2026-10-27']);
+    });
+
+    test('a notification no browser accepted is retried by the next run', function () {
+        notifiedTask(['id' => 'task-1']);
+        $this->sender->fail('https://push.example.com/1');
+
+        sendNotificationsAt('2026-10-27 08:00:00');
+        expect($this->sender->messages())->toBe([])
+            ->and(SentNotification::count())->toBe(0);
+
+        $this->sender->recover();
+        sendNotificationsAt('2026-10-27 08:01:00');
+        expect($this->sender->tags())->toBe(['morning:task-1:2026-10-27']);
+    });
+
+    test('a notification one browser accepted is not retried for the others', function () {
+        pushSubscription($this->user, 'https://push.example.com/2');
+        notifiedTask(['id' => 'task-1']);
+        $this->sender->fail('https://push.example.com/2');
+
+        sendNotificationsAt('2026-10-27 08:00:00');
+        $this->sender->recover();
+        sendNotificationsAt('2026-10-27 08:01:00');
+
+        expect($this->sender->deliveries)->toHaveCount(1);
+    });
+
+    test('a long task text is shortened to fit the push payload', function () {
+        notifiedTask(['text' => str_repeat('a', 5000)]);
+
+        sendNotificationsAt('2026-10-27 08:00:00');
+
+        expect(mb_strlen($this->sender->messages()[0]['title']))->toBe(120)
+            ->and($this->sender->messages()[0]['title'])->toEndWith('…');
+    });
+
     test('goes to every subscribed browser of the user', function () {
         pushSubscription($this->user, 'https://push.example.com/2');
         notifiedTask();
