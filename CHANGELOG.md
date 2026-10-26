@@ -17,7 +17,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   next 60 days. Edits, moves and deletes follow within seconds of syncing, in the background; changes go one way (Plain
   Week → Google). The page shows when it last synced and the last problem, if any, and asks you to reconnect if Google
   stops accepting the access. Disconnecting deletes that calendar and revokes the access. Self-hosted instances turn it
-  on with `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` (see docs/self-hosting.md); without them it stays hidden.
+  on with `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` (see docs/self-hosting.md); without them it stays hidden. It
+  needs the queue worker and scheduler, which the Docker image already runs.
 - **Push notifications.** Settings › Notifications turns them on per device: every morning (08:00 by default, at the
   time you choose there, in your time zone) one notification for each task planned that day that isn't done, and one 5
   minutes before a task with a time, recurring ones included. Opening one opens its task. Nothing is sent twice, and
