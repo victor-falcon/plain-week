@@ -92,7 +92,7 @@ Installed in `resources/js/components/ui/` and where they are used:
 | `kbd`                                                              | Shortcuts dialog keys and every key hint (`ShortcutHint`): rows, tooltips, menus       |
 | `radio-group`                                                      | Plan choice (`/plans`)                                                                 |
 | `accordion`                                                        | Landing card FAQ                                                                       |
-| `alert-dialog`                                                     | Scope prompt of recurring tasks (`scope-prompt.tsx`), import preview (Settings › Data) |
+| `alert-dialog`                                                     | Scope prompt (`scope-prompt.tsx`), import preview (Settings › Data), Google disconnect |
 | `progress`                                                         | Import progress (Settings › Data)                                                      |
 | `popover`                                                          | Task dialog date, time, repeat and color pickers                                       |
 | `calendar`                                                         | Task dialog date picker, repeat end date                                               |
@@ -107,7 +107,7 @@ Installed in `resources/js/components/ui/` and where they are used:
 | `direction`                                                        | `app.tsx` (RTL)                                                                        |
 | `alert`, `card`, `label`, `spinner`, `input-otp`, `separator`      | Auth cards and settings pages (from the Laravel starter kit)                           |
 | `sidebar` (+ `skeleton`), `sheet`, `navigation-menu`, `breadcrumb` | Starter kit app shell around the settings pages                                        |
-| `badge`                                                            | Launch discount on the plan choice, the landing card and Settings › Billing            |
+| `badge`                                                            | Launch discount (plan choice, landing card, Settings › Billing), "Needs reconnecting"  |
 | `switch`                                                           | Settings › Preferences ("Move unfinished tasks to today")                              |
 | `collapsible`                                                      | Installed, not used yet                                                                |
 
@@ -497,6 +497,26 @@ holds a row per preference: a `Label` with a short `text-muted-foreground` expla
 "Move unfinished tasks to today", on by default; it applies at once, with no save button. When it moves tasks the
 planner shows one plain toast ("Moved 3 unfinished tasks to today"). Behaviour is in
 [architecture.md](./architecture.md#carry-over-unfinished-tasks).
+
+## Settings › Integrations
+
+Optional connections to other services at `/settings/integrations` (`pages/settings/integrations.tsx`, between
+Preferences and Data in the settings nav). The nav entry and the page exist only when the instance offers an
+integration (shared prop `integrations`). Settings nav entries are a list in
+`layouts/settings/layout.tsx`; an entry with a `visible(props)` predicate is shown only when it returns true.
+
+One small `Heading` ("Integrations"), then a `Card` per integration. Google Calendar has three states:
+
+- **Not connected**: a short description and a filled "Connect" button (a plain link: the browser leaves for Google's
+  consent screen and comes back to this page with a toast).
+- **Connected**: "Connected to me@gmail.com…" and an outline "Disconnect" button. It opens an `AlertDialog`
+  ("Disconnect Google Calendar?", Cancel / a destructive Disconnect that shows a `Spinner` while it works); a toast
+  confirms, or a `toast.error` asks to retry when Google could not delete the calendar.
+- **Broken** (Google refused the tokens): a destructive `Badge` "Needs reconnecting" next to the title, a description
+  saying why, a filled "Reconnect" button and the outline "Disconnect" (its dialog says the calendar stays in Google).
+
+Errors from the OAuth round trip (expired sign-in, missing permission, Google down) come back as `toast.error`; a
+cancelled consent screen comes back silently.
 
 ## Planner accent
 

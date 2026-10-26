@@ -19,6 +19,11 @@ export type Saas = {
     enabled: boolean;
 };
 
+/** Integrations this instance offers; each needs its own credentials. */
+export type Integrations = {
+    googleCalendar: boolean;
+};
+
 export type Plan = 'weekly' | 'lifetime';
 
 /** The signed-in account's entitlement. `hasAccess` is always true when SaaS mode is off. */

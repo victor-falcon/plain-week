@@ -7,6 +7,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **Connect Google Calendar.** Settings › Integrations connects a Google account and creates a "Plain Week" calendar
+  in it, for the upcoming one-way sync of your tasks. Disconnecting deletes that calendar and revokes the access, and
+  the page asks you to reconnect if Google stops accepting it. Self-hosted instances turn it on with
+  `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` (see docs/self-hosting.md); without them it stays hidden.
+
 ## [0.3.1] - 2026-10-21
 
 ### Security
