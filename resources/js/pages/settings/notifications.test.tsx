@@ -83,8 +83,10 @@ describe('Settings › Notifications', () => {
         ).toBeTruthy();
 
         const form = document.querySelector('form');
-        expect(form?.dataset.action).toBe('/settings/notifications');
-        expect(form?.dataset.method).toBe('patch');
+        expect(form?.dataset.action).toBe(
+            '/settings/notifications?_method=PATCH',
+        );
+        expect(form?.dataset.method).toBe('post');
     });
 
     it('says when the time zone is not known yet', () => {

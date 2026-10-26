@@ -117,6 +117,19 @@ describe('enable', () => {
         expect((await deviceState()).enabled).toBe(true);
     });
 
+    it("sends the browser's time zone, like sync", async () => {
+        const fake = installFakePush();
+
+        await enable(VAPID_KEY);
+
+        const headers = new Headers(
+            (fake.fetch.mock.calls[0][1] as RequestInit).headers,
+        );
+        expect(headers.get('X-Timezone')).toBe(
+            Intl.DateTimeFormat().resolvedOptions().timeZone,
+        );
+    });
+
     it('does nothing when the permission is refused', async () => {
         const fake = installFakePush();
         fake.promptAnswer = 'denied';
@@ -258,6 +271,20 @@ describe('refreshSubscription', () => {
         fake.offline = true;
 
         await expect(refreshSubscription(VAPID_KEY)).resolves.toBe(false);
+
+        fake.offline = false;
+        fake.status = 503;
+        await expect(refreshSubscription(VAPID_KEY)).resolves.toBe(false);
+    });
+
+    it('does not retry a refusal', async () => {
+        const fake = installFakePush({
+            permission: 'granted',
+            subscribed: true,
+        });
+        fake.status = 402;
+
+        await expect(refreshSubscription(VAPID_KEY)).resolves.toBe(true);
     });
 });
 

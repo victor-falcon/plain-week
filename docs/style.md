@@ -509,11 +509,11 @@ plus one 5 minutes before a timed task; opening one opens its task), then:
   for "Notifications on this device". Turning it on asks for the browser permission; a `Spinner` sits next to the
   switch while it works and a toast confirms ("Notifications are on for this device."); a dismissed permission prompt
   gets a `toast.info`, a failure a `toast.error` (offline, or "reload and try again"). The hint under the label says
-  signing out turns them off on this device. When the device can't have notifications the switch is disabled and an `Alert` (with a lucide
-  icon) explains why: blocked by the browser (how to allow them again), not available in this browser, or, on
+  signing out turns them off on this device. When the device can't have notifications the switch is disabled and an
+  `Alert` (with a lucide icon) explains why: blocked by the browser (how to allow them again), not available in this browser, or, on
   iPhone/iPad in Safari, "Add Plain Week to your Home Screen" (iOS 16.4+).
 - **Morning notifications**: the account's time, a native `Input type="time"` (`w-32 tabular-nums`, like the task
-  time picker) in an Inertia `Form` with a Save button ("Saved" next to it after saving), and the time zone in use
+  time picker) in an Inertia `Form` with a Save button (the server's flash toast confirms), and the time zone in use
   below it.
 
 ## Settings › Integrations

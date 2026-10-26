@@ -387,15 +387,15 @@ action.
   made with another key (the server's keys changed) is replaced. Requests go through the sync transport's `send`
   (session cookie, XSRF header, 20 s timeout).
 - **`disable()`** unsubscribes in the browser first (so it works offline), then `DELETE`s the endpoint, best effort.
-- **Session** (`lib/notifications/session.ts`, from `app.tsx`, on every Inertia `navigate` and `success`, first page included; in the
-  background): signed in on an instance with Web Push, it re-`POST`s an existing subscription once per user and page
-  load (push services rotate endpoints; the server upserts by endpoint), resubscribing if the keys changed, and again
-  on the next page if the server could not be reached. Signed out (a logout here or in another tab, an expired
+- **Session** (`lib/notifications/session.ts`, from `app.tsx`, on every Inertia `navigate` and `success`, first page
+  included; in the background): signed in on an instance with Web Push, it re-`POST`s an existing subscription once
+  per user and page load (push services rotate endpoints; the server upserts by endpoint), resubscribing if the keys
+  changed, and again on the next page if the server could not be reached (offline, `5xx`; a `4xx` is final). Signed out (a logout here or in another tab, an expired
   session), it drops the browser subscription without a request, so whoever signs in next on this device never
   inherits it; the push service then reports the endpoint gone and the server forgets it. Signing back in leaves
   notifications off on this device until they are turned on again.
-- The URLs come from `lib/notifications/routes.ts`, shaped like Wayfinder's helpers, until the server routes exist on
-  every branch.
+- Requests use the Wayfinder helpers (`@/routes/notifications/subscriptions`) and also send `X-Timezone`, like sync,
+  so the server knows the time zone before the first notification is due.
 
 ### Guest onboarding: demo tasks
 

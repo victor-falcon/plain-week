@@ -12,7 +12,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { Switch } from '@/components/ui/switch';
 import { deviceState, disable, enable } from '@/lib/notifications/device';
 import type { DeviceState } from '@/lib/notifications/device';
-import { edit, update } from '@/lib/notifications/routes';
+import { edit, update } from '@/routes/notifications';
 
 type Props = {
     /** 'HH:mm' in the user's time zone. */
@@ -176,7 +176,7 @@ function MorningTimeForm({ morningTime, timezone }: Props) {
             options={{ preserveScroll: true }}
             className="space-y-4"
         >
-            {({ processing, recentlySuccessful, errors }) => (
+            {({ processing, errors }) => (
                 <>
                     <div className="grid gap-2">
                         <Label htmlFor="morning-time">
@@ -200,19 +200,12 @@ function MorningTimeForm({ morningTime, timezone }: Props) {
                         <InputError message={errors.morning_time} />
                     </div>
 
-                    <div className="flex items-center gap-4">
-                        <Button
-                            disabled={processing}
-                            data-test="notifications-save"
-                        >
-                            Save
-                        </Button>
-                        {recentlySuccessful && (
-                            <p className="text-sm text-muted-foreground">
-                                Saved
-                            </p>
-                        )}
-                    </div>
+                    <Button
+                        disabled={processing}
+                        data-test="notifications-save"
+                    >
+                        Save
+                    </Button>
                 </>
             )}
         </Form>

@@ -1,5 +1,8 @@
-import { subscriptions } from '@/lib/notifications/routes';
-import { send } from '@/lib/sync/transport';
+import { SyncHttpError, send, timeZoneHeader } from '@/lib/sync/transport';
+import {
+    destroy,
+    store as storeRoute,
+} from '@/routes/notifications/subscriptions';
 
 /**
  * Web Push on this device (docs/architecture.md, "Notifications (client)"). The
@@ -157,14 +160,17 @@ function sendJson(
 ): Promise<Response> {
     return send(route.url, {
         method: route.method.toUpperCase(),
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...timeZoneHeader() },
         body: JSON.stringify(body),
     });
 }
 
-/** Upserts the subscription on the server (endpoints rotate). */
+/**
+ * Upserts the subscription on the server (endpoints rotate). Sends the time
+ * zone too, like sync, so the first morning notification is on time.
+ */
 async function store(subscription: PushSubscription): Promise<void> {
-    await sendJson(subscriptions.store(), {
+    await sendJson(storeRoute(), {
         ...subscription.toJSON(),
         content_encoding: contentEncoding(),
     });
@@ -237,7 +243,7 @@ export async function disable(): Promise<void> {
     await subscription.unsubscribe();
 
     try {
-        await sendJson(subscriptions.destroy(), { endpoint });
+        await sendJson(destroy(), { endpoint });
     } catch {
         // Offline or the server is down: the dead endpoint is pruned later.
     }
@@ -247,7 +253,8 @@ export async function disable(): Promise<void> {
  * Re-sends this device's subscription when the app starts (cheap upsert:
  * push services rotate endpoints, and the server's keys may have changed).
  * Background work: never throws, never awaited by the UI. Resolves false
- * when it could not reach the server, so the caller can try again.
+ * when it could not reach the server (offline, `5xx`), so the caller can try
+ * again; a refusal (`4xx`, e.g. no plan in SaaS mode) is final.
  */
 export async function refreshSubscription(
     vapidPublicKey: string,
@@ -266,8 +273,8 @@ export async function refreshSubscription(
         await store((await subscribe(worker, vapidPublicKey)).subscription);
 
         return true;
-    } catch {
-        return false;
+    } catch (error) {
+        return error instanceof SyncHttpError && error.status < 500;
     }
 }
 
