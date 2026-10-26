@@ -1,10 +1,12 @@
 <?php
 
 use App\Http\Controllers\Settings\GoogleCalendarController;
+use App\Http\Controllers\Settings\NotificationsController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\SecurityController;
 use App\Http\Middleware\EnsureGoogleCalendarConfigured;
 use App\Http\Middleware\EnsureHasAccess;
+use App\Http\Middleware\EnsureWebPushConfigured;
 use Illuminate\Auth\Middleware\RequirePassword;
 use Illuminate\Support\Facades\Route;
 
@@ -30,6 +32,13 @@ Route::middleware(['auth'])->group(function () {
 
     // Export and import run in the browser against IndexedDB; the server only serves the page.
     Route::inertia('settings/data', 'settings/data')->name('data.edit');
+
+    // Push notifications: only when the instance has VAPID keys. Whether this browser is subscribed lives in the
+    // browser (routes/web.php has the subscription endpoints).
+    Route::middleware([EnsureWebPushConfigured::class, EnsureHasAccess::class])->group(function () {
+        Route::get('settings/notifications', [NotificationsController::class, 'edit'])->name('notifications.edit');
+        Route::patch('settings/notifications', [NotificationsController::class, 'update'])->name('notifications.update');
+    });
 
     // Google Calendar sync: only when the instance has Google OAuth credentials. Connecting is a paid feature in
     // SaaS mode; the page and disconnecting stay reachable, so a lapsed plan can still remove the calendar.

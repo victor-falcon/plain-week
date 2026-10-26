@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\SentNotification;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -18,3 +19,8 @@ Artisan::command('inspire', function () {
 
 // Moves the rolling window of recurring occurrences forward and catches up anything a push-triggered run missed.
 Schedule::command('google-calendar:sync')->dailyAt('03:00');
+
+// Web Push: morning notifications and task reminders (does nothing unless VAPID keys are set).
+// The lock expires after 5 minutes, so a run killed mid-way does not stop the next ones for a day.
+Schedule::command('notifications:send')->everyMinute()->withoutOverlapping(5);
+Schedule::command('model:prune', ['--model' => [SentNotification::class]])->daily();

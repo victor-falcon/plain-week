@@ -1,7 +1,9 @@
 <?php
 
+use App\Http\Controllers\PushSubscriptionController;
 use App\Http\Controllers\SyncController;
 use App\Http\Middleware\EnsureHasAccess;
+use App\Http\Middleware\EnsureWebPushConfigured;
 use App\Http\Middleware\RememberTimezone;
 use Illuminate\Support\Facades\Route;
 
@@ -13,6 +15,18 @@ Route::middleware(['auth', EnsureHasAccess::class, RememberTimezone::class])->pr
     Route::post('push', [SyncController::class, 'push'])->name('push');
     Route::get('pull', [SyncController::class, 'pull'])->name('pull');
 });
+
+// This browser's Web Push subscription (see Settings › Notifications). Only when the instance has VAPID keys.
+// Subscribing is a paid feature in SaaS mode; unsubscribing stays reachable after a plan lapses.
+Route::middleware(['auth', EnsureWebPushConfigured::class, RememberTimezone::class])
+    ->prefix('notifications/subscriptions')
+    ->name('notifications.subscriptions.')
+    ->group(function () {
+        Route::post('/', [PushSubscriptionController::class, 'store'])
+            ->middleware([EnsureHasAccess::class, 'throttle:30,1'])
+            ->name('store');
+        Route::delete('/', [PushSubscriptionController::class, 'destroy'])->name('destroy');
+    });
 
 require __DIR__.'/settings.php';
 require __DIR__.'/billing.php';

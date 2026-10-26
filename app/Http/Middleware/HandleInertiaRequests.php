@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Integrations\GoogleCalendar\GoogleOAuth;
 use App\Models\User;
+use App\Push\PushConfig;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -38,6 +39,7 @@ class HandleInertiaRequests extends Middleware
     public function share(Request $request): array
     {
         $user = $request->user();
+        $pushEnabled = PushConfig::enabled();
 
         return [
             ...parent::share($request),
@@ -51,6 +53,11 @@ class HandleInertiaRequests extends Middleware
             // Integrations this instance offers (each needs its own credentials).
             'integrations' => [
                 'googleCalendar' => GoogleOAuth::configured(),
+            ],
+            // Web Push: the settings page and the subscribe flow exist only with VAPID keys.
+            'notifications' => [
+                'enabled' => $pushEnabled,
+                'vapidPublicKey' => $pushEnabled ? PushConfig::publicKey() : null,
             ],
             // Lazy: computed per request only for signed-in users (it may query the subscription).
             'account' => fn () => $user instanceof User ? [
