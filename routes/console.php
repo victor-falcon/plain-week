@@ -2,6 +2,7 @@
 
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Schedule;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
@@ -14,3 +15,6 @@ Artisan::command('inspire', function () {
  * and a slow callback would hold back the tasks after it. Keep jobs short and safe to run twice: a stop can cut one
  * short, and it is retried.
  */
+
+// Moves the rolling window of recurring occurrences forward and catches up anything a push-triggered run missed.
+Schedule::command('google-calendar:sync')->dailyAt('03:00');

@@ -3,12 +3,14 @@
 use App\Integrations\GoogleCalendar\GoogleCalendarClient;
 use App\Integrations\GoogleCalendar\GoogleCalendarDisconnected;
 use App\Integrations\GoogleCalendar\GoogleOAuth;
+use App\Jobs\SyncGoogleCalendar;
 use App\Models\GoogleCalendarConnection;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Queue;
 use Inertia\Testing\AssertableInertia as Assert;
 
 uses(RefreshDatabase::class);
@@ -237,6 +239,38 @@ test('a reconnect creates a new calendar when the old one is gone', function () 
     $this->get(route('integrations.google.callback', ['state' => startGoogleConnect($user), 'code' => 'auth-code']));
 
     expect($user->googleCalendarConnection()->sole()->calendar_id)->toBe('cal-2');
+});
+
+test('a reconnect to a new calendar forgets the events sent to the old one and syncs again', function () {
+    Queue::fake();
+    Http::fake([
+        'oauth2.googleapis.com/token' => Http::response(googleTokenResponse()),
+        'www.googleapis.com/calendar/v3/calendars/*' => Http::response(['error' => ['code' => 404]], 404),
+        'www.googleapis.com/calendar/v3/calendars' => Http::response(['id' => 'cal-2']),
+    ]);
+    $user = User::factory()->create();
+    googleConnection($user, ['disconnected_reason' => 'invalid_grant'])
+        ->events()->create(['key' => 'task-1', 'google_event_id' => 'event-1', 'date' => '2026-10-27', 'payload_hash' => 'hash']);
+
+    $this->get(route('integrations.google.callback', ['state' => startGoogleConnect($user), 'code' => 'auth-code']));
+
+    expect($user->googleCalendarConnection()->sole()->events()->count())->toBe(0);
+    Queue::assertPushed(SyncGoogleCalendar::class, fn (SyncGoogleCalendar $job) => $job->userId === $user->id);
+});
+
+test('a reconnect that keeps the calendar keeps its events', function () {
+    Queue::fake();
+    Http::fake([
+        'oauth2.googleapis.com/token' => Http::response(googleTokenResponse()),
+        'www.googleapis.com/calendar/v3/calendars/*' => Http::response(['id' => 'cal-1@group.calendar.google.com']),
+    ]);
+    $user = User::factory()->create();
+    googleConnection($user, ['disconnected_reason' => 'invalid_grant'])
+        ->events()->create(['key' => 'task-1', 'google_event_id' => 'event-1', 'date' => '2026-10-27', 'payload_hash' => 'hash']);
+
+    $this->get(route('integrations.google.callback', ['state' => startGoogleConnect($user), 'code' => 'auth-code']));
+
+    expect($user->googleCalendarConnection()->sole()->events()->count())->toBe(1);
 });
 
 test('a rate-limited reconnect does not create a second calendar', function () {

@@ -2,6 +2,7 @@
 
 namespace App\Integrations\GoogleCalendar;
 
+use App\Jobs\SyncGoogleCalendar;
 use App\Models\GoogleCalendarConnection;
 use App\Models\User;
 use Illuminate\Http\Client\ConnectionException;
@@ -13,6 +14,7 @@ use Throwable;
  * its "Plain Week" calendar: a reconnect to the same Google account keeps the
  * calendar it already had when it still exists, otherwise a new one is
  * created. Switching to another Google account first cleans up the old one.
+ * Then the user's tasks are synced to it in the background.
  */
 class ConnectGoogleCalendar
 {
@@ -61,6 +63,13 @@ class ConnectGoogleCalendar
             ? $previousCalendarId
             : $this->client->createCalendar($connection, self::CALENDAR_NAME, $user->timezoneOrDefault());
         $connection->save();
+
+        // The events Plain Week sent went to the old calendar.
+        if ($connection->calendar_id !== $previousCalendarId) {
+            $connection->events()->delete();
+        }
+
+        SyncGoogleCalendar::dispatchFor($user);
 
         return $connection;
     }

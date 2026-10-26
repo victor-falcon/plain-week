@@ -4,8 +4,11 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
 /**
@@ -19,12 +22,13 @@ use Illuminate\Support\Carbon;
  * @property Carbon $token_expires_at
  * @property string|null $calendar_id
  * @property Carbon $connected_at
+ * @property Carbon|null $last_synced_at
  * @property string|null $last_error
  * @property string|null $disconnected_reason
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-#[Fillable(['google_email', 'access_token', 'refresh_token', 'token_expires_at', 'calendar_id', 'connected_at', 'last_error', 'disconnected_reason'])]
+#[Fillable(['google_email', 'access_token', 'refresh_token', 'token_expires_at', 'calendar_id', 'connected_at', 'last_synced_at', 'last_error', 'disconnected_reason'])]
 #[Hidden(['access_token', 'refresh_token'])]
 class GoogleCalendarConnection extends Model
 {
@@ -40,6 +44,7 @@ class GoogleCalendarConnection extends Model
             'refresh_token' => 'encrypted',
             'token_expires_at' => 'datetime',
             'connected_at' => 'datetime',
+            'last_synced_at' => 'datetime',
         ];
     }
 
@@ -49,6 +54,32 @@ class GoogleCalendarConnection extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * The events Plain Week keeps in the connection's calendar.
+     *
+     * @return HasMany<GoogleCalendarEvent, $this>
+     */
+    public function events(): HasMany
+    {
+        return $this->hasMany(GoogleCalendarEvent::class);
+    }
+
+    /**
+     * Connections whose calendar Plain Week can keep up to date: working, with a calendar.
+     *
+     * @param  Builder<self>  $query
+     */
+    #[Scope]
+    protected function syncable(Builder $query): void
+    {
+        $query->whereNull('disconnected_reason')->whereNotNull('calendar_id');
+    }
+
+    public function isSyncable(): bool
+    {
+        return ! $this->isBroken() && $this->calendar_id !== null;
     }
 
     /**

@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Jobs\SyncGoogleCalendar;
 use App\Models\User;
 use Closure;
 use DateTimeZone;
@@ -29,6 +30,9 @@ class RememberTimezone
 
         if ($user instanceof User && is_string($timezone) && $timezone !== $user->timezone && self::isKnown($timezone)) {
             $user->forceFill(['timezone' => $timezone])->save();
+
+            // Timed calendar events are placed in the user's time zone.
+            SyncGoogleCalendar::dispatchFor($user, SyncGoogleCalendar::DEBOUNCE_SECONDS);
         }
 
         return $next($request);

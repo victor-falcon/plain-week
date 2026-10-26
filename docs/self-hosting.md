@@ -152,6 +152,11 @@ Users then connect from **Settings › Integrations**. Plain Week asks only for 
 the account email), so it can see and change the calendars it creates and nothing else. Tokens are stored encrypted
 with `APP_KEY`; disconnecting deletes the "Plain Week" calendar and revokes the access.
 
+The events are written in the background by the queue worker (a few seconds after a change syncs) and once a day by
+the scheduler (`google-calendar:sync`, at 03:00 in `APP_TIMEZONE`), which the Docker image already runs. Without Docker,
+run both as described in [Without Docker](#without-docker): without a worker nothing reaches Google.
+`php artisan google-calendar:sync [--user=<id>]` queues a full sync by hand.
+
 If connecting fails ("Google did not connect"), the container logs (`docker logs`) have Google's answer. The usual
 causes are a redirect URI that does not match `APP_URL` exactly, the Calendar API not enabled in the project, or a
 Google account that is not a test user while the consent screen is in Testing.

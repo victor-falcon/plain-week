@@ -9,13 +9,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- **Your tasks in Google Calendar.** Once connected, every dated task shows up as an event in the "Plain Week"
+  calendar: all day, or 15 minutes at its time in your time zone, with 🎯 in the title (✅ once done), your notes and a
+  link that opens the task. Recurring tasks get one event per occurrence for the next 60 days. Edits, moves and
+  deletes follow within seconds of syncing, in the background; changes go one way (Plain Week → Google). Settings ›
+  Integrations shows when it last synced and the last problem, if any. Self-hosted instances need the queue worker and
+  scheduler, which the Docker image already runs.
 - **Connect Google Calendar.** Settings › Integrations connects a Google account and creates a "Plain Week" calendar
-  in it, for the upcoming one-way sync of your tasks. Disconnecting deletes that calendar and revokes the access, and
-  the page asks you to reconnect if Google stops accepting it. Self-hosted instances turn it on with
-  `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` (see docs/self-hosting.md); without them it stays hidden.
+  in it. Disconnecting deletes that calendar and revokes the access, and the page asks you to reconnect if Google
+  stops accepting it. Self-hosted instances turn it on with `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` (see
+  docs/self-hosting.md); without them it stays hidden.
 - **Task links.** `/?task=<id>` opens the planner on that task's week with its dialog open, also for a task that only
   arrives with the first sync after the page loads (an unknown task is ignored). Closing the dialog drops `?task=` from
-  the address. Upcoming notifications and calendar events will link here.
+  the address. Calendar events link here, and upcoming notifications will too.
 - **Background work in the Docker image.** The container now runs the Laravel scheduler and a database queue worker
   next to the server, supervised and stopped together with it (`tini` is PID 1). No configuration needed; `composer dev`
   runs the scheduler too. Without Docker, add the scheduler to cron and run a queue worker (see docs/stack.md).

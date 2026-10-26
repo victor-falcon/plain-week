@@ -383,3 +383,20 @@ describe('forUser', function () {
         expect(occurrencesOn('2026-10-18', '2026-10-12'))->toBe([]);
     });
 });
+
+describe('rowsForUser', function () {
+    it('returns the dated rows without generating occurrences, losing duplicates left out', function () {
+        occurrenceSeries(WEEKLY_MWF);
+        $plain = Task::factory()->for($this->user)->create(['id' => 'plain', 'date' => '2026-10-14']);
+        Task::factory()->for($this->user)->someday()->create();
+        Task::factory()->for($this->user)->deleted()->create(['date' => '2026-10-14']);
+        occurrenceException('2026-10-16', ['id' => 'winner', 'date' => '2026-10-15', 'updated_at' => '2026-10-13T11:00:00.000Z']);
+        occurrenceException('2026-10-16', ['id' => 'loser', 'date' => '2026-10-17']);
+        occurrenceException('2026-10-19', ['id' => 'outside', 'date' => '2026-10-19']);
+
+        $items = app(TaskOccurrences::class)
+            ->rowsForUser($this->user, CarbonImmutable::parse('2026-10-12'), CarbonImmutable::parse('2026-10-18'));
+
+        expect($items->pluck('id')->all())->toBe([$plain->id, 'winner']);
+    });
+});
