@@ -678,31 +678,37 @@ Laravel provides:
 - The sync endpoints above.
 - The HTML shell and built assets. Planner data is never rendered from server props; pages read it from IndexedDB.
 - Optional integrations that work in the background, never on the path of a planner action (see
-  [Google Calendar](#google-calendar)).
+  [Google Calendar](#google-calendar) and [Push notifications](#push-notifications)).
 - Background work: the scheduler (tasks registered in `routes/console.php`) and a worker for the database queue. The
   Docker image runs both next to the server ([self-hosting.md](./self-hosting.md#configuration)), `composer dev` too.
   It never sits between the user and the planner.
 
 ### Routes and access
 
-| Route                                        | Name                           | Access                                                                               |
-| -------------------------------------------- | ------------------------------ | ------------------------------------------------------------------------------------ |
-| `GET /`                                      | `home`                         | Public. Renders the Inertia page `planner` for everyone.¹                            |
-| `POST /sync/push`                            | `sync.push`                    | `auth` (session + CSRF). `SyncController@push`.¹                                     |
-| `GET /sync/pull`                             | `sync.pull`                    | `auth` (session). `SyncController@pull`.¹                                            |
-| `/settings/*`                                |                                | `auth`.                                                                              |
-| `GET /settings/data`                         | `data.edit`                    | `auth`. Inertia page `settings/data` (export / import run client-side).              |
-| `GET /settings/preferences`                  | `preferences.edit`             | `auth`. Inertia page `settings/preferences` (values stored in the browser).          |
-| `GET /settings/integrations`                 | `integrations.edit`            | `auth`.² Inertia page `settings/integrations`.                                       |
-| `GET /settings/integrations/google/connect`  | `integrations.google.connect`  | `auth`.¹ ² Redirects to Google's consent screen (`throttle:10,1`).                   |
-| `GET /settings/integrations/google/callback` | `integrations.google.callback` | `auth`.¹ ² Google's OAuth redirect URI: stores the connection, creates the calendar. |
-| `DELETE /settings/integrations/google`       | `integrations.google.destroy`  | `auth`.² Deletes the calendar, revokes the grant, forgets the connection.            |
+| Route                                        | Name                                  | Access                                                                               |
+| -------------------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------ |
+| `GET /`                                      | `home`                                | Public. Renders the Inertia page `planner` for everyone.¹                            |
+| `POST /sync/push`                            | `sync.push`                           | `auth` (session + CSRF). `SyncController@push`.¹                                     |
+| `GET /sync/pull`                             | `sync.pull`                           | `auth` (session). `SyncController@pull`.¹                                            |
+| `/settings/*`                                |                                       | `auth`.                                                                              |
+| `GET /settings/data`                         | `data.edit`                           | `auth`. Inertia page `settings/data` (export / import run client-side).              |
+| `GET /settings/preferences`                  | `preferences.edit`                    | `auth`. Inertia page `settings/preferences` (values stored in the browser).          |
+| `GET /settings/integrations`                 | `integrations.edit`                   | `auth`.² Inertia page `settings/integrations`.                                       |
+| `GET /settings/integrations/google/connect`  | `integrations.google.connect`         | `auth`.¹ ² Redirects to Google's consent screen (`throttle:10,1`).                   |
+| `GET /settings/integrations/google/callback` | `integrations.google.callback`        | `auth`.¹ ² Google's OAuth redirect URI: stores the connection, creates the calendar. |
+| `DELETE /settings/integrations/google`       | `integrations.google.destroy`         | `auth`.² Deletes the calendar, revokes the grant, forgets the connection.            |
+| `GET /settings/notifications`                | `notifications.edit`                  | `auth`.¹ ³ Inertia page `settings/notifications` (`morningTime`, `timezone`).        |
+| `PATCH /settings/notifications`              | `notifications.update`                | `auth`.¹ ³ `{ morning_time: 'HH:mm' }`; redirects back.                              |
+| `POST /notifications/subscriptions`          | `notifications.subscriptions.store`   | `auth`.¹ ³ This browser's `PushSubscription.toJSON()`; `204`.                        |
+| `DELETE /notifications/subscriptions`        | `notifications.subscriptions.destroy` | `auth`.¹ ³ `{ endpoint }`; `204`.                                                    |
 
 ¹ Plus `EnsureHasAccess`: in SaaS mode a signed-in account without a paid plan is redirected to the paywall (pages) or
 gets `402` (sync). Billing and legal routes are listed in [saas.md](./saas.md).
 
 ² Plus `EnsureGoogleCalendarConfigured`: `404` unless `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are set. Only
 connecting needs a plan in SaaS mode, so an account whose plan lapsed can still see and remove its connection.
+
+³ Plus `EnsureWebPushConfigured`: `404` unless `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` and `VAPID_SUBJECT` are set.
 
 After login, registration and email verification Fortify redirects to `/` (`config/fortify.php` → `home`).
 
@@ -746,9 +752,10 @@ leading spaces in `text`) round-trip exactly.
 
 `users` (the Laravel table, plus):
 
-| Column     | Type                 | Notes                                                                                                     |
-| ---------- | -------------------- | --------------------------------------------------------------------------------------------------------- |
-| `timezone` | string(64), nullable | IANA name the browser last reported on sync (see [Sync endpoints](#sync-endpoints)); null until the first |
+| Column                      | Type                 | Notes                                                                                                     |
+| --------------------------- | -------------------- | --------------------------------------------------------------------------------------------------------- |
+| `timezone`                  | string(64), nullable | IANA name the browser last reported on sync (see [Sync endpoints](#sync-endpoints)); null until the first |
+| `notification_morning_time` | string(5)            | `HH:mm`, default `08:00`: when the morning notifications go out, in `timezone`                            |
 
 `sync_versions`: a single row (`id = 1`) holding the last version handed out, seeded by its migration.
 
@@ -776,6 +783,23 @@ leading spaces in `text`) round-trip exactly.
 | `google_event_id`               | string                                      | Chosen by Plain Week (32 hex characters) before the event is created             |
 | `date`                          | date                                        | The date the event is on                                                         |
 | `payload_hash`                  | string(64), nullable                        | SHA-256 of the event last sent; null until Google confirmed it                   |
+
+`push_subscriptions`: one per subscribed browser (see [Push notifications](#push-notifications)).
+
+| Column             | Type                  | Notes                                                                                      |
+| ------------------ | --------------------- | ------------------------------------------------------------------------------------------ |
+| `user_id`          | foreign key → `users` | Cascades on user delete                                                                    |
+| `endpoint`         | text                  | The push service URL                                                                       |
+| `endpoint_hash`    | char(64), unique      | SHA-256 of `endpoint`; a browser that subscribes again, under any account, updates its row |
+| `p256dh`, `auth`   | string                | The browser's keys (base64url)                                                             |
+| `content_encoding` | string(16)            | `aes128gcm` (default) or `aesgcm`                                                          |
+| `user_agent`       | text, nullable        | For telling devices apart                                                                  |
+| `last_used_at`     | datetime, nullable    | Last push the push service accepted                                                        |
+
+`sent_notifications`: one row per notification handed to the push services, unique on `(user_id, occurrence_key,
+kind, date)`, so no notification goes out twice. `occurrence_key` is `seriesId:occurrenceDate` for an occurrence of a
+series, else the task id; `kind` is `morning` or `reminder`; `date` is the local date it was for. Rows older than three
+days are pruned daily (`model:prune`).
 
 The `Task` model disables Eloquent timestamps (the client owns them). Timestamps go through the
 `App\Casts\UtcMillisDateTime` cast: they are stored as UTC with milliseconds and returned in the wire format
@@ -878,6 +902,37 @@ never reads it back: an event edited in Google is overwritten the next time its 
   `google-calendar:sync` (`App\Console\Commands\SyncGoogleCalendars`) daily at 03:00, which queues one for every
   working connection (`GoogleCalendarConnection::syncable()`) to move the occurrence window
   and catch up anything missed. Nothing of this sits on the sync request's path.
+
+### Push notifications
+
+Web Push to the user's subscribed browsers, sent by the scheduler. It exists only when the instance has a VAPID key
+pair and subject (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` in `config/services.php`, see
+[self-hosting.md](./self-hosting.md#notifications)); otherwise its routes are `404`, the sender does nothing and the
+shared Inertia prop `notifications` is `{ enabled: false, vapidPublicKey: null }` (with keys:
+`{ enabled: true, vapidPublicKey: '<base64url>' }`, what the client subscribes with). Code lives in `app/Push`.
+
+- **Subscriptions.** The browser posts `PushSubscription.toJSON()` (plus `content_encoding`) to
+  `notifications.subscriptions.store` and deletes it by `endpoint`. Rows are keyed by endpoint, so a re-subscribe
+  replaces the keys and a browser that signs in to another account moves to it. The request also stores the
+  `X-Timezone` header like sync does. Whether _this_ browser is subscribed is only known to the browser.
+- **What is due** (`DueNotifications`), in the user's time zone (`User::timezoneOrDefault()`), from
+  [`TaskOccurrences`](#occurrences-on-the-server) minus done items:
+    - _Morning_: at `notification_morning_time`, one notification per pending occurrence of that day (Someday never).
+    - _Reminder_: five minutes before every pending timed occurrence. That may be the previous evening: a task at 00:03
+      is reminded at 23:58 the day before, with the task's own date in its tag.
+    - A moment is due while it lies in the last 10 minutes, so a late or skipped run catches up, but nothing is sent
+      after longer downtime; a reminder is dropped once its task has started. A wall time a DST jump skips is sent when
+      the clock reaches it (02:30 → 03:30); a repeated one counts once.
+- **Sending** (`notifications:send`, every minute, `withoutOverlapping`): it queues one `SendPushNotifications` job
+  per user with at least one subscription (unique per user while queued, so a stopped worker does not pile them up).
+  The job skips accounts without access in SaaS mode, claims each due notification in `sent_notifications` (only the
+  run that inserts the row sends it) and hands everything to `PushSender` (`WebPushSender` on `minishlink/web-push`:
+  aes128gcm encryption, VAPID, one batched flush, TTL one hour). Subscriptions answered `404`/`410` are deleted,
+  accepted ones get `last_used_at`; other failures are logged.
+- **Payload** (what `resources/js/sw.ts` receives): `{ "title", "body", "url", "tag" }`. `title` is the task text;
+  `body` is `Today`, `Today at HH:mm` (morning) or `In 5 minutes · HH:mm` (reminder); `url` is
+  `/?task=<occurrence id>` (see [Planner UI](#planner-ui)); `tag` is `<kind>:<occurrence id>:<date>`, so a resent
+  notification replaces the shown one.
 
 ### Versioning
 

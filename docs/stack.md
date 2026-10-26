@@ -80,6 +80,15 @@ Settings › Integrations is hidden and its routes are `404`. To turn it on, cre
 host so the session survives the round trip), add your Google account as a test user, put both values in `.env` (never
 commit them) and run `php artisan config:clear`. Tests never call Google: they use `Http::fake()`.
 
+Push notifications are off by default too: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` and `VAPID_SUBJECT` are empty in
+`.env.example`, so Settings › Notifications is hidden and its routes are `404`. To turn them on, generate a key pair
+(`bunx web-push generate-vapid-keys`, or
+`php artisan tinker --execute 'dump(Minishlink\WebPush\VAPID::createVapidKeys())'`), put both keys in `.env` with
+`VAPID_SUBJECT=mailto:you@example.com` and run `php artisan config:clear`. `composer run dev` runs the scheduler and the
+queue worker that send them; `php artisan notifications:send` queues the due ones right now. Browsers allow push on
+`http://localhost`, and only from a production build (the service worker). Tests never call a push service: they bind
+`Tests\Support\FakePushSender` in place of `App\Push\PushSender`.
+
 ## Testing
 
 | Layer        | Tool                                        | Where                                         | Run               |
@@ -125,6 +134,7 @@ keeps the GitHub Actions up to date (`.github/dependabot.yml`).
 ```
 app/                      Laravel application code (controllers, models, actions, middleware)
   Integrations/           Optional server-side integrations with other services (Google Calendar)
+  Push/                   Web Push notifications: what is due when, and sending it (minishlink/web-push)
 bootstrap/                Framework bootstrap
 config/                   Configuration
 deploy/                   Coolify service template and a docker-compose.yml example (docs/self-hosting.md)

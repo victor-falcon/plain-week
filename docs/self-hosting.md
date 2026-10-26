@@ -61,6 +61,9 @@ echo "base64:$(openssl rand -base64 32)"
 | `SAAS_ENABLED`          | `false`                                 | Leave it `false`. `true` turns the instance into the paid hosted service (accounts need a Stripe plan to sync); see [saas.md](./saas.md) for it and its `STRIPE_*` and `SAAS_*` variables                                                                                   |
 | `GOOGLE_CLIENT_ID`      | (empty)                                 | OAuth client id for the optional Google Calendar sync; see [Google Calendar](#google-calendar). Empty hides the integration                                                                                                                                                 |
 | `GOOGLE_CLIENT_SECRET`  | (empty)                                 | OAuth client secret that goes with `GOOGLE_CLIENT_ID`                                                                                                                                                                                                                       |
+| `VAPID_PUBLIC_KEY`      | (empty)                                 | VAPID public key (base64url) for the optional push notifications; see [Notifications](#notifications). Empty turns them off                                                                                                                                                 |
+| `VAPID_PRIVATE_KEY`     | (empty)                                 | VAPID private key that goes with `VAPID_PUBLIC_KEY`. Keep it secret                                                                                                                                                                                                         |
+| `VAPID_SUBJECT`         | (empty)                                 | Contact for the push services, `mailto:you@example.com` or an `https://` URL                                                                                                                                                                                                |
 
 With `SAAS_ENABLED=false` (the default) accounts are free and sync without limits, there is no billing anywhere and the
 billing, terms and privacy routes are `404`; no Stripe variable is needed. Any other Laravel setting (`config/*.php`)
@@ -160,6 +163,28 @@ run both as described in [Without Docker](#without-docker): without a worker not
 If connecting fails ("Google did not connect"), the container logs (`docker logs`) have Google's answer. The usual
 causes are a redirect URI that does not match `APP_URL` exactly, the Calendar API not enabled in the project, or a
 Google account that is not a test user while the consent screen is in Testing.
+
+## Notifications
+
+Optional. Signed-in users can get push notifications in their browsers: every morning one per pending task of the day
+(at a time they choose in **Settings › Notifications**, 08:00 by default, in their own time zone), and a reminder five
+minutes before every timed task. Clicking one opens the task. Notifications are off, their settings page hidden and
+their routes `404`, until `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` and `VAPID_SUBJECT` are all set. Everything else
+works without them, and no other service is needed: the container's scheduler sends them.
+
+Generate the key pair once and keep it; a new pair invalidates every browser's subscription, so users would have to
+turn notifications on again:
+
+```sh
+# In the running container (`docker ps` shows its name):
+docker exec <container> php artisan tinker --execute 'dump(Minishlink\WebPush\VAPID::createVapidKeys())'
+# Or anywhere with Node:
+npx web-push generate-vapid-keys
+```
+
+Set the two keys and `VAPID_SUBJECT=mailto:<your email>`, and redeploy. Browsers only allow push on `https://`
+(or `localhost`). Delivery failures are logged as warnings in the container output; a browser that unsubscribed is
+forgotten the next time a notification is sent to it.
 
 ## Noindex
 

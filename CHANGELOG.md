@@ -25,6 +25,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Background work in the Docker image.** The container now runs the Laravel scheduler and a database queue worker
   next to the server, supervised and stopped together with it (`tini` is PID 1). No configuration needed; `composer dev`
   runs the scheduler too. Without Docker, add the scheduler to cron and run a queue worker (see docs/stack.md).
+- **Push notifications (server).** With VAPID keys set (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`; see
+  docs/self-hosting.md), the scheduler sends every subscribed browser one notification per pending task of the day at
+  your morning time (08:00 by default, in your time zone), and a reminder five minutes before every timed task,
+  recurring ones included. Done tasks are skipped, nothing is sent twice, and browsers that unsubscribed are
+  forgotten. Without the keys it stays off.
 - **Your time zone on the server.** Sync requests send the browser's time zone, and the server keeps it on the account
   so scheduled work can happen at your local time. Nothing to set.
 

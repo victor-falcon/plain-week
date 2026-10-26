@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Push\PushSender;
+use App\Push\WebPushSender;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\DevCommands;
 use Illuminate\Support\Facades\Date;
@@ -19,6 +21,8 @@ class AppServiceProvider extends ServiceProvider
     {
         // The webhook route is registered in bootstrap/app.php, gated by SaaS mode.
         Cashier::ignoreRoutes();
+
+        $this->app->bind(PushSender::class, WebPushSender::class);
     }
 
     /**
