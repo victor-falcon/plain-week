@@ -18,6 +18,12 @@ final class WebPushSender implements PushSender
      */
     private const int TTL_SECONDS = 3600;
 
+    /**
+     * Every message is time-bound and shown to the user, so it asks for immediate delivery. With `normal`, Android
+     * (Chrome over FCM) holds the message while the device dozes and delivers it only when the phone wakes up.
+     */
+    private const string URGENCY = 'high';
+
     public function send(array $deliveries): PushReport
     {
         if ($deliveries === []) {
@@ -31,7 +37,7 @@ final class WebPushSender implements PushSender
                 'publicKey' => PushConfig::publicKey(),
                 'privateKey' => PushConfig::privateKey(),
             ]],
-            defaultOptions: ['TTL' => self::TTL_SECONDS, 'urgency' => 'normal'],
+            defaultOptions: ['TTL' => self::TTL_SECONDS, 'urgency' => self::URGENCY],
             client: new Client(['connect_timeout' => 5, 'timeout' => 15]),
             requestFactory: $factory,
             streamFactory: $factory,

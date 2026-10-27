@@ -967,7 +967,8 @@ shared Inertia prop `notifications` is `{ enabled: false, vapidPublicKey: null }
   per user with at least one subscription (unique per user while queued, so a stopped worker does not pile them up).
   The job skips accounts without access in SaaS mode, claims each due notification in `sent_notifications` (only the
   run that inserts the row sends it) and hands everything to `PushSender` (`WebPushSender` on `minishlink/web-push`:
-  aes128gcm encryption, VAPID, one batched flush, TTL one hour). A notification that no browser accepted for a
+  aes128gcm encryption, VAPID, one batched flush, TTL one hour, `Urgency: high` so Android delivers it while the
+  device dozes instead of when it wakes up). A notification that no browser accepted for a
   transient reason (5xx, 429, network) gives its row back, so the next run retries it while it is still due.
   Subscriptions answered `404`/`410` are deleted, accepted ones get `last_used_at`; failures are logged as warnings.
 - **Payload** (what `resources/js/sw.ts` receives): `{ "title", "body", "url", "tag" }`. `title` is the task text
