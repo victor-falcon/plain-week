@@ -4,11 +4,11 @@ import { afterEach, describe, expect, it } from 'vite-plus/test';
 import { DayColumn } from '@/components/planner/day-column';
 import { ScopePromptProvider } from '@/components/planner/scope-prompt';
 
-function renderDay(isToday: boolean) {
+function renderDay(isToday: boolean, date = '2026-10-12') {
     render(
         <ScopePromptProvider>
             <DayColumn
-                date="2026-10-12"
+                date={date}
                 tasks={[]}
                 rows={2}
                 isToday={isToday}
@@ -17,7 +17,7 @@ function renderDay(isToday: boolean) {
         </ScopePromptProvider>,
     );
 
-    return screen.getByRole('region', { name: 'Mon 12 Oct' });
+    return screen.getAllByRole('region')[0];
 }
 
 describe('DayColumn', () => {
@@ -35,5 +35,25 @@ describe('DayColumn', () => {
 
         expect(section.hasAttribute('aria-current')).toBe(false);
         expect(section.className).not.toContain('bg-planner-accent');
+    });
+
+    it('gives weekend days a quieter header', () => {
+        const header = renderDay(false, '2026-10-17').querySelector('h2');
+
+        expect(header?.className).toContain('text-muted-foreground/70');
+        expect(header?.className).toContain('border-muted-foreground/25');
+    });
+
+    it('keeps the accent on a weekend day that is today', () => {
+        const header = renderDay(true, '2026-10-18').querySelector('h2');
+
+        expect(header?.className).toContain('text-planner-accent');
+        expect(header?.className).not.toContain('text-muted-foreground');
+    });
+
+    it('leaves weekday headers as they are', () => {
+        const header = renderDay(false).querySelector('h2');
+
+        expect(header?.className).not.toContain('text-muted-foreground');
     });
 });
