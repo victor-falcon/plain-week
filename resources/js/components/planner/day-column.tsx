@@ -1,6 +1,8 @@
 import { TaskList } from '@/components/planner/task-list';
+import { parseDateKey } from '@/lib/db/dates';
 import type { PlannerTask } from '@/lib/recurrence/expand';
 import { formatDay, formatWeekday } from '@/lib/planner/format';
+import { weekdayIndex } from '@/lib/planner/week';
 import { cn } from '@/lib/utils';
 
 type Props = {
@@ -13,7 +15,10 @@ type Props = {
     className?: string;
 };
 
-/** One day: its header ("12 Oct … Mon") over its ruled task list. */
+/**
+ * One day: its header ("12 Oct … Mon") over its ruled task list. Saturday and
+ * Sunday get a quieter header so the weekend reads apart from the work week.
+ */
 export function DayColumn({
     date,
     tasks,
@@ -24,6 +29,7 @@ export function DayColumn({
 }: Props) {
     const dayLabel = formatDay(date);
     const weekday = formatWeekday(date);
+    const isWeekend = weekdayIndex(parseDateKey(date)) >= 5;
 
     return (
         <section
@@ -43,14 +49,19 @@ export function DayColumn({
             <h2
                 className={cn(
                     'flex items-baseline justify-between gap-2 border-b-2 border-foreground pb-3 text-lg leading-7 lg:text-xl',
-                    isToday && 'border-planner-accent text-planner-accent',
+                    isToday
+                        ? 'border-planner-accent text-planner-accent'
+                        : isWeekend &&
+                              'border-muted-foreground/25 text-muted-foreground/70',
                 )}
             >
                 <span className="font-bold tracking-tight">{dayLabel}</span>
                 <span
                     className={cn(
                         'text-muted-foreground/70',
-                        isToday && 'text-planner-accent-muted',
+                        isToday
+                            ? 'text-planner-accent-muted'
+                            : isWeekend && 'text-muted-foreground/50',
                     )}
                 >
                     {weekday}
