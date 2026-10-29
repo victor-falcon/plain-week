@@ -98,6 +98,10 @@ function TaskLabelView({
     repeat: TaskRepeat;
 }) {
     const color = TASK_COLOR_STYLES[task.color];
+    // A colored pill keeps a gap from the time pill or repeat icon before it;
+    // text without a pill already sits clear of them through its padding.
+    const spaced =
+        Boolean(color.pill) && (Boolean(task.time) || repeat.repeats);
 
     return (
         <>
@@ -111,6 +115,7 @@ function TaskLabelView({
                 className={cn(
                     'truncate rounded-full px-1.5 leading-6',
                     color.pill,
+                    spaced && 'ms-1',
                     task.done && 'line-through',
                     task.done && color.pill && 'opacity-50',
                 )}

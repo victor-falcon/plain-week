@@ -7,6 +7,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- **Room between the time and a colored task.** A colored task with a time (or a repeat icon) no longer sits flush
+  against it: a small gap now separates them.
+
 ## [0.3.4] - 2026-10-28
 
 ### Changed
