@@ -7,6 +7,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.3.5] - 2026-10-29
+
 ### Fixed
 
 - **Room between the time and a colored task.** A colored task with a time (or a repeat icon) no longer sits flush
@@ -291,7 +293,8 @@ between devices.
   app, so an instance without mail works.
 - **Documentation** for contributors and coding agents in `docs/` and `AGENTS.md`.
 
-[Unreleased]: https://github.com/victor-falcon/plain-week/compare/v0.3.4...HEAD
+[Unreleased]: https://github.com/victor-falcon/plain-week/compare/v0.3.5...HEAD
+[0.3.5]: https://github.com/victor-falcon/plain-week/compare/v0.3.4...v0.3.5
 [0.3.4]: https://github.com/victor-falcon/plain-week/compare/v0.3.3...v0.3.4
 [0.3.3]: https://github.com/victor-falcon/plain-week/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/victor-falcon/plain-week/compare/v0.3.1...v0.3.2
