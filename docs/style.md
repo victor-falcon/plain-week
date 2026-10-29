@@ -272,7 +272,8 @@ Row behaviour:
   the text.
 - Done tasks are `text-muted-foreground` and `line-through`; a colored pill fades to 50 %.
 - A task with a time shows it first in a small outlined pill (`border-current`, `text-xs`, tabular numbers), and timed
-  tasks are listed first in their day, earliest first.
+  tasks are listed first in their day, earliest first. A colored text pill keeps a 4px gap (`ms-1`) from the time pill
+  or repeat icon before it.
 
 Drag and drop (behaviour in [architecture.md](./architecture.md#drag-and-drop)):
 
