@@ -2,34 +2,15 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vite-plus/test';
 import { TaskLabel } from '@/components/planner/task-row';
-import type { PlannerTask } from '@/lib/recurrence/expand';
+import type { Task } from '@/lib/db/types';
+import { makeTask } from '@/test/fixtures';
 
-function task(overrides: Partial<PlannerTask>): PlannerTask {
-    return {
-        kind: 'task',
-        id: 'task-1',
-        text: 'Gym',
-        date: '2026-10-12',
-        someday_column: null,
-        position: 'a0',
-        done: false,
-        done_at: null,
-        color: 'none',
-        time: null,
-        notes: '',
-        subtasks: [],
-        created_at: '2026-10-12T00:00:00Z',
-        updated_at: '2026-10-12T00:00:00Z',
-        deleted_at: null,
-        recurrence: null,
-        series_id: null,
-        occurrence_date: null,
-        ...overrides,
-    } as PlannerTask;
-}
-
-function textPill(overrides: Partial<PlannerTask>) {
-    render(<TaskLabel task={task(overrides)} />);
+function textPill(overrides: Partial<Task>) {
+    render(
+        <TaskLabel
+            task={{ ...makeTask({ text: 'Gym', ...overrides }), kind: 'task' }}
+        />,
+    );
 
     return screen.getByText('Gym');
 }
@@ -40,16 +21,38 @@ afterEach(() => {
 
 describe('TaskLabel', () => {
     it('keeps a colored pill clear of the time pill', () => {
-        expect(textPill({ time: '09:00', color: 'pink' }).className).toContain(
-            'ms-1',
+        expect(
+            textPill({ time: '09:00', color: 'pink' }).classList.contains(
+                'ms-1',
+            ),
+        ).toBe(true);
+    });
+
+    it('keeps a colored pill clear of the repeat icon', () => {
+        render(
+            <TaskLabel
+                task={{
+                    ...makeTask({ text: 'Gym', color: 'pink' }),
+                    kind: 'occurrence',
+                    seriesId: 'series-1',
+                    occurrenceDate: '2026-10-12',
+                }}
+            />,
         );
+
+        expect(screen.getByTestId('repeat-icon')).toBeTruthy();
+        expect(screen.getByText('Gym').classList.contains('ms-1')).toBe(true);
     });
 
     it('adds no gap to a colored pill without a time', () => {
-        expect(textPill({ color: 'pink' }).className).not.toContain('ms-1');
+        expect(textPill({ color: 'pink' }).classList.contains('ms-1')).toBe(
+            false,
+        );
     });
 
     it('adds no gap to text without a color', () => {
-        expect(textPill({ time: '09:00' }).className).not.toContain('ms-1');
+        expect(textPill({ time: '09:00' }).classList.contains('ms-1')).toBe(
+            false,
+        );
     });
 });
