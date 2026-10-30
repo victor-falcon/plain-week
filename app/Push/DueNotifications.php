@@ -10,7 +10,8 @@ use Carbon\CarbonImmutable;
 /**
  * Which notifications are due for a user at a moment, in the user's time zone:
  *
- * - Morning: at `notification_morning_time`, one per pending (not done) occurrence of that day.
+ * - Morning: at `notification_morning_time`, one per pending (not done) occurrence of that day without a time. A timed
+ *   one gets its reminder instead.
  * - Reminder: five minutes before every pending timed occurrence, also when that is the evening before (a task at
  *   00:03 is reminded at 23:58 the previous day).
  *
@@ -46,7 +47,7 @@ final class DueNotifications
             $date = $day->toDateString();
 
             if ($this->isDue(self::at($date, $user->notification_morning_time, $timezone), $now)) {
-                foreach ($pending->where('date', $date) as $occurrence) {
+                foreach ($pending->where('date', $date)->whereNull('time') as $occurrence) {
                     $due[] = new DueNotification(NotificationKind::Morning, $occurrence, $date);
                 }
             }

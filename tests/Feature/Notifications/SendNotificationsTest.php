@@ -49,7 +49,7 @@ function sendNotificationsAt(string $localTime, string $timezone = 'Europe/Madri
 }
 
 describe('morning notifications', function () {
-    test('one per pending task of the day, at the morning time in the user time zone', function () {
+    test('one per pending task of the day without a time, at the morning time in the user time zone', function () {
         $task = notifiedTask(['id' => 'task-1', 'text' => 'Call mom']);
         notifiedTask(['id' => 'task-2', 'text' => 'Dentist', 'time' => '17:30']);
         notifiedTask(['text' => 'Done already', 'done' => true]);
@@ -61,7 +61,6 @@ describe('morning notifications', function () {
 
         sendNotificationsAt('2026-10-27 08:00:05');
         expect($this->sender->messages())->toBe([
-            ['title' => 'Dentist', 'body' => 'Today at 17:30', 'url' => '/?task=task-2', 'tag' => 'morning:task-2:2026-10-27'],
             ['title' => 'Call mom', 'body' => 'Today', 'url' => '/?task=task-1', 'tag' => 'morning:task-1:2026-10-27'],
         ]);
         expect($task->user->pushSubscriptions()->first()->last_used_at)->not->toBeNull();
@@ -105,6 +104,17 @@ describe('morning notifications', function () {
 
         sendNotificationsAt('2026-10-27 08:00:00', 'America/New_York');
         expect($this->sender->tags())->toBe(['morning:task-1:2026-10-27']);
+    });
+
+    test('a task with a time only gets its reminder', function () {
+        notifiedTask(['id' => 'task-1', 'time' => '09:00']);
+        notifiedTask(['id' => 'series', 'date' => '2026-10-12', 'time' => '09:00', 'recurrence' => ['type' => 'daily', 'every' => 1]]);
+
+        sendNotificationsAt('2026-10-27 08:00:00');
+        expect($this->sender->messages())->toBe([]);
+
+        sendNotificationsAt('2026-10-27 08:55:00');
+        expect($this->sender->tags())->toBe(['reminder:series:2026-10-27:2026-10-27', 'reminder:task-1:2026-10-27']);
     });
 
     test('includes the occurrences of recurring tasks, by occurrence id', function () {
@@ -232,13 +242,14 @@ describe('reminders', function () {
 
 describe('delivery', function () {
     test('a notification is sent once, however often the minute runs', function () {
-        notifiedTask(['id' => 'task-1', 'time' => '08:05']);
+        notifiedTask(['id' => 'task-1']);
+        notifiedTask(['id' => 'task-2', 'time' => '08:05']);
 
         sendNotificationsAt('2026-10-27 08:00:00');
         sendNotificationsAt('2026-10-27 08:00:30');
         sendNotificationsAt('2026-10-27 08:01:00');
 
-        expect($this->sender->tags())->toBe(['morning:task-1:2026-10-27', 'reminder:task-1:2026-10-27'])
+        expect($this->sender->tags())->toBe(['morning:task-1:2026-10-27', 'reminder:task-2:2026-10-27'])
             ->and($this->sender->deliveries)->toHaveCount(2)
             ->and(SentNotification::count())->toBe(2);
     });

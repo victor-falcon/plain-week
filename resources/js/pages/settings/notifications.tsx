@@ -234,10 +234,10 @@ export default function Notifications({ morningTime, timezone }: Props) {
                 />
 
                 <p className="text-sm text-muted-foreground">
-                    Every morning you get one notification for each task planned
-                    for that day that isn't done yet. Tasks with a time also get
-                    one 5 minutes before they start. Opening a notification
-                    opens its task.
+                    Every morning you get one notification for each task of the
+                    day that has no time and isn't done yet. Tasks with a time
+                    get one 5 minutes before they start instead. Opening a
+                    notification opens its task.
                 </p>
 
                 {notifications?.vapidPublicKey && (

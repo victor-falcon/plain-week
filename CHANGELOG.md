@@ -7,8 +7,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.3.6] - 2026-10-30
+
 ### Changed
 
+- **Morning notifications are for tasks without a time.** At your morning time (08:00 by default, in your time zone)
+  you get one notification for each task of the day that has no time and isn't done yet. A task with a time no longer
+  gets one in the morning: its reminder 5 minutes before it starts is enough.
 - **Longer Google Calendar events for timed tasks.** A task with a time now becomes a 20-minute event in Google
   Calendar instead of a 15-minute one. Events already in the calendar get the new length on the next sync (at the
   latest the daily one), except those dated more than 30 days ago.
@@ -299,7 +304,8 @@ between devices.
   app, so an instance without mail works.
 - **Documentation** for contributors and coding agents in `docs/` and `AGENTS.md`.
 
-[Unreleased]: https://github.com/victor-falcon/plain-week/compare/v0.3.5...HEAD
+[Unreleased]: https://github.com/victor-falcon/plain-week/compare/v0.3.6...HEAD
+[0.3.6]: https://github.com/victor-falcon/plain-week/compare/v0.3.5...v0.3.6
 [0.3.5]: https://github.com/victor-falcon/plain-week/compare/v0.3.4...v0.3.5
 [0.3.4]: https://github.com/victor-falcon/plain-week/compare/v0.3.3...v0.3.4
 [0.3.3]: https://github.com/victor-falcon/plain-week/compare/v0.3.2...v0.3.3
