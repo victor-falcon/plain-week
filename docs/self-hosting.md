@@ -170,8 +170,8 @@ Google account that is not a test user while the consent screen is in Testing.
 ## Notifications
 
 Optional. Signed-in users can get push notifications in their browsers: every morning one per pending task of the day
-(at a time they choose in **Settings › Notifications**, 08:00 by default, in their own time zone), and a reminder five
-minutes before every timed task. Clicking one opens the task. Notifications are off, their settings page hidden and
+without a time (at a time they choose in **Settings › Notifications**, 08:00 by default, in their own time zone), and a
+reminder five minutes before every timed task. Clicking one opens the task. Notifications are off, their settings page hidden and
 their routes `404`, until `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` and `VAPID_SUBJECT` are all set. Everything else
 works without them, and no other service is needed: the container's scheduler sends them.
 

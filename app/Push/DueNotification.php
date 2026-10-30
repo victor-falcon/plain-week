@@ -41,7 +41,7 @@ final readonly class DueNotification
         return new PushMessage(
             title: mb_strimwidth($this->occurrence->text, 0, self::MAX_TITLE_LENGTH, '…'),
             body: match ($this->kind) {
-                NotificationKind::Morning => $time === null ? __('Today') : __('Today at :time', ['time' => $time]),
+                NotificationKind::Morning => __('Today'),
                 NotificationKind::Reminder => __('In :minutes minutes · :time', ['minutes' => DueNotifications::REMINDER_LEAD_MINUTES, 'time' => $time]),
             },
             url: '/?task='.rawurlencode($this->occurrence->id),

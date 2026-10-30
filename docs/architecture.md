@@ -957,7 +957,8 @@ shared Inertia prop `notifications` is `{ enabled: false, vapidPublicKey: null }
   `X-Timezone` header like sync does. Whether _this_ browser is subscribed is only known to the browser.
 - **What is due** (`DueNotifications`), in the user's time zone (`User::timezoneOrDefault()`), from
   [`TaskOccurrences`](#occurrences-on-the-server) minus done items:
-    - _Morning_: at `notification_morning_time`, one notification per pending occurrence of that day (Someday never).
+    - _Morning_: at `notification_morning_time`, one notification per pending occurrence of that day without a time
+      (Someday never). A timed occurrence gets only its reminder.
     - _Reminder_: five minutes before every pending timed occurrence. That may be the previous evening: a task at 00:03
       is reminded at 23:58 the day before, with the task's own date in its tag.
     - A moment is due while it lies in the last 10 minutes, so a late or skipped run catches up, but nothing is sent
@@ -972,8 +973,8 @@ shared Inertia prop `notifications` is `{ enabled: false, vapidPublicKey: null }
   transient reason (5xx, 429, network) gives its row back, so the next run retries it while it is still due.
   Subscriptions answered `404`/`410` are deleted, accepted ones get `last_used_at`; failures are logged as warnings.
 - **Payload** (what `resources/js/sw.ts` receives): `{ "title", "body", "url", "tag" }`. `title` is the task text
-  (cut at 120 characters); `body` is `Today`, `Today at HH:mm` (morning) or `In 5 minutes · HH:mm` (reminder); `url`
-  is `/?task=<occurrence id>` (see [Planner UI](#planner-ui)); `tag` is `<kind>:<occurrence id>:<date>`, so a resent
+  (cut at 120 characters); `body` is `Today` (morning) or `In 5 minutes · HH:mm` (reminder); `url` is
+  `/?task=<occurrence id>` (see [Planner UI](#planner-ui)); `tag` is `<kind>:<occurrence id>:<date>`, so a resent
   notification replaces the shown one.
 
 ### Versioning

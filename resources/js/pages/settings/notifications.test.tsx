@@ -71,7 +71,7 @@ describe('Settings › Notifications', () => {
         renderPage();
 
         expect(
-            screen.getByText(/one notification for each task planned/),
+            screen.getByText(/each task of the\s+day that has no time/),
         ).toBeTruthy();
         expect(screen.getByText(/5 minutes before/)).toBeTruthy();
         expect(

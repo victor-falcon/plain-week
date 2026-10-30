@@ -24,14 +24,14 @@ describe('parsePushPayload', () => {
             parsePushPayload(
                 pushData({
                     title: 'Gym',
-                    body: 'Today at 17:30',
+                    body: 'Today',
                     url: '/?task=0199',
                     tag: 'morning:0199:2026-10-26',
                 }),
             ),
         ).toEqual({
             title: 'Gym',
-            body: 'Today at 17:30',
+            body: 'Today',
             url: '/?task=0199',
             tag: 'morning:0199:2026-10-26',
         });
