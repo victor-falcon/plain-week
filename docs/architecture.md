@@ -907,7 +907,7 @@ never reads it back: an event edited in Google is overwritten the next time its 
   Someday tasks, tombstones and series rows have none, so moving a task to Someday or deleting it deletes its event.
   Events dated before the 30-day window are left alone, so the calendar keeps the past, and so is the event of a
   generated occurrence older than 7 days (kept up to date while it is in the 30 days, never created).
-- **The event.** Untimed: all day on `date`. Timed: 15 minutes from `date time`, sent as an RFC 3339 time with its
+- **The event.** Untimed: all day on `date`. Timed: 20 minutes from `date time`, sent as an RFC 3339 time with its
   offset plus `timeZone`, so DST days are right. Summary `🎯 {text}`, `✅ {text}` when done. Description: the notes,
   a blank line and `Open in Plain Week: APP_URL/?task=<id>` (the [task link](#planner-ui), with the occurrence id for
   a generated occurrence); `source` points at the same link. `reminders.useDefault` is false with no overrides: Plain

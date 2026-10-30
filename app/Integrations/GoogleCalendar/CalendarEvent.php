@@ -7,13 +7,13 @@ use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
 
 /**
- * The Google Calendar event for one planner item: all day on its date, or 15 minutes from its time in the user's time
+ * The Google Calendar event for one planner item: all day on its date, or 20 minutes from its time in the user's time
  * zone. Its hash tells whether the event in Google is still current.
  */
 final readonly class CalendarEvent
 {
     /** How long a timed task's event lasts. */
-    public const int TIMED_MINUTES = 15;
+    public const int TIMED_MINUTES = 20;
 
     /** Google refuses an event whose description is too long (about 8 KB), so long notes are cut. */
     private const int NOTES_LIMIT = 6000;
