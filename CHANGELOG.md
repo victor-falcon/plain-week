@@ -7,6 +7,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- **Longer Google Calendar events for timed tasks.** A task with a time now becomes a 20-minute event in Google
+  Calendar instead of a 15-minute one. Events already in the calendar get the new length on the next sync (at the
+  latest the daily one), except those dated more than 30 days ago.
+
 ## [0.3.5] - 2026-10-29
 
 ### Fixed
