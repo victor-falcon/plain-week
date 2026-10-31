@@ -838,8 +838,9 @@ leading spaces in `text`) round-trip exactly.
 
 `sent_notifications`: one row per notification handed to the push services, unique on `(user_id, occurrence_key,
 kind, date)`, so no notification goes out twice. `occurrence_key` is `seriesId:occurrenceDate` for an occurrence of a
-series, else the task id; `kind` is `morning` or `reminder`; `date` is the local date it was for. Rows older than three
-days are pruned daily (`model:prune`).
+series, else the task id, for a reminder, and always `day` for the morning one (one per user and day); `kind` is
+`morning` or `reminder`; `date` is the local date it was for. Rows older than three days are pruned daily
+(`model:prune`).
 
 The `Task` model disables Eloquent timestamps (the client owns them). Timestamps go through the
 `App\Casts\UtcMillisDateTime` cast: they are stored as UTC with milliseconds and returned in the wire format
@@ -957,8 +958,8 @@ shared Inertia prop `notifications` is `{ enabled: false, vapidPublicKey: null }
   `X-Timezone` header like sync does. Whether _this_ browser is subscribed is only known to the browser.
 - **What is due** (`DueNotifications`), in the user's time zone (`User::timezoneOrDefault()`), from
   [`TaskOccurrences`](#occurrences-on-the-server) minus done items:
-    - _Morning_: at `notification_morning_time`, one notification per pending occurrence of that day without a time
-      (Someday never). A timed occurrence gets only its reminder.
+    - _Morning_: at `notification_morning_time`, one notification for the day covering every pending occurrence of
+      that day without a time (Someday never), none when there are none. A timed occurrence gets only its reminder.
     - _Reminder_: five minutes before every pending timed occurrence. That may be the previous evening: a task at 00:03
       is reminded at 23:58 the day before, with the task's own date in its tag.
     - A moment is due while it lies in the last 10 minutes, so a late or skipped run catches up, but nothing is sent
@@ -968,14 +969,20 @@ shared Inertia prop `notifications` is `{ enabled: false, vapidPublicKey: null }
   per user with at least one subscription (unique per user while queued, so a stopped worker does not pile them up).
   The job skips accounts without access in SaaS mode, claims each due notification in `sent_notifications` (only the
   run that inserts the row sends it) and hands everything to `PushSender` (`WebPushSender` on `minishlink/web-push`:
-  aes128gcm encryption, VAPID, one batched flush, TTL one hour, `Urgency: high` so Android delivers it while the
-  device dozes instead of when it wakes up). A notification that no browser accepted for a
-  transient reason (5xx, 429, network) gives its row back, so the next run retries it while it is still due.
+  aes128gcm encryption, VAPID, one batched flush, `Urgency: high` so Android delivers it while the device dozes
+  instead of when it wakes up). The TTL (how long a push service keeps it for an offline device) is per kind
+  (`NotificationKind::ttlSeconds()`): four hours for the morning one, one hour for a reminder. A notification that no
+  browser accepted for a transient reason (5xx, 429, network) gives its row back, so the next run retries it while it
+  is still due.
   Subscriptions answered `404`/`410` are deleted, accepted ones get `last_used_at`; failures are logged as warnings.
-- **Payload** (what `resources/js/sw.ts` receives): `{ "title", "body", "url", "tag" }`. `title` is the task text
-  (cut at 120 characters); `body` is `Today` (morning) or `In 5 minutes · HH:mm` (reminder); `url` is
-  `/?task=<occurrence id>` (see [Planner UI](#planner-ui)); `tag` is `<kind>:<occurrence id>:<date>`, so a resent
-  notification replaces the shown one.
+- **Payload** (what `resources/js/sw.ts` receives): `{ "title", "body", "url", "tag" }`.
+    - _Reminder_: `title` is the task text (cut at 120 characters), `body` is `In 5 minutes · HH:mm`, `url` is
+      `/?task=<occurrence id>` (see [Planner UI](#planner-ui)), `tag` is `reminder:<occurrence id>:<date>`.
+    - _Morning_ with one task: `title` is its text, `body` is `Today`, `url` is `/?task=<occurrence id>`. With several:
+      `title` is `N tasks today`, `body` lists their texts in planner order separated by middle dots (each cut at 60
+      characters, the whole at 400, so the encrypted payload stays well under the ~4 KB push services accept), `url`
+      is `/`. The `tag` is `morning:<date>` either way.
+    - A notification with the same tag replaces the shown one.
 
 ### Versioning
 

@@ -4,7 +4,8 @@ namespace App\Push;
 
 /**
  * The JSON payload the service worker receives (`resources/js/sw.ts`). A message with the same `tag` replaces the
- * previous one on the device instead of stacking.
+ * previous one on the device instead of stacking. `ttl` is not part of the payload: it is how many seconds a push
+ * service may keep the message for an offline device.
  */
 final readonly class PushMessage
 {
@@ -13,6 +14,7 @@ final readonly class PushMessage
         public string $body,
         public string $url,
         public string $tag,
+        public int $ttl,
     ) {}
 
     public function toJson(): string
