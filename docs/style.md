@@ -504,8 +504,9 @@ planner shows one plain toast ("Moved 3 unfinished tasks to today"). Behaviour i
 
 Web Push reminders at `/settings/notifications` (`pages/settings/notifications.tsx`, between Preferences and
 Integrations in the settings nav, shown only when the shared prop `notifications.enabled` is true). One small `Heading`
-("Notifications"), a short paragraph saying exactly what is sent (one notification per pending task without a time
-each morning, and one 5 minutes before a timed task; opening one opens its task), then:
+("Notifications"), a short paragraph saying exactly what is sent (one notification each morning with the pending
+tasks without a time, and one 5 minutes before a timed task; opening one opens its task, or the planner when it lists
+several), then:
 
 - **This device**: the Preferences row pattern (`Label` and explanation on the start side, `Switch` on the end side)
   for "Notifications on this device". Turning it on asks for the browser permission; a `Spinner` sits next to the

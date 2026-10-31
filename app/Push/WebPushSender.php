@@ -14,11 +14,6 @@ use Minishlink\WebPush\WebPush;
 final class WebPushSender implements PushSender
 {
     /**
-     * Time a push service may keep a message for an offline device. A morning or a reminder is worthless much later.
-     */
-    private const int TTL_SECONDS = 3600;
-
-    /**
      * Every message is time-bound and shown to the user, so it asks for immediate delivery. With `normal`, Android
      * (Chrome over FCM) holds the message while the device dozes and delivers it only when the phone wakes up.
      */
@@ -37,7 +32,7 @@ final class WebPushSender implements PushSender
                 'publicKey' => PushConfig::publicKey(),
                 'privateKey' => PushConfig::privateKey(),
             ]],
-            defaultOptions: ['TTL' => self::TTL_SECONDS, 'urgency' => self::URGENCY],
+            defaultOptions: ['urgency' => self::URGENCY],
             client: new Client(['connect_timeout' => 5, 'timeout' => 15]),
             requestFactory: $factory,
             streamFactory: $factory,
@@ -53,7 +48,7 @@ final class WebPushSender implements PushSender
                     contentEncoding: $delivery->subscription->content_encoding,
                 ),
                 $delivery->message->toJson(),
-                ['topic' => self::topic($delivery->message->tag)],
+                ['TTL' => $delivery->message->ttl, 'topic' => self::topic($delivery->message->tag)],
             );
         }
 

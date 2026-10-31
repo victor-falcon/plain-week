@@ -92,7 +92,7 @@ final class FakePushSender implements PushSender
     }
 
     /**
-     * The messages pushed so far, one per notification (the first subscription's copy).
+     * The payloads pushed so far, one per notification (the first subscription's copy).
      *
      * @return list<array{title: string, body: string, url: string, tag: string}>
      */
@@ -101,11 +101,27 @@ final class FakePushSender implements PushSender
         $messages = [];
 
         foreach ($this->deliveries as $delivery) {
-            $messages[$delivery->message->tag] ??= (array) $delivery->message;
+            $messages[$delivery->message->tag] ??= json_decode($delivery->message->toJson(), true, flags: JSON_THROW_ON_ERROR);
         }
 
         /** @var list<array{title: string, body: string, url: string, tag: string}> */
         return array_values($messages);
+    }
+
+    /**
+     * The TTL of each notification pushed so far, by tag.
+     *
+     * @return array<string, int>
+     */
+    public function ttls(): array
+    {
+        $ttls = [];
+
+        foreach ($this->deliveries as $delivery) {
+            $ttls[$delivery->message->tag] ??= $delivery->message->ttl;
+        }
+
+        return $ttls;
     }
 
     /**

@@ -7,7 +7,7 @@
 export type PushPayload = {
     title: string;
     body: string;
-    /** Same-origin path to open, `/?task=<occurrence id>`. */
+    /** Same-origin path to open: `/?task=<occurrence id>`, or `/` for a morning summary of several tasks. */
     url: string;
     /** Replaces an earlier notification with the same tag. */
     tag: string;

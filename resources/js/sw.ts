@@ -9,7 +9,7 @@
  *   rest.
  * - Other pages are network-only; offline they get `/offline.html`.
  * - Everything else (`/sync/*`, Inertia visits, any non-GET) is untouched.
- * - Web Push: shows the server's notifications and opens their task link.
+ * - Web Push: shows the server's notifications and opens their link (a task, or the planner).
  */
 import { CacheableResponsePlugin } from 'workbox-cacheable-response';
 import { clientsClaim } from 'workbox-core';
