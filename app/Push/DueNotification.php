@@ -68,38 +68,49 @@ final readonly class DueNotification
 
     public function message(): PushMessage
     {
-        $ttl = $this->kind->ttlSeconds();
+        return match ($this->kind) {
+            NotificationKind::Morning => $this->morningMessage(),
+            NotificationKind::Reminder => $this->reminderMessage(),
+        };
+    }
 
-        if ($this->kind === NotificationKind::Morning && count($this->occurrences) > 1) {
-            $titles = array_map(
-                fn (Occurrence $occurrence) => self::cut($occurrence->text, self::MAX_LISTED_TASK_LENGTH),
-                $this->occurrences,
-            );
+    /**
+     * One task: that task, like a reminder. Several: how many, listed, opening the planner on today.
+     */
+    private function morningMessage(): PushMessage
+    {
+        $count = count($this->occurrences);
+        $first = $this->occurrences[0];
+        $titles = array_map(
+            fn (Occurrence $occurrence) => self::cut($occurrence->text, self::MAX_LISTED_TASK_LENGTH),
+            $this->occurrences,
+        );
 
-            return new PushMessage(
-                title: __(':count tasks today', ['count' => count($this->occurrences)]),
-                body: self::cut(implode(' · ', $titles), self::MAX_BODY_LENGTH),
-                url: '/',
-                tag: "morning:{$this->date}",
-                ttl: $ttl,
-            );
-        }
+        return new PushMessage(
+            title: $count === 1 ? self::cut($first->text, self::MAX_TITLE_LENGTH) : __(':count tasks today', ['count' => $count]),
+            body: $count === 1 ? __('Today') : self::cut(implode(' · ', $titles), self::MAX_BODY_LENGTH),
+            url: $count === 1 ? self::taskUrl($first) : '/',
+            tag: "morning:{$this->date}",
+            ttl: $this->kind->ttlSeconds(),
+        );
+    }
 
+    private function reminderMessage(): PushMessage
+    {
         $occurrence = $this->occurrences[0];
 
         return new PushMessage(
             title: self::cut($occurrence->text, self::MAX_TITLE_LENGTH),
-            body: match ($this->kind) {
-                NotificationKind::Morning => __('Today'),
-                NotificationKind::Reminder => __('In :minutes minutes · :time', ['minutes' => DueNotifications::REMINDER_LEAD_MINUTES, 'time' => $occurrence->time]),
-            },
-            url: '/?task='.rawurlencode($occurrence->id),
-            tag: match ($this->kind) {
-                NotificationKind::Morning => "morning:{$this->date}",
-                NotificationKind::Reminder => "reminder:{$occurrence->id}:{$this->date}",
-            },
-            ttl: $ttl,
+            body: __('In :minutes minutes · :time', ['minutes' => DueNotifications::REMINDER_LEAD_MINUTES, 'time' => $occurrence->time]),
+            url: self::taskUrl($occurrence),
+            tag: "reminder:{$occurrence->id}:{$this->date}",
+            ttl: $this->kind->ttlSeconds(),
         );
+    }
+
+    private static function taskUrl(Occurrence $occurrence): string
+    {
+        return '/?task='.rawurlencode($occurrence->id);
     }
 
     private static function cut(string $text, int $length): string

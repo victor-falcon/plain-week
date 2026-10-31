@@ -237,7 +237,7 @@ export default function Notifications({ morningTime, timezone }: Props) {
                     Every morning you get one notification with the day's tasks
                     that have no time and aren't done yet. Tasks with a time get
                     one 5 minutes before they start instead. Opening a
-                    notification opens its task, or the day when it lists
+                    notification opens its task, or the planner when it lists
                     several.
                 </p>
 

@@ -959,7 +959,8 @@ shared Inertia prop `notifications` is `{ enabled: false, vapidPublicKey: null }
 - **What is due** (`DueNotifications`), in the user's time zone (`User::timezoneOrDefault()`), from
   [`TaskOccurrences`](#occurrences-on-the-server) minus done items:
     - _Morning_: at `notification_morning_time`, one notification for the day covering every pending occurrence of
-      that day without a time (Someday never), none when there are none. A timed occurrence gets only its reminder.
+      that day without a time (Someday never), none when there are none. It goes out once per day: a task added or
+      synced after it is not notified that morning. A timed occurrence gets only its reminder.
     - _Reminder_: five minutes before every pending timed occurrence. That may be the previous evening: a task at 00:03
       is reminded at 23:58 the day before, with the task's own date in its tag.
     - A moment is due while it lies in the last 10 minutes, so a late or skipped run catches up, but nothing is sent
