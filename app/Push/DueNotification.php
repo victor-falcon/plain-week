@@ -75,7 +75,7 @@ final readonly class DueNotification
     }
 
     /**
-     * One task: that task, like a reminder. Several: how many, listed, opening the planner on today.
+     * One task: that task, like a reminder. Several: how many, listed, opening the planner.
      */
     private function morningMessage(): PushMessage
     {
