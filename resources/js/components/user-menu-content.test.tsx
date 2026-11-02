@@ -69,5 +69,15 @@ describe('UserMenuContent', () => {
 
         expect(feedbackItem().getAttribute('href')).toBe(feedbackUrl);
         expect(feedbackItem().hasAttribute('target')).toBe(false);
+        expect(feedbackItem().getAttribute('title')).toBe('hello@plainweek.eu');
+    });
+
+    it('leaves the item out when the page has no feedback URL', () => {
+        feedbackUrl = '';
+        renderMenu();
+
+        expect(
+            screen.queryByRole('menuitem', { name: 'Send feedback' }),
+        ).toBeNull();
     });
 });

@@ -28,7 +28,6 @@ It is used by:
 | -------------------------------------------- | ----------------------------------------------------------------------------- |
 | `EnsureHasAccess` on `/` and `sync/*`        | Pages redirect to `/plans`; JSON requests (sync) get `402 Payment Required`   |
 | Inertia shared props                         | `saas.enabled`, `account: { hasAccess, plan } \| null` (null for guests)      |
-| "Send feedback" (account menu, settings)     | `feedbackUrl`: `mailto:` the contact email (off: GitHub Discussions)          |
 | `SyncProvider` and the sync engine           | The engine does not start; a `402` stops it, keeps local data, shows `/plans` |
 | `EnsureHasAccess` on Google Calendar connect | Redirect to `/plans` (the page and disconnecting stay reachable)              |
 
@@ -142,6 +141,11 @@ php artisan plainweek:grant-lifetime owner@example.com --revoke # remove it
 | `STRIPE_PRICE_LIFETIME` | `plainweek_lifetime`      | Lookup key of the lifetime price                                    |
 
 The webhook endpoint must send the events in the table above.
+
+**Send feedback.** The account menu (users and guests) and the settings sidebar link to the shared `feedbackUrl` prop
+(`App\Support\Feedback`). In SaaS mode it is a `mailto:` to `SAAS_CONTACT_EMAIL` with the subject "Plain Week
+feedback"; with SaaS mode off, or while the address is empty or still an `example.com` placeholder, it is the project's
+GitHub Discussions. Set `SAAS_CONTACT_EMAIL` on plainweek.eu.
 
 ## Local development
 

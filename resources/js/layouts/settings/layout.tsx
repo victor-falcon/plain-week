@@ -109,18 +109,25 @@ export default function SettingsLayout({ children }: PropsWithChildren) {
                                 </Link>
                             </Button>
                         ))}
-                        <Separator className="my-2" />
-                        <Button
-                            size="sm"
-                            variant="ghost"
-                            asChild
-                            className="w-full justify-start text-muted-foreground"
-                        >
-                            <a {...feedbackLink} data-test="send-feedback">
-                                <MessageSquare className="size-4" />
-                                Send feedback
-                            </a>
-                        </Button>
+                        {feedbackLink && (
+                            <>
+                                <Separator className="my-2" />
+                                <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    asChild
+                                    className="w-full justify-start text-muted-foreground"
+                                >
+                                    <a
+                                        {...feedbackLink}
+                                        data-test="send-feedback"
+                                    >
+                                        <MessageSquare className="size-4" />
+                                        Send feedback
+                                    </a>
+                                </Button>
+                            </>
+                        )}
                     </nav>
                 </aside>
 

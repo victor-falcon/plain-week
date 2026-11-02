@@ -3,22 +3,35 @@ import { MessageSquare } from 'lucide-react';
 import type { ComponentProps } from 'react';
 import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 
-/**
- * Link attributes for the shared `feedbackUrl`: a mailto: opens the mail app
- * in place, a web page (GitHub Discussions) opens in a new tab.
- */
-export function useFeedbackLink(): ComponentProps<'a'> {
-    const href = usePage().props.feedbackUrl;
-    const external = !href.startsWith('mailto:');
+const MAILTO = 'mailto:';
 
-    return external
-        ? { href, target: '_blank', rel: 'noopener noreferrer' }
-        : { href };
+/**
+ * Link attributes for the shared `feedbackUrl`, or null when the page has none
+ * (a page cached before the prop existed). A mailto: opens the mail app in
+ * place and names the address in its tooltip, for people without one; a web
+ * page (GitHub Discussions) opens in a new tab.
+ */
+export function useFeedbackLink(): ComponentProps<'a'> | null {
+    const href = usePage().props.feedbackUrl;
+
+    if (!href) {
+        return null;
+    }
+
+    if (href.startsWith(MAILTO)) {
+        return { href, title: href.slice(MAILTO.length).split('?')[0] };
+    }
+
+    return { href, target: '_blank', rel: 'noopener noreferrer' };
 }
 
 /** "Send feedback" for the account menus (signed-in users and guests). */
 export function SendFeedbackMenuItem({ onClick }: { onClick?: () => void }) {
     const link = useFeedbackLink();
+
+    if (!link) {
+        return null;
+    }
 
     return (
         <DropdownMenuItem asChild>

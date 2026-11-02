@@ -26,3 +26,13 @@ test('SaaS mode sends feedback to the contact email', function () {
         ->assertInertia(fn (Assert $page) => $page
             ->where('feedbackUrl', 'mailto:hello@plainweek.eu?subject=Plain%20Week%20feedback'));
 });
+
+test('SaaS mode without a real contact email falls back to GitHub Discussions', function (string $email) {
+    enableSaas();
+    config(['saas.seller.email' => $email]);
+
+    $this->get('/')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('feedbackUrl', 'https://github.com/victor-falcon/plain-week/discussions'));
+})->with(['', 'hello@example.com', 'not-an-email']);
