@@ -27,6 +27,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **README.** It now says plainly that Plain Week is free and open source with every feature, and points to
   [plainweek.eu](https://plainweek.eu) for anyone who'd rather not run a server. Sync there is a paid plan.
 
+### Fixed
+
+- **Email from Coolify and Docker Compose.** The Coolify template and `deploy/docker-compose.yml` now pass the SMTP
+  settings (`MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_SCHEME`, `MAIL_FROM_ADDRESS`,
+  `MAIL_FROM_NAME`), so an instance can actually send verification and password reset emails. The self-hosting guide
+  has an example with Resend.
+
 ## [0.3.7] - 2026-10-31
 
 ### Changed
