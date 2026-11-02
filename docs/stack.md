@@ -277,9 +277,9 @@ first: the screenshots show whatever `public/build` holds.
 ### Promo video
 
 `video/` is a [Remotion](https://www.remotion.dev) project that renders the promo video (landscape and square MP4) and
-a silent loop GIF for the README from pieces of the real UI. It has its own `package.json` and type check (`bun run typecheck` in
-`video/`), and is left out of the app's build, TypeScript check and lint; the formatter covers it like the rest of the
-repository. Previewing and rendering are in
+a silent loop GIF for the README from pieces of the real UI. It has its own `package.json` and type check
+(`bun run typecheck` in `video/`, also a CI job), and is left out of the app's build, TypeScript check and lint; the
+formatter covers it like the rest of the repository. Previewing and rendering are in
 [video/README.md](../video/README.md); the renders go to `video/out/` and are not committed.
 
 ## Adding a shadcn component
