@@ -148,7 +148,7 @@ single mail. The mail (`App\Mail\WelcomeEmail`, views `resources/views/mail/welc
 goes out from `MAIL_FROM_ADDRESS`, has `Reply-To: SAAS_CONTACT_EMAIL` so answers reach a person, greets the first word
 of the account name (nothing when empty) and is in Spanish when `users.locale` is `es`, English otherwise. The
 migration that added `welcomed_at` marks accounts that already had a plan (lifetime or any subscription) as welcomed,
-so a renewal never welcomes an existing customer.
+so a renewal never welcomes an existing customer. A failure to queue is reported and releases the claim, so it never breaks the billing step and the next event tries again; once queued, the job retries a failing mail server 5 times over about 1.5 hours.
 
 ## Manual grants
 
