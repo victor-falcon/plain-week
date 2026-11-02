@@ -18,14 +18,16 @@ return new class extends Migration
         });
 
         // Accounts that already had a plan before this column existed are not welcomed retroactively
-        // (a renewal webhook would otherwise send them the email).
+        // (a renewal webhook would otherwise send them the email). A subscription whose first payment
+        // never went through gave no access, so its account is still welcomed once it pays.
         DB::table('users')
             ->where(fn ($query) => $query
                 ->whereNotNull('lifetime_purchased_at')
                 ->orWhereExists(fn ($subscriptions) => $subscriptions
                     ->selectRaw('1')
                     ->from('subscriptions')
-                    ->whereColumn('subscriptions.user_id', 'users.id')))
+                    ->whereColumn('subscriptions.user_id', 'users.id')
+                    ->whereNotIn('subscriptions.stripe_status', ['incomplete', 'incomplete_expired'])))
             ->update(['welcomed_at' => now()]);
     }
 

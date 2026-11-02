@@ -171,6 +171,21 @@ function webhook(string $type, array $object): TestResponse
 }
 
 /**
+ * A completed, paid lifetime Checkout session for `cus_test`.
+ *
+ * @param  array<string, mixed>  $overrides
+ * @return array<string, mixed>
+ */
+function lifetimeSession(array $overrides = []): array
+{
+    return [
+        'id' => 'cs_test', 'object' => 'checkout.session', 'customer' => 'cus_test', 'mode' => 'payment',
+        'status' => 'complete', 'payment_status' => 'paid', 'payment_intent' => 'pi_test',
+        'metadata' => ['plan' => 'lifetime'], ...$overrides,
+    ];
+}
+
+/**
  * A user with an active weekly subscription stored locally.
  */
 function weeklySubscriber(string $status = 'active', ?DateTimeInterface $endsAt = null): User

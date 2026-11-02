@@ -22,6 +22,17 @@ class WelcomeEmail extends Mailable implements ShouldQueue
 
     public bool $deleteWhenMissingModels = true;
 
+    /**
+     * The claim on `users.welcomed_at` is already taken: ride out a mail
+     * server outage instead of losing the email.
+     */
+    public int $tries = 5;
+
+    /**
+     * @var list<int>
+     */
+    public array $backoff = [60, 300, 900, 3600];
+
     public function __construct(public User $user) {}
 
     public function envelope(): Envelope

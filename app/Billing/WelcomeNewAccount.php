@@ -5,12 +5,15 @@ namespace App\Billing;
 use App\Mail\WelcomeEmail;
 use App\Models\User;
 use Illuminate\Support\Facades\Mail;
+use Throwable;
 
 /**
  * Queues the welcome email the first time an account has access in SaaS mode
  * (lifetime granted or a weekly subscription stored). `users.welcomed_at` is
  * claimed with a conditional update, so the success redirect and the webhook
- * racing each other send it once.
+ * racing each other send it once. Never throws: a failure to queue is
+ * reported, releases the claim (the next event tries again) and leaves the
+ * billing step that called it untouched.
  */
 class WelcomeNewAccount
 {
@@ -28,6 +31,11 @@ class WelcomeNewAccount
             return;
         }
 
-        Mail::to($user)->queue(new WelcomeEmail($user));
+        try {
+            Mail::to($user)->queue(new WelcomeEmail($user));
+        } catch (Throwable $e) {
+            report($e);
+            User::whereKey($user->getKey())->update(['welcomed_at' => null]);
+        }
     }
 }
