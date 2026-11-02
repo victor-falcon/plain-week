@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::table('users', function (Blueprint $table) {
             // App\Enums\ReferralSource, answered at sign-up in SaaS mode; null when skipped or self-hosted.
-            $table->string('referral_source')->nullable();
+            $table->string('referral_source', 32)->nullable();
             // Language for emails ("en" or "es"), taken from Accept-Language at sign-up.
             $table->string('locale', 5)->nullable();
         });

@@ -14,8 +14,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   opens the project's GitHub Discussions.
 - **"How did you hear about Plain Week?"** The sign-up card on plainweek.eu asks, optionally, where you found Plain
   Week (X, Substack, Reddit, Hacker News, a friend or other). Self-hosted instances don't ask.
-- **Account language.** New accounts remember whether their browser prefers Spanish or English, so emails can be sent
-  in that language.
+- **Account language.** New accounts remember whether their browser prefers Spanish or English, for emails in that
+  language later on.
 
 ### Changed
 

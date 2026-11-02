@@ -24,8 +24,8 @@ Registration (`App\Actions\Fortify\CreateNewUser`) stores two extra columns on `
   mode. Stable slugs from `App\Enums\ReferralSource`: `x`, `substack`, `reddit`, `hacker_news`, `friend`, `other`;
   `null` when skipped. With SaaS mode off the field is not shown and anything sent is ignored.
 - `locale`: set on every sign-up (SaaS mode or not) from the request's `Accept-Language`
-  (`getPreferredLanguage(['en', 'es'])`): `es` when Spanish is preferred, otherwise `en`. It is the language for emails
-  sent to the account (the welcome email); the app UI itself stays in English.
+  (`getPreferredLanguage(['en', 'es'])`): `es` when Spanish is preferred, otherwise `en`. It is meant for
+  emails sent to the account (nothing reads it yet); the app UI itself stays in English.
 
 ## Entitlement
 
