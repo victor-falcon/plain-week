@@ -154,6 +154,23 @@ function stripeSubscription(array $overrides = []): array
 }
 
 /**
+ * Posts a Stripe event to the webhook, signed with the test secret.
+ *
+ * @param  array<string, mixed>  $object
+ */
+function webhook(string $type, array $object): TestResponse
+{
+    $payload = json_encode(['id' => 'evt_test', 'type' => $type, 'data' => ['object' => $object]], JSON_THROW_ON_ERROR);
+    $timestamp = time();
+    $signature = hash_hmac('sha256', "{$timestamp}.{$payload}", 'whsec_test');
+
+    return test()->call('POST', '/stripe/webhook', server: [
+        'CONTENT_TYPE' => 'application/json',
+        'HTTP_STRIPE_SIGNATURE' => "t={$timestamp},v1={$signature}",
+    ], content: $payload);
+}
+
+/**
  * A user with an active weekly subscription stored locally.
  */
 function weeklySubscriber(string $status = 'active', ?DateTimeInterface $endsAt = null): User

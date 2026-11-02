@@ -18,6 +18,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   Week (X, Substack, Reddit, Hacker News, a friend or other). Self-hosted instances don't ask.
 - **Account language.** New accounts remember whether their browser prefers Spanish or English, for emails in that
   language later on.
+- **A welcome note on plainweek.eu.** The first time an account gets a plan (weekly or lifetime), it gets one short,
+  plain email from Víctor, in Spanish or English, asking what you used to plan your week before and what made you try
+  Plain Week. Replying reaches him directly. Self-hosted instances never send it.
 
 ### Changed
 
