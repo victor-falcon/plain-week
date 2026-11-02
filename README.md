@@ -25,8 +25,8 @@
 - **Free and open source.** MIT licensed, every feature, no tracking. Use it in your browser without an account, or
   host it yourself.
 
-**Don't want to run a server? Use it at [plainweek.eu](https://plainweek.eu).** The planner is free in your browser;
-the paid plan syncs it across your devices.
+**Don't want to run a server? Use it at [plainweek.eu](https://plainweek.eu).** The planner is free in your browser, and
+sync across your devices is a paid plan.
 
 ![Plain Week: the week view in light mode](./docs/images/desktop-light.png)
 
