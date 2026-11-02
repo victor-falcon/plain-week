@@ -83,7 +83,7 @@ export const DIALOG = {
     pickColor: 50,
     tickFirst: 72,
     tickSecond: 86,
-};
+} as const;
 
 /** Drag and drop: one task to another day, another one to Someday. */
 export const DRAG = {
@@ -91,14 +91,14 @@ export const DRAG = {
     firstDrop: 54,
     secondGrab: 74,
     secondDrop: 106,
-};
+} as const;
 
 /** Repeat picker: Weekly, then three weekdays, then Apply. */
 export const REPEAT = {
     weekly: 20,
     days: [36, 46],
     apply: 62,
-};
+} as const;
 
 /** Offline: the dot turns amber, two tasks are typed and saved at once. */
 export const OFFLINE = {
@@ -106,12 +106,12 @@ export const OFFLINE = {
     first: { text: 'Pay rent', start: 34, perChar: 2 },
     firstEnter: 54,
     backOnline: 82,
-};
+} as const;
 
 /** Light to dark: where the circle starts to grow. */
 export const DARK_MODE = {
     flip: 26,
-};
+} as const;
 
 /** Open source: the README's docker command is typed, then Enter. */
 export const OPEN_SOURCE = {
@@ -126,7 +126,7 @@ export const OPEN_SOURCE = {
         perChar: 0.33,
     },
     enter: 74,
-};
+} as const;
 
 export type Cue = {
     /** Frame within the scene. */

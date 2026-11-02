@@ -174,7 +174,7 @@ function WeekStrip({ frame }: { frame: number }) {
                     <DayColumnView
                         key={day.day}
                         isToday={day.isToday}
-                        width={150}
+                        width={square ? 150 : 132}
                         header={
                             <DayHeader
                                 day={day.day}
@@ -210,17 +210,17 @@ export function RepeatScene() {
     const frame = useCurrentFrame();
     const enter = useSpring();
     const { square } = useLayout();
-    const floorScale = square ? 1.28 : 1.3;
+    const floorScale = square ? 1.28 : 1.45;
     const popoverScale = square ? 1.1 : 1.15;
 
     return (
         <Stage>
             <Caption text="Make it a *habit.*" at={4} />
             <Caption
-                text="Every N days, any weekdays, or monthly."
+                text="Every N days, weekdays or monthly."
                 at={12}
                 size="sub"
-                top={square ? 238 : 228}
+                top={square ? 250 : 246}
             />
             <Floor
                 scale={floorScale}

@@ -93,18 +93,18 @@ export function OfflineScene() {
                 out={OFFLINE.backOnline - 4}
             />
             <Caption
-                text="Offline-first: it saves on your device, instantly."
+                text="Saved on your device, instantly."
                 at={12}
                 out={OFFLINE.backOnline - 4}
                 size="sub"
-                top={square ? 238 : 228}
+                top={square ? 250 : 246}
             />
-            <Caption text="Back online? *It syncs.*" at={OFFLINE.backOnline} />
+            <Caption text="Signed in? *It syncs.*" at={OFFLINE.backOnline} />
             <Caption
-                text="Optional account. Start as a guest."
+                text="The account is optional."
                 at={OFFLINE.backOnline + 8}
                 size="sub"
-                top={square ? 238 : 228}
+                top={square ? 250 : 246}
             />
             <Floor
                 scale={square ? 1.75 : 1.9}

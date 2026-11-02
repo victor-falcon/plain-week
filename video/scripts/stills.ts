@@ -9,7 +9,7 @@ import { mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { bundle } from '@remotion/bundler';
 import { renderStill, selectComposition } from '@remotion/renderer';
-import { webpackOverride } from '../remotion.config';
+import { webpackOverride } from '../webpack-override';
 
 const [compositionId = 'PromoLandscape', ...frames] = process.argv.slice(2);
 const outDir = path.resolve('out/stills');

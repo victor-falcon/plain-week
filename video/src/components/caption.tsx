@@ -38,8 +38,8 @@ type Props = {
 
 const SIZES = {
     hero: { landscape: 120, square: 96 },
-    title: { landscape: 76, square: 64 },
-    sub: { landscape: 38, square: 34 },
+    title: { landscape: 80, square: 68 },
+    sub: { landscape: 50, square: 44 },
 };
 
 /**
@@ -82,7 +82,7 @@ export function Caption({
                 className={cn(
                     'flex flex-wrap justify-center tracking-tight',
                     size === 'sub'
-                        ? 'font-medium text-muted-foreground'
+                        ? 'font-medium text-foreground/70'
                         : 'font-bold',
                 )}
                 style={{

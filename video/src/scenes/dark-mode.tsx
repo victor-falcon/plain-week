@@ -24,7 +24,7 @@ function Content({ enter }: { enter: number }) {
                 text="And right-to-left layouts, too."
                 at={12}
                 size="sub"
-                top={square ? 238 : 228}
+                top={square ? 250 : 246}
             />
             <Floor scale={square ? 1.75 : 1.8} top={640} enter={enter}>
                 <Card className="flex gap-6 p-7 pt-8">

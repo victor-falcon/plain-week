@@ -74,11 +74,11 @@ export function OpenSourceScene() {
                     text="One Docker command and it's yours."
                     at={12}
                     size="sub"
-                    top={square ? 238 : 228}
+                    top={square ? 250 : 246}
                 />
                 <Floor
-                    scale={square ? 1.35 : 1.6}
-                    top={square ? 640 : 610}
+                    scale={square ? 1.35 : 1.75}
+                    top={square ? 640 : 620}
                     enter={enter(frame, 2)}
                 >
                     <div className="flex flex-col items-center gap-5">
@@ -107,7 +107,7 @@ export function OpenSourceScene() {
                 <div
                     className="absolute inset-x-0 flex justify-center"
                     style={{
-                        top: 960,
+                        top: square ? 960 : 990,
                         opacity: site,
                         transform: `translateY(-50%) scale(${mix(site, 0.9, 1)})`,
                     }}

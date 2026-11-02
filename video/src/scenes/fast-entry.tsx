@@ -13,6 +13,7 @@ import type { DemoTask } from '../components/planner';
 import { Card, Floor, Stage, useLayout } from '../components/stage';
 import { mix, progress, typed, useSpring } from '../motion';
 import { FAST_ENTRY } from '../timeline';
+import type { Typing } from '../timeline';
 
 const { first, firstEnter, second, secondEnter } = FAST_ENTRY;
 
@@ -23,7 +24,7 @@ function EntryRow({
     task,
     liftAt,
 }: {
-    typing: { text: string; start: number; perChar: number };
+    typing: Typing;
     enter: number;
     task: DemoTask;
     liftAt: number;
@@ -80,7 +81,7 @@ export function FastEntryScene() {
                 text="“17:30 Gym” sets the time for you."
                 at={firstEnter + 2}
                 size="sub"
-                top={square ? 238 : 228}
+                top={square ? 250 : 246}
             />
             <Floor
                 scale={square ? 1.75 : 2.05}
@@ -111,12 +112,12 @@ export function FastEntryScene() {
                                 liftAt={firstEnter + 6}
                                 task={{ text: 'Call the bank' }}
                             />
-                            <EntryRow
-                                typing={{ text: '', start: 0, perChar: 1 }}
-                                enter={Number.POSITIVE_INFINITY}
-                                liftAt={secondEnter + 6}
-                                task={{ text: '' }}
-                            />
+                            {/* The next row lifts, ready for the next task. */}
+                            {frame >= secondEnter + 6 ? (
+                                <TypingRow frame={frame} text="" />
+                            ) : (
+                                <EmptyRow />
+                            )}
                             <EmptyRow />
                         </DayColumnView>
                     </Card>

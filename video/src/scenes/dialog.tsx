@@ -42,7 +42,7 @@ export function DialogScene() {
     const frame = useCurrentFrame();
     const enter = useSpring();
     const { square } = useLayout();
-    const scale = square ? 1.75 : 1.9;
+    const scale = square ? 1.75 : 1.8;
     const pickerOpen =
         frame >= DIALOG.openPicker && frame < DIALOG.pickColor + 8;
     const picker = enter(frame, DIALOG.openPicker, {
@@ -76,11 +76,11 @@ export function DialogScene() {
                 text="All in one task dialog."
                 at={14}
                 size="sub"
-                top={square ? 238 : 228}
+                top={square ? 250 : 246}
             />
             <Floor
                 scale={scale}
-                top={square ? 650 : 640}
+                top={square ? 650 : 680}
                 enter={enter(frame, 2)}
             >
                 <div className="relative grid w-[512px] gap-4 rounded-4xl bg-secondary p-6 text-sm text-secondary-foreground shadow-xl ring-1 ring-foreground/5">

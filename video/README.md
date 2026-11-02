@@ -22,7 +22,8 @@ bun install            # at the repository root
 cd video && bun install
 ```
 
-Run every command from `video/`:
+Run every command from `video/` (the webpack override in `webpack-override.ts` resolves paths from there). The first
+render downloads Remotion's Chrome Headless Shell; ffmpeg ships with Remotion, so nothing else is needed.
 
 ```sh
 bun run dev            # Remotion Studio: scrub, preview and tweak
@@ -47,6 +48,9 @@ gitignored.
   `resources/js/components/ui` (`Button`, `Checkbox`, `ToggleGroup`, `Kbd`), `TaskColorSwatch` and the task colors.
   The planner rows and day headers read Dexie and dnd-kit in the app, so `src/components/planner.tsx` has static twins
   with the same classes; keep them in step with `task-row.tsx`, `new-task-row.tsx` and `day-column.tsx`.
+- The app's files resolve their packages (Radix, cva…) from the root `node_modules`; `webpack-override.ts` points
+  `react`, `react-dom` and `lucide-react` at this folder's copies so the bundle has one React. `package.json` pins
+  Tailwind (`overrides`) to the version the root lockfile resolves; bump both together.
 - CSS transitions and animations are turned off (`src/style.css`): every motion is driven by the frame.
 
 ## Music

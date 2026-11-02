@@ -94,9 +94,9 @@ export function EndCardScene() {
                     </span>
                 </div>
                 <p
-                    className="mt-8 flex items-center gap-3 font-medium text-muted-foreground"
+                    className="mt-8 flex items-center gap-3 font-medium text-foreground/80"
                     style={{
-                        fontSize: square ? 30 : 34,
+                        fontSize: square ? 34 : 40,
                         opacity: repo,
                     }}
                 >

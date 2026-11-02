@@ -17,5 +17,5 @@
             "react/*": ["./node_modules/@types/react/*"]
         }
     },
-    "include": ["src", "scripts", "remotion.config.ts"]
+    "include": ["src", "scripts", "remotion.config.ts", "webpack-override.ts"]
 }
