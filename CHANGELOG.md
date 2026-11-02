@@ -7,6 +7,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **A welcome note on plainweek.eu.** The first time an account gets a plan (weekly or lifetime), it gets one short,
+  plain email from Víctor, in Spanish or English, asking what you used to plan your week before and what made you try
+  Plain Week. Replying reaches him directly. Self-hosted instances never send it.
+
+### Fixed
+
+- **Email from Coolify and Docker Compose.** The Coolify template and `deploy/docker-compose.yml` now pass the SMTP
+  settings (`MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_SCHEME`, `MAIL_FROM_ADDRESS`,
+  `MAIL_FROM_NAME`), so an instance can actually send verification and password reset emails. The self-hosting guide
+  has an example with Resend.
+
 ## [0.3.8] - 2026-11-02
 
 ### Added
@@ -18,21 +31,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   Week (X, Substack, Reddit, Hacker News, a friend or other). Self-hosted instances don't ask.
 - **Account language.** New accounts remember whether their browser prefers Spanish or English, for emails in that
   language later on.
-- **A welcome note on plainweek.eu.** The first time an account gets a plan (weekly or lifetime), it gets one short,
-  plain email from Víctor, in Spanish or English, asking what you used to plan your week before and what made you try
-  Plain Week. Replying reaches him directly. Self-hosted instances never send it.
 
 ### Changed
 
 - **README.** It now says plainly that Plain Week is free and open source with every feature, and points to
   [plainweek.eu](https://plainweek.eu) for anyone who'd rather not run a server. Sync there is a paid plan.
-
-### Fixed
-
-- **Email from Coolify and Docker Compose.** The Coolify template and `deploy/docker-compose.yml` now pass the SMTP
-  settings (`MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_SCHEME`, `MAIL_FROM_ADDRESS`,
-  `MAIL_FROM_NAME`), so an instance can actually send verification and password reset emails. The self-hosting guide
-  has an example with Resend.
 
 ## [0.3.7] - 2026-10-31
 
