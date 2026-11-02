@@ -41,8 +41,9 @@
 - 🐳 **Run it with Docker.** One container, SQLite on a volume, no other services. Then open http://localhost:8080.
 
     ```sh
-    docker run -d -p 127.0.0.1:8080:8080 -v plainweek-storage:/app/storage -e APP_URL=http://localhost:8080 \
-      -e APP_KEY="base64:$(openssl rand -base64 32)" ghcr.io/victor-falcon/plain-week:latest
+    docker run -d -p 127.0.0.1:8080:8080 -v plainweek-storage:/app/storage \
+      -e APP_URL=http://localhost:8080 -e APP_KEY="base64:$(openssl rand -base64 32)" \
+      ghcr.io/victor-falcon/plain-week:latest
     ```
 
 - 🚀 **Deploy on [Coolify](https://coolify.io).** Create a **Docker Compose Empty** resource, paste

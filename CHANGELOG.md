@@ -16,7 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
-- **A README for first-time visitors.** It opens with the promo loop, a one-line pitch and three ways to get started
+- **A README for first-time visitors.** It opens with a short pitch, the promo loop and three ways to get started
   (plainweek.eu with no sign-up, one `docker run` line, the Coolify template), links to machine translations in eight
   languages through zdoc.app, and points to GitHub Discussions for ideas and feedback. Development and self-hosting
   details moved further down.
