@@ -10,6 +10,11 @@ use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
 {
+    /** Where "Send feedback" leads on a self-hosted instance. */
+    public const FEEDBACK_DISCUSSIONS_URL = 'https://github.com/victor-falcon/plain-week/discussions';
+
+    public const FEEDBACK_SUBJECT = 'Plain Week feedback';
+
     /**
      * The root template that's loaded on the first page visit.
      *
@@ -50,6 +55,8 @@ class HandleInertiaRequests extends Middleware
             'saas' => [
                 'enabled' => (bool) config('saas.enabled'),
             ],
+            // Where "Send feedback" leads: the operator's inbox on a SaaS instance, GitHub otherwise.
+            'feedbackUrl' => self::feedbackUrl(),
             // Integrations this instance offers (each needs its own credentials).
             'integrations' => [
                 'googleCalendar' => GoogleOAuth::configured(),
@@ -66,5 +73,14 @@ class HandleInertiaRequests extends Middleware
             ] : null,
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];
+    }
+
+    private static function feedbackUrl(): string
+    {
+        if (! config('saas.enabled')) {
+            return self::FEEDBACK_DISCUSSIONS_URL;
+        }
+
+        return 'mailto:'.config('saas.seller.email').'?subject='.rawurlencode(self::FEEDBACK_SUBJECT);
     }
 }

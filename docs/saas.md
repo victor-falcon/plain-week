@@ -28,6 +28,7 @@ It is used by:
 | -------------------------------------------- | ----------------------------------------------------------------------------- |
 | `EnsureHasAccess` on `/` and `sync/*`        | Pages redirect to `/plans`; JSON requests (sync) get `402 Payment Required`   |
 | Inertia shared props                         | `saas.enabled`, `account: { hasAccess, plan } \| null` (null for guests)      |
+| "Send feedback" (account menu, settings)     | `feedbackUrl`: `mailto:` the contact email (off: GitHub Discussions)          |
 | `SyncProvider` and the sync engine           | The engine does not start; a `402` stops it, keeps local data, shows `/plans` |
 | `EnsureHasAccess` on Google Calendar connect | Redirect to `/plans` (the page and disconnecting stay reachable)              |
 
@@ -133,7 +134,7 @@ php artisan plainweek:grant-lifetime owner@example.com --revoke # remove it
 | `SAAS_ENABLED`          | `false`                   | Turns SaaS mode on                                                  |
 | `SAAS_LAUNCH_COUPON`    | (empty)                   | Stripe coupon id applied to lifetime purchases; empty = no discount |
 | `SAAS_SELLER_NAME`      | `the Plain Week operator` | Seller shown in the terms and privacy pages                         |
-| `SAAS_CONTACT_EMAIL`    | `MAIL_FROM_ADDRESS`       | Contact shown in the terms and privacy pages                        |
+| `SAAS_CONTACT_EMAIL`    | `MAIL_FROM_ADDRESS`       | Contact in the terms and privacy pages; "Send feedback" mails it    |
 | `STRIPE_KEY`            |                           | Publishable key                                                     |
 | `STRIPE_SECRET`         |                           | Secret key                                                          |
 | `STRIPE_WEBHOOK_SECRET` |                           | Signing secret of the `/stripe/webhook` endpoint                    |
