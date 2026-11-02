@@ -247,20 +247,23 @@ changes gives the same files.
 
 `resources/images/marketing/marketing.html` is one self-contained page that draws the og:image, the README header and
 the GitHub social preview, picked by the query string (`?kind=og|header|social&theme=light|dark`); open it in a browser
-to preview a variant. It uses
-Inter and JetBrains Mono from the `@fontsource-variable` packages in `node_modules`, so run `bun install` first.
+to preview a variant. It uses Inter and JetBrains Mono from the `@fontsource-variable` packages in `node_modules`, so
+run `bun install` first.
 
 ```sh
 bun scripts/marketing-images.ts
 ```
 
-It writes `public/og-image.png` (light, 1200×630 at 1×: the social preview `resources/views/app.blade.php` links,
-see below) and `docs/images/header-light.png` / `header-dark.png` (1600×560 at 2×, the README's `<picture>`) and
-`docs/images/social-preview.png` (1280×640 at 1×). The social preview is the image GitHub shows when the repository is
-shared; it is not served from the repository, so upload it by hand in **Settings › General › Social preview** after
-regenerating it. Instead of a drawn week it crops the real week screenshot (`docs/images/desktop-light.png`), so run
-the screenshots script first when the UI changes. The copy, the sample week and the colors live in the page; keep the
-pitch in step with the README.
+It writes:
+
+- `public/og-image.png`: light, 1200×630 at 1×, the social preview `resources/views/app.blade.php` links (see below).
+- `docs/images/header-light.png` / `header-dark.png`: 1600×560 at 2×, the README's `<picture>`.
+- `docs/images/social-preview.png`: light, 1280×640 at 1×, the image GitHub shows when the repository is shared. GitHub
+  does not read it from the repository: upload it by hand in **Settings › General › Social preview** after regenerating
+  it. Instead of a drawn week it crops the real week screenshot (`docs/images/desktop-light.png`, 1440×900 at 2×), so
+  run the screenshots script first when the UI changes.
+
+The copy, the sample week and the colors live in the page; keep the pitch in step with the README.
 
 The Open Graph and X/Twitter card tags are in `resources/views/app.blade.php`. Their URLs are built from `APP_URL`
 (`config('app.url')`), so every instance's previews point at itself; set `APP_URL` to the public URL. `APP_NOINDEX`

@@ -66,9 +66,15 @@ try {
         await page.goto(`${source}?kind=${image.kind}&theme=${image.theme}`);
         await page.evaluate(() => document.fonts.ready);
         // The social preview embeds a screenshot; wait for it to decode.
-        await page.evaluate(() =>
-            Promise.all([...document.images].map((img) => img.decode())),
-        );
+        await page
+            .evaluate(() =>
+                Promise.all([...document.images].map((img) => img.decode())),
+            )
+            .catch(() => {
+                throw new Error(
+                    'docs/images/desktop-light.png did not load; run `bun scripts/screenshots.ts` first.',
+                );
+            });
         const fonts = await page.evaluate(
             () =>
                 [...document.fonts].filter((font) => font.status === 'loaded')
