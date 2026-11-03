@@ -1,5 +1,5 @@
 import { generateKeyBetween } from 'fractional-indexing';
-import type { Task } from './types';
+import type { SomedayColumn, Task } from './types';
 
 /** Sort order inside a day: position, then id as a tie-break. */
 export function compareTaskOrder(
@@ -52,7 +52,15 @@ export function positionBetween(
     return generateKeyBetween(lower, upper);
 }
 
-type SomedayKey = Pick<Task, 'someday_column' | 'position' | 'id'>;
+/** Where a row sorts in Someday: its column, then its position. */
+export type SomedaySortKey = Pick<Task, 'someday_column' | 'position'>;
+
+/** A row's Someday column; a missing one (never valid data) counts as 0. */
+export function somedayColumnOf(
+    task: Pick<Task, 'someday_column'>,
+): SomedayColumn {
+    return task.someday_column ?? 0;
+}
 
 /**
  * Sort order of the Someday list. Someday is one list; its sort key is
@@ -60,9 +68,12 @@ type SomedayKey = Pick<Task, 'someday_column' | 'position' | 'id'>;
  * (three separate columns) keep the order they were shown in: column 1, then
  * 2, then 3.
  */
-export function compareSomedayOrder(a: SomedayKey, b: SomedayKey): number {
-    const columnA = a.someday_column ?? 0;
-    const columnB = b.someday_column ?? 0;
+export function compareSomedayOrder(
+    a: SomedaySortKey & Pick<Task, 'id'>,
+    b: SomedaySortKey & Pick<Task, 'id'>,
+): number {
+    const columnA = somedayColumnOf(a);
+    const columnB = somedayColumnOf(b);
 
     if (columnA !== columnB) {
         return columnA < columnB ? -1 : 1;
@@ -79,12 +90,12 @@ export function compareSomedayOrder(a: SomedayKey, b: SomedayKey): number {
  * change.
  */
 export function somedayKeyBetween(
-    after: Pick<Task, 'someday_column' | 'position'> | undefined,
-    before: Pick<Task, 'someday_column' | 'position'> | undefined,
-): Pick<Task, 'someday_column' | 'position'> {
+    after: SomedaySortKey | undefined,
+    before: SomedaySortKey | undefined,
+): SomedaySortKey {
     if (after) {
-        const column = after.someday_column ?? 0;
-        const sameColumn = before && (before.someday_column ?? 0) === column;
+        const column = somedayColumnOf(after);
+        const sameColumn = before && somedayColumnOf(before) === column;
 
         return {
             someday_column: column,
@@ -97,7 +108,7 @@ export function somedayKeyBetween(
 
     if (before) {
         return {
-            someday_column: before.someday_column ?? 0,
+            someday_column: somedayColumnOf(before),
             position: positionBetween(null, before.position),
         };
     }

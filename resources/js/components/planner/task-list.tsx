@@ -4,7 +4,7 @@ import {
     verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { Fragment, useLayoutEffect, useRef } from 'react';
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { toast } from 'sonner';
 import {
     useKeyboardCursor,
@@ -41,8 +41,8 @@ type Props = {
      * On phones the columns stack into one list. Default 1.
      */
     columns?: number;
-    /** Classes of each column when `columns` is more than 1. */
-    columnClassName?: string;
+    /** Classes of the first row of each column when `columns` is more than 1. */
+    columnTopClassName?: string;
     /** Accessible label of the empty rows, e.g. "New task for Mon 12 Oct". */
     newTaskLabel: string;
     onOpenTask: (taskId: string) => void;
@@ -59,19 +59,19 @@ function DropIndicator() {
 }
 
 /**
- * A ruled list: the tasks, then empty rows that add new ones (every one of
- * them appends to the end of the list, so no empty row sits between two
- * tasks; laid out in several columns, too). Empty rows are
- * keyed by their slot (row position), so adding a task only unmounts the row
- * it replaces and an input the user is in stays put. Creating with Enter moves
- * focus to the empty row right below the new task, so typing can go on.
+ * A ruled list: the tasks, then empty rows that add new ones. Every empty row
+ * appends to the end of the list, so none sits between two tasks, also when
+ * the list is laid out in several columns. Empty rows are keyed by their slot
+ * (row position), so adding a task only unmounts the row it replaces and an
+ * input the user is in stays put. Creating with Enter moves focus to the next
+ * empty slot after the new task, so typing can go on.
  */
 export function TaskList({
     placement,
     tasks,
     rows,
     columns = 1,
-    columnClassName,
+    columnTopClassName,
     newTaskLabel,
     onOpenTask,
     className,
@@ -149,81 +149,100 @@ export function TaskList({
         );
     };
 
-    // One node per slot (tasks first, then the empty rows); the insertion
-    // line after the last task travels with it.
-    const slots: ReactNode[] = [
-        ...listTasks.map((task, index) => (
-            <Fragment key={rowKey(task)}>
-                {indicatorBefore === task.id && <DropIndicator />}
-                <TaskRow
-                    task={task}
-                    isCursor={cursor?.taskId === task.id}
-                    placement={placement}
-                    tasks={listTasks}
-                    onOpen={onOpenTask}
-                    onToggleDone={handleToggleDone}
-                />
-                {indicatorBefore === null && index === taskCount - 1 && (
-                    <DropIndicator />
+    const multiColumn = columns > 1;
+
+    // In columns, every slot is one grid cell that keeps its place in the DOM
+    // when the layout reflows (the grid flows top to bottom, then left to
+    // right), so rows never remount and focus stays put.
+    const cell = (key: string, slot: number, content: ReactNode) =>
+        multiColumn ? (
+            <div
+                key={key}
+                className={cn(
+                    'flex flex-col',
+                    slot % rowsPerColumn === 0 && columnTopClassName,
                 )}
-            </Fragment>
-        )),
-        ...Array.from({ length: emptyRows }, (_, index) => {
-            const slot = taskCount + index;
-
-            return (
-                <Fragment key={`new-${slot}`}>
-                    {indicatorBefore === null && slot === 0 && (
-                        <DropIndicator />
-                    )}
-                    <NewTaskRow
-                        ref={(input) => {
-                            if (input) {
-                                emptyInputs.current.set(slot, input);
-                            }
-
-                            return () => {
-                                emptyInputs.current.delete(slot);
-                            };
-                        }}
-                        label={newTaskLabel}
-                        // The first empty row is the list's cursor stop (the
-                        // only one shown on phones).
-                        isCursor={index === 0 && cursorOnNewRow}
-                        onSubmit={handleSubmit}
-                        onCancel={handleCancel}
-                        className={index > 0 ? 'max-lg:hidden' : undefined}
-                    />
-                </Fragment>
-            );
-        }),
-    ];
+            >
+                {content}
+            </div>
+        ) : (
+            <Fragment key={key}>{content}</Fragment>
+        );
 
     return (
         <div
             ref={setNodeRef}
             data-list={listKey}
-            className={cn(columns === 1 && 'flex flex-col', className)}
+            className={cn(
+                multiColumn
+                    ? 'grid grid-cols-1 lg:grid-flow-col lg:grid-cols-[repeat(var(--list-columns),minmax(0,1fr))] lg:grid-rows-[repeat(var(--list-rows),auto)]'
+                    : 'flex flex-col',
+                className,
+            )}
+            style={
+                multiColumn
+                    ? ({
+                          '--list-columns': columns,
+                          '--list-rows': rowsPerColumn,
+                      } as CSSProperties)
+                    : undefined
+            }
         >
             <SortableContext
                 items={listTasks.map((task) => task.id)}
                 strategy={verticalListSortingStrategy}
             >
-                {columns === 1
-                    ? slots
-                    : Array.from({ length: columns }, (_, column) => (
-                          <div
-                              key={column}
-                              data-list-column={column}
-                              className={cn('flex flex-col', columnClassName)}
-                          >
-                              {slots.slice(
-                                  column * rowsPerColumn,
-                                  (column + 1) * rowsPerColumn,
-                              )}
-                          </div>
-                      ))}
+                {listTasks.map((task, index) =>
+                    cell(
+                        rowKey(task),
+                        index,
+                        <>
+                            {indicatorBefore === task.id && <DropIndicator />}
+                            <TaskRow
+                                task={task}
+                                isCursor={cursor?.taskId === task.id}
+                                placement={placement}
+                                tasks={listTasks}
+                                onOpen={onOpenTask}
+                                onToggleDone={handleToggleDone}
+                            />
+                            {indicatorBefore === null &&
+                                index === taskCount - 1 && <DropIndicator />}
+                        </>,
+                    ),
+                )}
             </SortableContext>
+            {Array.from({ length: emptyRows }, (_, index) => {
+                const slot = taskCount + index;
+
+                return cell(
+                    `new-${slot}`,
+                    slot,
+                    <>
+                        {indicatorBefore === null && slot === 0 && (
+                            <DropIndicator />
+                        )}
+                        <NewTaskRow
+                            ref={(input) => {
+                                if (input) {
+                                    emptyInputs.current.set(slot, input);
+                                }
+
+                                return () => {
+                                    emptyInputs.current.delete(slot);
+                                };
+                            }}
+                            label={newTaskLabel}
+                            // The first empty row is the list's cursor stop
+                            // (the only one shown on phones).
+                            isCursor={index === 0 && cursorOnNewRow}
+                            onSubmit={handleSubmit}
+                            onCancel={handleCancel}
+                            className={index > 0 ? 'max-lg:hidden' : undefined}
+                        />
+                    </>,
+                );
+            })}
         </div>
     );
 }

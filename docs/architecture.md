@@ -196,7 +196,7 @@ beats the version it replaces. After commit the mutation schedules a sync.
 | `duplicateTask(id, { undo? })`                                                      | Copy (content and done state) with new ids for the task and subtasks, right after the original. Always a plain task.              |
 | `setRecurrence(id, recurrence \| null, { scope?, undo? })`                          | Makes a task repeat, changes or removes the rule (see [Recurring tasks](#recurring-tasks-client)).                                |
 | `createUndoLog()` / `undoChanges(log)`                                              | Pass `{ undo: log }` to mutations, then `undoChanges(log)` puts back every row they overwrote and deletes the rows they created.  |
-| `listTasksIn({ date } \| { date: null })`                                           | Sorted, non-deleted items of one list, occurrences included (useful to compute neighbours).                                       |
+| `listTasksIn({ date } \| { date: null })`                                           | Sorted, non-deleted items of one list, occurrences included (Someday: archived too); for neighbours.                              |
 | `carryOverTasks(today)`                                                             | Moves unfinished plain tasks from earlier days to `today`, after its tasks (see [Carry over](#carry-over-unfinished-tasks)).      |
 
 Every function that takes an `id` also accepts an occurrence id; mutations on a missing or deleted task throw. Order inside a list is `position` (fractional-indexing key), then `id` as a
@@ -213,7 +213,9 @@ migration. `someday_column` stays in the schema and the sync contract and is onl
 Someday picks a (`someday_column`, `position`) pair that sorts between its neighbours (`somedayKeyBetween`: the
 previous neighbour's column with a key after it, or the next neighbour's column with a key before it, or column 0 in
 an empty list), so no other row is rewritten. Appending uses the last task's column. The three columns on screen are
-only a layout (see [style.md](./style.md#planner-layout)).
+only a layout (see [style.md](./style.md#planner-layout)): `TaskList` with `columns={3}` renders one flat list of
+slots in a CSS grid that flows top to bottom, then left to right, so rows keep their DOM node when the list grows and
+a task changes column.
 
 Someday tasks done in an earlier week are **archived**: `querySomedayTasks(firstDay)` (behind `useSomedayTasks`) leaves
 out a done task whose `done_at` falls before the start of the viewed week (local time, `isArchivedSomeday`). A task done

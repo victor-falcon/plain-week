@@ -35,8 +35,8 @@ export function SomedaySection({ weekStart, today, onOpenTask }: Props) {
                 columns={SOMEDAY_COLUMNS.length}
                 newTaskLabel="New Someday task"
                 onOpenTask={onOpenTask}
-                className="grid grid-cols-1 gap-x-6 lg:grid-cols-3"
-                columnClassName="lg:border-t lg:border-border"
+                className="gap-x-6"
+                columnTopClassName="lg:border-t lg:border-border"
             />
         </section>
     );

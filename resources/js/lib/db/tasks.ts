@@ -625,10 +625,11 @@ export function restoreTask(id: string): Promise<PlannerTask> {
 }
 
 /**
- * Moves a task to a day or into the Someday list. It lands right before `beforeId`
- * and/or right after `afterId`; a neighbour that is not in the target list is
- * ignored, and with no usable neighbour the task goes to the end. Moving an
- * occurrence writes an exception for it (a series row cannot be moved).
+ * Moves a task to a day or into the Someday list. It lands right before
+ * `beforeId` and/or right after `afterId`; a neighbour that is not in the
+ * target list is ignored, and with no usable neighbour the task goes to the
+ * end. Moving an occurrence writes an exception for it (a series row cannot
+ * be moved).
  */
 export function moveTask(
     id: string,

@@ -5,7 +5,12 @@ import { notifyLocalChange } from '@/lib/db/changes';
 import { db } from '@/lib/db/database';
 import type { PlainWeekDatabase } from '@/lib/db/database';
 import { nextTimestamp } from '@/lib/db/dates';
-import { compareSomedayOrder, compareTaskOrder } from '@/lib/db/position';
+import {
+    compareSomedayOrder,
+    compareTaskOrder,
+    somedayColumnOf,
+} from '@/lib/db/position';
+import type { SomedaySortKey } from '@/lib/db/position';
 import { SOMEDAY_COLUMNS } from '@/lib/db/types';
 import type { Task } from '@/lib/db/types';
 import { EXPORT_FORMAT, EXPORT_VERSION } from './format';
@@ -119,7 +124,7 @@ function listKey(task: Pick<Task, 'date'>): string {
     return task.date ?? SOMEDAY_LIST;
 }
 
-type ListEnd = Pick<Task, 'id' | 'someday_column' | 'position'> | null;
+type ListEnd = (SomedaySortKey & Pick<Task, 'id'>) | null;
 
 /**
  * The sort key of the last task of each day / the Someday list in the
@@ -223,10 +228,7 @@ export async function planImport(
     });
 
     const ends = await listEnds(database, new Set(byList.keys()));
-    const sortKeys = new Map<
-        string,
-        Pick<Task, 'someday_column' | 'position'>
-    >();
+    const sortKeys = new Map<string, SomedaySortKey>();
 
     // Appended after the last task of each list, in the file's order. Someday
     // tasks all take the column of the last Someday task (0 when empty), so
@@ -245,7 +247,9 @@ export async function planImport(
         sorted.forEach((task, i) =>
             sortKeys.set(task.id, {
                 someday_column: isSomeday
-                    ? (end?.someday_column ?? 0)
+                    ? end === null
+                        ? 0
+                        : somedayColumnOf(end)
                     : task.someday_column,
                 position: keys[i],
             }),
