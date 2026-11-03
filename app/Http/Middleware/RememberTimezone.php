@@ -6,6 +6,7 @@ use App\Jobs\SyncGoogleCalendar;
 use App\Models\User;
 use Closure;
 use DateTimeZone;
+use Exception;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -39,10 +40,17 @@ class RememberTimezone
     }
 
     /**
-     * Browsers may report legacy aliases ("Asia/Calcutta"), which PHP still knows.
+     * Accepts any IANA-style name PHP can build a zone from, including legacy
+     * aliases browsers still report ("Asia/Calcutta") that newer tzdata no
+     * longer lists. UTC offsets ("+02:00") and abbreviations ("PST") are
+     * rejected: only a named zone (type 3) follows daylight saving rules.
      */
     private static function isKnown(string $timezone): bool
     {
-        return in_array($timezone, DateTimeZone::listIdentifiers(DateTimeZone::ALL_WITH_BC), true);
+        try {
+            return (new DateTimeZone($timezone))->__serialize()['timezone_type'] === 3;
+        } catch (Exception) {
+            return false;
+        }
     }
 }

@@ -23,6 +23,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **A GitHub social preview.** `bun scripts/marketing-images.ts` also renders `docs/images/social-preview.png`
   (1280×640), with a crop of the real week view, for the repository's social preview.
 
+### Fixed
+
+- **Legacy time zone aliases.** A time zone a browser reports as a legacy alias, such as `Asia/Calcutta`, is stored
+  again on servers whose tzdata no longer lists it, so its notifications and calendar events use the right local time.
+  UTC offsets and abbreviations are still ignored.
+
 ## [0.3.9] - 2026-11-02
 
 ### Added

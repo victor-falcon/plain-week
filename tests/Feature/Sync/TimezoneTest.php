@@ -57,6 +57,7 @@ test('an unknown or missing time zone is ignored without failing the request', f
     'empty' => [['X-Timezone' => '']],
     'unknown' => [['X-Timezone' => 'Mars/Olympus_Mons']],
     'offset' => [['X-Timezone' => '+02:00']],
+    'abbreviation' => [['X-Timezone' => 'PST']],
 ]);
 
 test('guests get 401 and nothing is stored', function () {
