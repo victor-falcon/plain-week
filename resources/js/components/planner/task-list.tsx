@@ -4,6 +4,7 @@ import {
     verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { Fragment, useLayoutEffect, useRef } from 'react';
+import type { ReactNode } from 'react';
 import { toast } from 'sonner';
 import {
     useKeyboardCursor,
@@ -25,12 +26,23 @@ import { parseSmartTime } from '@/lib/planner/smart-time';
 import { cn } from '@/lib/utils';
 
 type Props = {
-    /** The day or Someday column this list shows. */
+    /** The day or the Someday list this list shows. */
     placement: TaskPlacement;
     /** Sorted tasks; `undefined` while the first local read is in progress. */
     tasks: PlannerTask[] | undefined;
-    /** Ruled rows to fill on desktop. Mobile shows a single empty row. */
+    /**
+     * Ruled rows to fill on desktop (per column). Mobile shows a single empty
+     * row.
+     */
     rows: number;
+    /**
+     * Columns the list is laid out in on desktop, filled top to bottom and
+     * then left to right; each column gets as many rows as the fullest needs.
+     * On phones the columns stack into one list. Default 1.
+     */
+    columns?: number;
+    /** Classes of each column when `columns` is more than 1. */
+    columnClassName?: string;
     /** Accessible label of the empty rows, e.g. "New task for Mon 12 Oct". */
     newTaskLabel: string;
     onOpenTask: (taskId: string) => void;
@@ -47,7 +59,9 @@ function DropIndicator() {
 }
 
 /**
- * A ruled list: the tasks, then empty rows that add new ones. Empty rows are
+ * A ruled list: the tasks, then empty rows that add new ones (every one of
+ * them appends to the end of the list, so no empty row sits between two
+ * tasks; laid out in several columns, too). Empty rows are
  * keyed by their slot (row position), so adding a task only unmounts the row
  * it replaces and an input the user is in stays put. Creating with Enter moves
  * focus to the empty row right below the new task, so typing can go on.
@@ -56,6 +70,8 @@ export function TaskList({
     placement,
     tasks,
     rows,
+    columns = 1,
+    columnClassName,
     newTaskLabel,
     onOpenTask,
     className,
@@ -76,7 +92,9 @@ export function TaskList({
     const { indicator } = usePlannerDnd();
     const indicatorBefore =
         indicator?.listKey === listKey ? indicator.beforeTaskId : undefined;
-    const emptyRows = Math.max(rows, taskCount + 1) - taskCount;
+    // Room for every task plus at least one empty row.
+    const rowsPerColumn = Math.max(rows, Math.ceil((taskCount + 1) / columns));
+    const emptyRows = rowsPerColumn * columns - taskCount;
     const cursor = useKeyboardCursor();
     const { registerList, returnToList } = useKeyboardCursorApi();
     const cursorOnNewRow =
@@ -131,37 +149,34 @@ export function TaskList({
         );
     };
 
-    return (
-        <div
-            ref={setNodeRef}
-            data-list={listKey}
-            className={cn('flex flex-col', className)}
-        >
-            <SortableContext
-                items={listTasks.map((task) => task.id)}
-                strategy={verticalListSortingStrategy}
-            >
-                {listTasks.map((task) => (
-                    <Fragment key={rowKey(task)}>
-                        {indicatorBefore === task.id && <DropIndicator />}
-                        <TaskRow
-                            task={task}
-                            isCursor={cursor?.taskId === task.id}
-                            placement={placement}
-                            tasks={listTasks}
-                            onOpen={onOpenTask}
-                            onToggleDone={handleToggleDone}
-                        />
-                    </Fragment>
-                ))}
-            </SortableContext>
-            {indicatorBefore === null && <DropIndicator />}
-            {Array.from({ length: emptyRows }, (_, index) => {
-                const slot = taskCount + index;
+    // One node per slot (tasks first, then the empty rows); the insertion
+    // line after the last task travels with it.
+    const slots: ReactNode[] = [
+        ...listTasks.map((task, index) => (
+            <Fragment key={rowKey(task)}>
+                {indicatorBefore === task.id && <DropIndicator />}
+                <TaskRow
+                    task={task}
+                    isCursor={cursor?.taskId === task.id}
+                    placement={placement}
+                    tasks={listTasks}
+                    onOpen={onOpenTask}
+                    onToggleDone={handleToggleDone}
+                />
+                {indicatorBefore === null && index === taskCount - 1 && (
+                    <DropIndicator />
+                )}
+            </Fragment>
+        )),
+        ...Array.from({ length: emptyRows }, (_, index) => {
+            const slot = taskCount + index;
 
-                return (
+            return (
+                <Fragment key={`new-${slot}`}>
+                    {indicatorBefore === null && slot === 0 && (
+                        <DropIndicator />
+                    )}
                     <NewTaskRow
-                        key={`new-${slot}`}
                         ref={(input) => {
                             if (input) {
                                 emptyInputs.current.set(slot, input);
@@ -179,8 +194,36 @@ export function TaskList({
                         onCancel={handleCancel}
                         className={index > 0 ? 'max-lg:hidden' : undefined}
                     />
-                );
-            })}
+                </Fragment>
+            );
+        }),
+    ];
+
+    return (
+        <div
+            ref={setNodeRef}
+            data-list={listKey}
+            className={cn(columns === 1 && 'flex flex-col', className)}
+        >
+            <SortableContext
+                items={listTasks.map((task) => task.id)}
+                strategy={verticalListSortingStrategy}
+            >
+                {columns === 1
+                    ? slots
+                    : Array.from({ length: columns }, (_, column) => (
+                          <div
+                              key={column}
+                              data-list-column={column}
+                              className={cn('flex flex-col', columnClassName)}
+                          >
+                              {slots.slice(
+                                  column * rowsPerColumn,
+                                  (column + 1) * rowsPerColumn,
+                              )}
+                          </div>
+                      ))}
+            </SortableContext>
         </div>
     );
 }

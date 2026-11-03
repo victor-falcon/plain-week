@@ -1,7 +1,7 @@
 import { generateKeyBetween } from 'fractional-indexing';
 import type { Task } from './types';
 
-/** Sort order inside a day or Someday column: position, then id as a tie-break. */
+/** Sort order inside a day: position, then id as a tie-break. */
 export function compareTaskOrder(
     a: Pick<Task, 'position' | 'id'>,
     b: Pick<Task, 'position' | 'id'>,
@@ -50,4 +50,57 @@ export function positionBetween(
     }
 
     return generateKeyBetween(lower, upper);
+}
+
+type SomedayKey = Pick<Task, 'someday_column' | 'position' | 'id'>;
+
+/**
+ * Sort order of the Someday list. Someday is one list; its sort key is
+ * (`someday_column`, `position`, `id`), so tasks written in older versions
+ * (three separate columns) keep the order they were shown in: column 1, then
+ * 2, then 3.
+ */
+export function compareSomedayOrder(a: SomedayKey, b: SomedayKey): number {
+    const columnA = a.someday_column ?? 0;
+    const columnB = b.someday_column ?? 0;
+
+    if (columnA !== columnB) {
+        return columnA < columnB ? -1 : 1;
+    }
+
+    return compareTaskOrder(a, b);
+}
+
+/**
+ * A Someday sort key strictly between two neighbours of the list (either may
+ * be undefined for the start or end): the column of `after` with a position
+ * after it (and before `before` when both share that column), else the column
+ * of `before` with a position before it, else column 0. No other row has to
+ * change.
+ */
+export function somedayKeyBetween(
+    after: Pick<Task, 'someday_column' | 'position'> | undefined,
+    before: Pick<Task, 'someday_column' | 'position'> | undefined,
+): Pick<Task, 'someday_column' | 'position'> {
+    if (after) {
+        const column = after.someday_column ?? 0;
+        const sameColumn = before && (before.someday_column ?? 0) === column;
+
+        return {
+            someday_column: column,
+            position: positionBetween(
+                after.position,
+                sameColumn ? before.position : null,
+            ),
+        };
+    }
+
+    if (before) {
+        return {
+            someday_column: before.someday_column ?? 0,
+            position: positionBetween(null, before.position),
+        };
+    }
+
+    return { someday_column: 0, position: positionBetween(null, null) };
 }
