@@ -85,7 +85,10 @@ export default function PlannerLayout({ children }: { children: ReactNode }) {
                                     today={today}
                                     onOpenTask={setOpenTaskId}
                                 />
-                                <SomedaySection onOpenTask={setOpenTaskId} />
+                                <SomedaySection
+                                    weekStart={navigation.weekStart}
+                                    onOpenTask={setOpenTaskId}
+                                />
                             </PlannerDnd>
                         </main>
                     </div>

@@ -21,9 +21,15 @@ export function useWeekTasks(weekStart: Date): WeekTasks | undefined {
     return useLiveQuery(() => queryWeekTasks(firstDay), [firstDay]);
 }
 
-/** Live Someday columns. `undefined` only while the first read is in progress. */
-export function useSomedayTasks(): SomedayTasks | undefined {
-    return useLiveQuery(() => querySomedayTasks(), []);
+/**
+ * Live Someday columns as seen from the week starting at `weekStart`: tasks
+ * done in an earlier week are archived (hidden). `undefined` only while the
+ * first read is in progress.
+ */
+export function useSomedayTasks(weekStart: Date): SomedayTasks | undefined {
+    const firstDay = toDateKey(weekStart);
+
+    return useLiveQuery(() => querySomedayTasks(firstDay), [firstDay]);
 }
 
 /**

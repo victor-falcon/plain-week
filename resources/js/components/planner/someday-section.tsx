@@ -4,12 +4,16 @@ import { SOMEDAY_COLUMNS } from '@/lib/db/types';
 import { SOMEDAY_ROWS } from '@/lib/planner/week';
 
 type Props = {
+    weekStart: Date;
     onOpenTask: (taskId: string) => void;
 };
 
-/** Undated tasks below the week: three ruled columns across the full width. */
-export function SomedaySection({ onOpenTask }: Props) {
-    const columns = useSomedayTasks();
+/**
+ * Undated tasks below the week: three ruled columns across the full width.
+ * Tasks done before `weekStart` are archived and not shown.
+ */
+export function SomedaySection({ weekStart, onOpenTask }: Props) {
+    const columns = useSomedayTasks(weekStart);
 
     return (
         <section aria-labelledby="someday-title" className="flex flex-col">
