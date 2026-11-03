@@ -7,6 +7,7 @@ import {
     queryWeekTasks,
 } from '@/lib/db/queries';
 import type { SomedayTasks, WeekTasks } from '@/lib/db/queries';
+import { somedayArchiveWeek } from '@/lib/planner/week';
 import type { PlannerTask, SeriesItem } from '@/lib/recurrence/expand';
 
 export type { SomedayTasks, WeekTasks } from '@/lib/db/queries';
@@ -22,12 +23,16 @@ export function useWeekTasks(weekStart: Date): WeekTasks | undefined {
 }
 
 /**
- * Live Someday columns as seen from the week starting at `weekStart`: tasks
- * done in an earlier week are archived (hidden). `undefined` only while the
- * first read is in progress.
+ * Live Someday columns as seen from the week starting at `weekStart`, with
+ * `today` as 'YYYY-MM-DD': tasks done before that week (or before the current
+ * week, when a future one is shown) are archived and left out. `undefined`
+ * only while the first read is in progress.
  */
-export function useSomedayTasks(weekStart: Date): SomedayTasks | undefined {
-    const firstDay = toDateKey(weekStart);
+export function useSomedayTasks(
+    weekStart: Date,
+    today: string,
+): SomedayTasks | undefined {
+    const firstDay = somedayArchiveWeek(weekStart, today);
 
     return useLiveQuery(() => querySomedayTasks(firstDay), [firstDay]);
 }

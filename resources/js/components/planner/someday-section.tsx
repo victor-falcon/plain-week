@@ -5,15 +5,17 @@ import { SOMEDAY_ROWS } from '@/lib/planner/week';
 
 type Props = {
     weekStart: Date;
+    /** 'YYYY-MM-DD' of today. */
+    today: string;
     onOpenTask: (taskId: string) => void;
 };
 
 /**
  * Undated tasks below the week: three ruled columns across the full width.
- * Tasks done before `weekStart` are archived and not shown.
+ * Tasks done in an earlier week are archived and not shown.
  */
-export function SomedaySection({ weekStart, onOpenTask }: Props) {
-    const columns = useSomedayTasks(weekStart);
+export function SomedaySection({ weekStart, today, onOpenTask }: Props) {
+    const columns = useSomedayTasks(weekStart, today);
 
     return (
         <section aria-labelledby="someday-title" className="flex flex-col">

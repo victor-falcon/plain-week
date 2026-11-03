@@ -178,8 +178,8 @@ export async function queryWeekTasks(firstDay: string): Promise<WeekTasks> {
 
 /**
  * Whether a Someday task is archived for the week starting at `firstDay`: it
- * was done before that week began. A done task without `done_at` (older data)
- * counts as archived. Archiving only hides the task; undoing it brings it back.
+ * was done before that week began. A done task without a readable `done_at`
+ * (older data) counts as archived. Archiving only hides the task; undoing it brings it back.
  */
 export function isArchivedSomeday(
     task: Pick<Task, 'done' | 'done_at'>,
@@ -189,10 +189,12 @@ export function isArchivedSomeday(
         return false;
     }
 
-    return (
-        task.done_at === null ||
-        Date.parse(task.done_at) < parseDateKey(firstDay).getTime()
-    );
+    // `done_at` is a UTC instant; the week starts at local midnight. A missing
+    // or unreadable `done_at` gives NaN, which archives the task.
+    const doneAt =
+        task.done_at === null ? Number.NaN : Date.parse(task.done_at);
+
+    return !(doneAt >= parseDateKey(firstDay).getTime());
 }
 
 /**

@@ -137,6 +137,12 @@ describe('queries', () => {
             expect(await shownIn(W3)).toEqual(['again']);
         });
 
+        it('archives a done task with an unreadable done_at', () => {
+            expect(isArchivedSomeday({ done: true, done_at: 'nope' }, W1)).toBe(
+                true,
+            );
+        });
+
         it('only archives done tasks', () => {
             expect(isArchivedSomeday({ done: false, done_at: null }, W3)).toBe(
                 false,
