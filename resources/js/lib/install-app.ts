@@ -7,6 +7,8 @@ const listeners = new Set<() => void>();
 
 let open = false;
 let seen = readStorage('local', SEEN_KEY) !== null;
+/** The landing card was shown in this page load: the first-visit prompt waits for the next one. */
+let deferred = false;
 
 function notify() {
     listeners.forEach((listener) => listener());
@@ -31,12 +33,19 @@ export const installAppStore = {
         open = true;
         notify();
     },
-    /** The first visit on a desktop: opens the card unless it was seen on this device. */
+    /**
+     * The first visit on a desktop: opens the card unless it was seen on this
+     * device or `deferToNextLoad` was called in this page load.
+     */
     openOnce: () => {
-        if (!seen) {
+        if (!seen && !deferred) {
             open = true;
             notify();
         }
+    },
+    /** The landing card is showing: no first-visit prompt until the next page load. */
+    deferToNextLoad: () => {
+        deferred = true;
     },
     /** Closes the card and remembers it was seen, so it never opens by itself again. */
     close: () => {
@@ -48,6 +57,7 @@ export const installAppStore = {
     /** Tests: back to a first visit. */
     reset: () => {
         seen = readStorage('local', SEEN_KEY) !== null;
+        deferred = false;
         open = false;
         notify();
     },
@@ -65,5 +75,20 @@ export function isDesktopBrowser(): boolean {
     return (
         window.matchMedia('(min-width: 1024px) and (pointer: fine)').matches &&
         !window.matchMedia('(display-mode: standalone)').matches
+    );
+}
+
+/**
+ * Whether a phone can open this address: not a loopback host (`localhost`,
+ * `127.0.0.1`, `::1`), which on the phone would point at the phone itself.
+ */
+export function isReachableFromPhone(): boolean {
+    const host = window.location.hostname;
+
+    return !(
+        host === 'localhost' ||
+        host.endsWith('.localhost') ||
+        host === '[::1]' ||
+        host.startsWith('127.')
     );
 }

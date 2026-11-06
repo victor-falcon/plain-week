@@ -212,11 +212,21 @@ function renderPlanner() {
     );
 }
 
+/** Moves the test page to `url` (happy-dom starts on localhost). */
+function setUrl(url: string) {
+    (
+        window as unknown as { happyDOM: { setURL: (url: string) => void } }
+    ).happyDOM.setURL(url);
+}
+
 describe('Install mobile app card', () => {
     beforeEach(() => {
         props.saas.enabled = false;
         stubScreen(true);
+        setUrl('https://plainweek.example/');
     });
+
+    afterEach(() => setUrl('http://localhost:3000/'));
 
     it('opens once by itself on a desktop, with a QR code to this planner', () => {
         renderPlanner();
@@ -289,5 +299,37 @@ describe('Install mobile app card', () => {
         act(() => installAppStore.open());
 
         expect(installCard()).not.toBeNull();
+    });
+
+    it('still waits after the planner page remounts in the same load', async () => {
+        const user = userEvent.setup();
+
+        props.saas.enabled = true;
+        const { unmount } = renderPlanner();
+
+        await user.click(screen.getByRole('button', { name: 'Start now' }));
+        // A visit to /login and back: the page remounts, the layout does not.
+        unmount();
+        renderPlanner();
+
+        expect(landing()).toBeNull();
+        expect(installCard()).toBeNull();
+    });
+
+    it('does not open over a task opened from a link', () => {
+        setUrl('https://plainweek.example/?task=abc');
+        renderPlanner();
+
+        expect(installCard()).toBeNull();
+        expect(window.localStorage.getItem('plain-week.install-app-seen')).toBe(
+            null,
+        );
+    });
+
+    it('does not open by itself on localhost, where a phone cannot reach it', () => {
+        setUrl('http://localhost:8000/');
+        renderPlanner();
+
+        expect(installCard()).toBeNull();
     });
 });

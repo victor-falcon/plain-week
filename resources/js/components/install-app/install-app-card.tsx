@@ -10,7 +10,7 @@ import { installAppStore } from '@/lib/install-app';
 /** The planner's address as a QR code, drawn as one SVG path (black on white in both themes). */
 function QrCode({ value }: { value: string }) {
     const { size, path } = useMemo(() => {
-        const qr = encode(value, { ecc: 'M', border: 2 });
+        const qr = encode(value, { ecc: 'M', border: 4 });
         let d = '';
 
         qr.data.forEach((row, y) =>
@@ -30,7 +30,7 @@ function QrCode({ value }: { value: string }) {
             role="img"
             aria-label={`QR code for ${value}`}
             shapeRendering="crispEdges"
-            className="size-32 shrink-0 rounded-xl bg-white ring-1 ring-border"
+            className="size-36 shrink-0 rounded-xl bg-white ring-1 ring-border"
             data-test="install-app-qr"
         >
             <path d={path} fill="#000" />
