@@ -107,7 +107,7 @@ still show. The prices (`GET /billing/prices` and the paywall's `plans` prop) th
 left is never sent.
 
 The landing card shows that plan at the code's price, the price without it struck through, a "Founder offer" `Badge`
-and "Free with code FOUNDER20 for our first founders." (the code is a button that copies it). The paywall opens the
+and "Free for our first founders, synced forever." as its note and "Use code FOUNDER20" (the code is a button that copies it; a code that is not free reads "€X with code …"). The paywall opens the
 code field with the code typed in and checks it right away when the selected plan is the code's plan (or when the user
 switches to it); on the other plan the field is emptied and closed, so the code never blocks that checkout. Once the
 user edits the field the code is theirs and follows the usual rules. Checkout checks it again as for any typed code.

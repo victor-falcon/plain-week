@@ -200,11 +200,8 @@ function FeaturedCodeLine({ featured }: { featured: FeaturedCode }) {
             className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm"
             data-test="featured-code-line"
         >
-            {featured.free ? 'Free' : featured.price} with code{' '}
-            <CopyCode code={featured.code} />{' '}
-            <span className="text-muted-foreground">
-                for our first founders.
-            </span>
+            {featured.free ? 'Use code' : `${featured.price} with code`}{' '}
+            <CopyCode code={featured.code} />
         </p>
     );
 }
@@ -366,7 +363,7 @@ function Pricing({ offers }: { offers: Offers | null | 'unavailable' }) {
                     }
                     note={
                         lifetimeCode?.free
-                            ? 'Nothing to pay, sync forever.'
+                            ? 'Free for our first founders, synced forever.'
                             : 'Pay once, sync forever.'
                     }
                     action="Get lifetime"

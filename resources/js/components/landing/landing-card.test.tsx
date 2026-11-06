@@ -89,12 +89,12 @@ describe('LandingCard pricing', () => {
         expect(card.queryByText('Founder offer')).not.toBeNull();
         expect(card.queryByText('Launch −75%')).toBeNull();
         expect(
-            card.queryByText('Nothing to pay, sync forever.'),
+            card.queryByText('Free for our first founders, synced forever.'),
         ).not.toBeNull();
         expect(
             document.querySelector('[data-test="featured-code-line"]')
                 ?.textContent,
-        ).toBe('Free with code FOUNDER20 for our first founders.');
+        ).toBe('Use code FOUNDER20');
         // The weekly card is unchanged.
         expect(
             document.querySelector('[data-test="landing-plan-weekly"]')
