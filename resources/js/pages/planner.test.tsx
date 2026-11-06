@@ -10,6 +10,8 @@ import {
     vi,
 } from 'vite-plus/test';
 import type { Offers } from '@/components/billing/offers';
+import { InstallAppDialog } from '@/components/install-app/install-app-card';
+import { installAppStore } from '@/lib/install-app';
 import { landingStore } from '@/lib/landing';
 import { memoryStorage } from '@/test/storage';
 import Planner from './planner';
@@ -55,6 +57,7 @@ beforeEach(() => {
     vi.stubGlobal('localStorage', memoryStorage());
     sessionStorage.clear();
     act(() => landingStore.reopen());
+    act(() => installAppStore.reset());
     vi.stubGlobal(
         'fetch',
         vi.fn(() =>
@@ -184,5 +187,107 @@ describe('Planner landing card', () => {
         render(<Planner />);
 
         expect(landing()).toBeNull();
+    });
+});
+
+/** A desktop browser (wide, with a mouse) unless `desktop` is false. */
+function stubScreen(desktop: boolean) {
+    vi.stubGlobal(
+        'matchMedia',
+        vi.fn((query: string) => ({
+            matches: query.includes('display-mode') ? false : desktop,
+        })),
+    );
+}
+
+const installCard = () =>
+    screen.queryByRole('dialog', { name: 'Plain Week on your phone' });
+
+function renderPlanner() {
+    return render(
+        <>
+            <Planner />
+            <InstallAppDialog />
+        </>,
+    );
+}
+
+describe('Install mobile app card', () => {
+    beforeEach(() => {
+        props.saas.enabled = false;
+        stubScreen(true);
+    });
+
+    it('opens once by itself on a desktop, with a QR code to this planner', () => {
+        renderPlanner();
+
+        expect(installCard()).not.toBeNull();
+        expect(
+            screen.getByRole('img', {
+                name: `QR code for ${window.location.origin}/`,
+            }),
+        ).not.toBeNull();
+        expect(screen.queryByText('Add to Home Screen')).not.toBeNull();
+        expect(screen.queryByText('Install app')).not.toBeNull();
+        expect(document.activeElement?.textContent).toBe('Got it');
+    });
+
+    it('never opens by itself again once closed', async () => {
+        const user = userEvent.setup();
+        const { unmount } = renderPlanner();
+
+        await user.click(screen.getByRole('button', { name: 'Got it' }));
+
+        expect(installCard()).toBeNull();
+        expect(window.localStorage.getItem('plain-week.install-app-seen')).toBe(
+            '1',
+        );
+
+        unmount();
+        renderPlanner();
+
+        expect(installCard()).toBeNull();
+    });
+
+    it('is remembered when closed with Escape', async () => {
+        const user = userEvent.setup();
+
+        renderPlanner();
+        await user.keyboard('{Escape}');
+
+        expect(installCard()).toBeNull();
+        expect(window.localStorage.getItem('plain-week.install-app-seen')).toBe(
+            '1',
+        );
+    });
+
+    it('does not open by itself on a phone', () => {
+        stubScreen(false);
+        renderPlanner();
+
+        expect(installCard()).toBeNull();
+    });
+
+    it('waits for the next visit when the landing card was shown', async () => {
+        const user = userEvent.setup();
+
+        props.saas.enabled = true;
+        renderPlanner();
+        await user.click(screen.getByRole('button', { name: 'Start now' }));
+
+        expect(landing()).toBeNull();
+        expect(installCard()).toBeNull();
+    });
+
+    it('opens from the header button even after it was seen', () => {
+        window.localStorage.setItem('plain-week.install-app-seen', '1');
+        act(() => installAppStore.reset());
+        renderPlanner();
+
+        expect(installCard()).toBeNull();
+
+        act(() => installAppStore.open());
+
+        expect(installCard()).not.toBeNull();
     });
 });
