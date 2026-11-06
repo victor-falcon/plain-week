@@ -9,6 +9,7 @@ use Laravel\Cashier\Cashier;
 use Stripe\Coupon;
 use Stripe\Exception\ApiErrorException;
 use Stripe\PromotionCode;
+use Throwable;
 
 /**
  * Customer-facing promotion codes (created in the Stripe Dashboard), checked
@@ -80,28 +81,28 @@ class PromotionCodes
 
         $key = 'saas.featured-promotion-code.'.strtoupper(trim($code));
 
-        /** @var array{found: bool, offer?: array{code: string, plan: string, amount: int, currency: string}}|null $cached */
-        $cached = Cache::get($key);
+        // `false` when it cannot be featured, so that answer is cached too.
+        /** @var array{code: string, plan: string, amount: int, currency: string}|false|null $offer */
+        $offer = Cache::get($key);
 
-        if ($cached === null) {
+        if ($offer === null) {
             try {
-                $offer = $this->featurable(trim($code));
-                $cached = $offer === null ? ['found' => false] : ['found' => true, 'offer' => [...$offer, 'plan' => $offer['plan']->value]];
-                Cache::put($key, $cached, self::FEATURED_TTL_SECONDS);
-            } catch (ApiErrorException $e) {
+                $offer = $this->featurable(trim($code)) ?? false;
+                Cache::put($key, $offer, self::FEATURED_TTL_SECONDS);
+            } catch (Throwable $e) {
                 report($e);
-                // Fail closed, and do not ask Stripe on every visit while it is down.
-                Cache::put($key, ['found' => false], self::FEATURED_RETRY_SECONDS);
+                // Fail closed (the plain prices still show), and do not ask Stripe on every visit while it fails.
+                Cache::put($key, false, self::FEATURED_RETRY_SECONDS);
 
                 return null;
             }
         }
 
-        return isset($cached['offer']) ? [...$cached['offer'], 'plan' => Plan::from($cached['offer']['plan'])] : null;
+        return $offer === false ? null : [...$offer, 'plan' => Plan::from($offer['plan'])];
     }
 
     /**
-     * @return array{code: string, plan: Plan, amount: int, currency: string}|null
+     * @return array{code: string, plan: string, amount: int, currency: string}|null
      *
      * @throws ApiErrorException
      */
@@ -121,7 +122,7 @@ class PromotionCodes
             if ($this->usable($promotionCode, $coupon, $price, null)) {
                 return [
                     'code' => $promotionCode->code,
-                    'plan' => $plan,
+                    'plan' => $plan->value,
                     'amount' => $this->discounted($coupon, $price),
                     'currency' => $price['currency'],
                 ];

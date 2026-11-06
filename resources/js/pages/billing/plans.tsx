@@ -123,27 +123,41 @@ export default function Plans({ plans, processing }: Props) {
     const [plan, setPlan] = useState<Plan>(() => chosenPlan() ?? 'lifetime');
     const { start, pending } = useCheckout();
     const { lifetime, weekly, featured } = plans;
-    // The code shown on the landing card comes typed in (still checked by the server).
-    const promotion = usePromotionCode(featured?.code);
+    const promotion = usePromotionCode();
     const logOut = useLogout();
     const applied = promotion.appliedTo(plan);
 
+    /**
+     * The code shown on the landing card comes typed in on its plan (the
+     * server still checks it) and goes away on the other one, until the user
+     * edits the field: then it is their code.
+     */
+    const followFeaturedCode = (next: Plan): boolean => {
+        if (!featured || promotion.edited) {
+            return false;
+        }
+
+        if (next === featured.plan) {
+            promotion.prefill(featured.code, next);
+        } else {
+            promotion.clear();
+        }
+
+        return true;
+    };
+
     useEffect(() => {
         forgetChosenPlan();
-
-        if (featured && plan === featured.plan) {
-            promotion.apply(plan);
-        }
-        // Once, on opening: later checks follow the plan choice.
+        followFeaturedCode(plan);
+        // Once, on opening: later changes follow the plan choice.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const choose = (next: Plan) => {
         setPlan(next);
 
-        // A code applies to one plan: check it again for the new one (and the
-        // prefilled code on the plan it is for).
-        if (promotion.checked || next === featured?.plan) {
+        // A code applies to one plan: check it again for the new one.
+        if (!followFeaturedCode(next) && promotion.checked) {
             promotion.apply(next);
         }
     };

@@ -100,16 +100,19 @@ coupon: Stripe allows one discount per session, so they never stack. Checkout's 
 `PromotionCodes::featured()` looks it up like a typed code, with no customer (a code made for one customer is never
 featured; "first-time customers only" is fine, since visitors are new), and picks the first plan it applies to,
 Lifetime then Weekly. The answer is cached for 10 minutes (a minute after a Stripe error), so once the code is used up,
-expired or deactivated it disappears on its own, with no deploy. It fails closed: an unknown code or a Stripe error
-hides it. The prices (`GET /billing/prices` and the paywall's `plans` prop) then carry
+expired or deactivated it disappears on its own, with no deploy (it can still show for up to those 10 minutes; Checkout
+checks it again anyway). It fails closed: an unknown code or any error while asking Stripe hides it, and the prices
+still show. The prices (`GET /billing/prices` and the paywall's `plans` prop) then carry
 `featured: { code, plan, price, free }`, or `null`; the price is computed from the Stripe coupon, and how many uses are
 left is never sent.
 
 The landing card shows that plan at the code's price, the price without it struck through, a "Founder offer" `Badge`
 and "Free with code FOUNDER20 for our first founders." (the code is a button that copies it). The paywall opens the
 code field with the code typed in and checks it right away when the selected plan is the code's plan (or when the user
-switches to it); Checkout checks it again as for any typed code. Prices cached offline may still show a code that has
-since run out: Checkout then refuses it like any invalid code.
+switches to it); on the other plan the field is emptied and closed, so the code never blocks that checkout. Once the
+user edits the field the code is theirs and follows the usual rules. Checkout checks it again as for any typed code.
+The landing's offline copy of the prices (`localStorage`) never shows the code: it appears once the server confirms
+it.
 
 A 100% code on Lifetime makes a no-cost order: the button reads "Continue" instead of "Continue to payment", Checkout asks for no card and completes with `payment_status` =
 `no_payment_required`, which grants lifetime like a paid session (on return and from the webhook). There is no payment

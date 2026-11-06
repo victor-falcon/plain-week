@@ -162,29 +162,34 @@ function CopyCode({ code }: { code: string }) {
     }, [copied]);
 
     return (
-        <Button
-            type="button"
-            variant="outline"
-            size="xs"
-            className="font-mono tracking-wide"
-            aria-label={copied ? `${code} copied` : `Copy the code ${code}`}
-            onClick={() => {
-                navigator.clipboard
-                    ?.writeText(code)
-                    .then(() => setCopied(true))
-                    .catch(() => {
-                        // The code stays readable on the button.
-                    });
-            }}
-            data-test="featured-code"
-        >
-            {code}
-            {copied ? (
-                <Check data-icon="inline-end" aria-hidden />
-            ) : (
-                <Copy data-icon="inline-end" aria-hidden />
-            )}
-        </Button>
+        <>
+            <Button
+                type="button"
+                variant="outline"
+                size="xs"
+                className="font-mono tracking-wide"
+                aria-label={`Copy the code ${code}`}
+                onClick={() => {
+                    navigator.clipboard
+                        ?.writeText(code)
+                        .then(() => setCopied(true))
+                        .catch(() => {
+                            // The code stays readable on the button.
+                        });
+                }}
+                data-test="featured-code"
+            >
+                {code}
+                {copied ? (
+                    <Check data-icon="inline-end" aria-hidden />
+                ) : (
+                    <Copy data-icon="inline-end" aria-hidden />
+                )}
+            </Button>
+            <span role="status" className="sr-only">
+                {copied && 'Code copied'}
+            </span>
+        </>
     );
 }
 
@@ -359,7 +364,11 @@ function Pricing({ offers }: { offers: Offers | null | 'unavailable' }) {
                             )
                         )
                     }
-                    note="Pay once, sync forever."
+                    note={
+                        lifetimeCode?.free
+                            ? 'Nothing to pay, sync forever.'
+                            : 'Pay once, sync forever.'
+                    }
                     action="Get lifetime"
                     badge={
                         lifetimeCode

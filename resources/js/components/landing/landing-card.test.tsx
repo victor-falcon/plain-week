@@ -89,6 +89,9 @@ describe('LandingCard pricing', () => {
         expect(card.queryByText('Founder offer')).not.toBeNull();
         expect(card.queryByText('Launch −75%')).toBeNull();
         expect(
+            card.queryByText('Nothing to pay, sync forever.'),
+        ).not.toBeNull();
+        expect(
             document.querySelector('[data-test="featured-code-line"]')
                 ?.textContent,
         ).toBe('Free with code FOUNDER20 for our first founders.');
@@ -113,8 +116,8 @@ describe('LandingCard pricing', () => {
         );
 
         expect(writeText).toHaveBeenCalledWith('FOUNDER20');
-        expect(
-            await screen.findByRole('button', { name: 'FOUNDER20 copied' }),
-        ).not.toBeNull();
+        expect((await screen.findByRole('status')).textContent).toBe(
+            'Code copied',
+        );
     });
 });

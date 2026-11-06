@@ -268,6 +268,15 @@ describe('the featured promotion code', function () {
         $this->getJson(route('billing.prices'))->assertJsonPath('plans.featured.code', 'FOUNDER20');
     });
 
+    test('Settings › Billing does not ask Stripe for it', function () {
+        $this->actingAs(User::factory()->create());
+        stripeKnowsCode($this->stripe, founderCode());
+
+        $this->get(route('billing.edit'))->assertOk();
+
+        expect($this->stripe->lastRequest('get', '/v1/promotion_codes'))->toBeNull();
+    });
+
     test('the plan choice gets it too', function () {
         $this->actingAs(User::factory()->create());
         stripeKnowsCode($this->stripe, founderCode());

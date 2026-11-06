@@ -75,6 +75,11 @@ const launchOffers: Offers = {
     lifetime: { price: '€16', regularPrice: '€64', discountPercent: 75 },
 };
 
+const founderOffers: Offers = {
+    ...launchOffers,
+    featured: { code: 'FOUNDER20', plan: 'lifetime', price: '€0', free: true },
+};
+
 afterEach(() => {
     cleanup();
     start.mockClear();
@@ -220,20 +225,7 @@ describe('Plans', () => {
             }
         };
 
-        render(
-            <Plans
-                plans={{
-                    ...launchOffers,
-                    featured: {
-                        code: 'FOUNDER20',
-                        plan: 'lifetime',
-                        price: '€0',
-                        free: true,
-                    },
-                }}
-                processing={false}
-            />,
-        );
+        render(<Plans plans={founderOffers} processing={false} />);
 
         expect(
             (
@@ -258,7 +250,7 @@ describe('Plans', () => {
         expect(checked).toEqual(['lifetime:FOUNDER20']);
     });
 
-    it('prefills the featured code without checking it on another plan', async () => {
+    it('leaves the featured code out of another plan', async () => {
         const user = userEvent.setup();
         const checked: string[] = [];
 
@@ -268,27 +260,62 @@ describe('Plans', () => {
             options.onSuccess?.({ code, price: '€0', free: true });
         };
 
-        render(
-            <Plans
-                plans={{
-                    ...launchOffers,
-                    featured: {
-                        code: 'FOUNDER20',
-                        plan: 'lifetime',
-                        price: '€0',
-                        free: true,
-                    },
-                }}
-                processing={false}
-            />,
-        );
+        render(<Plans plans={founderOffers} processing={false} />);
 
+        // Weekly: nothing typed, nothing checked.
         expect(checked).toEqual([]);
-        expect(screen.queryByText(/isn't valid/)).toBeNull();
+        expect(
+            screen.queryByRole('textbox', { name: 'Promotion code' }),
+        ).toBeNull();
 
         await user.click(screen.getByRole('radio', { name: /Lifetime/ }));
 
         expect(checked).toEqual(['lifetime:FOUNDER20']);
+        expect(
+            await screen.findByText('FOUNDER20 applied: €0 today.'),
+        ).not.toBeNull();
+
+        // Back to weekly: the code goes away instead of blocking the checkout.
+        await user.click(screen.getByRole('radio', { name: /Weekly/ }));
+
+        expect(
+            screen.queryByRole('textbox', { name: 'Promotion code' }),
+        ).toBeNull();
+        expect(screen.queryByText(/isn't valid/)).toBeNull();
+
+        await user.click(
+            screen.getByRole('button', { name: 'Continue to payment' }),
+        );
+
+        expect(start).toHaveBeenCalledWith('weekly', {
+            code: undefined,
+            onError: expect.any(Function),
+        });
+    });
+
+    it('keeps a code the user typed over the featured one', async () => {
+        const user = userEvent.setup();
+        const checked: string[] = [];
+
+        answerCode = (url, code, options, setError) => {
+            checked.push(`${url.split('/').pop()}:${code}`);
+            setError("This code isn't valid for this plan.");
+        };
+
+        render(<Plans plans={founderOffers} processing={false} />);
+
+        const field = screen.getByRole('textbox', { name: 'Promotion code' });
+
+        await user.clear(field);
+        await user.type(field, 'MINE');
+        await user.click(screen.getByRole('button', { name: 'Apply' }));
+        await user.click(screen.getByRole('radio', { name: /Weekly/ }));
+
+        expect(checked).toEqual([
+            'lifetime:FOUNDER20',
+            'lifetime:MINE',
+            'weekly:MINE',
+        ]);
     });
 
     it('keeps the code field closed without a featured code', () => {
