@@ -122,20 +122,28 @@ export default function Plans({ plans, processing }: Props) {
     // A plan picked on the landing card before signing up comes preselected.
     const [plan, setPlan] = useState<Plan>(() => chosenPlan() ?? 'lifetime');
     const { start, pending } = useCheckout();
-    const promotion = usePromotionCode();
+    const { lifetime, weekly, featured } = plans;
+    // The code shown on the landing card comes typed in (still checked by the server).
+    const promotion = usePromotionCode(featured?.code);
     const logOut = useLogout();
-    const { lifetime, weekly } = plans;
     const applied = promotion.appliedTo(plan);
 
     useEffect(() => {
         forgetChosenPlan();
+
+        if (featured && plan === featured.plan) {
+            promotion.apply(plan);
+        }
+        // Once, on opening: later checks follow the plan choice.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const choose = (next: Plan) => {
         setPlan(next);
 
-        // A code applies to one plan: check it again for the new one.
-        if (promotion.checked) {
+        // A code applies to one plan: check it again for the new one (and the
+        // prefilled code on the plan it is for).
+        if (promotion.checked || next === featured?.plan) {
             promotion.apply(next);
         }
     };

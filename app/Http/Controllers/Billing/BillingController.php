@@ -24,10 +24,10 @@ class BillingController extends Controller
      * The paywall: an account without a paid plan chooses one here. A plain
      * JSON request (e.g. from a modal) gets the prices only.
      */
-    public function plans(Request $request, StripeCatalog $catalog): Response|RedirectResponse|JsonResponse
+    public function plans(Request $request, StripeCatalog $catalog, PromotionCodes $promotionCodes): Response|RedirectResponse|JsonResponse
     {
         if ($this->wantsPlainJson($request)) {
-            return $this->prices($catalog);
+            return $this->prices($catalog, $promotionCodes);
         }
 
         if ($this->user($request)->hasAccess()) {
@@ -35,7 +35,7 @@ class BillingController extends Controller
         }
 
         return Inertia::render('billing/plans', [
-            'plans' => $this->offers($catalog),
+            'plans' => $this->offers($catalog, $promotionCodes),
             // Back from Checkout before Stripe confirmed the payment: the page polls until access starts.
             'processing' => $request->boolean('processing'),
         ]);
@@ -45,9 +45,9 @@ class BillingController extends Controller
      * The prices of the plans as JSON, for anyone (the landing card shows
      * them to guests).
      */
-    public function prices(StripeCatalog $catalog): JsonResponse
+    public function prices(StripeCatalog $catalog, PromotionCodes $promotionCodes): JsonResponse
     {
-        return response()->json(['plans' => $this->offers($catalog)]);
+        return response()->json(['plans' => $this->offers($catalog, $promotionCodes)]);
     }
 
     /**
@@ -131,7 +131,7 @@ class BillingController extends Controller
     /**
      * Settings › Billing: the current plan and what can be done with it.
      */
-    public function edit(Request $request, StripeCatalog $catalog): Response
+    public function edit(Request $request, StripeCatalog $catalog, PromotionCodes $promotionCodes): Response
     {
         $user = $this->user($request);
         $subscription = $user->subscription('default');
@@ -148,7 +148,7 @@ class BillingController extends Controller
                 'renewsAt' => $subscription->onGracePeriod() ? null : $subscription->currentPeriodEnd()?->toIso8601String(),
             ] : null,
             'hasStripeCustomer' => $user->hasStripeId(),
-            'lifetimeOffer' => $plan === Plan::Lifetime ? null : $this->offers($catalog)['lifetime'],
+            'lifetimeOffer' => $plan === Plan::Lifetime ? null : $this->offers($catalog, $promotionCodes)['lifetime'],
         ]);
     }
 
@@ -191,11 +191,15 @@ class BillingController extends Controller
     /**
      * Prices shown to the user, formatted from the Stripe prices (Checkout
      * shows the final amount, possibly in the visitor's local currency).
+     * `featured` is the promotion code shown to everyone while it can be
+     * used (never how many uses are left), null otherwise.
      *
-     * @return array{weekly: array<string, mixed>, lifetime: array<string, mixed>}
+     * @return array{weekly: array<string, mixed>, lifetime: array<string, mixed>, featured: array<string, mixed>|null}
      */
-    private function offers(StripeCatalog $catalog): array
+    private function offers(StripeCatalog $catalog, PromotionCodes $promotionCodes): array
     {
+        $featured = $promotionCodes->featured();
+
         $weekly = $catalog->price(Plan::Weekly);
         $lifetime = $catalog->price(Plan::Lifetime);
         $discount = $catalog->launchDiscountPercent();
@@ -209,6 +213,12 @@ class BillingController extends Controller
                 'price' => $this->format($lifetimeAmount, $lifetime['currency']),
                 'regularPrice' => $discount === null ? null : $this->format($lifetime['amount'], $lifetime['currency']),
                 'discountPercent' => $discount,
+            ],
+            'featured' => $featured === null ? null : [
+                'code' => $featured['code'],
+                'plan' => $featured['plan']->value,
+                'price' => $this->format($featured['amount'], $featured['currency']),
+                'free' => $featured['amount'] === 0,
             ],
         ];
     }

@@ -19,13 +19,14 @@ export type AppliedCode = {
 /**
  * A promotion code typed on the plan choice. `apply` asks the server what the
  * code gives for a plan (it answers `422` when the code does not apply);
- * Checkout gets the typed code and checks it again.
+ * Checkout gets the typed code and checks it again. An `initialCode` opens
+ * the field with it already typed.
  */
-export function usePromotionCode() {
+export function usePromotionCode(initialCode?: string) {
     const http = useHttp<{ code: string }, Omit<AppliedCode, 'plan'>>({
-        code: '',
+        code: initialCode ?? '',
     });
-    const [open, setOpen] = useState(false);
+    const [open, setOpen] = useState(initialCode !== undefined);
     const [applied, setApplied] = useState<AppliedCode | null>(null);
     // Set by Apply until the code is edited: a plan change then checks it again.
     const [checked, setChecked] = useState(false);
@@ -124,7 +125,8 @@ export function PromotionCodeField({
                 <Input
                     aria-label="Promotion code"
                     placeholder="Promotion code"
-                    autoFocus
+                    // Not when it opens prefilled with the page.
+                    autoFocus={state.code === ''}
                     autoCapitalize="characters"
                     autoComplete="off"
                     spellCheck={false}

@@ -202,6 +202,111 @@ describe('Plans', () => {
         );
     });
 
+    it('prefills the featured code and applies it to its plan', async () => {
+        const user = userEvent.setup();
+        const checked: string[] = [];
+
+        answerCode = (url, code, options, setError) => {
+            checked.push(`${url.split('/').pop()}:${code}`);
+
+            if (url.endsWith('/lifetime') && code === 'FOUNDER20') {
+                options.onSuccess?.({
+                    code: 'FOUNDER20',
+                    price: '€0',
+                    free: true,
+                });
+            } else {
+                setError("This code isn't valid for this plan.");
+            }
+        };
+
+        render(
+            <Plans
+                plans={{
+                    ...launchOffers,
+                    featured: {
+                        code: 'FOUNDER20',
+                        plan: 'lifetime',
+                        price: '€0',
+                        free: true,
+                    },
+                }}
+                processing={false}
+            />,
+        );
+
+        expect(
+            (
+                screen.getByRole('textbox', {
+                    name: 'Promotion code',
+                }) as HTMLInputElement
+            ).value,
+        ).toBe('FOUNDER20');
+        expect(
+            await screen.findByText('FOUNDER20 applied: €0 today.'),
+        ).not.toBeNull();
+        expect(
+            document.querySelector('[data-test="due-today"]')?.textContent,
+        ).toBe('€0');
+
+        await user.click(screen.getByRole('button', { name: 'Continue' }));
+
+        expect(start).toHaveBeenCalledWith(
+            'lifetime',
+            expect.objectContaining({ code: 'FOUNDER20' }),
+        );
+        expect(checked).toEqual(['lifetime:FOUNDER20']);
+    });
+
+    it('prefills the featured code without checking it on another plan', async () => {
+        const user = userEvent.setup();
+        const checked: string[] = [];
+
+        sessionStorage.setItem('plain-week.chosen-plan', 'weekly');
+        answerCode = (url, code, options) => {
+            checked.push(`${url.split('/').pop()}:${code}`);
+            options.onSuccess?.({ code, price: '€0', free: true });
+        };
+
+        render(
+            <Plans
+                plans={{
+                    ...launchOffers,
+                    featured: {
+                        code: 'FOUNDER20',
+                        plan: 'lifetime',
+                        price: '€0',
+                        free: true,
+                    },
+                }}
+                processing={false}
+            />,
+        );
+
+        expect(checked).toEqual([]);
+        expect(screen.queryByText(/isn't valid/)).toBeNull();
+
+        await user.click(screen.getByRole('radio', { name: /Lifetime/ }));
+
+        expect(checked).toEqual(['lifetime:FOUNDER20']);
+    });
+
+    it('keeps the code field closed without a featured code', () => {
+        render(
+            <Plans
+                plans={{ ...launchOffers, featured: null }}
+                processing={false}
+            />,
+        );
+
+        expect(
+            screen.queryByRole('button', { name: 'Have a code?' }),
+        ).not.toBeNull();
+        expect(
+            screen.queryByRole('textbox', { name: 'Promotion code' }),
+        ).toBeNull();
+    });
+
     it('offers logging out (with the export first) instead of free use while signed in', async () => {
         const user = userEvent.setup();
 

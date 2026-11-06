@@ -3,6 +3,7 @@
 namespace App\Billing;
 
 use App\Models\User;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\ValidationException;
 use Laravel\Cashier\Cashier;
 use Stripe\Coupon;
@@ -16,6 +17,12 @@ use Stripe\PromotionCode;
  */
 class PromotionCodes
 {
+    /** How long the featured code's state is kept before asking Stripe again. */
+    private const FEATURED_TTL_SECONDS = 600;
+
+    /** After Stripe failed, the code stays hidden this long before trying again. */
+    private const FEATURED_RETRY_SECONDS = 60;
+
     public function __construct(private readonly StripeCatalog $catalog) {}
 
     /**
@@ -33,7 +40,7 @@ class PromotionCodes
         $coupon = $promotionCode?->promotion?->coupon;
 
         if (! $promotionCode instanceof PromotionCode || ! $coupon instanceof Coupon
-            || ! $this->usable($promotionCode, $coupon, $price, $user)) {
+            || ! $this->usable($promotionCode, $coupon, $price, $user->stripe_id)) {
             throw self::invalid();
         }
 
@@ -53,20 +60,81 @@ class PromotionCodes
         return ValidationException::withMessages(['code' => __("This code isn't valid for this plan.")]);
     }
 
-    private function find(string $code): ?PromotionCode
+    /**
+     * The promotion code in `saas.featured_promotion_code`, while anyone new
+     * can use it, with the first plan it applies to (Lifetime, then Weekly)
+     * and that plan's price with it. Null when none is set, or it cannot be
+     * used (unknown, inactive, expired, used up, made for one customer) or
+     * Stripe could not be asked: the landing then shows the plain prices.
+     * Kept for 10 minutes, so it is gone on its own once used up.
+     *
+     * @return array{code: string, plan: Plan, amount: int, currency: string}|null
+     */
+    public function featured(): ?array
     {
-        if ($code === '') {
+        $code = config('saas.featured_promotion_code');
+
+        if (! is_string($code) || trim($code) === '') {
             return null;
         }
 
+        $key = 'saas.featured-promotion-code.'.strtoupper(trim($code));
+
+        /** @var array{found: bool, offer?: array{code: string, plan: string, amount: int, currency: string}}|null $cached */
+        $cached = Cache::get($key);
+
+        if ($cached === null) {
+            try {
+                $offer = $this->featurable(trim($code));
+                $cached = $offer === null ? ['found' => false] : ['found' => true, 'offer' => [...$offer, 'plan' => $offer['plan']->value]];
+                Cache::put($key, $cached, self::FEATURED_TTL_SECONDS);
+            } catch (ApiErrorException $e) {
+                report($e);
+                // Fail closed, and do not ask Stripe on every visit while it is down.
+                Cache::put($key, ['found' => false], self::FEATURED_RETRY_SECONDS);
+
+                return null;
+            }
+        }
+
+        return isset($cached['offer']) ? [...$cached['offer'], 'plan' => Plan::from($cached['offer']['plan'])] : null;
+    }
+
+    /**
+     * @return array{code: string, plan: Plan, amount: int, currency: string}|null
+     *
+     * @throws ApiErrorException
+     */
+    private function featurable(string $code): ?array
+    {
+        $promotionCode = $this->lookup($code);
+        $coupon = $promotionCode?->promotion?->coupon;
+
+        if (! $promotionCode instanceof PromotionCode || ! $coupon instanceof Coupon) {
+            return null;
+        }
+
+        foreach ([Plan::Lifetime, Plan::Weekly] as $plan) {
+            $price = $this->catalog->price($plan);
+
+            // No customer: a code made for one customer is never shown to everyone.
+            if ($this->usable($promotionCode, $coupon, $price, null)) {
+                return [
+                    'code' => $promotionCode->code,
+                    'plan' => $plan,
+                    'amount' => $this->discounted($coupon, $price),
+                    'currency' => $price['currency'],
+                ];
+            }
+        }
+
+        return null;
+    }
+
+    private function find(string $code): ?PromotionCode
+    {
         try {
-            /** @var PromotionCode|null */
-            return Cashier::stripe()->promotionCodes->all([
-                'code' => $code,
-                'active' => true,
-                'limit' => 1,
-                'expand' => ['data.promotion.coupon.applies_to'],
-            ])->first();
+            return $this->lookup($code);
         } catch (ApiErrorException $e) {
             report($e);
 
@@ -76,9 +144,27 @@ class PromotionCodes
     }
 
     /**
+     * @throws ApiErrorException
+     */
+    private function lookup(string $code): ?PromotionCode
+    {
+        if ($code === '') {
+            return null;
+        }
+
+        /** @var PromotionCode|null */
+        return Cashier::stripe()->promotionCodes->all([
+            'code' => $code,
+            'active' => true,
+            'limit' => 1,
+            'expand' => ['data.promotion.coupon.applies_to'],
+        ])->first();
+    }
+
+    /**
      * @param  array{id: string, amount: int, currency: string, product: string}  $price
      */
-    private function usable(PromotionCode $promotionCode, Coupon $coupon, array $price, User $user): bool
+    private function usable(PromotionCode $promotionCode, Coupon $coupon, array $price, ?string $customerId): bool
     {
         $restrictions = $promotionCode->restrictions;
         $products = $coupon->applies_to->products ?? null;
@@ -86,7 +172,7 @@ class PromotionCodes
 
         return $promotionCode->active
             // A code made for one customer only.
-            && ($customer === null || $customer === $user->stripe_id)
+            && ($customer === null || ($customerId !== null && $customer === $customerId))
             && $coupon->valid
             && ($promotionCode->expires_at === null || $promotionCode->expires_at > now()->getTimestamp())
             && ($promotionCode->max_redemptions === null || $promotionCode->times_redeemed < $promotionCode->max_redemptions)
