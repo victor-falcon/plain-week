@@ -271,7 +271,7 @@ The `docker` workflow can do that restart itself once a `v*` tag has been publis
 (**Settings** > **Secrets and variables** > **Actions**):
 
 | Secret                 | Value                                                                                       |
-|------------------------|---------------------------------------------------------------------------------------------|
+| ---------------------- | ------------------------------------------------------------------------------------------- |
 | `COOLIFY_URL`          | Your Coolify instance, e.g. `https://coolify.example.com` (a trailing slash is fine)        |
 | `COOLIFY_TOKEN`        | An API token from Coolify > **Keys & Tokens** > **API tokens** with the `deploy` permission |
 | `COOLIFY_SERVICE_UUID` | The service's UUID: the last part of its URL in Coolify (`…/service/<uuid>`)                |
