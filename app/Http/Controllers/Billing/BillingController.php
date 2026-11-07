@@ -192,9 +192,10 @@ class BillingController extends Controller
      * Prices shown to the user, formatted from the Stripe prices (Checkout
      * shows the final amount, possibly in the visitor's local currency).
      * `featured` is the promotion code shown to everyone while it can be
-     * used (never how many uses are left), null otherwise.
+     * used (never how many uses are left), null otherwise. `soldOut` is a
+     * code that has run out, shown as sold out, null when none is set.
      *
-     * @return array{weekly: array{price: string}, lifetime: array<string, mixed>, featured: array<string, mixed>|null}
+     * @return array{weekly: array{price: string}, lifetime: array<string, mixed>, featured: array<string, mixed>|null, soldOut: array{code: string}|null}
      */
     private function offers(StripeCatalog $catalog, PromotionCodes $promotionCodes): array
     {
@@ -211,8 +212,20 @@ class BillingController extends Controller
                 'plan' => $featured['plan']->value,
                 'price' => $this->format($featured['amount'], $featured['currency']),
                 'free' => $featured['amount'] === 0,
+                'percentOff' => $featured['percentOff'],
             ],
+            'soldOut' => $this->soldOutCode(),
         ];
+    }
+
+    /**
+     * @return array{code: string}|null
+     */
+    private function soldOutCode(): ?array
+    {
+        $code = config('saas.sold_out_promotion_code');
+
+        return is_string($code) && trim($code) !== '' ? ['code' => trim($code)] : null;
     }
 
     /**
