@@ -123,7 +123,8 @@ it.
 `SAAS_SOLD_OUT_PROMOTION_CODE` (e.g. `FOUNDER20`) keeps a code that has run out on the landing card's Lifetime plan, after
 the featured code: the code struck through (plain text, not copyable), a "Sold out" `Badge` and "Free for our first
 founders.". It is sent as written in the prices (`soldOut: { code }`, or `null`), without asking Stripe, so it also
-stays in the offline copy. Typing it at checkout is still checked by Stripe as usual (and refused once used up).
+stays in the offline copy. The copy is fixed, so it is meant for a free founder code. While the same code is also the
+featured one and can still be used, it is not sent as sold out. Typing it at checkout is still checked by Stripe as usual (and refused once used up).
 
 A 100% code on Lifetime makes a no-cost order: the button reads "Continue" instead of "Continue to payment", Checkout asks for no card and completes with `payment_status` =
 `no_payment_required`, which grants lifetime like a paid session (on return and from the webhook). There is no payment

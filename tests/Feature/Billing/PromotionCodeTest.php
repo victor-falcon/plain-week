@@ -324,6 +324,15 @@ describe('the sold-out promotion code', function () {
         expect($this->stripe->lastRequest('get', '/v1/promotion_codes'))->toBeNull();
     });
 
+    test('it is hidden while it is the featured code and can still be used', function () {
+        config(['saas.featured_promotion_code' => 'FOUNDER20', 'saas.sold_out_promotion_code' => 'founder20']);
+        stripeKnowsCode($this->stripe, founderCode());
+
+        $this->getJson(route('billing.prices'))
+            ->assertJsonPath('plans.featured.code', 'FOUNDER20')
+            ->assertJsonPath('plans.soldOut', null);
+    });
+
     test('there is none without the setting', function () {
         config(['saas.sold_out_promotion_code' => null]);
 
