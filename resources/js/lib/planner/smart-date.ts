@@ -51,14 +51,14 @@ const MONTHS: Record<string, number> = {
 
 const LEADING_DATE = /^(\d{1,2})\s+(\p{L}+)\.?\s+(\S.*)$/su;
 
-/** Years to look ahead for a 29 February. */
+/** Years to look ahead: the longest gap between two 29 Februaries. */
 const LEAP_YEAR_SEARCH = 8;
 
 function dateKey(year: number, month: number, day: number): string {
     return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 }
 
-function existsIn(year: number, month: number, day: number): boolean {
+function monthHasDay(year: number, month: number, day: number): boolean {
     return new Date(Date.UTC(year, month, 0)).getUTCDate() >= day;
 }
 
@@ -76,7 +76,7 @@ function nextOccurrence(
     for (let offset = 0; offset <= LEAP_YEAR_SEARCH; offset++) {
         const candidate = year + offset;
 
-        if (!existsIn(candidate, month, day)) {
+        if (!monthHasDay(candidate, month, day)) {
             continue;
         }
 

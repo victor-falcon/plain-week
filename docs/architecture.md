@@ -419,7 +419,8 @@ action.
 ### Guest onboarding: demo tasks
 
 A guest's very first visit gets a few demo tasks in the current week that teach the planner (complete on hover, click to
-edit, drag, color, timed tasks first, right click, a weekly series on Friday, Someday). They live only on this device.
+edit, drag, color, timed tasks first, typing a date first, right click, a weekly series on Friday, Someday). They live
+only on this device.
 
 - **Seeding.** `useGuestOnboarding` (planner page, guests only, once the current week is on screen) calls
   `seedDemoTasks` (`lib/db/demo-tasks.ts`). A small transaction claims the onboarding: it sets `meta.demo_seeded` and

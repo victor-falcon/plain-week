@@ -295,7 +295,8 @@ Row behaviour:
   date ("31 Dec Gym" → 31 December, text "Gym"; `lib/planner/smart-date.ts`): English or Spanish month, short or full,
   any case, optional dot ("5 ene."), year of the next occurrence (today counts, 29 Feb goes to the next leap year).
   Date and time combine in either order ("31 Dec 17:30 Gym", "17:30 31 Dec Gym"; `lib/planner/smart-input.ts`). Both
-  need text after them; an impossible one ("31 Feb Gym", "25:00 Gym") stays in the text. A task dated away from the
+  need text after them; an impossible one ("31 Feb Gym", "25:00 Gym") stays in the text. A sentence that starts with a
+  number and a month word ("2 may be late") is read as a date too; the task can be edited. A task dated away from the
   list it was typed in (Someday included) leaves it with an "Added to Thu 31 Dec" toast and focus stays in the row.
 - The row being typed in lifts with `shadow-md`, a background and extra horizontal padding.
 - A task row holds sibling `Button`s: the text (click, Enter or Space opens the task through `onOpen(taskId)`, the

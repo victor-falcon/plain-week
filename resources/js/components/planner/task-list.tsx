@@ -129,17 +129,22 @@ export function TaskList({
             input,
             toDateKey(new Date()),
         );
-        const target = date === null ? placement : { date };
+        const target = date === null ? placement : { ...placement, date };
+        // A task dated elsewhere leaves this list: say where it went.
+        const leavesList = date !== null && date !== placement.date;
 
-        createTask({ ...target, text, time }).catch(() =>
-            toast.error(`Could not save "${input}".`),
-        );
+        createTask({ ...target, text, time })
+            .then(() => {
+                if (leavesList) {
+                    toast(
+                        `Added to ${formatWeekday(date)} ${formatShortDate(date)}`,
+                    );
+                }
+            })
+            .catch(() => toast.error(`Could not save "${input}".`));
 
-        // A task dated elsewhere leaves this list: say where it went, and
-        // keep typing in the row, which stays empty.
-        if (date !== null && date !== placement.date) {
-            toast(`Added to ${formatWeekday(date)} ${formatShortDate(date)}`);
-
+        // Nothing took the row's slot, so typing goes on in the same row.
+        if (leavesList) {
             return;
         }
 

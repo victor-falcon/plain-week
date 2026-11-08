@@ -184,6 +184,35 @@ describe('TaskList', () => {
             expect(screen.queryByText('Added to Mon 12 Oct')).toBeNull();
         });
 
+        it('says the year when the date is in another one', async () => {
+            const user = userEvent.setup();
+            render(<Day />);
+
+            await user.click(screen.getAllByLabelText(LABEL)[0]);
+            await user.keyboard('1 ene Trip{Enter}');
+
+            expect(
+                await screen.findByText('Added to Fri 1 Jan 2027'),
+            ).toBeTruthy();
+            expect(await listTasksIn({ date: '2027-01-01' })).toEqual([
+                expect.objectContaining({ text: 'Trip' }),
+            ]);
+        });
+
+        it('takes a Someday task out of Someday', async () => {
+            const user = userEvent.setup();
+            render(<Someday />);
+
+            await user.click(screen.getAllByLabelText(SOMEDAY_LABEL)[0]);
+            await user.keyboard('20 Oct Call{Enter}');
+
+            expect(await screen.findByText('Added to Tue 20 Oct')).toBeTruthy();
+            expect(await listTasksIn({ date: '2026-10-20' })).toEqual([
+                expect.objectContaining({ text: 'Call' }),
+            ]);
+            expect(await listTasksIn({ date: null })).toEqual([]);
+        });
+
         it('leaves a trailing date in the text', async () => {
             const user = userEvent.setup();
             render(<Day />);
@@ -288,6 +317,7 @@ function Someday() {
                 newTaskLabel={SOMEDAY_LABEL}
                 onOpenTask={() => {}}
             />
+            <Toaster />
         </ScopePromptProvider>
     );
 }
