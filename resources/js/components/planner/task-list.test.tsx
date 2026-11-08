@@ -12,6 +12,7 @@ import {
 } from 'vite-plus/test';
 import { ScopePromptProvider } from '@/components/planner/scope-prompt';
 import { TaskList } from '@/components/planner/task-list';
+import { Toaster } from '@/components/ui/sonner';
 import { wipeLocalDatabase } from '@/lib/db/database';
 import { createTask, listTasksIn } from '@/lib/db/tasks';
 
@@ -36,6 +37,7 @@ function Day({
                 newTaskLabel={LABEL}
                 onOpenTask={onOpenTask}
             />
+            <Toaster />
         </ScopePromptProvider>
     );
 }
@@ -141,6 +143,56 @@ describe('TaskList', () => {
         await screen.findByRole('button', { name: 'One' });
 
         expect(document.activeElement).toBe(document.body);
+    });
+
+    describe('with a leading date', () => {
+        beforeEach(() => {
+            vi.useFakeTimers({ toFake: ['Date'] });
+            vi.setSystemTime(new Date(2026, 9, 12, 9, 0));
+        });
+
+        afterEach(() => {
+            vi.useRealTimers();
+        });
+
+        it('creates the task on that day, says where, and keeps the row', async () => {
+            const user = userEvent.setup();
+            render(<Day />);
+
+            const row = screen.getAllByLabelText(LABEL)[0];
+            await user.click(row);
+            await user.keyboard('14 oct 17:30 Gym{Enter}');
+
+            expect(await screen.findByText('Added to Wed 14 Oct')).toBeTruthy();
+            await waitFor(async () =>
+                expect(await listTasksIn({ date: '2026-10-14' })).toEqual([
+                    expect.objectContaining({ text: 'Gym', time: '17:30' }),
+                ]),
+            );
+            expect(await listTasksIn({ date: DAY })).toEqual([]);
+            expect(document.activeElement).toBe(row);
+        });
+
+        it('stays in the list when the date is this day', async () => {
+            const user = userEvent.setup();
+            render(<Day />);
+
+            await user.click(screen.getAllByLabelText(LABEL)[0]);
+            await user.keyboard('12 Oct Read{Enter}');
+
+            await screen.findByRole('button', { name: 'Read' });
+            expect(screen.queryByText('Added to Mon 12 Oct')).toBeNull();
+        });
+
+        it('leaves a trailing date in the text', async () => {
+            const user = userEvent.setup();
+            render(<Day />);
+
+            await user.click(screen.getAllByLabelText(LABEL)[0]);
+            await user.keyboard('Gym 31 Dec{Enter}');
+
+            await screen.findByRole('button', { name: 'Gym 31 Dec' });
+        });
     });
 
     it('creates the task when the row loses focus with text', async () => {

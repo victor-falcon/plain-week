@@ -551,8 +551,8 @@ measurements in [style.md](./style.md#planner-layout)). It follows the offline-f
   week the user navigated to stays.
 - Unfinished tasks of earlier days move to today: see [Carry over](#carry-over-unfinished-tasks).
 - Pure logic lives in `lib/planner/` with unit tests: ISO week math and the desktop column layout (`week.ts`), smart
-  time (`smart-time.ts`), date labels (`format.ts`), task color styles (`task-colors.ts`) and drop resolution
-  (`drop.ts`).
+  time and date (`smart-time.ts`, `smart-date.ts`, combined by `smart-input.ts`), date labels (`format.ts`), task color
+  styles (`task-colors.ts`) and drop resolution (`drop.ts`).
 
 ### Carry over unfinished tasks
 
