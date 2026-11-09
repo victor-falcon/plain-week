@@ -592,6 +592,7 @@ struct AccordionSection<Content: View, Accessory: View>: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .focusEffectDisabled()
                 .help(expanded ? "Collapse \(title)" : "Expand \(title)")
                 .accessibilityAddTraits(.isHeader)
                 .accessibilityValue(expanded ? "Expanded" : "Collapsed")

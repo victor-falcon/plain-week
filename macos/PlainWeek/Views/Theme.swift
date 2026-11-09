@@ -51,8 +51,8 @@ enum Theme {
     /// Row hover and pressed states.
     static let hover = dynamic(light: oklch(0.147, 0.004, 49.25, alpha: 0.05), dark: oklch(1, 0, 0, alpha: 0.07))
 
-    /// Task rows; tighter than the web's 42px, since rows have no rules.
-    static let rowHeight: CGFloat = 34
+    /// Task rows (and empty rows), 50pt; a title that wraps grows its row.
+    static let rowHeight: CGFloat = 50
     static let cardRadius: CGFloat = 18
     static let sidebarWidth: CGFloat = 250
     static let rowRadius: CGFloat = 8
