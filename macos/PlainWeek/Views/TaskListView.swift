@@ -260,20 +260,20 @@ struct TaskCheckbox: View {
     var size: CGFloat = 16
 
     var body: some View {
-        let pill = Theme.pill(color)
-        let tint = pill?.background ?? (emphasized ? Theme.foreground.opacity(0.55) : Theme.mutedForeground.opacity(0.55))
+        let shade = Theme.checkbox(color)
+        let ring = shade?.ring ?? (emphasized ? Theme.foreground.opacity(0.55) : Theme.mutedForeground.opacity(0.55))
         ZStack {
             if done {
-                Circle().fill(pill?.background ?? Theme.plannerAccent)
+                Circle().fill(shade?.ring ?? Theme.plannerAccent)
                 Image(systemName: "checkmark")
                     .font(.system(size: size * 0.55, weight: .bold))
-                    .foregroundStyle(pill?.text ?? Theme.background)
+                    .foregroundStyle(shade?.check ?? Theme.background)
             } else {
-                Circle().strokeBorder(tint, lineWidth: pill == nil ? 1.25 : 2)
+                Circle().strokeBorder(ring, lineWidth: shade == nil ? 1.25 : 2)
             }
         }
         .frame(width: size, height: size)
-        .opacity(done && pill != nil ? 0.75 : 1)
+        .opacity(done && shade != nil ? 0.8 : 1)
         .contentShape(Circle())
         .padding(.top, 1)
         .accessibilityLabel(done ? "Done" : "Not done")

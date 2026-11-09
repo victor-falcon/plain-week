@@ -49,7 +49,8 @@ A minimal, type-led style in Apple's idiom, rather than the web app's ruled pape
   card shows its day number large with the weekday in small caps; today's number sits in an accent circle, like
   Calendar, and its card is tinted.
 - **Rows:** no ruled lines; rows highlight with rounded corners on hover and long titles wrap to two lines. A round
-  checkbox starts each row, like Reminders, and carries the task's color on its border (filled with it when done)
+  checkbox starts each row, like Reminders, and carries the task's color on its border (filled with it when done;
+  light mode uses darker shades of the pale colors so every ring stands out on a white card)
   instead of a colored background behind the text. The end of the row holds quiet markers and the time: a notes
   icon when the task has a description, a checklist with "done/total" when it has subtasks (accent once all are
   done), then the time. Empty space in a card adds a task, with a "New task" hint on hover.

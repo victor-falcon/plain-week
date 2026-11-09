@@ -15,7 +15,12 @@ enum DebugSnapshot {
         guard let name = env["PLAINWEEK_WINDOW_SNAPSHOT"] else { return }
         let shift = Int(env["PLAINWEEK_SNAPSHOT_SHIFT"] ?? "0") ?? 0
         let width = Double(env["PLAINWEEK_WINDOW_WIDTH"] ?? "")
+        let dark = env["PLAINWEEK_SNAPSHOT_DARK"] == "1"
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            if dark {
+                NSApp.appearance = NSAppearance(named: .darkAqua)
+                NSApp.windows.forEach { $0.appearance = NSAppearance(named: .darkAqua) }
+            }
             if let width, let window = NSApp.windows.first(where: \.isVisible) {
                 var frame = window.frame
                 frame.size.width = width

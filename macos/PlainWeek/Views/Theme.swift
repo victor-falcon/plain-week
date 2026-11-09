@@ -72,6 +72,28 @@ enum Theme {
         case .lilac: return pair(oklch(0.705, 0.235, 316.3), darkText, oklch(0.72, 0.21, 316.3), darkText)
         }
     }
+
+    /// The checkbox ring (and its fill when done) per task color, with the
+    /// check drawn on top. The pill colors meant for backgrounds (yellow,
+    /// green, mango, grey, lilac) are too light for a thin ring on a white card,
+    /// so light mode uses darker shades of the same hues; dark mode keeps the
+    /// bright pill colors (grey a little lighter), which already stand out.
+    static func checkbox(_ color: TaskColor) -> (ring: Color, check: Color)? {
+        func pair(_ light: NSColor, _ dark: NSColor, darkCheck: NSColor = darkText) -> (Color, Color) {
+            (dynamic(light: light, dark: dark), dynamic(light: lightText, dark: darkCheck))
+        }
+        switch color {
+        case .none: return nil
+        case .pink: return pair(oklch(0.552, 0.196, 8.6), oklch(0.6, 0.2, 8.6), darkCheck: lightText)
+        case .yellow: return pair(oklch(0.72, 0.15, 98), oklch(0.9, 0.155, 104.6))
+        case .black: return pair(darkText, lightText)
+        case .grey: return pair(oklch(0.6, 0.008, 56.4), oklch(0.62, 0.011, 73.6), darkCheck: lightText)
+        case .cornflower: return pair(oklch(0.577, 0.21, 270.1), oklch(0.62, 0.19, 270.1), darkCheck: lightText)
+        case .mango: return pair(oklch(0.7, 0.16, 62), oklch(0.8, 0.16, 74.6))
+        case .green: return pair(oklch(0.66, 0.16, 158), oklch(0.85, 0.18, 160.4))
+        case .lilac: return pair(oklch(0.6, 0.23, 316.3), oklch(0.72, 0.21, 316.3))
+        }
+    }
 }
 
 /// A round color swatch for pickers.
