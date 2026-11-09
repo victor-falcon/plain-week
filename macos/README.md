@@ -30,7 +30,7 @@ dark theme) renders the planner with `ImageRenderer` into the app's temporary di
 (`~/Library/Containers/app.plainweek.mac/Data/tmp/`) and quits. `ImageRenderer` draws AppKit-backed controls (text
 fields, drop targets) as yellow placeholders, so only the layout, colors and text are meaningful there. It also draws
 the seven visible days without their scroll view. To capture the real window instead (scroll views and controls
-included), use `PLAINWEEK_WINDOW_SNAPSHOT=strip.png`, optionally with `PLAINWEEK_SNAPSHOT_SHIFT=<days>` to scroll the
+included, or a task's sheet with `PLAINWEEK_SNAPSHOT_OPEN=<task id>`), use `PLAINWEEK_WINDOW_SNAPSHOT=strip.png`, optionally with `PLAINWEEK_SNAPSHOT_SHIFT=<days>` to scroll the
 strip first, and `PLAINWEEK_DATA_FILE=<name>` to read a sample file from that temporary directory instead of
 your tasks.
 
@@ -77,11 +77,36 @@ Colors still come from the web app's tokens (`Theme.swift`), plus a card surface
 
 ## Using it
 
-- Click an empty row (or ⌘N for today, ⇧⌘N for Someday) and type; Enter adds the task and keeps you in the list, Esc
-  leaves. "17:30 Gym" sets a time, "31 Dec Gym" a date.
+- Click an empty row (or ⌘N for today, ⇧⌘N for Someday) and type; Enter adds the task and keeps you in the list,
+  ⌘↩ adds it and opens it, Esc leaves. While you type, chips at the end of the row show what was understood:
+
+    | Type                                                                                                                        | Sets                                                                  |
+    | --------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+    | `today`, `tomorrow` (`tmr`), `fri` / `friday`, `next week`, `someday`                                                       | The date (a weekday is the next one; today counts). The last one wins |
+    | `31 Dec`, `5 ene.` at the start (like the web app)                                                                          | The date                                                              |
+    | `@11:30`, `@9`, `@9am`, `@5:15pm`, or `17:30` at the start                                                                  | The time                                                              |
+    | `#yellow`, `#pink`, `#green`, … also `#red`, `#blue`, `#orange`, `#purple`, `#gray`                                         | The color                                                             |
+    | `daily`, `weekly`, `monthly`, `weekdays`, `weekends`, `every 3 days`, `every mon, wed and fri`, `every week`, `every month` | The repeat rule (weekly and monthly follow the task's date)           |
+
+    Example: `tomorrow call Joao @11:30 #yellow daily`. Recognised words leave the title; if nothing else would be
+    left, the text stays as typed. A repeating task typed into Someday starts today.
+
 - Click a task to open its sheet: date, time, delete, repeat, color, more (Tomorrow, Next week, Someday, Duplicate),
-  title with the complete check, notes and subtasks. Edits are saved as you type.
-- Right-click a task for colors, moves, duplicate and delete. Hover a task to show its complete check.
+  title with the complete check, notes and subtasks. Edits are saved as you type. Everything works from the keyboard,
+  even while typing in a field, and a footer lists the keys:
+
+    | Key        | Action                                                                            |
+    | ---------- | --------------------------------------------------------------------------------- |
+    | ⌥⌘D        | Date: type `tomorrow`, `fri`, `31 dec`, `someday` and Return, or use the calendar |
+    | ⌥⌘T        | Time: type `9`, `9:30`, `5pm` and Return (⌘⌫ clears it)                           |
+    | ⌥⌘R        | Repeat: ⌘0 never, ⌘1 daily, ⌘2 weekly, ⌘3 monthly, Return applies                 |
+    | ⌥⌘C        | Color: 1–9 picks one                                                              |
+    | ⌘↩ / ⌘⌫    | Complete / delete                                                                 |
+    | ⌥⌘→ / ⇧⌥⌘→ | Move to tomorrow / next week                                                      |
+    | ⌥⌘S / ⌘D   | Move to Someday / duplicate                                                       |
+    | Esc        | Close                                                                             |
+
+- Right-click a task for colors, moves, duplicate and delete. Each row's checkbox completes it.
 - Drag a task onto another row (upper or lower half), onto a list's empty rows, or onto the ‹ › week buttons to move
   it a week back or forward.
 - ⌘T today, ⌘[ / ⌘] previous / next week, ⇧⌘F focus mode, ⌘Z undo, ⇧⌘E export, ⇧⌘I import, ⌘, settings.
@@ -95,7 +120,7 @@ macos/
 ├── project.yml                 XcodeGen spec (app + unit tests)
 ├── PlainWeek/
 │   ├── PlainWeekApp.swift      App, window, menu commands, export/import panels
-│   ├── Model/                  PlainTask (contract), DateKeys (+ Clock, UUID v7), FractionalIndex,
+│   ├── Model/                  PlainTask (contract), DateKeys (+ Clock, UUID v7), FractionalIndex, QuickAdd,
 │   │                           RecurrenceEngine, SmartInput (+ Format)
 │   ├── Store/                  TaskStore (local repository, undo, carry over, import/export), PlannerModel (UI state)
 │   ├── Views/                  PlannerView (header, scrolling day strip, Someday), TaskListView (rows, new-task row, menu, drops), TaskDetailView,

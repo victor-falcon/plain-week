@@ -92,8 +92,10 @@ struct RuledRow: View {
 }
 
 /// The row that adds a task. Enter creates it and keeps focus here (now right
-/// below the new task); Esc leaves; leaving with text also creates it. A
-/// leading time and/or "DD MMM" date are read like on the web.
+/// below the new task); ⌘↩ creates it and opens it; Esc leaves; leaving with
+/// text also creates it. Besides the web app's leading "31 Dec" and "17:30",
+/// it reads `QuickAdd` words ("tomorrow call Joao @11:30 #yellow daily") and
+/// previews what it understood at the end of the row while typing.
 struct NewTaskRow: View {
     var listKey: String
     var date: String?
@@ -108,17 +110,23 @@ struct NewTaskRow: View {
     private var isFocused: Bool { focus.wrappedValue == listKey }
 
     var body: some View {
+        let quick = QuickAdd.parse(text, today: planner.today)
         HStack(spacing: 8) {
             Image(systemName: "plus")
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(Theme.mutedForeground)
                 .frame(width: 18)
                 .opacity(isFocused || hovering ? 1 : 0)
-            TextField("", text: $text, prompt: Text(isFocused || hovering ? "New task" : "").foregroundStyle(Theme.mutedForeground.opacity(0.7)))
+            TextField("", text: $text, prompt: Text(prompt).foregroundStyle(Theme.mutedForeground.opacity(0.7)))
                 .textFieldStyle(.plain)
                 .font(.system(size: 13.5))
                 .focused(focus, equals: listKey)
-                .onSubmit(commit)
+                .onSubmit { commit() }
+                .onKeyPress(.return, phases: .down) { press in
+                    guard press.modifiers.contains(.command) else { return .ignored }
+                    commit(open: true)
+                    return .handled
+                }
                 .onExitCommand {
                     text = ""
                     focus.wrappedValue = nil
@@ -126,6 +134,10 @@ struct NewTaskRow: View {
                 .onChange(of: isFocused) { _, focused in
                     if !focused { commit() }
                 }
+            if isFocused, quick.hasExtras, !text.isEmpty {
+                QuickPreview(quick: quick, listDate: date, today: planner.today)
+                    .transition(.opacity)
+            }
         }
         .padding(.horizontal, 6)
         .frame(height: Theme.rowHeight)
@@ -139,23 +151,72 @@ struct NewTaskRow: View {
         .onTapGesture { focus.wrappedValue = listKey }
         .animation(.easeOut(duration: 0.15), value: isFocused)
         .animation(.easeOut(duration: 0.1), value: hovering)
+        .animation(.easeOut(duration: 0.12), value: quick)
     }
 
-    private func commit() {
-        let parsed = SmartInput.parse(text, today: planner.today)
-        guard !parsed.text.isEmpty else { text = ""; return }
-        let target = parsed.date ?? date
+    private var prompt: String {
+        guard isFocused || hovering else { return "" }
+        return isFocused ? "New task · tomorrow @9:30 #green daily" : "New task"
+    }
+
+    private func commit(open: Bool = false) {
+        let quick = QuickAdd.parse(text, today: planner.today)
+        guard !quick.text.isEmpty else { text = ""; return }
+        let target = quick.targetDate(listDate: date, today: planner.today)
+        var newId: String?
+        var rule: Recurrence?
         store.perform("New Task", undoManager: undoManager) {
-            if target == date {
-                store.create(text: parsed.text, date: target, time: parsed.time, afterId: nil)
-            } else {
-                store.create(text: parsed.text, date: target, time: parsed.time)
+            let id = store.create(text: quick.text, date: target, time: quick.time, color: quick.color ?? .none)
+            newId = id
+            if let spec = quick.repeatSpec, let anchor = target {
+                rule = spec.rule(anchor: anchor)
+                newId = (try? store.setRecurrence(id, rule)) ?? id
             }
         }
         text = ""
-        if target != date, let target {
-            planner.show("Added to \(Format.weekdayDate(target))", canUndo: true)
+
+        // Say where it went when that is not the list it was typed in.
+        var notes: [String] = []
+        let landed = newId.flatMap { store.item($0)?.task.date } ?? target
+        if landed != date {
+            notes.append(landed.map { "Added to \(Format.weekdayDate($0))" } ?? "Added to Someday")
         }
+        if let rule { notes.append("repeats \(RecurrenceEngine.summary(rule).lowercased())") }
+        if !notes.isEmpty {
+            planner.show(notes.joined(separator: ", ").prefix(1).uppercased() + notes.joined(separator: ", ").dropFirst(), canUndo: true)
+        }
+        if open, let newId { planner.open(newId) }
+    }
+}
+
+/// What a new-task row understood, as quiet chips at its end.
+struct QuickPreview: View {
+    var quick: QuickTask
+    var listDate: String?
+    var today: String
+
+    var body: some View {
+        HStack(spacing: 6) {
+            switch quick.date {
+            case let .day(day): chip(day == today ? "Today" : Format.weekdayDate(day), "calendar")
+            case .someday: chip("Someday", "tray")
+            case .list: EmptyView()
+            }
+            if let time = quick.time { chip(time, "clock") }
+            if let spec = quick.repeatSpec { chip(spec.label, "repeat") }
+            if let color = quick.color { TaskCheckbox(color: color, done: false, size: 12).help(color.label) }
+        }
+        .fixedSize()
+    }
+
+    private func chip(_ text: String, _ icon: String) -> some View {
+        Label(text, systemImage: icon)
+            .labelStyle(.titleAndIcon)
+            .font(.system(size: 11, weight: .medium))
+            .foregroundStyle(Theme.mutedForeground)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(Capsule().fill(Theme.hover))
     }
 }
 

@@ -10,6 +10,7 @@
 		256076330EAAF723A7A7CC25 /* PlainWeekApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F95EC84350E560BAD1A20C02 /* PlainWeekApp.swift */; };
 		3C346202D6FEBE3C74951D58 /* DateKeys.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E47A13C9C3C27BC8717EE19 /* DateKeys.swift */; };
 		403E442A20AE46AA0CD90A2C /* PlannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 298E1BA5885E900139DABA3A /* PlannerView.swift */; };
+		45B4439DC91285C573C8325E /* QuickAdd.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64C4826FCE4386231546D627 /* QuickAdd.swift */; };
 		53D160917545F3029C814F39 /* TaskStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A220C28F9C0954BDFAC1EE55 /* TaskStore.swift */; };
 		549E23F7DDC5C05FD0EFC5BE /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D47E36CF3DA5878BE0132A78 /* SettingsView.swift */; };
 		5DC9062035F785AC53638881 /* PlainTask.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28D9E3752E7210826C6190D8 /* PlainTask.swift */; };
@@ -46,6 +47,7 @@
 		2FB14DCE8C020A3E76ADA688 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		46E62123169CF8184AC93942 /* PlannerModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlannerModel.swift; sourceTree = "<group>"; };
 		4A53DABD8A0F881620B0F612 /* RepeatPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepeatPicker.swift; sourceTree = "<group>"; };
+		64C4826FCE4386231546D627 /* QuickAdd.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickAdd.swift; sourceTree = "<group>"; };
 		6865ECB28A0EFD886CAE5FD2 /* RecurrenceEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecurrenceEngine.swift; sourceTree = "<group>"; };
 		6966DFE995561C8C59AD42D5 /* PlainWeek.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PlainWeek.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		6E47A13C9C3C27BC8717EE19 /* DateKeys.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DateKeys.swift; sourceTree = "<group>"; };
@@ -126,6 +128,7 @@
 				6E47A13C9C3C27BC8717EE19 /* DateKeys.swift */,
 				00A8F9B8FE2CDA0EBAEAE537 /* FractionalIndex.swift */,
 				28D9E3752E7210826C6190D8 /* PlainTask.swift */,
+				64C4826FCE4386231546D627 /* QuickAdd.swift */,
 				6865ECB28A0EFD886CAE5FD2 /* RecurrenceEngine.swift */,
 				8F00D45CD514DD0F7A61EBD2 /* SmartInput.swift */,
 			);
@@ -228,6 +231,7 @@
 				256076330EAAF723A7A7CC25 /* PlainWeekApp.swift in Sources */,
 				CFA561E717B2B21E4571DF84 /* PlannerModel.swift in Sources */,
 				403E442A20AE46AA0CD90A2C /* PlannerView.swift in Sources */,
+				45B4439DC91285C573C8325E /* QuickAdd.swift in Sources */,
 				6AB732842F8D9CD62C153715 /* RecurrenceEngine.swift in Sources */,
 				E8BD07C7DBC87D6232B60614 /* RepeatPicker.swift in Sources */,
 				549E23F7DDC5C05FD0EFC5BE /* SettingsView.swift in Sources */,

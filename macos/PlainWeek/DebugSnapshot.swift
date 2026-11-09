@@ -27,14 +27,18 @@ enum DebugSnapshot {
                 window.setFrame(frame, display: true)
             }
             planner.scroll(by: shift)
+            // PLAINWEEK_SNAPSHOT_OPEN=<task id> captures that task's sheet.
+            if let id = env["PLAINWEEK_SNAPSHOT_OPEN"] { planner.open(id) }
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                guard let window = NSApp.windows.first(where: { $0.isVisible && $0.title == "Plain Week" }) ?? NSApp.windows.first(where: \.isVisible),
+                let main = NSApp.windows.first(where: { $0.isVisible && $0.title == "Plain Week" }) ?? NSApp.windows.first(where: \.isVisible)
+                guard let window = main?.attachedSheet ?? main,
                       let image = CGWindowListCreateImage(.null, .optionIncludingWindow, CGWindowID(window.windowNumber), [.boundsIgnoreFraming, .bestResolution])
-                else { NSLog("Window capture failed"); NSApp.terminate(nil); return }
+                else { NSLog("Window capture failed"); exit(1) }
                 let url = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(name)
                 try? NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:])?.write(to: url)
                 NSLog("first visible day %@, %d days visible", planner.weekStart, planner.visibleCount)
-                NSApp.terminate(nil)
+                // terminate(_:) waits while a sheet is open; a capture run just ends.
+                exit(0)
             }
         }
     }

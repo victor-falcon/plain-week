@@ -101,8 +101,11 @@ struct TaskDetailView: View {
             }
 
             subtasks(task)
+
+            shortcutFooter
         }
         .padding(28)
+        .background { sheetShortcuts(item) }
         .onAppear {
             title = task.text
             notes = task.notes
@@ -135,7 +138,7 @@ struct TaskDetailView: View {
             .buttonStyle(ToolbarButtonStyle(active: picker == .date))
             .disabled(item.kind == .series)
             .popover(isPresented: pickerBinding(.date), arrowEdge: .bottom) { datePicker(item) }
-            .help("Date")
+            .help("Date (⌥⌘D)")
 
             Button {
                 picker = .time
@@ -145,7 +148,7 @@ struct TaskDetailView: View {
             }
             .buttonStyle(ToolbarButtonStyle(active: picker == .time))
             .popover(isPresented: pickerBinding(.time), arrowEdge: .bottom) { timePicker(task) }
-            .help("Time")
+            .help("Time (⌥⌘T)")
 
             Spacer()
 
@@ -156,7 +159,7 @@ struct TaskDetailView: View {
                 }
             } label: { Image(systemName: "trash") }
                 .buttonStyle(ToolbarButtonStyle(active: false))
-                .help("Delete")
+                .help("Delete (⌘⌫)")
 
             Button {
                 picker = .repeating
@@ -173,22 +176,22 @@ struct TaskDetailView: View {
                         }
                     }
                 }
-                .help(store.series(of: item)?.recurrence.map { "Repeat: \(RecurrenceEngine.summary($0))" } ?? "Repeat")
+                .help((store.series(of: item)?.recurrence.map { "Repeat: \(RecurrenceEngine.summary($0))" } ?? "Repeat") + " (⌥⌘R)")
 
             Button {
                 picker = .color
             } label: { ColorSwatch(color: task.color, size: 14) }
                 .buttonStyle(ToolbarButtonStyle(active: picker == .color))
                 .popover(isPresented: pickerBinding(.color), arrowEdge: .bottom) { colorPicker(item) }
-                .help("Color")
+                .help("Color (⌥⌘C)")
 
             Menu {
-                Button("Tomorrow") { follow(actions.tomorrow(item)) }
-                Button("Next Week") { follow(actions.nextWeek(item)) }
-                Button("Someday") { follow(actions.move(item, to: nil)) }
+                Button("Tomorrow  ⌥⌘→") { follow(actions.tomorrow(item)) }
+                Button("Next Week  ⇧⌥⌘→") { follow(actions.nextWeek(item)) }
+                Button("Someday  ⌥⌘S") { follow(actions.move(item, to: nil)) }
                     .disabled(task.date == nil)
                 Divider()
-                Button("Duplicate") { actions.duplicate(item) }
+                Button("Duplicate  ⌘D") { actions.duplicate(item) }
             } label: { Image(systemName: "ellipsis") }
                 .menuStyle(.borderlessButton)
                 .menuIndicator(.hidden)
@@ -209,6 +212,23 @@ struct TaskDetailView: View {
 
     private func datePicker(_ item: PlannerItem) -> some View {
         VStack(spacing: 10) {
+            QuickEntryField(prompt: "tomorrow, fri, next week, 31 dec…") { typed in
+                let probe = QuickAdd.parse(typed + " x", today: planner.today)
+                switch probe.date {
+                case let .day(day):
+                    picker = nil
+                    if day != item.task.date {
+                        follow(store.perform("Move Task", undoManager: undoManager) { store.move(item.id, to: day) })
+                    }
+                    return true
+                case .someday:
+                    picker = nil
+                    follow(store.perform("Move Task", undoManager: undoManager) { store.move(item.id, to: nil) })
+                    return true
+                case .list:
+                    return false
+                }
+            }
             DatePicker("Date", selection: Binding(
                 get: { DateKey.localDate(item.task.date ?? planner.today) },
                 set: { date in
@@ -240,7 +260,15 @@ struct TaskDetailView: View {
         let current = task.time ?? "09:00"
         let parts = current.split(separator: ":").compactMap { Int($0) }
         let date = Calendar.current.date(bySettingHour: parts[0], minute: parts[1], second: 0, of: Date())!
-        return HStack {
+        return VStack(alignment: .leading, spacing: 10) {
+            QuickEntryField(prompt: "9, 9:30, 5pm, 17:45…") { typed in
+                let word = typed.hasPrefix("@") ? typed : "@" + typed.replacingOccurrences(of: " ", with: "")
+                guard let time = QuickAdd.parseTime(word) else { return false }
+                picker = nil
+                follow(store.perform("Set Time", undoManager: undoManager) { store.update(taskId, TaskPatch(time: .some(time))) })
+                return true
+            }
+            HStack {
             DatePicker("Time", selection: Binding(get: { date }, set: { value in
                 let c = Calendar.current.dateComponents([.hour, .minute], from: value)
                 let time = String(format: "%02d:%02d", c.hour!, c.minute!)
@@ -253,22 +281,84 @@ struct TaskDetailView: View {
                 follow(store.perform("Clear Time", undoManager: undoManager) { store.update(taskId, TaskPatch(time: .some(nil))) })
             }
             .disabled(task.time == nil)
+            .keyboardShortcut(.delete, modifiers: [.command])
+            }
         }
         .padding(12)
     }
 
     private func colorPicker(_ item: PlannerItem) -> some View {
         HStack(spacing: 8) {
-            ForEach(TaskColor.allCases) { color in
+            ForEach(Array(TaskColor.allCases.enumerated()), id: \.element) { index, color in
                 Button {
                     picker = nil
                     if store.asksScope(item) { pendingScope = .color(color) } else { follow(actions.color(item, color)) }
-                } label: { ColorSwatch(color: color, selected: color == item.task.color, size: 22) }
+                } label: {
+                    VStack(spacing: 4) {
+                        ColorSwatch(color: color, selected: color == item.task.color, size: 22)
+                        Text("\(index + 1)").font(.system(size: 10, weight: .medium)).foregroundStyle(Theme.mutedForeground)
+                    }
+                }
                     .buttonStyle(.plain)
-                    .help(color.label)
+                    .keyboardShortcut(KeyEquivalent(Character("\(index + 1)")), modifiers: [])
+                    .help("\(color.label) (\(index + 1))")
             }
         }
         .padding(12)
+    }
+
+    // MARK: Keyboard
+
+    /// The sheet's keys, all with ⌘ so they work while typing in the title,
+    /// notes or a subtask. Hidden buttons carry them.
+    @ViewBuilder
+    private func sheetShortcuts(_ item: PlannerItem) -> some View {
+        let task = item.task
+        Group {
+            Button("Date") { picker = .date }
+                .keyboardShortcut("d", modifiers: [.command, .option])
+                .disabled(item.kind == .series)
+            Button("Time") { picker = .time }
+                .keyboardShortcut("t", modifiers: [.command, .option])
+            Button("Repeat") { picker = .repeating }
+                .keyboardShortcut("r", modifiers: [.command, .option])
+                .disabled(task.date == nil)
+            Button("Color") { picker = .color }
+                .keyboardShortcut("c", modifiers: [.command, .option])
+            Button("Complete") {
+                follow(store.perform(task.done ? "Mark Not Done" : "Complete Task", undoManager: undoManager) { store.toggleDone(taskId) })
+            }
+            .keyboardShortcut(.return, modifiers: [.command])
+            Button("Delete") {
+                if store.asksScope(item) { pendingScope = .delete } else {
+                    actions.delete(item)
+                    dismiss()
+                }
+            }
+            .keyboardShortcut(.delete, modifiers: [.command])
+            Button("Tomorrow") { follow(actions.tomorrow(item)) }
+                .keyboardShortcut(.rightArrow, modifiers: [.command, .option])
+            Button("Next Week") { follow(actions.nextWeek(item)) }
+                .keyboardShortcut(.rightArrow, modifiers: [.command, .option, .shift])
+            Button("Someday") { follow(actions.move(item, to: nil)) }
+                .keyboardShortcut("s", modifiers: [.command, .option])
+                .disabled(task.date == nil)
+            Button("Duplicate") { actions.duplicate(item) }
+                .keyboardShortcut("d", modifiers: [.command])
+        }
+        .opacity(0)
+        .frame(width: 0, height: 0)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+
+    private var shortcutFooter: some View {
+        Text("⌥⌘D date  ·  ⌥⌘T time  ·  ⌥⌘R repeat  ·  ⌥⌘C color  ·  ⌘↩ done  ·  ⌘⌫ delete  ·  ⌥⌘→ tomorrow")
+            .font(.system(size: 11))
+            .foregroundStyle(Theme.mutedForeground.opacity(0.8))
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
     }
 
     private func applyRule(_ rule: Recurrence?, scope: ChangeScope) {
@@ -397,4 +487,30 @@ struct AnyLabelStyle: LabelStyle {
     private let make: (Configuration) -> AnyView
     init<S: LabelStyle>(_ style: S) { make = { AnyView(style.makeBody(configuration: $0)) } }
     func makeBody(configuration: Configuration) -> some View { make(configuration) }
+}
+
+/// A one-line field that takes focus when its popover opens; Return hands the
+/// text to `onSubmit`, which returns whether it understood it (the field
+/// shakes its prompt red otherwise).
+struct QuickEntryField: View {
+    var prompt: String
+    var onSubmit: (String) -> Bool
+    @State private var text = ""
+    @State private var invalid = false
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        TextField("", text: $text, prompt: Text(prompt))
+            .textFieldStyle(.roundedBorder)
+            .focused($focused)
+            .onSubmit {
+                let typed = text.trimmingCharacters(in: .whitespaces)
+                guard !typed.isEmpty else { return }
+                invalid = !onSubmit(typed)
+            }
+            .onChange(of: text) { invalid = false }
+            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(invalid ? Color.red.opacity(0.7) : .clear))
+            .frame(minWidth: 220)
+            .onAppear { DispatchQueue.main.async { focused = true } }
+    }
 }

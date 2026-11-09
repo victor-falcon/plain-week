@@ -31,6 +31,18 @@ struct RepeatPicker: View {
             }
             .pickerStyle(.segmented)
             .labelsHidden()
+            .background {
+                // ⌘0 Never, ⌘1 Daily, ⌘2 Weekly, ⌘3 Monthly; Return applies.
+                ForEach(Array(Kind.allCases.enumerated()), id: \.element) { index, value in
+                    Button(value.rawValue) { kind = value }
+                        .keyboardShortcut(KeyEquivalent(Character("\(index)")), modifiers: [.command])
+                }
+                .opacity(0)
+                .allowsHitTesting(false)
+            }
+            Text("⌘0 never  ·  ⌘1 daily  ·  ⌘2 weekly  ·  ⌘3 monthly  ·  ↩ apply")
+                .font(.system(size: 11))
+                .foregroundStyle(Theme.mutedForeground)
 
             switch kind {
             case .never:

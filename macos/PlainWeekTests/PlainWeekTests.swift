@@ -51,6 +51,76 @@ final class SmartInputTests: XCTestCase {
     }
 }
 
+final class QuickAddTests: XCTestCase {
+    // Monday 9 November 2026.
+    let today = "2026-11-09"
+
+    func testUsersExample() {
+        let quick = QuickAdd.parse("tomorrow call joao @11:30 #yellow daily", today: today)
+        XCTAssertEqual(quick.text, "call joao")
+        XCTAssertEqual(quick.date, .day("2026-11-10"))
+        XCTAssertEqual(quick.time, "11:30")
+        XCTAssertEqual(quick.color, .yellow)
+        XCTAssertEqual(quick.repeatSpec, .daily(1))
+        XCTAssertEqual(quick.repeatSpec?.rule(anchor: "2026-11-10"), .daily(every: 1))
+    }
+
+    func testDates() {
+        XCTAssertEqual(QuickAdd.parse("Gym today", today: today).date, .day(today))
+        XCTAssertEqual(QuickAdd.parse("Gym fri", today: today).date, .day("2026-11-13"))
+        XCTAssertEqual(QuickAdd.parse("Gym monday", today: today).date, .day(today))
+        XCTAssertEqual(QuickAdd.parse("Plan next week", today: today).date, .day("2026-11-16"))
+        XCTAssertEqual(QuickAdd.parse("Read someday", today: today).date, .someday)
+        // The last date wins.
+        XCTAssertEqual(QuickAdd.parse("today tomorrow Call", today: today).date, .day("2026-11-10"))
+        // The web app's leading date still works, with the rest.
+        let quick = QuickAdd.parse("31 Dec Party #pink", today: today)
+        XCTAssertEqual(quick.date, .day("2026-12-31"))
+        XCTAssertEqual(quick.text, "Party")
+        XCTAssertEqual(quick.color, .pink)
+    }
+
+    func testTimes() {
+        XCTAssertEqual(QuickAdd.parse("Call @9", today: today).time, "09:00")
+        XCTAssertEqual(QuickAdd.parse("Call @9am", today: today).time, "09:00")
+        XCTAssertEqual(QuickAdd.parse("Call @5:15pm", today: today).time, "17:15")
+        XCTAssertEqual(QuickAdd.parse("Call @12am", today: today).time, "00:00")
+        XCTAssertNil(QuickAdd.parse("Call @25", today: today).time)
+        XCTAssertEqual(QuickAdd.parse("Email @joao", today: today).text, "Email @joao")
+    }
+
+    func testColors() {
+        XCTAssertEqual(QuickAdd.parse("Pay #red", today: today).color, .pink)
+        XCTAssertEqual(QuickAdd.parse("Pay #Blue", today: today).color, .cornflower)
+        XCTAssertNil(QuickAdd.parse("Fix #123", today: today).color)
+        XCTAssertEqual(QuickAdd.parse("Fix #123", today: today).text, "Fix #123")
+    }
+
+    func testRepeats() {
+        XCTAssertEqual(QuickAdd.parse("Gym weekly", today: today).repeatSpec, .weekly([]))
+        XCTAssertEqual(QuickAdd.parse("Rent monthly", today: today).repeatSpec, .monthly)
+        XCTAssertEqual(QuickAdd.parse("Standup weekdays", today: today).repeatSpec, .weekly([1, 2, 3, 4, 5]))
+        XCTAssertEqual(QuickAdd.parse("Water every 3 days", today: today).repeatSpec, .daily(3))
+        XCTAssertEqual(QuickAdd.parse("Gym every mon, wed and fri", today: today).repeatSpec, .weekly([1, 3, 5]))
+        let quick = QuickAdd.parse("Gym every tue and coffee", today: today)
+        XCTAssertEqual(quick.repeatSpec, .weekly([2]))
+        XCTAssertEqual(quick.text, "Gym and coffee")
+        XCTAssertEqual(QuickAdd.parse("Gym every week", today: today).repeatSpec?.rule(anchor: "2026-11-12"), .weekly([4]))
+    }
+
+    func testOnlyKeywordsKeepsText() {
+        XCTAssertEqual(QuickAdd.parse("daily", today: today), QuickTask(text: "daily"))
+    }
+
+    func testTargetDate() {
+        let plain = QuickAdd.parse("Gym", today: today)
+        XCTAssertEqual(plain.targetDate(listDate: "2026-11-11", today: today), "2026-11-11")
+        XCTAssertNil(plain.targetDate(listDate: nil, today: today))
+        // Someday cannot repeat: a repeating task typed there starts today.
+        XCTAssertEqual(QuickAdd.parse("Gym daily", today: today).targetDate(listDate: nil, today: today), today)
+    }
+}
+
 final class DateKeyTests: XCTestCase {
     func testWeekMath() {
         XCTAssertEqual(DateKey.startOfWeek("2026-11-09"), "2026-11-09")
