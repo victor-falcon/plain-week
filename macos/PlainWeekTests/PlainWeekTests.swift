@@ -225,24 +225,25 @@ final class NewFeatureTests: XCTestCase {
     }
 
     func testPomodoroSwitchesPhaseAndLogsOnlyFocus() {
-        var clock = Date(timeIntervalSince1970: 1000)
+        let clock = TestClock()
         let timer = FocusTimer()
-        timer.now = { clock }
+        timer.now = { clock.now }
+        timer.settingsOverride = .init()
         var logged: TimeInterval = 0
         var ended: [FocusTimer.Phase] = []
-        timer.onLog = { _, seconds, _ in logged += seconds }
+        timer.onLog = { _, seconds, _, _ in logged += seconds }
         timer.onPhaseEnd = { ended.append($0) }
         timer.start("a", day: nil, mode: .pomodoro)
-        clock += timer.workLength
+        clock.now += timer.workLength
         timer.tick()
         XCTAssertEqual(ended, [.work])
         XCTAssertEqual(timer.phase, .rest)
         XCTAssertEqual(logged, timer.workLength)
-        clock += timer.breakLength
+        clock.now += timer.breakLength
         timer.tick()
         XCTAssertEqual(ended, [.work, .rest])
         XCTAssertEqual(logged, timer.workLength, "a break is not focus time")
-        clock += 60
+        clock.now += 60
         XCTAssertEqual(timer.remaining(), timer.workLength - 60)
         timer.stop()
         XCTAssertEqual(logged, timer.workLength + 60)
@@ -313,6 +314,91 @@ final class NewFeatureTests: XCTestCase {
         XCTAssertNil(store.item(a))
         key("\u{1B}")
         XCTAssertNil(planner.cursor)
+    }
+}
+
+/// A clock the tests move by hand.
+final class TestClock {
+    var now = Date(timeIntervalSince1970: 1000)
+}
+
+final class PomodoroCycleTests: XCTestCase {
+    /// A Pomodoro timer with fixed settings (never the user's) and a hand clock.
+    private func makeTimer(autoStart: Bool = true) -> (FocusTimer, TestClock) {
+        let clock = TestClock()
+        let timer = FocusTimer()
+        timer.now = { clock.now }
+        timer.settingsOverride = .init(workMinutes: 25, breakMinutes: 5, longBreakMinutes: 15, sessionsPerCycle: 4, autoStart: autoStart)
+        return (timer, clock)
+    }
+
+    private func runPhase(_ timer: FocusTimer, _ clock: TestClock) {
+        clock.now += timer.phaseLength
+        timer.tick()
+    }
+
+    func testLongBreakAfterFourSessionsAndCounting() {
+        let (timer, clock) = makeTimer()
+        var finished = 0
+        timer.onLog = { _, _, _, done in if done { finished += 1 } }
+        timer.start("a", day: nil, mode: .pomodoro)
+        var phases: [FocusTimer.Phase] = []
+        for _ in 0..<8 {
+            runPhase(timer, clock)
+            phases.append(timer.phase)
+        }
+        XCTAssertEqual(phases, [.rest, .work, .rest, .work, .rest, .work, .longRest, .work])
+        XCTAssertEqual(finished, 4)
+        XCTAssertEqual(timer.completedSessions, 4)
+        XCTAssertEqual(timer.sessionsInCycle, 0, "a new cycle starts after the long break")
+    }
+
+    func testDotsDuringTheCycle() {
+        let (timer, clock) = makeTimer()
+        timer.start("a", day: nil, mode: .pomodoro)
+        runPhase(timer, clock)
+        XCTAssertEqual(timer.sessionsInCycle, 1)
+        for _ in 0..<5 { runPhase(timer, clock) }
+        XCTAssertEqual(timer.phase, .work)
+        runPhase(timer, clock)
+        XCTAssertEqual(timer.phase, .longRest)
+        XCTAssertEqual(timer.sessionsInCycle, 4, "the long break shows the full cycle")
+    }
+
+    func testWithoutAutoStartItWaitsForPlay() {
+        let (timer, clock) = makeTimer(autoStart: false)
+        timer.start("a", day: nil, mode: .pomodoro)
+        runPhase(timer, clock)
+        XCTAssertEqual(timer.phase, .rest)
+        XCTAssertFalse(timer.isRunning)
+        clock.now += 600
+        XCTAssertEqual(timer.remaining(), timer.breakLength, "nothing counts while waiting")
+        timer.resume()
+        clock.now += 60
+        XCTAssertEqual(timer.remaining(), timer.breakLength - 60)
+    }
+
+    func testSkippingFocusDoesNotCountASession() {
+        let (timer, clock) = makeTimer()
+        var finished = 0
+        var seconds: TimeInterval = 0
+        timer.onLog = { _, s, _, done in seconds += s; if done { finished += 1 } }
+        timer.start("a", day: nil, mode: .pomodoro)
+        clock.now += 300
+        timer.skipPhase()
+        XCTAssertEqual(timer.phase, .rest)
+        XCTAssertEqual(finished, 0)
+        XCTAssertEqual(seconds, 300, "the focus time still counts")
+    }
+
+    func testTimeLogCountsSessionsPerDay() {
+        let log = TimeLog(fileURL: nil)
+        let monday = DateKey.localDate("2026-11-09").addingTimeInterval(9 * 3600)
+        log.add("a", seconds: 1500, start: monday, pomodoro: true)
+        log.add("a", seconds: 600, start: monday)
+        log.add("a", seconds: 1500, start: monday.addingTimeInterval(86400), pomodoro: true)
+        XCTAssertEqual(log.pomodoros(on: "2026-11-09"), 1)
+        XCTAssertEqual(log.total(on: "2026-11-09"), 2100)
     }
 }
 

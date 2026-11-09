@@ -56,10 +56,17 @@ final class AppModel {
         planner.startClock()
         store.carryOverIfEnabled(today: planner.today, planner: planner)
 
-        timer.onLog = { taskId, seconds, start in timeLog.add(taskId, seconds: seconds, start: start) }
-        timer.onPhaseEnd = { ended in
-            Reminders.notify(ended == .work ? "Time for a break" : "Back to focus",
-                             ended == .work ? "Focus session done. Rest a few minutes." : "Break over.")
+        timer.onLog = { taskId, seconds, start, finished in timeLog.add(taskId, seconds: seconds, start: start, pomodoro: finished) }
+        timer.onPhaseEnd = { [timer] ended in
+            let next = timer.autoStart ? "" : " Press play when you are ready."
+            switch ended {
+            case .work where timer.phase == .longRest:
+                Reminders.notify("Time for a long break", "\(timer.sessionsPerCycle) focus sessions done. Rest a while.\(next)")
+            case .work:
+                Reminders.notify("Time for a break", "Session \(timer.sessionsInCycle) of \(timer.sessionsPerCycle) done.\(next)")
+            case .rest, .longRest:
+                Reminders.notify("Back to focus", "Break over.\(next)")
+            }
         }
 
         guard !Self.isSnapshot else { return }

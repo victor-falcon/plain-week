@@ -164,10 +164,7 @@ struct MiniTimerView: View {
                     .foregroundStyle(item == nil ? Theme.mutedForeground : Theme.foreground)
                     .lineLimit(2)
                 if timer.mode == .pomodoro {
-                    Text(timer.phase == .work ? "FOCUS" : "BREAK")
-                        .font(.system(size: 10, weight: .semibold))
-                        .tracking(0.8)
-                        .foregroundStyle(Theme.mutedForeground)
+                    PomodoroStatus()
                 }
                 TimelineView(.periodic(from: .now, by: 1)) { context in
                     Text(FocusTimer.format(timer.display(at: context.date)))
@@ -178,6 +175,18 @@ struct MiniTimerView: View {
                 }
             }
             Spacer(minLength: 0)
+
+            if timer.mode == .pomodoro {
+                Button { timer.skipPhase() } label: {
+                    Image(systemName: "forward.end.fill")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Theme.mutedForeground)
+                        .frame(width: 28, height: 28)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.pressable)
+                .help(timer.phase == .work ? "Skip to the break (the session will not count)" : "Skip the break")
+            }
 
             Button {
                 timer.toggle()
@@ -208,5 +217,31 @@ struct MiniTimerView: View {
         .frame(width: 340)
         .floatingMaterial(in: RoundedRectangle(cornerRadius: Theme.panelRadius, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius, style: .continuous).strokeBorder(Theme.border))
+    }
+}
+
+/// "FOCUS ●●○○": the Pomodoro phase and the focus sessions done in this cycle
+/// (a long break follows the last one).
+struct PomodoroStatus: View {
+    @Environment(FocusTimer.self) private var timer
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Text(timer.phase.label)
+                .font(.system(size: 10, weight: .semibold))
+                .tracking(0.8)
+            HStack(spacing: 3) {
+                ForEach(0..<timer.sessionsPerCycle, id: \.self) { index in
+                    Circle()
+                        .fill(index < timer.sessionsInCycle ? Theme.foreground : .clear)
+                        .overlay(Circle().strokeBorder(Theme.mutedForeground.opacity(0.6), lineWidth: 1))
+                        .frame(width: 6, height: 6)
+                }
+            }
+            .animation(Motion.standard, value: timer.sessionsInCycle)
+        }
+        .foregroundStyle(Theme.mutedForeground)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(timer.phase.label.lowercased()), \(timer.sessionsInCycle) of \(timer.sessionsPerCycle) sessions done")
     }
 }

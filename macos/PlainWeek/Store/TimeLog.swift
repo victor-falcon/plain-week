@@ -11,6 +11,8 @@ final class TimeLog {
         /// When the session started.
         var start: Date
         var seconds: TimeInterval
+        /// It finished a Pomodoro focus session (nil in older files).
+        var pomodoro: Bool?
     }
 
     private(set) var sessions: [Session] = []
@@ -24,11 +26,17 @@ final class TimeLog {
         }
     }
 
-    /// Records `seconds` on `taskId` (ignores anything under a second).
-    func add(_ taskId: String, seconds: TimeInterval, start: Date) {
-        guard seconds >= 1 else { return }
-        sessions.append(Session(taskId: taskId, start: start, seconds: seconds.rounded()))
+    /// Records `seconds` on `taskId` (ignores anything under a second, unless
+    /// it finishes a Pomodoro session).
+    func add(_ taskId: String, seconds: TimeInterval, start: Date, pomodoro: Bool = false) {
+        guard seconds >= 1 || pomodoro else { return }
+        sessions.append(Session(taskId: taskId, start: start, seconds: seconds.rounded(), pomodoro: pomodoro ? true : nil))
         save()
+    }
+
+    /// Pomodoro focus sessions finished on a local calendar day.
+    func pomodoros(on day: String, calendar: Calendar = .current) -> Int {
+        sessions.filter { $0.pomodoro == true && DateKey.local($0.start, calendar: calendar) == day }.count
     }
 
     /// Moves recorded time to a task's new id (an occurrence that became a row).

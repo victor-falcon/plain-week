@@ -5,11 +5,10 @@ struct MenuBarLabel: View {
     @Environment(FocusTimer.self) private var timer
 
     var body: some View {
+        // No TimelineView here: the timer refreshes `clockText` once a second.
         if timer.isActive {
-            TimelineView(.periodic(from: .now, by: 1)) { context in
-                Label(FocusTimer.format(timer.display(at: context.date)), systemImage: timer.isRunning ? "timer" : "pause.fill")
-                    .monospacedDigit()
-            }
+            Image(systemName: timer.isRunning ? "timer" : "pause.fill")
+            Text(timer.clockText).monospacedDigit()
         } else {
             Image(systemName: "checklist")
         }
@@ -119,8 +118,11 @@ struct MenuBarView: View {
     private func timerRow(_ item: PlannerItem) -> some View {
         HStack(spacing: 10) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(timer.mode == .pomodoro ? (timer.phase == .work ? "FOCUS" : "BREAK") : "TIMER")
-                    .font(.system(size: 10, weight: .semibold)).tracking(0.8).foregroundStyle(Theme.mutedForeground)
+                if timer.mode == .pomodoro {
+                    PomodoroStatus()
+                } else {
+                    Text("TIMER").font(.system(size: 10, weight: .semibold)).tracking(0.8).foregroundStyle(Theme.mutedForeground)
+                }
                 Text(item.task.text).font(.system(size: 13, weight: .semibold)).lineLimit(1)
             }
             Spacer()

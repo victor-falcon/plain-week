@@ -39,7 +39,11 @@ enum DebugSnapshot {
             default: break
             }
             // PLAINWEEK_SNAPSHOT_TIMER=<day> starts its timer and captures the mini window.
-            if let day = env["PLAINWEEK_SNAPSHOT_TIMER"] { TimerActions.startDay(day, store: store, planner: planner, timer: timer) }
+            if let day = env["PLAINWEEK_SNAPSHOT_TIMER"] {
+                TimerActions.startDay(day, store: store, planner: planner, timer: timer)
+                // PLAINWEEK_SNAPSHOT_POMODORO=1 shows it as Pomodoro (the user's setting is untouched).
+                if env["PLAINWEEK_SNAPSHOT_POMODORO"] == "1", let id = timer.taskId { timer.start(id, day: day, mode: .pomodoro) }
+            }
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                 let popover = env["PLAINWEEK_SNAPSHOT_PICKER"] != nil
                     ? NSApp.windows.first(where: { $0.isVisible && String(describing: type(of: $0)).contains("Popover") }) : nil

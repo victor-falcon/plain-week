@@ -8,6 +8,9 @@ struct SettingsView: View {
     @AppStorage(FocusTimer.modeKey) private var timerMode = FocusTimer.Mode.stopwatch.rawValue
     @AppStorage(FocusTimer.workMinutesKey) private var workMinutes = 25
     @AppStorage(FocusTimer.breakMinutesKey) private var breakMinutes = 5
+    @AppStorage(FocusTimer.longBreakMinutesKey) private var longBreakMinutes = 15
+    @AppStorage(FocusTimer.sessionsKey) private var sessionsPerCycle = 4
+    @AppStorage(FocusTimer.autoStartKey) private var autoStart = true
     @AppStorage(Reminders.leadKey) private var reminderLead = 5
     @AppStorage(QuickCapture.enabledKey) private var quickCapture = true
     @AppStorage(MenuBarSettings.key) private var showMenuBar = true
@@ -56,9 +59,23 @@ struct SettingsView: View {
                         Text("minutes").foregroundStyle(Theme.mutedForeground)
                     }
                     .font(.system(size: 13))
+                    HStack(spacing: 16) {
+                        HStack(spacing: 8) {
+                            Text("Long break").foregroundStyle(Theme.mutedForeground)
+                            NumberStepper(value: $longBreakMinutes, range: 5...60)
+                            Text("minutes, after").foregroundStyle(Theme.mutedForeground)
+                            NumberStepper(value: $sessionsPerCycle, range: 2...8)
+                            Text("sessions").foregroundStyle(Theme.mutedForeground)
+                        }
+                    }
+                    .font(.system(size: 13))
+                    Toggle(isOn: $autoStart) {
+                        Text("Start the next phase automatically").font(.system(size: 14, weight: .medium))
+                    }
+                    .toggleStyle(MonoSwitchStyle())
                 }
                 note(timerMode == FocusTimer.Mode.pomodoro.rawValue
-                     ? "Focus and break phases switch on their own, with a notification. Applies to the next timer you start. To silence other apps meanwhile, add a Shortcuts automation that turns on a Focus."
+                     ? "Focus and break phases switch with a notification, and a long break comes after the last session of each cycle. Turn off automatic start to press play at each change. Applies to the next timer you start. To silence other apps meanwhile, add a Shortcuts automation that turns on a Focus."
                      : "The timer counts up. Focus time is saved per task and shown in the task and the weekly review.")
             }
 

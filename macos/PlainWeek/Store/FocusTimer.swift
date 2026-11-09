@@ -14,11 +14,18 @@ final class FocusTimer {
         var label: String { self == .stopwatch ? "Stopwatch" : "Pomodoro" }
     }
 
-    enum Phase { case work, rest }
+    enum Phase {
+        case work, rest, longRest
+        var isBreak: Bool { self != .work }
+        var label: String { self == .work ? "FOCUS" : self == .rest ? "BREAK" : "LONG BREAK" }
+    }
 
     static let modeKey = "timerMode"
     static let workMinutesKey = "pomodoroWorkMinutes"
     static let breakMinutesKey = "pomodoroBreakMinutes"
+    static let longBreakMinutesKey = "pomodoroLongBreakMinutes"
+    static let sessionsKey = "pomodoroSessionsBeforeLongBreak"
+    static let autoStartKey = "pomodoroAutoStart"
 
     /// The task being timed (a row or occurrence id; it follows the task when
     /// its id changes, as an occurrence's does on its first change).
@@ -29,13 +36,16 @@ final class FocusTimer {
     private(set) var isRunning = false
     private(set) var mode: Mode = .stopwatch
     private(set) var phase: Phase = .work
+    /// Focus sessions finished since this timer started.
+    private(set) var completedSessions = 0
     /// Seconds counted before the current run started (in this phase).
     private(set) var accumulated: TimeInterval = 0
     private(set) var runningSince: Date?
 
     @ObservationIgnored var now: () -> Date = Date.init
-    /// Called with work time to record: task, seconds, when it started.
-    @ObservationIgnored var onLog: ((String, TimeInterval, Date) -> Void)?
+    /// Called with work time to record: task, seconds, when it started, and
+    /// whether it finished a Pomodoro focus session.
+    @ObservationIgnored var onLog: ((String, TimeInterval, Date, Bool) -> Void)?
     /// Called when a Pomodoro phase ends, with the phase that ended.
     @ObservationIgnored var onPhaseEnd: ((Phase) -> Void)?
     @ObservationIgnored private var logged: TimeInterval = 0
@@ -44,9 +54,52 @@ final class FocusTimer {
 
     var isActive: Bool { taskId != nil }
 
-    var workLength: TimeInterval { minutes(Self.workMinutesKey, default: 25) * 60 }
-    var breakLength: TimeInterval { minutes(Self.breakMinutesKey, default: 5) * 60 }
-    var phaseLength: TimeInterval { phase == .work ? workLength : breakLength }
+    /// The clock as text, refreshed once a second while a timer is active.
+    /// The menu bar shows this, since a TimelineView in a menu bar label
+    /// re-renders its image every frame and can hang the main thread.
+    private(set) var clockText = ""
+
+    /// Pomodoro settings; read from Settings unless given (tests).
+    struct Settings {
+        var workMinutes: Double = 25
+        var breakMinutes: Double = 5
+        var longBreakMinutes: Double = 15
+        var sessionsPerCycle = 4
+        var autoStart = true
+    }
+
+    @ObservationIgnored var settingsOverride: Settings?
+
+    var settings: Settings {
+        if let settingsOverride { return settingsOverride }
+        return Settings(workMinutes: minutes(Self.workMinutesKey, default: 25),
+                        breakMinutes: minutes(Self.breakMinutesKey, default: 5),
+                        longBreakMinutes: minutes(Self.longBreakMinutesKey, default: 15),
+                        sessionsPerCycle: max(1, Int(minutes(Self.sessionsKey, default: 4))),
+                        autoStart: UserDefaults.standard.object(forKey: Self.autoStartKey) as? Bool ?? true)
+    }
+
+    var workLength: TimeInterval { settings.workMinutes * 60 }
+    var breakLength: TimeInterval { settings.breakMinutes * 60 }
+    var longBreakLength: TimeInterval { settings.longBreakMinutes * 60 }
+    /// Focus sessions per cycle; the last one is followed by a long break.
+    var sessionsPerCycle: Int { settings.sessionsPerCycle }
+    /// Start the next phase on its own, or wait for play.
+    var autoStart: Bool { settings.autoStart }
+    var phaseLength: TimeInterval {
+        switch phase {
+        case .work: workLength
+        case .rest: breakLength
+        case .longRest: longBreakLength
+        }
+    }
+
+    /// Sessions done in the current cycle, for the ●●○○ dots (a long break
+    /// shows the whole cycle done).
+    var sessionsInCycle: Int {
+        let done = completedSessions % sessionsPerCycle
+        return phase == .longRest && done == 0 && completedSessions > 0 ? sessionsPerCycle : done
+    }
 
     private func minutes(_ key: String, default value: Double) -> Double {
         let stored = UserDefaults.standard.double(forKey: key)
@@ -73,6 +126,7 @@ final class FocusTimer {
         self.day = day
         self.mode = mode ?? Mode(rawValue: UserDefaults.standard.string(forKey: Self.modeKey) ?? "") ?? .stopwatch
         phase = .work
+        completedSessions = 0
         accumulated = 0
         logged = 0
         runningSince = now()
@@ -87,6 +141,7 @@ final class FocusTimer {
         accumulated = elapsed()
         runningSince = nil
         isRunning = false
+        refreshClock()
     }
 
     func resume() {
@@ -109,37 +164,73 @@ final class FocusTimer {
         taskId = nil
         day = nil
         phase = .work
+        completedSessions = 0
         accumulated = 0
         logged = 0
         runningSince = nil
         isRunning = false
+        refreshClock()
     }
 
     /// Checks the Pomodoro clock: at the end of a phase, records the focus
-    /// time, switches phase and starts it from zero. Runs every second.
+    /// time, moves to the next phase (a long break after every
+    /// `sessionsPerCycle` focus sessions) and starts it from zero, or waits for
+    /// play when auto-start is off. Runs every second.
     func tick() {
+        defer { refreshClock() }
         guard mode == .pomodoro, isRunning, elapsed() >= phaseLength else { return }
         let ended = phase
+        if ended == .work {
+            completedSessions += 1
+            flush(finishedSession: true)
+            phase = completedSessions % sessionsPerCycle == 0 ? .longRest : .rest
+        } else {
+            flush()
+            phase = .work
+        }
+        accumulated = 0
+        logged = 0
+        if autoStart {
+            runningSince = now()
+            segmentStart = runningSince
+        } else {
+            runningSince = nil
+            isRunning = false
+        }
+        onPhaseEnd?(ended)
+    }
+
+    /// Skips the rest of the current phase (a break you do not need, or a
+    /// focus session cut short, which does not count as finished).
+    func skipPhase() {
+        guard mode == .pomodoro, taskId != nil else { return }
         flush()
-        phase = ended == .work ? .rest : .work
+        phase = phase == .work ? .rest : .work
         accumulated = 0
         logged = 0
         runningSince = now()
         segmentStart = runningSince
-        onPhaseEnd?(ended)
+        isRunning = true
+        startTicker()
     }
 
     /// Hands the focus time not yet recorded to `onLog` (breaks are not work).
-    private func flush() {
+    private func flush(finishedSession: Bool = false) {
         guard let taskId else { return }
         let total = elapsed()
         let new = total - logged
-        if phase == .work, new >= 1 { onLog?(taskId, new, segmentStart ?? now()) }
+        if phase == .work, new >= 1 || finishedSession { onLog?(taskId, max(new, 0), segmentStart ?? now(), finishedSession) }
         logged = total
         segmentStart = now()
     }
 
+    private func refreshClock() {
+        let text = taskId == nil ? "" : Self.format(display())
+        if text != clockText { clockText = text }
+    }
+
     private func startTicker() {
+        refreshClock()
         guard ticker == nil else { return }
         ticker = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in self?.tick() }
     }

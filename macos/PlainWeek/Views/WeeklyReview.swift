@@ -18,6 +18,7 @@ struct WeeklyReview: View {
         let open = all.filter { !$0.task.done && !$0.isRecurring }
         let doneCount = all.filter(\.task.done).count
         let tracked = days.reduce(0) { $0 + timeLog.total(on: $1) }
+        let pomodoros = days.reduce(0) { $0 + timeLog.pomodoros(on: $1) }
 
         VStack(alignment: .leading, spacing: 22) {
             HStack(alignment: .firstTextBaseline) {
@@ -36,6 +37,7 @@ struct WeeklyReview: View {
                 stat("\(doneCount)", "done")
                 stat("\(open.count)", "open")
                 stat(TimeLog.format(tracked), "focused")
+                if pomodoros > 0 { stat("\(pomodoros)", pomodoros == 1 ? "session" : "sessions") }
             }
 
             // Done per day, as small bars.
@@ -57,7 +59,7 @@ struct WeeklyReview: View {
                         Text(Format.weekday(day).prefix(1)).font(.system(size: 11, weight: .semibold))
                             .foregroundStyle(day == planner.today ? Theme.foreground : Theme.mutedForeground)
                     }
-                    .help("\(Format.weekdayDate(day)): \(p.done) of \(p.total) done, \(TimeLog.format(timeLog.total(on: day))) focused")
+                    .help("\(Format.weekdayDate(day)): \(p.done) of \(p.total) done, \(TimeLog.format(timeLog.total(on: day))) focused, \(timeLog.pomodoros(on: day)) Pomodoro sessions")
                 }
             }
 
