@@ -35,12 +35,19 @@ enum Theme {
     static let mutedForeground = dynamic(light: oklch(0.553, 0.013, 58.071), dark: oklch(0.709, 0.01, 56.259))
     static let border = dynamic(light: oklch(0.923, 0.003, 48.717), dark: oklch(1, 0, 0, alpha: 0.1))
     static let primary = dynamic(light: oklch(0.488, 0.243, 264.376), dark: oklch(0.424, 0.199, 265.638))
-    static let plannerAccent = dynamic(light: oklch(0.488, 0.243, 264.376), dark: oklch(0.75, 0.14, 264.4))
-    static let plannerAccentMuted = dynamic(light: oklch(0.54, 0.2, 264.4), dark: oklch(0.62, 0.14, 264.4))
-    static let todayTint = dynamic(light: oklch(0.488, 0.243, 264.376, alpha: 0.06), dark: oklch(0.75, 0.14, 264.4, alpha: 0.10))
+    /// The interface is monochrome, like Calendar on the Mac: black, white
+    /// and greys. Task colors are the only color, so the accent (today, the
+    /// selected day, done checks, the drop line) is the text color itself.
+    static let plannerAccent = foreground
+    static let plannerAccentMuted = mutedForeground
+    /// Today's card: white like the weekdays, marked by its black day number.
+    static let todayTint = background
 
     /// Day cards and Someday: a warm off-white (stone 50) / raised dark surface.
     static let card = dynamic(light: oklch(0.985, 0.001, 106.423), dark: oklch(0.205, 0.004, 49.25))
+    /// Day cards: weekdays white (the page), weekends a light grey, as in Calendar.
+    static let weekdayCard = background
+    static let weekendCard = dynamic(light: oklch(0.967, 0.001, 286.375), dark: oklch(0.19, 0.004, 49.25))
     /// Row hover and pressed states.
     static let hover = dynamic(light: oklch(0.147, 0.004, 49.25, alpha: 0.05), dark: oklch(1, 0, 0, alpha: 0.07))
 

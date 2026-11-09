@@ -298,7 +298,7 @@ enum NoteStyler {
         for match in todo.matches(in: text, range: full) {
             let box = match.range(at: 1)
             let done = (text as NSString).substring(with: match.range(at: 2)).lowercased() == "x"
-            storage.addAttribute(.foregroundColor, value: done ? NSColor.controlAccentColor : NSColor.secondaryLabelColor, range: box)
+            storage.addAttribute(.foregroundColor, value: done ? NSColor.labelColor : NSColor.secondaryLabelColor, range: box)
             storage.addAttribute(.font, value: NSFont.monospacedSystemFont(ofSize: baseSize - 1, weight: .medium), range: box)
             storage.addAttribute(.cursor, value: NSCursor.pointingHand, range: box)
             if done {

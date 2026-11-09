@@ -12,7 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Red and orange task colors.** Two new colors in the pickers and the right-click menu, on the web and in the macOS
   app, in light and dark. Sync and JSON import accept them.
 - **Native macOS app** (`macos/`). A SwiftUI version of the planner for macOS 14 and later, in a minimal,
-  type-led style: a large month title, a strip of full-height rounded day cards (at least 400pt wide, up to seven
+  type-led, monochrome style like Calendar on the Mac (task colors are the only color): a large month title, a strip of full-height rounded day cards (at least 400pt wide, up to seven
   visible, scrolling sideways through past and future days by trackpad, mouse wheel or drag), and a closable sidebar
   with the Backlog (the web app's Someday) and a Done list for the selected day, or every day, as folding sections,
   over a foldable month calendar (click a date to show it). Notes are a small Markdown editor with writing keys (⌘B bold, ⌘1–4 headings,

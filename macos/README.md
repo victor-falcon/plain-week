@@ -36,7 +36,9 @@ your tasks.
 
 ## Look and layout
 
-A minimal, type-led style in Apple's idiom, rather than the web app's ruled paper planner:
+A minimal, type-led style in Apple's idiom, rather than the web app's ruled paper planner. The interface is
+**monochrome**, like Calendar on the Mac: black, white and greys (swapped in dark mode). The nine task colors are the
+only color; today, the selected day, done checks and the drop line use the text color.
 
 - **Header:** the month in large bold type ("November"), with the year and week number quietly below. A "Today"
   pill appears when you browse away from the current week, next to a capsule of ‹ › week buttons. The title bar is
@@ -46,13 +48,13 @@ A minimal, type-led style in Apple's idiom, rather than the web app's ruled pape
   snaps to day edges: swipe sideways on a trackpad, turn the mouse wheel over the days (one day per notch), or click
   and drag a day header or empty space left or right. The header (month, week number) follows the middle visible
   day; ‹ › jump a week, and "Today" (shown when today is off screen) goes back to the current week's Monday. Each
-  card shows its day number large with the weekday in small caps; today's number sits in an accent circle, like
-  Calendar, and its card is tinted.
+  card shows its day number large with the weekday in small caps; today's number sits in a black circle, like
+  Calendar. Weekday cards are white and weekend cards light grey.
 - **Rows:** no ruled lines; rows highlight with rounded corners on hover and long titles wrap to two lines. A round
   checkbox starts each row, like Reminders, and carries the task's color on its border (filled with it when done;
   light mode uses darker shades of the pale colors so every ring stands out on a white card)
   instead of a colored background behind the text. The end of the row holds quiet markers and the time: a notes
-  icon when the task has a description, a checklist with "done/total" when it has subtasks (accent once all are
+  icon when the task has a description, a checklist with "done/total" when it has subtasks (darker once all are
   done), then the time. Empty space in a card adds a task, with a "New task" hint on hover.
 - **Sidebar:** 250pt on the left; the header's sidebar button (or View › Hide Backlog and Done, ⌃⌘S) closes and opens
   it.
@@ -63,7 +65,7 @@ A minimal, type-led style in Apple's idiom, rather than the web app's ruled pape
       grouped by day (Today, Yesterday, Backlog, Fri 6 Nov, …). Click a day's header (or a calendar date) to select it,
       and click the header again, or the day chip in Done, to go back to all days.
     - A **month calendar** pinned at the bottom, in Apple's style: the month centred between ‹ ›, weekends and other
-      months' days in grey, today in a red circle, the selected day ringed. Clicking a date shows that day on the right
+      months' days in grey, today in a black circle, the selected day ringed. Clicking a date shows that day on the right
       and selects it; clicking the month goes to today. It follows the strip into other months. The grab handle above
       it folds it away (a month button brings it back), remembered between launches.
 - **Task sheet:** a large, bold, Notion-style title with no underline, then notes and subtasks. Notes are a small

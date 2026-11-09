@@ -67,7 +67,7 @@ struct PlannerHeader: View {
                 Text(Format.month(thursday))
                     .font(Theme.display)
                     .tracking(-1.8)
-                    .foregroundStyle(planner.showsToday ? Theme.foreground : Theme.plannerAccent)
+                    .foregroundStyle(planner.showsToday ? Theme.foreground : Theme.mutedForeground)
                     .contentTransition(.numericText())
                 Text("\(Format.year(thursday))  ·  Week \(DateKey.isoWeekNumber(thursday))")
                     .font(.system(size: 15, weight: .medium))
@@ -426,11 +426,11 @@ struct DayColumn: View {
         .padding(.top, 4)
         .background(
             RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous)
-                .fill(isToday ? Theme.todayTint : Theme.card)
+                .fill(isToday ? Theme.todayTint : isWeekend ? Theme.weekendCard : Theme.weekdayCard)
         )
         .overlay(
             RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous)
-                .strokeBorder(isSelected ? Theme.plannerAccent : isToday ? Theme.plannerAccent.opacity(0.25) : Theme.border,
+                .strokeBorder(isSelected ? Theme.plannerAccent : isToday ? Theme.plannerAccent.opacity(0.3) : Theme.border,
                               lineWidth: isSelected ? 2 : 1)
         )
         .frame(maxWidth: .infinity)
@@ -620,7 +620,7 @@ struct MiniCalendar: View {
     @State private var month: String?
 
     private static let columns = Array(repeating: GridItem(.flexible(), spacing: 0), count: 7)
-    static let todayRed = Color(nsColor: .systemRed)
+    /// Today: a black circle (white in dark mode), like the rest of the mono UI.
 
     var body: some View {
         let shown = month ?? Self.firstOfMonth(planner.headerDay)
@@ -675,7 +675,7 @@ struct MiniCalendar: View {
         let isToday = day == planner.today
         let isSelected = day == planner.selectedDay
         let isWeekend = DateKey.isoWeekday(day) >= 6
-        let color: Color = isToday ? .white
+        let color: Color = isToday ? Theme.background
             : !inMonth ? Theme.mutedForeground.opacity(0.45)
             : isWeekend ? Theme.mutedForeground
             : Theme.foreground.opacity(0.85)
@@ -688,7 +688,7 @@ struct MiniCalendar: View {
                 .frame(width: 26, height: 26)
                 .background {
                     if isToday {
-                        Circle().fill(Self.todayRed)
+                        Circle().fill(Theme.foreground)
                     } else if isSelected {
                         Circle().strokeBorder(Theme.foreground.opacity(0.35), lineWidth: 1.5)
                     }
