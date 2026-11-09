@@ -41,7 +41,7 @@ A minimal, type-led style in Apple's idiom, rather than the web app's ruled pape
 - **Header:** the month in large bold type ("November"), with the year and week number quietly below. A "Today"
   pill appears when you browse away from the current week, next to a capsule of ‹ › week buttons. The title bar is
   hidden, so the header sits under the window controls.
-- **Days:** a strip of rounded day cards, at least 400pt wide each, showing as many whole days as fit (up to seven,
+- **Days:** a strip of full-height rounded day cards (a long list scrolls inside its card), at least 400pt wide each, showing as many whole days as fit (up to seven,
   which needs a window about 2,870pt wide), that scrolls through earlier and later days and
   snaps to day edges: swipe sideways on a trackpad, turn the mouse wheel over the days (one day per notch), or click
   and drag a day header or empty space left or right. The header (month, week number) follows the middle visible
@@ -54,10 +54,14 @@ A minimal, type-led style in Apple's idiom, rather than the web app's ruled pape
   instead of a colored background behind the text. The end of the row holds quiet markers and the time: a notes
   icon when the task has a description, a checklist with "done/total" when it has subtasks (accent once all are
   done), then the time. Empty space in a card adds a task, with a "New task" hint on hover.
-- **Someday:** a large title over one rounded card of three columns.
+- **Sidebar:** a 300pt sidebar on the left (the header's sidebar button or View › Hide Backlog and Done, ⌃⌘S)
+  holds the **Backlog**, tasks without a date (the web app's Someday; the data is unchanged), and **Done**. Done shows
+  the completed tasks of the selected day, or with no day selected every completed task, newest first, grouped by
+  day (Today, Yesterday, Backlog, Fri 6 Nov, …). Click a day's header to select it (an accent ring marks it) and click
+  it again, or the day chip in Done, to go back to all days.
 - **Task sheet:** a large, bold, Notion-style title with no underline, then notes and subtasks.
 - **Focus mode:** the "Focus" pill in the header (or View › Focus on Today, ⇧⌘F) blurs and fades every day but
-  today, and Someday, so only today's list stands out. Hovering a blurred card brings it back while the pointer is
+  today, and Backlog, so only today's list stands out. Hovering a blurred card brings it back while the pointer is
   on it. Turning it on jumps to the current week; the setting is remembered between launches.
 
 Colors still come from the web app's tokens (`Theme.swift`), plus a card surface and a hover tint.
@@ -68,7 +72,7 @@ Colors still come from the web app's tokens (`Theme.swift`), plus a card surface
 | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
 | Data model       | `PlainTask` has exactly the `Task` contract shape (`snake_case`, explicit `null`s), UUID v7 ids, ISO-8601 UTC timestamps with ms          |
 | Ordering         | `FractionalIndex` is a port of npm `fractional-indexing` (base 62), so positions sort the same; days show timed tasks first               |
-| Someday          | One list ordered by (`someday_column`, `position`, `id`), shown in three columns; done tasks archived after their week                    |
+| Backlog          | The web app's Someday: one list ordered by (`someday_column`, `position`, `id`); done tasks archived after their week                     |
 | Recurring tasks  | Series, occurrence and exception rows, expansion, winning exceptions, "only this" / "this and all future" splits (`RecurrenceEngine`)     |
 | Smart input      | Leading `HH:mm` time and "DD MMM" date (English or Spanish months), in either order                                                       |
 | Carry over       | Unfinished plain tasks from earlier days move to the end of today on launch and at midnight (Settings › "Move unfinished tasks to today") |
@@ -77,33 +81,33 @@ Colors still come from the web app's tokens (`Theme.swift`), plus a card surface
 
 ## Using it
 
-- Click an empty row (or ⌘N for today, ⇧⌘N for Someday) and type; Enter adds the task and keeps you in the list,
+- Click an empty row (or ⌘N for today, ⇧⌘N for Backlog) and type; Enter adds the task and keeps you in the list,
   ⌘↩ adds it and opens it, Esc leaves. While you type, chips at the end of the row show what was understood:
 
     | Type                                                                                                                        | Sets                                                                  |
     | --------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
-    | `today`, `tomorrow` (`tmr`), `fri` / `friday`, `next week`, `someday`                                                       | The date (a weekday is the next one; today counts). The last one wins |
+    | `today`, `tomorrow` (`tmr`), `fri` / `friday`, `next week`, `backlog` (or `someday`)                                        | The date (a weekday is the next one; today counts). The last one wins |
     | `31 Dec`, `5 ene.` at the start (like the web app)                                                                          | The date                                                              |
     | `@11:30`, `@9`, `@9am`, `@5:15pm`, or `17:30` at the start                                                                  | The time                                                              |
     | `#yellow`, `#pink`, `#green`, … also `#red`, `#blue`, `#orange`, `#purple`, `#gray`                                         | The color                                                             |
     | `daily`, `weekly`, `monthly`, `weekdays`, `weekends`, `every 3 days`, `every mon, wed and fri`, `every week`, `every month` | The repeat rule (weekly and monthly follow the task's date)           |
 
     Example: `tomorrow call Joao @11:30 #yellow daily`. Recognised words leave the title; if nothing else would be
-    left, the text stays as typed. A repeating task typed into Someday starts today.
+    left, the text stays as typed. A repeating task typed into Backlog starts today.
 
-- Click a task to open its sheet: date, time, delete, repeat, color, more (Tomorrow, Next week, Someday, Duplicate),
+- Click a task to open its sheet: date, time, delete, repeat, color, more (Tomorrow, Next week, Backlog, Duplicate),
   title with the complete check, notes and subtasks. Edits are saved as you type. Everything works from the keyboard,
   even while typing in a field, and a footer lists the keys:
 
     | Key        | Action                                                                            |
     | ---------- | --------------------------------------------------------------------------------- |
-    | ⌥⌘D        | Date: type `tomorrow`, `fri`, `31 dec`, `someday` and Return, or use the calendar |
+    | ⌥⌘D        | Date: type `tomorrow`, `fri`, `31 dec`, `backlog` and Return, or use the calendar |
     | ⌥⌘T        | Time: type `9`, `9:30`, `5pm` and Return (⌘⌫ clears it)                           |
     | ⌥⌘R        | Repeat: ⌘0 never, ⌘1 daily, ⌘2 weekly, ⌘3 monthly, Return applies                 |
     | ⌥⌘C        | Color: 1–9 picks one                                                              |
     | ⌘↩ / ⌘⌫    | Complete / delete                                                                 |
     | ⌥⌘→ / ⇧⌥⌘→ | Move to tomorrow / next week                                                      |
-    | ⌥⌘S / ⌘D   | Move to Someday / duplicate                                                       |
+    | ⌥⌘B / ⌘D   | Move to Backlog / duplicate                                                       |
     | Esc        | Close                                                                             |
 
 - Right-click a task for colors, moves, duplicate and delete. Each row's checkbox completes it.
@@ -123,7 +127,7 @@ macos/
 │   ├── Model/                  PlainTask (contract), DateKeys (+ Clock, UUID v7), FractionalIndex, QuickAdd,
 │   │                           RecurrenceEngine, SmartInput (+ Format)
 │   ├── Store/                  TaskStore (local repository, undo, carry over, import/export), PlannerModel (UI state)
-│   ├── Views/                  PlannerView (header, scrolling day strip, Someday), TaskListView (rows, new-task row, menu, drops), TaskDetailView,
+│   ├── Views/                  PlannerView (sidebar with Backlog and Done, header, day strip), TaskListView (rows, new-task row, menu, drops), TaskDetailView,
 │   │                           RepeatPicker, SettingsView, Theme
 │   └── DebugSnapshot.swift     Debug-only headless render
 └── PlainWeekTests/             XCTest: fractional index, smart input, dates, recurrence, store behaviour

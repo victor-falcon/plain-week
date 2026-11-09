@@ -47,6 +47,7 @@ enum Theme {
     /// Task rows; tighter than the web's 42px, since rows have no rules.
     static let rowHeight: CGFloat = 34
     static let cardRadius: CGFloat = 18
+    static let sidebarWidth: CGFloat = 300
     static let rowRadius: CGFloat = 8
 
     /// The big header type.

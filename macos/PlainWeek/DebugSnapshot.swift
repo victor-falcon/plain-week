@@ -78,7 +78,7 @@ private struct SnapshotView: View {
     @FocusState private var focus: String?
 
     var body: some View {
-        PlannerContent(someday: store.someday(weekStart: planner.weekStart, today: planner.today), focus: $focus)
+        PlannerMain(focus: $focus)
             .environment(\.staticDayStrip, true)
             .background(Theme.background)
     }

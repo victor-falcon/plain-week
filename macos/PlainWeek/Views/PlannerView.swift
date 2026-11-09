@@ -1,8 +1,9 @@
 import SwiftUI
 
-/// The planner: a large header, the days as a strip of rounded cards (seven
-/// visible, scrolling sideways through the past and future), and Someday below.
-/// Minimal, type-led and soft-cornered, in Apple's idiom.
+/// The planner: a sidebar with the Backlog and the Done list, and the main
+/// area with a large header over a strip of full-height day cards (scrolling
+/// sideways through the past and future). Minimal, type-led and soft-cornered,
+/// in Apple's idiom.
 struct PlannerView: View {
     @Environment(TaskStore.self) private var store
     @Environment(PlannerModel.self) private var planner
@@ -11,40 +12,46 @@ struct PlannerView: View {
 
     var body: some View {
         @Bindable var planner = planner
-        let someday = store.someday(weekStart: DateKey.startOfWeek(planner.weekStart), today: planner.today)
-
-        ScrollView(.vertical) {
-            PlannerContent(someday: someday, focus: $focusedList)
+        HStack(spacing: 0) {
+            if planner.showSidebar {
+                PlannerSidebar(focus: $focusedList)
+                    .frame(width: Theme.sidebarWidth)
+                    .background(Theme.card)
+                    .transition(.move(edge: .leading).combined(with: .opacity))
+                Rectangle().fill(Theme.border).frame(width: 1)
+            }
+            PlannerMain(focus: $focusedList)
+                .background(Theme.background)
         }
-        .scrollIndicators(.automatic)
-        .background(Theme.background)
+        .animation(.smooth(duration: 0.3), value: planner.showSidebar)
+        .ignoresSafeArea(.container, edges: .top)
         .overlay(alignment: .bottom) { ToastView() }
         .sheet(item: $planner.openTask) { open in
             TaskDetailView(taskId: open.id)
         }
         .onChange(of: planner.focusRequest) { _, request in
             guard let request else { return }
+            if request == DataTransfer.somedayKey { planner.showSidebar = true }
             focusedList = request
             planner.focusRequest = nil
         }
     }
 }
 
-/// Header, week and Someday (the scrolling content of the planner).
-struct PlannerContent: View {
-    var someday: [PlannerItem]
+/// The header over the day strip, filling the window's height.
+struct PlannerMain: View {
     var focus: FocusState<String?>.Binding
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 36) {
+        VStack(alignment: .leading, spacing: 24) {
             PlannerHeader()
             DayStrip(focus: focus)
-            SomedaySection(items: someday, focus: focus)
+                .frame(maxHeight: .infinity)
         }
-        .padding(.horizontal, 32)
+        .padding(.horizontal, 28)
         // Room for the window controls over the hidden title bar.
-        .padding(.top, 44)
-        .padding(.bottom, 56)
+        .padding(.top, 40)
+        .padding(.bottom, 24)
     }
 }
 
@@ -68,6 +75,13 @@ struct PlannerHeader: View {
             }
             Spacer()
             HStack(spacing: 8) {
+                Button {
+                    withAnimation(.smooth(duration: 0.3)) { planner.showSidebar.toggle() }
+                } label: {
+                    Image(systemName: "sidebar.left")
+                }
+                .buttonStyle(PillButtonStyle(active: false))
+                .help(planner.showSidebar ? "Hide Backlog and Done (⌃⌘S)" : "Show Backlog and Done (⌃⌘S)")
                 FocusButton()
                 if !planner.showsToday {
                     Button("Today", action: planner.goToToday)
@@ -204,13 +218,14 @@ struct DayStrip: View {
             HStack(alignment: .top, spacing: Self.spacing) {
                 ForEach(planner.days, id: \.self) { day in card(day).frame(maxWidth: .infinity) }
             }
+            .frame(height: 620)
         } else {
             scrollingStrip
         }
     }
 
     private func card(_ day: String) -> some View {
-        DayColumn(date: day, items: store.days(from: day, to: day)[day] ?? [], minRows: 9, focus: focus)
+        DayColumn(date: day, items: store.days(from: day, to: day)[day] ?? [], focus: focus)
     }
 
     private var scrollingStrip: some View {
@@ -221,6 +236,7 @@ struct DayStrip: View {
                 ForEach(days, id: \.self) { day in
                     card(day)
                         .containerRelativeFrame(.horizontal, count: planner.visibleCount, spacing: Self.spacing)
+                        .containerRelativeFrame(.vertical)
                         .id(day)
                 }
             }
@@ -347,18 +363,23 @@ extension View {
     func stripPanGesture() -> some View { modifier(StripPanGesture()) }
 }
 
-/// A rounded day card: the weekday in small caps over a large day number
-/// (today's number sits in an accent circle, like Calendar), then its tasks.
+/// A full-height rounded day card: a large day number with the weekday in
+/// small caps (today's number sits in an accent circle, like Calendar), then
+/// its tasks. Empty space below them adds a task; a long list scrolls inside
+/// the card. Clicking the header selects the day for the Done list.
 struct DayColumn: View {
     var date: String
     var items: [PlannerItem]
-    var minRows: Int
     var focus: FocusState<String?>.Binding
     @Environment(PlannerModel.self) private var planner
+    @Environment(\.staticDayStrip) private var staticStrip
+    /// Rows that fit the card's height, so its empty space is all clickable.
+    @State private var fillRows = 9
 
     var body: some View {
         let isToday = date == planner.today
         let isWeekend = DateKey.isoWeekday(date) >= 6
+        let isSelected = planner.selectedDay == date
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .center, spacing: 8) {
                 Text("\(DateKey.dayOfMonth(date))")
@@ -373,15 +394,34 @@ struct DayColumn: View {
                     .tracking(0.8)
                     .foregroundStyle(isToday ? Theme.plannerAccent : Theme.mutedForeground)
                 Spacer(minLength: 0)
+                if isSelected {
+                    Image(systemName: "checkmark.circle")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Theme.plannerAccent)
+                        .help("Selected: Done shows this day")
+                }
             }
             .padding(.horizontal, 6)
             .contentShape(Rectangle())
+            .onTapGesture { withAnimation(.snappy(duration: 0.2)) { planner.select(date) } }
             .stripPanGesture()
-            TaskListView(listKey: date, date: date, items: items, minRows: minRows, focus: focus)
-            Spacer(minLength: 0)
+            .help(isSelected ? "Click to show every done task" : "Click to show this day's done tasks")
+            .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+
+            if staticStrip {
+                TaskListView(listKey: date, date: date, items: items, minRows: 9, focus: focus)
+                Spacer(minLength: 0)
+            } else {
+                ScrollView(.vertical) {
+                    TaskListView(listKey: date, date: date, items: items, minRows: fillRows, focus: focus)
+                }
+                .scrollIndicators(.automatic)
+                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height in
+                    fillRows = max(1, Int(height / Theme.rowHeight))
+                }
+            }
         }
-        // Cards line up at the same height; a long list grows its own card.
-        .frame(minHeight: 48 + CGFloat(minRows) * Theme.rowHeight, alignment: .top)
+        .frame(maxHeight: .infinity, alignment: .top)
         .padding(8)
         .padding(.top, 4)
         .background(
@@ -390,30 +430,155 @@ struct DayColumn: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous)
-                .strokeBorder(isToday ? Theme.plannerAccent.opacity(0.25) : Theme.border)
+                .strokeBorder(isSelected ? Theme.plannerAccent : isToday ? Theme.plannerAccent.opacity(0.25) : Theme.border,
+                              lineWidth: isSelected ? 2 : 1)
         )
         .frame(maxWidth: .infinity)
         .focusBlur(planner.isBlurred(date))
     }
 }
 
-struct SomedaySection: View {
-    var items: [PlannerItem]
+/// The sidebar: the Backlog (tasks without a date, the web app's Someday) and
+/// the Done list, which follows the selected day or, with none, shows every
+/// completed task, newest first, grouped by day.
+struct PlannerSidebar: View {
     var focus: FocusState<String?>.Binding
+    @Environment(TaskStore.self) private var store
     @Environment(PlannerModel.self) private var planner
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Someday")
-                .font(.system(size: 28, weight: .bold))
-                .tracking(-0.8)
-                .padding(.leading, 4)
-            TaskListView(listKey: DataTransfer.somedayKey, date: nil, items: items, minRows: 3, columns: 3, focus: focus)
-                .padding(8)
-                .background(RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous).fill(Theme.card))
-                .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous).strokeBorder(Theme.border))
+        let backlog = store.someday(weekStart: DateKey.startOfWeek(planner.weekStart), today: planner.today)
+        let done = store.doneTasks(on: planner.selectedDay)
+        VStack(alignment: .leading, spacing: 0) {
+            SidebarHeading(title: "Backlog", systemImage: "tray", count: backlog.filter { !$0.task.done }.count)
+            ScrollView(.vertical) {
+                TaskListView(listKey: DataTransfer.somedayKey, date: nil, items: backlog, minRows: 1, focus: focus)
+                    .padding(.horizontal, 4)
+            }
+            .frame(maxHeight: .infinity)
+            .focusBlur(planner.isBlurred(nil))
+
+            Divider().padding(.vertical, 10)
+
+            HStack(alignment: .firstTextBaseline) {
+                SidebarHeading(title: "Done", systemImage: "checkmark.circle", count: done.count)
+                Spacer()
+                if let day = planner.selectedDay {
+                    Button {
+                        withAnimation(.snappy(duration: 0.2)) { planner.selectedDay = nil }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Text(DoneList.dayLabel(day, today: planner.today))
+                            Image(systemName: "xmark.circle.fill")
+                        }
+                        .font(.system(size: 11, weight: .semibold))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(Capsule().fill(Theme.plannerAccent.opacity(0.12)))
+                        .foregroundStyle(Theme.plannerAccent)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Show every done task")
+                } else {
+                    Text("All days")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(Theme.mutedForeground)
+                }
+            }
+            ScrollView(.vertical) {
+                DoneList(items: done, grouped: planner.selectedDay == nil, day: planner.selectedDay)
+                    .padding(.horizontal, 4)
+            }
+            .frame(maxHeight: .infinity)
         }
-        .focusBlur(planner.isBlurred(nil))
+        .padding(.horizontal, 12)
+        .padding(.top, 44)
+        .padding(.bottom, 14)
+    }
+}
+
+/// A sidebar section title with an icon and a quiet count.
+struct SidebarHeading: View {
+    var title: String
+    var systemImage: String
+    var count: Int
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Image(systemName: systemImage)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(Theme.mutedForeground)
+            Text(title)
+                .font(.system(size: 22, weight: .bold))
+                .tracking(-0.6)
+            if count > 0 {
+                Text("\(count)")
+                    .font(.system(size: 13, weight: .semibold).monospacedDigit())
+                    .foregroundStyle(Theme.mutedForeground)
+            }
+        }
+        .padding(.leading, 6)
+        .padding(.bottom, 8)
+    }
+}
+
+/// Completed tasks: a flat list for one day, or grouped under day labels.
+struct DoneList: View {
+    var items: [PlannerItem]
+    var grouped: Bool
+    var day: String?
+    @Environment(PlannerModel.self) private var planner
+
+    static func dayLabel(_ day: String?, today: String) -> String {
+        guard let day else { return "Backlog" }
+        if day == today { return "Today" }
+        if day == DateKey.addDays(today, -1) { return "Yesterday" }
+        if day == DateKey.addDays(today, 1) { return "Tomorrow" }
+        return Format.weekdayDate(day)
+    }
+
+    var body: some View {
+        if items.isEmpty {
+            Text(day.map { "Nothing done on \(Self.dayLabel($0, today: planner.today).lowercased() == "today" ? "today" : Self.dayLabel($0, today: planner.today)) yet." } ?? "Nothing done yet.")
+                .font(.system(size: 13))
+                .foregroundStyle(Theme.mutedForeground)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        } else if grouped {
+            LazyVStack(alignment: .leading, spacing: 0) {
+                ForEach(groups, id: \.label) { group in
+                    Text(group.label.uppercased())
+                        .font(.system(size: 10, weight: .semibold))
+                        .tracking(0.8)
+                        .foregroundStyle(Theme.mutedForeground)
+                        .padding(.horizontal, 6)
+                        .padding(.top, 10)
+                        .padding(.bottom, 2)
+                    ForEach(group.items) { item in row(item) }
+                }
+            }
+        } else {
+            LazyVStack(spacing: 0) {
+                ForEach(items) { item in row(item) }
+            }
+        }
+    }
+
+    private func row(_ item: PlannerItem) -> some View {
+        TaskRow(item: item, listDate: item.task.date, onDrop: { _, _ in })
+    }
+
+    /// Items grouped by the day they belong to, in completion order.
+    private var groups: [(label: String, items: [PlannerItem])] {
+        var order: [String] = []
+        var map: [String: [PlannerItem]] = [:]
+        for item in items {
+            let label = Self.dayLabel(item.task.date, today: planner.today)
+            if map[label] == nil { order.append(label) }
+            map[label, default: []].append(item)
+        }
+        return order.map { ($0, map[$0]!) }
     }
 }
 

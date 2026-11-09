@@ -24,7 +24,7 @@ struct PlainWeekApp: App {
             PlannerView()
                 .environment(store)
                 .environment(planner)
-                .frame(minWidth: 1040, minHeight: 640)
+                .frame(minWidth: 760, minHeight: 600)
                 .ignoresSafeArea(.container, edges: .top)
                 .preferredColorScheme(Appearance(rawValue: appearance)?.colorScheme)
                 .onAppear {
@@ -74,7 +74,7 @@ struct PlannerCommands: Commands {
                 planner.focusRequest = planner.today
             }
             .keyboardShortcut("n")
-            Button("New Someday Task") { planner.focusRequest = DataTransfer.somedayKey }
+            Button("New Backlog Task") { planner.focusRequest = DataTransfer.somedayKey }
                 .keyboardShortcut("n", modifiers: [.command, .shift])
         }
         CommandGroup(replacing: .importExport) {
@@ -84,6 +84,8 @@ struct PlannerCommands: Commands {
                 .keyboardShortcut("i", modifiers: [.command, .shift])
         }
         CommandGroup(after: .toolbar) {
+            Button(planner.showSidebar ? "Hide Backlog and Done" : "Show Backlog and Done") { planner.showSidebar.toggle() }
+                .keyboardShortcut("s", modifiers: [.command, .control])
             Button(planner.focusMode ? "Turn Off Focus Mode" : "Focus on Today") { planner.toggleFocusMode() }
                 .keyboardShortcut("f", modifiers: [.command, .shift])
             Divider()

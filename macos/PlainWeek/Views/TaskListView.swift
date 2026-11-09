@@ -179,7 +179,7 @@ struct NewTaskRow: View {
         var notes: [String] = []
         let landed = newId.flatMap { store.item($0)?.task.date } ?? target
         if landed != date {
-            notes.append(landed.map { "Added to \(Format.weekdayDate($0))" } ?? "Added to Someday")
+            notes.append(landed.map { "Added to \(Format.weekdayDate($0))" } ?? "Added to Backlog")
         }
         if let rule { notes.append("repeats \(RecurrenceEngine.summary(rule).lowercased())") }
         if !notes.isEmpty {
@@ -199,7 +199,7 @@ struct QuickPreview: View {
         HStack(spacing: 6) {
             switch quick.date {
             case let .day(day): chip(day == today ? "Today" : Format.weekdayDate(day), "calendar")
-            case .someday: chip("Someday", "tray")
+            case .someday: chip("Backlog", "tray")
             case .list: EmptyView()
             }
             if let time = quick.time { chip(time, "clock") }
@@ -427,7 +427,7 @@ struct TaskActions {
     @discardableResult
     func move(_ item: PlannerItem, to date: String?) -> String? {
         let id = store.perform("Move Task", undoManager: undoManager) { store.move(item.id, to: date) }
-        planner.show(date.map { "Moved to \(Format.weekdayDate($0))." } ?? "Moved to Someday.", canUndo: true)
+        planner.show(date.map { "Moved to \(Format.weekdayDate($0))." } ?? "Moved to Backlog.", canUndo: true)
         return id
     }
 
@@ -478,7 +478,7 @@ struct TaskMenu: View {
         Button("Tomorrow") { actions.tomorrow(item) }
         Button("Next Week") { actions.nextWeek(item) }
         if item.task.date != nil {
-            Button("Someday") { actions.move(item, to: nil) }
+            Button("Backlog") { actions.move(item, to: nil) }
         }
         Divider()
         Button("Duplicate") { actions.duplicate(item) }

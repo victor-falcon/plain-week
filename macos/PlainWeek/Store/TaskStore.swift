@@ -152,6 +152,20 @@ final class TaskStore {
         return map
     }
 
+    /// Completed tasks, most recently completed first: those of one day, or
+    /// with `day` nil every completed task (Backlog included). Occurrences are
+    /// never done; a completed occurrence is its exception row.
+    func doneTasks(on day: String? = nil) -> [PlannerItem] {
+        let rows = liveRows.filter { task in
+            guard task.done, task.recurrence == nil else { return false }
+            if let day { return task.date == day }
+            return true
+        }
+        return rows
+            .sorted { ($0.done_at ?? "") != ($1.done_at ?? "") ? ($0.done_at ?? "") > ($1.done_at ?? "") : $0.id < $1.id }
+            .map { RecurrenceEngine.item(for: $0) }
+    }
+
     /// Someday, without tasks done before the archive week.
     func someday(weekStart: String, today: String) -> [PlannerItem] {
         let current = DateKey.startOfWeek(today)
@@ -440,7 +454,7 @@ final class TaskStore {
         switch item.kind {
         case .task:
             guard let rule else { return id }
-            guard let date = item.task.date else { throw RecurrenceEngine.RuleError.invalid("Someday tasks cannot repeat.") }
+            guard let date = item.task.date else { throw RecurrenceEngine.RuleError.invalid("Backlog tasks cannot repeat.") }
             var row = item.task
             row.recurrence = try RecurrenceEngine.normalize(rule, anchor: date)
             write(row)

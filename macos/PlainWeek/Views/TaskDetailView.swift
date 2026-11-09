@@ -133,7 +133,7 @@ struct TaskDetailView: View {
             Button {
                 picker = .date
             } label: {
-                Label(task.date.map(Format.fullDate) ?? "Someday", systemImage: "calendar")
+                Label(task.date.map(Format.fullDate) ?? "Backlog", systemImage: "calendar")
             }
             .buttonStyle(ToolbarButtonStyle(active: picker == .date))
             .disabled(item.kind == .series)
@@ -188,7 +188,7 @@ struct TaskDetailView: View {
             Menu {
                 Button("Tomorrow  ⌥⌘→") { follow(actions.tomorrow(item)) }
                 Button("Next Week  ⇧⌥⌘→") { follow(actions.nextWeek(item)) }
-                Button("Someday  ⌥⌘S") { follow(actions.move(item, to: nil)) }
+                Button("Backlog  ⌥⌘B") { follow(actions.move(item, to: nil)) }
                     .disabled(task.date == nil)
                 Divider()
                 Button("Duplicate  ⌘D") { actions.duplicate(item) }
@@ -212,7 +212,7 @@ struct TaskDetailView: View {
 
     private func datePicker(_ item: PlannerItem) -> some View {
         VStack(spacing: 10) {
-            QuickEntryField(prompt: "tomorrow, fri, next week, 31 dec…") { typed in
+            QuickEntryField(prompt: "tomorrow, fri, next week, 31 dec, backlog…") { typed in
                 let probe = QuickAdd.parse(typed + " x", today: planner.today)
                 switch probe.date {
                 case let .day(day):
@@ -241,7 +241,7 @@ struct TaskDetailView: View {
             .datePickerStyle(.graphical)
             .labelsHidden()
             .environment(\.calendar, Self.mondayCalendar)
-            Button("Someday") {
+            Button("Backlog") {
                 picker = nil
                 follow(store.perform("Move Task", undoManager: undoManager) { store.move(item.id, to: nil) })
             }
@@ -340,8 +340,8 @@ struct TaskDetailView: View {
                 .keyboardShortcut(.rightArrow, modifiers: [.command, .option])
             Button("Next Week") { follow(actions.nextWeek(item)) }
                 .keyboardShortcut(.rightArrow, modifiers: [.command, .option, .shift])
-            Button("Someday") { follow(actions.move(item, to: nil)) }
-                .keyboardShortcut("s", modifiers: [.command, .option])
+            Button("Backlog") { follow(actions.move(item, to: nil)) }
+                .keyboardShortcut("b", modifiers: [.command, .option])
                 .disabled(task.date == nil)
             Button("Duplicate") { actions.duplicate(item) }
                 .keyboardShortcut("d", modifiers: [.command])

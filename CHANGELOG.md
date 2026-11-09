@@ -10,15 +10,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Added
 
 - **Native macOS app** (`macos/`). A SwiftUI version of the planner for macOS 14 and later, in a minimal,
-  type-led style: a large month title, a strip of rounded day cards (at least 400pt wide, up to seven visible,
-  scrolling sideways through past and future days by trackpad, mouse wheel or drag), and Someday in three columns
-  below. Each row starts with a round checkbox in the task's color and ends with the time and markers for notes and
-  subtasks. New tasks read natural words ("tomorrow call Joao @11:30 #yellow daily") with a live preview, and the
-  task sheet works from the keyboard alone (⌥⌘D date, ⌥⌘T time, ⌥⌘R repeat, ⌥⌘C color). A focus mode (⇧⌘F) blurs
-  every day but today. It has the nine task colors in light and dark, drag and drop, a task sheet with notes,
-  subtasks, time and repeat rules (daily, weekly, monthly, with "only this" or "this and all future"), carry over of
-  unfinished tasks, undo, and JSON export/import in the web app's format. It stores tasks locally and does not sync
-  yet. See [macos/README.md](./macos/README.md).
+  type-led style: a large month title, a strip of full-height rounded day cards (at least 400pt wide, up to seven
+  visible, scrolling sideways through past and future days by trackpad, mouse wheel or drag), and a sidebar with the
+  Backlog (the web app's Someday) and a Done list for the selected day, or every day. Each row starts with a round
+  checkbox in the task's color and ends with the time and markers for notes and subtasks. New tasks read natural
+  words ("tomorrow call Joao @11:30 #yellow daily") with a live preview, and the task sheet works from the keyboard
+  alone (⌥⌘D date, ⌥⌘T time, ⌥⌘R repeat, ⌥⌘C color). A focus mode (⇧⌘F) blurs every day but today. It has the nine
+  task colors in light and dark, drag and drop, a task sheet with notes, subtasks, time and repeat rules (daily,
+  weekly, monthly, with "only this" or "this and all future"), carry over of unfinished tasks, undo, and JSON
+  export/import in the web app's format. It stores tasks locally and does not sync yet. See
+  [macos/README.md](./macos/README.md).
 
 ## [0.3.15] - 2026-11-08
 

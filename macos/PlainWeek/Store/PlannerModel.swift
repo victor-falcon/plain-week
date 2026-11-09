@@ -27,6 +27,16 @@ final class PlannerModel {
     var toast: Toast?
     /// The list whose new-task row should take focus (⌘N, after an action).
     var focusRequest: String?
+    /// The day picked by clicking its header; the Done section shows its
+    /// completed tasks, or every completed task when nil.
+    var selectedDay: String?
+    /// The Backlog and Done sidebar (remembered across launches).
+    var showSidebar: Bool = UserDefaults.standard.object(forKey: "showSidebar") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(showSidebar, forKey: "showSidebar") }
+    }
+
+    /// Selects a day, or clears the selection when it is already selected.
+    func select(_ day: String) { selectedDay = selectedDay == day ? nil : day }
     /// Focus mode: every day but today is blurred (remembered across launches).
     var focusMode: Bool = UserDefaults.standard.bool(forKey: PlannerModel.focusModeKey) {
         didSet { UserDefaults.standard.set(focusMode, forKey: Self.focusModeKey) }

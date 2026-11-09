@@ -322,6 +322,30 @@ final class TaskStoreTests: XCTestCase {
         XCTAssertEqual(other.someday(weekStart: "2026-11-09", today: "2026-11-09").map(\.task.text), ["Read"])
     }
 
+    func testDoneTasksByDayAndAll() throws {
+        let store = makeStore()
+        let a = store.create(text: "A", date: "2026-11-09")
+        let b = store.create(text: "B", date: "2026-11-10")
+        let c = store.create(text: "C", date: nil)
+        store.create(text: "Open", date: "2026-11-09")
+        let gym = store.create(text: "Gym", date: "2026-11-09")
+        try store.setRecurrence(gym, .daily(every: 1))
+        for id in [a, b, c] { store.toggleDone(id) }
+        let gymDone = store.toggleDone("\(gym):2026-11-11")!
+        XCTAssertEqual(store.doneTasks(on: "2026-11-09").map(\.id), [a])
+        XCTAssertEqual(store.doneTasks(on: "2026-11-11").map(\.id), [gymDone])
+        // Newest first; Backlog included; the series row itself never.
+        XCTAssertEqual(store.doneTasks().map(\.id), [gymDone, c, b, a])
+    }
+
+    func testSelectingADayTogglesIt() {
+        let planner = PlannerModel(today: "2026-11-09")
+        planner.select("2026-11-10")
+        XCTAssertEqual(planner.selectedDay, "2026-11-10")
+        planner.select("2026-11-10")
+        XCTAssertNil(planner.selectedDay)
+    }
+
     func testRejectsForeignFiles() {
         XCTAssertThrowsError(try TaskStore.parseImport(Data("{\"format\":\"other\"}".utf8)))
     }

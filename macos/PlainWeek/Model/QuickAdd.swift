@@ -3,7 +3,7 @@ import Foundation
 /// Natural typing in a new-task row, on top of the leading "DD MMM" date and
 /// "HH:mm" time the web app reads (`SmartInput`). Words anywhere in the text:
 ///
-/// - Date: `today`, `tomorrow` (`tmr`), `someday`, a weekday (`fri`, `friday`:
+/// - Date: `today`, `tomorrow` (`tmr`), `backlog` (or `someday`), a weekday (`fri`, `friday`:
 ///   the next one, today counts), `next week` (next Monday).
 /// - Time: `@11:30`, `@9`, `@9am`, `@5:15pm`.
 /// - Color: `#yellow`, `#pink`, … plus `#red`, `#blue`, `#orange`, `#purple`,
@@ -116,7 +116,7 @@ enum QuickAdd {
                 result.date = .day(today)
             } else if w == "tomorrow" || w == "tmr" || w == "tmrw" {
                 result.date = .day(DateKey.addDays(today, 1))
-            } else if w == "someday" {
+            } else if w == "someday" || w == "backlog" {
                 result.date = .someday
             } else if w == "next", word(i + 1) == "week" {
                 result.date = .day(DateKey.addDays(DateKey.startOfWeek(today), 7))
