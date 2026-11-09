@@ -21,7 +21,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   words ("tomorrow call Joao @11:30 #yellow daily") with a live preview, and the task sheet works from the keyboard
   alone (⌥⌘D date, ⌥⌘T time, ⌥⌘R repeat, ⌥⌘C color). Each day shows a progress bar and a ▶ that starts a timer on
   its next task in a floating mini window (title, checkbox, play / pause). A focus mode (⇧⌘F) blurs every day but
-  the one you click (today by default). It has the eleven
+  the one you click (today by default). The interface follows a small design system (type scale, motion, radii,
+  one button family), answers every press at once and honours Reduce Motion and Reduce Transparency. It has the eleven
   task colors in light and dark, drag and drop, a task sheet with notes, subtasks, time and repeat rules (daily,
   weekly, monthly, with "only this" or "this and all future"), carry over of unfinished tasks, undo, and JSON
   export/import in the web app's format. It stores tasks locally and does not sync yet. See

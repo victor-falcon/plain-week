@@ -98,9 +98,9 @@ struct PlannerCommands: Commands {
                 .keyboardShortcut("i", modifiers: [.command, .shift])
         }
         CommandGroup(after: .toolbar) {
-            Button(planner.showSidebar ? "Hide Backlog and Done" : "Show Backlog and Done") { planner.showSidebar.toggle() }
+            Button(planner.showSidebar ? "Hide Sidebar" : "Show Sidebar") { planner.showSidebar.toggle() }
                 .keyboardShortcut("s", modifiers: [.command, .control])
-            Button(planner.focusMode ? "Turn Off Focus Mode" : "Focus on Today") { planner.toggleFocusMode() }
+            Button(planner.focusMode ? "Turn Off Focus Mode" : "Turn On Focus Mode") { planner.toggleFocusMode() }
                 .keyboardShortcut("f", modifiers: [.command, .shift])
             Divider()
         }

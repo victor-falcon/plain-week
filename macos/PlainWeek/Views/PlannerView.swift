@@ -16,14 +16,14 @@ struct PlannerView: View {
             if planner.showSidebar {
                 PlannerSidebar(focus: $focusedList)
                     .frame(width: Theme.sidebarWidth)
-                    .background(Theme.card)
-                    .transition(.move(edge: .leading).combined(with: .opacity))
+                    .sidebarMaterial()
+                    .transition(Motion.slide(.leading))
                 Rectangle().fill(Theme.border).frame(width: 1)
             }
             PlannerMain(focus: $focusedList)
                 .background(Theme.background)
         }
-        .animation(.smooth(duration: 0.3), value: planner.showSidebar)
+        .animation(Motion.structural, value: planner.showSidebar)
         .ignoresSafeArea(.container, edges: .top)
         .overlay(alignment: .bottom) { ToastView() }
         .sheet(item: $planner.openTask) { open in
@@ -77,12 +77,12 @@ struct PlannerHeader: View {
             HStack(spacing: 8) {
                 TimerPill()
                 Button {
-                    withAnimation(.smooth(duration: 0.3)) { planner.showSidebar.toggle() }
+                    withAnimation(Motion.structural) { planner.showSidebar.toggle() }
                 } label: {
                     Image(systemName: "sidebar.left")
                 }
                 .buttonStyle(PillButtonStyle(active: false))
-                .help(planner.showSidebar ? "Hide Backlog and Done (⌃⌘S)" : "Show Backlog and Done (⌃⌘S)")
+                .help(planner.showSidebar ? "Hide Sidebar (⌃⌘S)" : "Show Sidebar (⌃⌘S)")
                 FocusButton()
                 if !planner.showsToday {
                     Button("Today", action: planner.goToToday)
@@ -99,7 +99,7 @@ struct PlannerHeader: View {
                 .overlay(Capsule().strokeBorder(Theme.border))
             }
             .padding(.bottom, 8)
-            .animation(.snappy(duration: 0.2), value: planner.showsToday)
+            .animation(Motion.standard, value: planner.showsToday)
         }
     }
 }
@@ -118,7 +118,7 @@ struct DayProgressBar: View {
                 Capsule()
                     .fill(Theme.foreground)
                     .frame(width: proxy.size.width * fraction)
-                    .animation(.smooth(duration: 0.35), value: fraction)
+                    .animation(Motion.structural, value: fraction)
             }
         }
         .frame(height: 4)
@@ -148,7 +148,7 @@ struct DayPlayButton: View {
                 .frame(width: 26, height: 26)
                 .background(Circle().fill(next == nil ? Theme.border : Theme.foreground))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressable)
         .focusEffectDisabled()
         .disabled(next == nil)
         .help(next.map { "Start the timer on “\($0.task.text)”" } ?? "Nothing left to do on this day")
@@ -187,7 +187,7 @@ struct FocusButton: View {
 
     var body: some View {
         Button {
-            withAnimation(.smooth(duration: 0.35)) { planner.toggleFocusMode() }
+            withAnimation(Motion.structural) { planner.toggleFocusMode() }
         } label: {
             Label("Focus", systemImage: planner.focusMode ? "scope" : "circle.dashed")
                 .labelStyle(.titleAndIcon)
@@ -206,11 +206,12 @@ struct FocusBlur: ViewModifier {
     func body(content: Content) -> some View {
         let hidden = blurred && !peeking
         content
-            .blur(radius: hidden ? 7 : 0)
+            // Reduce Transparency: fade only, no blur.
+            .blur(radius: hidden && !Motion.reduceTransparency ? 7 : 0)
             .opacity(hidden ? 0.35 : 1)
             .saturation(hidden ? 0.4 : 1)
             .onHover { peeking = $0 }
-            .animation(.smooth(duration: 0.3), value: hidden)
+            .animation(Motion.structural, value: hidden)
             .accessibilityHint(blurred ? "Hidden by focus mode" : "")
     }
 }
@@ -255,7 +256,7 @@ struct WeekButton: View {
                 .background(Capsule().fill(targeted ? Theme.hover : .clear))
                 .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressable)
         .help(help)
         .dropDestination(for: String.self) { ids, _ in
             guard let id = ids.first, let item = store.item(id) else { return false }
@@ -339,7 +340,7 @@ struct DayStrip: View {
         .onAppear {
             anchor = planner.weekStart
             position = planner.weekStart
-            pan.onCommit = { days in withAnimation(.smooth(duration: 0.35)) { planner.scroll(by: days) } }
+            pan.onCommit = { days in withAnimation(Motion.structural) { planner.scroll(by: days) } }
             installWheelMonitor()
         }
         .onDisappear(perform: removeWheelMonitor)
@@ -356,7 +357,7 @@ struct DayStrip: View {
                 return
             }
             guard position != day else { return }
-            withAnimation(.smooth(duration: 0.35)) { position = day }
+            withAnimation(Motion.structural) { position = day }
         }
     }
 
@@ -369,7 +370,7 @@ struct DayStrip: View {
             let dx = event.scrollingDeltaX, dy = event.scrollingDeltaY
             let delta = abs(dx) > abs(dy) ? dx : dy
             guard delta != 0 else { return event }
-            withAnimation(.smooth(duration: 0.25)) { planner.scroll(by: delta < 0 ? 1 : -1) }
+            withAnimation(Motion.structural) { planner.scroll(by: delta < 0 ? 1 : -1) }
             return nil
         }
     }
@@ -396,7 +397,7 @@ final class StripPan {
     func ended(_ value: DragGesture.Value) {
         let travel = value.predictedEndTranslation.width
         let days = step > 0 ? Int((-travel / step).rounded()) : 0
-        withAnimation(.smooth(duration: 0.3)) { offset = 0 }
+        withAnimation(Motion.structural) { offset = 0 }
         onCommit?(max(-28, min(28, days)))
     }
 }
@@ -463,8 +464,8 @@ struct DayColumn: View {
                 .padding(.horizontal, 6)
             HStack(alignment: .center, spacing: 8) {
                 Text("\(DateKey.dayOfMonth(date))")
-                    .font(.system(size: 26, weight: .bold))
-                    .tracking(-0.8)
+                    .font(Theme.heading)
+                    .tracking(-0.6)
                     .monospacedDigit()
                     .foregroundStyle(isToday ? Theme.background : isWeekend ? Theme.mutedForeground : Theme.foreground)
                     .frame(minWidth: 40, minHeight: 40)
@@ -484,7 +485,7 @@ struct DayColumn: View {
             }
             .padding(.horizontal, 6)
             .contentShape(Rectangle())
-            .onTapGesture { withAnimation(.snappy(duration: 0.2)) { planner.select(date) } }
+            .onTapGesture { withAnimation(Motion.standard) { planner.select(date) } }
             .stripPanGesture()
             .help(isSelected ? "Click to show every done task" : "Click to show this day's done tasks")
             .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
@@ -518,7 +519,7 @@ struct DayColumn: View {
         .focusBlur(planner.isBlurred(date))
         // In focus mode, a click anywhere in a blurred day focuses it.
         .simultaneousGesture(TapGesture().onEnded {
-            withAnimation(.smooth(duration: 0.3)) { planner.focusDay(date) }
+            withAnimation(Motion.structural) { planner.focusDay(date) }
         })
     }
 }
@@ -551,7 +552,7 @@ struct PlannerSidebar: View {
                 } accessory: {
                     if let day = planner.selectedDay {
                         Button {
-                            withAnimation(.snappy(duration: 0.2)) { planner.selectedDay = nil }
+                            withAnimation(Motion.standard) { planner.selectedDay = nil }
                         } label: {
                             HStack(spacing: 4) {
                                 Text(DoneList.dayLabel(day, today: planner.today))
@@ -563,7 +564,7 @@ struct PlannerSidebar: View {
                             .background(Capsule().fill(Theme.plannerAccent.opacity(0.12)))
                             .foregroundStyle(Theme.plannerAccent)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.pressable)
                         .help("Show every done task")
                     } else {
                         Text("All days")
@@ -591,7 +592,7 @@ struct CalendarDrawer: View {
     var body: some View {
         VStack(spacing: 0) {
             Button {
-                withAnimation(.snappy(duration: 0.25)) { planner.calendarExpanded.toggle() }
+                withAnimation(Motion.standard) { planner.calendarExpanded.toggle() }
             } label: {
                 ZStack {
                     Rectangle().fill(Theme.border).frame(height: 1)
@@ -602,7 +603,7 @@ struct CalendarDrawer: View {
                 .frame(height: 14)
                 .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.pressable)
             .padding(.horizontal, 14)
             .help(planner.calendarExpanded ? "Hide the calendar" : "Show the calendar")
             .accessibilityLabel(planner.calendarExpanded ? "Hide the calendar" : "Show the calendar")
@@ -612,10 +613,10 @@ struct CalendarDrawer: View {
                     .padding(.horizontal, 10)
                     .padding(.top, 10)
                     .padding(.bottom, 14)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .transition(Motion.slide(.bottom))
             } else {
                 Button {
-                    withAnimation(.snappy(duration: 0.25)) { planner.calendarExpanded = true }
+                    withAnimation(Motion.standard) { planner.calendarExpanded = true }
                 } label: {
                     Label(Format.monthYear(planner.headerDay), systemImage: "calendar")
                         .font(.system(size: 12, weight: .semibold))
@@ -624,7 +625,7 @@ struct CalendarDrawer: View {
                         .padding(.vertical, 10)
                         .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressable)
             }
         }
         .clipped()
@@ -655,14 +656,14 @@ struct AccordionSection<Content: View, Accessory: View>: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline) {
                 Button {
-                    withAnimation(.snappy(duration: 0.25)) { expanded.toggle() }
+                    withAnimation(Motion.standard) { expanded.toggle() }
                 } label: {
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
                         Image(systemName: systemImage)
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundStyle(Theme.mutedForeground)
                         Text(title)
-                            .font(.system(size: 22, weight: .bold))
+                            .font(Theme.heading)
                             .tracking(-0.6)
                         if count > 0 {
                             Text("\(count)")
@@ -676,7 +677,7 @@ struct AccordionSection<Content: View, Accessory: View>: View {
                     }
                     .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressable)
                 .focusEffectDisabled()
                 .help(expanded ? "Collapse \(title)" : "Expand \(title)")
                 .accessibilityAddTraits(.isHeader)
@@ -689,7 +690,7 @@ struct AccordionSection<Content: View, Accessory: View>: View {
             if expanded {
                 content
                     .padding(.horizontal, 4)
-                    .transition(.opacity.combined(with: .move(edge: .top)))
+                    .transition(Motion.slide(.top))
             }
         }
         .clipped()
@@ -723,7 +724,7 @@ struct MiniCalendar: View {
                 Spacer()
                 Button {
                     month = nil
-                    withAnimation(.smooth(duration: 0.35)) { planner.reveal(planner.today) }
+                    withAnimation(Motion.structural) { planner.reveal(planner.today) }
                 } label: {
                     Text(Format.monthYear(shown)).font(.system(size: 15, weight: .semibold))
                 }
@@ -734,7 +735,7 @@ struct MiniCalendar: View {
                 }
                 .help("Next month")
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.pressable)
             .font(.system(size: 14, weight: .regular))
             .foregroundStyle(Theme.mutedForeground)
             .focusEffectDisabled()
@@ -753,7 +754,7 @@ struct MiniCalendar: View {
         }
         // Follow the strip into another month, unless the user browsed away.
         .onChange(of: Self.firstOfMonth(planner.headerDay)) { _, first in
-            withAnimation(.snappy(duration: 0.2)) { month = first }
+            withAnimation(Motion.standard) { month = first }
         }
     }
 
@@ -766,7 +767,7 @@ struct MiniCalendar: View {
             : isWeekend ? Theme.mutedForeground
             : Theme.foreground.opacity(0.85)
         return Button {
-            withAnimation(.smooth(duration: 0.35)) { planner.reveal(day) }
+            withAnimation(Motion.structural) { planner.reveal(day) }
         } label: {
             Text("\(DateKey.dayOfMonth(day))")
                 .font(.system(size: 14, weight: isToday ? .bold : .medium).monospacedDigit())
@@ -782,7 +783,7 @@ struct MiniCalendar: View {
                 .frame(maxWidth: .infinity)
                 .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressable)
         .focusEffectDisabled()
         .help(Format.fullDate(day))
         .accessibilityLabel(Format.fullDate(day))
@@ -793,7 +794,7 @@ struct MiniCalendar: View {
         var year = p.year, monthNumber = p.month + months
         if monthNumber > 12 { monthNumber = 1; year += 1 }
         if monthNumber < 1 { monthNumber = 12; year -= 1 }
-        withAnimation(.snappy(duration: 0.2)) { month = DateKey.make(year, monthNumber, 1) }
+        withAnimation(Motion.standard) { month = DateKey.make(year, monthNumber, 1) }
     }
 
     static func firstOfMonth(_ day: String) -> String {
@@ -881,17 +882,17 @@ struct ToastView: View {
                         undoManager?.undo()
                         planner.toast = nil
                     }
-                    .buttonStyle(.borderless)
+                    .buttonStyle(.pressable)
                     .fontWeight(.semibold)
                 }
             }
             .padding(.horizontal, 18)
             .padding(.vertical, 11)
-            .background(.regularMaterial, in: Capsule())
+            .floatingMaterial(in: Capsule())
             .overlay(Capsule().strokeBorder(Theme.border))
             .shadow(color: .black.opacity(0.12), radius: 16, y: 6)
             .padding(.bottom, 28)
-            .transition(.move(edge: .bottom).combined(with: .opacity))
+            .transition(Motion.slide(.bottom))
             .id(toast.id)
         }
     }

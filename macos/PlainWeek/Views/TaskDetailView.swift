@@ -58,7 +58,7 @@ struct TaskDetailView: View {
             HStack(alignment: .firstTextBaseline, spacing: 12) {
                 TextField("Untitled", text: $title, axis: .vertical)
                     .textFieldStyle(.plain)
-                    .font(.system(size: 32, weight: .bold))
+                    .font(Theme.title)
                     .tracking(-0.9)
                     .strikethrough(task.done)
                     .foregroundStyle(task.done ? Theme.mutedForeground : Theme.foreground)
@@ -70,7 +70,7 @@ struct TaskDetailView: View {
                         follow(store.update(taskId, TaskPatch(text: text)))
                     }
                 Button {
-                    follow(store.perform(task.done ? "Mark Not Done" : "Complete Task", undoManager: undoManager) {
+                    follow(store.perform(task.done ? "Mark as Not Done" : "Mark as Done", undoManager: undoManager) {
                         store.toggleDone(taskId)
                     })
                 } label: {
@@ -79,8 +79,8 @@ struct TaskDetailView: View {
                         .foregroundStyle(task.done ? Theme.plannerAccent : Theme.mutedForeground.opacity(0.6))
                         .contentTransition(.symbolEffect(.replace))
                 }
-                .buttonStyle(.plain)
-                .help(task.done ? "Mark as not done" : "Complete")
+                .buttonStyle(.pressable)
+                .help(task.done ? "Mark as not done" : "Mark as done")
             }
 
             ZStack(alignment: .topLeading) {
@@ -93,7 +93,7 @@ struct TaskDetailView: View {
                         .allowsHitTesting(false)
                 }
                 NotesEditor(text: $notes, focusTick: notesFocusTick) { focused in
-                    withAnimation(.easeOut(duration: 0.15)) { notesFocused = focused }
+                    withAnimation(Motion.quick) { notesFocused = focused }
                 }
                 .frame(minHeight: 90, maxHeight: 260)
                 .onChange(of: notes) { _, value in
@@ -116,6 +116,13 @@ struct TaskDetailView: View {
         }
         .padding(28)
         .background { sheetShortcuts(item) }
+        // The Mac's Delete key, when no text field is taking it.
+        .onDeleteCommand {
+            if store.asksScope(item) { pendingScope = .delete } else {
+                actions.delete(item)
+                dismiss()
+            }
+        }
         .onAppear {
             title = task.text
             notes = task.notes
@@ -179,7 +186,7 @@ struct TaskDetailView: View {
                 }
             } label: { Image(systemName: "trash") }
                 .buttonStyle(ToolbarButtonStyle(active: false))
-                .help("Delete (⇧⌘⌫)")
+                .help("Delete (⌫, or ⇧⌘⌫ while typing)")
 
             Button {
                 picker = .repeating
@@ -220,7 +227,7 @@ struct TaskDetailView: View {
 
             Button("Done") { dismiss() }
                 .keyboardShortcut(.cancelAction)
-                .buttonStyle(.borderless)
+                .buttonStyle(PillButtonStyle())
                 .padding(.leading, 6)
         }
         .font(.system(size: 13))
@@ -232,7 +239,8 @@ struct TaskDetailView: View {
 
     private func datePicker(_ item: PlannerItem) -> some View {
         VStack(spacing: 10) {
-            QuickEntryField(prompt: "tomorrow, fri, next week, 31 dec, backlog…") { typed in
+            QuickEntryField(prompt: "tomorrow, fri, next week, 31 dec, backlog…",
+                            hint: "Try “tomorrow”, “fri”, “31 dec” or “backlog”.") { typed in
                 let probe = QuickAdd.parse(typed + " x", today: planner.today)
                 switch probe.date {
                 case let .day(day):
@@ -281,7 +289,7 @@ struct TaskDetailView: View {
         let parts = current.split(separator: ":").compactMap { Int($0) }
         let date = Calendar.current.date(bySettingHour: parts[0], minute: parts[1], second: 0, of: Date())!
         return VStack(alignment: .leading, spacing: 10) {
-            QuickEntryField(prompt: "9, 9:30, 5pm, 17:45…") { typed in
+            QuickEntryField(prompt: "9, 9:30, 5pm, 17:45…", hint: "Try “9”, “9:30”, “5pm” or “17:45”.") { typed in
                 let word = typed.hasPrefix("@") ? typed : "@" + typed.replacingOccurrences(of: " ", with: "")
                 guard let time = QuickAdd.parseTime(word) else { return false }
                 picker = nil
@@ -322,7 +330,7 @@ struct TaskDetailView: View {
                         Text(Self.colorKeys[index]).font(.system(size: 10, weight: .medium)).foregroundStyle(Theme.mutedForeground)
                     }
                 }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.pressable)
                     .keyboardShortcut(KeyEquivalent(Character(Self.colorKeys[index])), modifiers: [])
                     .help("\(color.label) (\(Self.colorKeys[index]))")
             }
@@ -348,8 +356,8 @@ struct TaskDetailView: View {
                 .disabled(task.date == nil)
             Button("Color") { picker = .color }
                 .keyboardShortcut("c", modifiers: [.command, .option])
-            Button("Complete") {
-                follow(store.perform(task.done ? "Mark Not Done" : "Complete Task", undoManager: undoManager) { store.toggleDone(taskId) })
+            Button("Mark as Done") {
+                follow(store.perform(task.done ? "Mark as Not Done" : "Mark as Done", undoManager: undoManager) { store.toggleDone(taskId) })
             }
             .keyboardShortcut(.return, modifiers: [.command])
             Button("Delete") {
@@ -376,7 +384,7 @@ struct TaskDetailView: View {
     }
 
     private var shortcutFooter: some View {
-        Text("⌥⌘D date  ·  ⌥⌘T time  ·  ⌥⌘R repeat  ·  ⌥⌘C color  ·  ⌘↩ done  ·  ⇧⌘⌫ delete  ·  ⌥⌘→ tomorrow")
+        Text("⌥⌘D date  ·  ⌥⌘T time  ·  ⌥⌘R repeat  ·  ⌥⌘C color  ·  ⌘↩ done  ·  ⌫ delete  ·  ⌥⌘→ tomorrow")
             .font(.system(size: 11))
             .foregroundStyle(Theme.mutedForeground.opacity(0.8))
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -464,7 +472,7 @@ private struct SubtaskRow: View {
                     .foregroundStyle(subtask.done ? Theme.plannerAccent : Theme.mutedForeground)
                     .frame(width: 16)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.pressable)
             TextField("", text: $text)
                 .textFieldStyle(.plain)
                 .strikethrough(subtask.done)
@@ -479,7 +487,7 @@ private struct SubtaskRow: View {
             Button(action: onDelete) {
                 Image(systemName: "xmark").font(.system(size: 11))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.pressable)
             .foregroundStyle(Theme.mutedForeground)
             .opacity(hovering ? 1 : 0)
             .help("Delete subtask")
@@ -517,19 +525,22 @@ struct AnyLabelStyle: LabelStyle {
 /// shakes its prompt red otherwise).
 struct QuickEntryField: View {
     var prompt: String
+    /// Shown under the field when the text was not understood.
+    var hint: String = ""
     var onSubmit: (String) -> Bool
     @State private var text = ""
     @State private var invalid = false
     @FocusState private var focused: Bool
 
     var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
         TextField("", text: $text, prompt: Text(prompt))
             .textFieldStyle(.plain)
             .font(.system(size: 13))
             .padding(.horizontal, 10)
             .frame(height: 30)
-            .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Theme.hover))
-            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous)
+            .background(RoundedRectangle(cornerRadius: Theme.controlRadius, style: .continuous).fill(Theme.hover))
+            .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius, style: .continuous)
                 .strokeBorder(focused ? Theme.foreground.opacity(0.6) : Theme.border))
             .focused($focused)
             .onSubmit {
@@ -538,9 +549,17 @@ struct QuickEntryField: View {
                 invalid = !onSubmit(typed)
             }
             .onChange(of: text) { invalid = false }
-            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(invalid ? Theme.foreground : .clear, lineWidth: 2))
+            .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius, style: .continuous).strokeBorder(invalid ? Theme.foreground : .clear, lineWidth: 2))
             .help(invalid ? "Not understood" : "")
             .frame(minWidth: 220)
             .onAppear { DispatchQueue.main.async { focused = true } }
+            if invalid, !hint.isEmpty {
+                Text(hint)
+                    .font(.system(size: 12))
+                    .foregroundStyle(Theme.mutedForeground)
+                    .transition(.opacity)
+            }
+        }
+        .animation(Motion.quick, value: invalid)
     }
 }

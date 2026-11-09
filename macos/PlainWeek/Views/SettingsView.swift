@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// Settings: appearance, carry over and data (export / import).
+/// Settings: appearance, carry over and data (export / import), built from
+/// the same black-and-white parts as the planner.
 struct SettingsView: View {
     @AppStorage("appearance") private var appearance = Appearance.system.rawValue
     @AppStorage(PlannerModel.carryOverKey) private var carryOver = true
@@ -8,34 +9,56 @@ struct SettingsView: View {
     @Environment(PlannerModel.self) private var planner
 
     var body: some View {
-        Form {
-            Picker("Appearance", selection: $appearance) {
-                ForEach(Appearance.allCases) { Text($0.label).tag($0.rawValue) }
+        VStack(alignment: .leading, spacing: 28) {
+            section("Appearance") {
+                MonoSegmented(options: Appearance.allCases, selection: Binding(
+                    get: { Appearance(rawValue: appearance) ?? .system },
+                    set: { appearance = $0.rawValue }
+                ), label: \.label)
+                note("Light or Dark for Plain Week only, or follow the system.")
             }
-            .pickerStyle(.segmented)
 
-            Toggle("Move unfinished tasks to today", isOn: $carryOver)
+            section("Planner") {
+                Toggle(isOn: $carryOver) {
+                    Text("Move unfinished tasks to today").font(.system(size: 14, weight: .medium))
+                }
+                .toggleStyle(MonoSwitchStyle())
                 .onChange(of: carryOver) { _, on in
                     if on { store.carryOverIfEnabled(today: planner.today, planner: planner) }
                 }
-            Text("Each morning, unfinished tasks from earlier days move to the end of today, like a paper planner rewritten each day. Repeating tasks stay on their dates.")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+                note("Each morning, unfinished tasks from earlier days move to the end of today, like a paper planner rewritten each day. Repeating tasks stay on their dates.")
+            }
 
-            Section("Data") {
-                HStack {
+            section("Data") {
+                HStack(spacing: 8) {
                     Button("Export Tasks…") { DataTransfer.export(store, planner: planner) }
+                        .buttonStyle(PillButtonStyle())
                     Button("Import Tasks…") { DataTransfer.import(into: store, planner: planner) }
+                        .buttonStyle(PillButtonStyle())
                 }
-                Text("Backups use the same JSON format as the Plain Week web app, so you can move your week between them. Importing adds tasks next to the ones you have.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                note("Backups use the same JSON format as the Plain Week web app, so you can move your week between them. Importing adds tasks next to the ones you have.")
             }
         }
-        .formStyle(.grouped)
-        .frame(width: 480)
-        .padding(.vertical, 8)
+        .padding(28)
+        .frame(width: 480, alignment: .leading)
+        .background(Theme.background)
+        .focusEffectDisabled()
+    }
+
+    private func section<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title.uppercased())
+                .font(.system(size: 11, weight: .semibold))
+                .tracking(0.8)
+                .foregroundStyle(Theme.mutedForeground)
+            content()
+        }
+    }
+
+    private func note(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 12))
+            .foregroundStyle(Theme.mutedForeground)
+            .fixedSize(horizontal: false, vertical: true)
     }
 }

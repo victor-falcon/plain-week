@@ -30,7 +30,7 @@ struct RepeatPicker: View {
                 .background {
                     // ⌘0 Never, ⌘1 Daily, ⌘2 Weekly, ⌘3 Monthly; Return applies.
                     ForEach(Array(Kind.allCases.enumerated()), id: \.element) { index, value in
-                        Button(value.rawValue) { withAnimation(.snappy(duration: 0.2)) { kind = value } }
+                        Button(value.rawValue) { withAnimation(Motion.standard) { kind = value } }
                             .keyboardShortcut(KeyEquivalent(Character("\(index)")), modifiers: [.command])
                     }
                     .opacity(0)
@@ -66,7 +66,7 @@ struct RepeatPicker: View {
 
             if kind != .never {
                 VStack(alignment: .leading, spacing: 10) {
-                    Toggle(isOn: $hasEnd.animation(.snappy(duration: 0.2))) {
+                    Toggle(isOn: $hasEnd.animation(Motion.standard)) {
                         Text("Ends").font(.system(size: 13, weight: .medium))
                     }
                     .toggleStyle(MonoSwitchStyle())
@@ -103,7 +103,7 @@ struct RepeatPicker: View {
         .padding(18)
         .frame(width: 340)
         .focusEffectDisabled()
-        .animation(.snappy(duration: 0.2), value: kind)
+        .animation(Motion.standard, value: kind)
         .onAppear(perform: load)
     }
 
@@ -130,7 +130,7 @@ struct RepeatPicker: View {
                 .overlay(Circle().strokeBorder(Theme.border, lineWidth: on ? 0 : 1))
                 .contentShape(Circle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressable)
         .help(own ? "\(Format.weekdayName(weekday, long: true)): the task's own day, always included"
                   : Format.weekdayName(weekday, long: true))
         .accessibilityAddTraits(on ? .isSelected : [])
@@ -208,7 +208,7 @@ struct MonoSegmented<Option: Hashable>: View {
             ForEach(options, id: \.self) { option in
                 let selected = option == selection
                 Button {
-                    withAnimation(.snappy(duration: 0.2)) { selection = option }
+                    withAnimation(Motion.standard) { selection = option }
                 } label: {
                     Text(label(option))
                         .font(.system(size: 13, weight: selected ? .semibold : .medium))
@@ -222,7 +222,7 @@ struct MonoSegmented<Option: Hashable>: View {
                         }
                         .contentShape(Capsule())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressable)
                 .accessibilityAddTraits(selected ? .isSelected : [])
             }
         }
@@ -260,7 +260,7 @@ struct NumberStepper: View {
                 .frame(width: 28, height: 30)
                 .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressable)
         .foregroundStyle(Theme.foreground)
         .disabled(delta < 0 ? value <= range.lowerBound : value >= range.upperBound)
     }
@@ -279,7 +279,7 @@ struct MonoSwitchStyle: ToggleStyle {
                     Circle().fill(Theme.background).padding(2).shadow(color: .black.opacity(0.15), radius: 1, y: 1)
                 }
                 .onTapGesture { configuration.isOn.toggle() }
-                .animation(.snappy(duration: 0.15), value: configuration.isOn)
+                .animation(Motion.standard, value: configuration.isOn)
         }
         .contentShape(Rectangle())
         .accessibilityAddTraits(.isToggle)

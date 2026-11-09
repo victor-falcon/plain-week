@@ -44,6 +44,19 @@ suit: the app's tint is black, the notes caret and selection are black and grey,
 (the repeat popover's segmented control, − n + steppers, weekday chips, switch and black Apply button). Popovers,
 sheets and the mini timer follow the app's Light / Dark setting, not the system's.
 
+The design system lives in `Theme.swift`, so screens stay consistent:
+
+| Part    | Tokens                                                                                                                               |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Type    | Eight sizes: display 48, title 32, heading 24, subhead 15, body 14, label 13, caption 12, micro 11; large text tracks tighter        |
+| Motion  | `Motion.quick` (hover, press), `Motion.standard` (toggles, selection, folding), `Motion.structural` (strip, sidebar, focus): springs |
+| Radii   | Concentric: cards 18, rows and controls 10 (18 minus the 8pt inset), floating panels 20                                              |
+| Buttons | One family: `.pressable` (icons, text), `PillButtonStyle`, `MonoPrimaryButtonStyle`, `ToolbarButtonStyle`; all react on press        |
+
+Accessibility: with **Reduce Motion** on, slides and springs become short cross-fades and the mini timer only fades;
+with **Reduce Transparency**, the sidebar and floating surfaces turn solid and focus mode fades days instead of
+blurring them. Click targets are at least 28pt (the row checkbox and ▶ keep their small look).
+
 - **Header:** the month in large bold type ("November"), with the year and week number quietly below. A "Today"
   pill appears when you browse away from the current week, next to a capsule of ‹ › week buttons. The title bar is
   hidden, so the header sits under the window controls.
@@ -62,13 +75,13 @@ sheets and the mini timer follow the app's Light / Dark setting, not the system'
   done), then the time. Empty space in a card adds a task, with a "New task" hint on hover.
 - **Progress and timer:** a thin bar across the top of each day card fills as its tasks get done ("2 of 4 done" on
   hover). The ▶ in a day's header starts a timer on its next unfinished task (timed tasks first); a task row shows its
-  own ▶ on hover. Starting a timer minimizes the planner to the Dock and opens a small floating window that stays on
-  top of other apps and on every Space: the task's checkbox and title, the running clock (`12:34`, `1:02:03` past an
+  own ▶ on hover. Starting a timer minimizes the planner to the Dock and opens a small floating window next to where you clicked,
+  fading in (and out the same way); it stays on top of other apps and on every Space: the task's checkbox and title, the running clock (`12:34`, `1:02:03` past an
   hour) with play / pause (Space), a button back to Plain Week and ✕ to stop. Ticking the checkbox completes the task
   and moves the timer to the day's next unfinished task, from zero; after the last one it stops and the planner comes
   back. While a timer runs, a pill in the header shows the task and clock and brings the window back. The timer is not
   saved: it lives while the app runs.
-- **Sidebar:** 250pt on the left; the header's sidebar button (or View › Hide Backlog and Done, ⌃⌘S) closes and opens
+- **Sidebar:** 250pt on the left; the header's sidebar button (or View › Hide Sidebar, ⌃⌘S) closes and opens
   it.
     - **Backlog** (tasks without a date: the web app's Someday; the data is unchanged) and **Done**, as accordion
       sections: click a title to fold it (remembered between launches). Each is as tall as its content, and they
@@ -82,7 +95,7 @@ sheets and the mini timer follow the app's Light / Dark setting, not the system'
       it folds it away (a month button brings it back), remembered between launches.
 - **Task sheet:** a large, bold, Notion-style title with no underline, then notes and subtasks. Notes are a small
   Markdown editor (below).
-- **Focus mode:** the "Focus" pill in the header (or View › Focus on Today, ⇧⌘F) blurs and fades every day but one,
+- **Focus mode:** the "Focus" pill in the header (or View › Turn On Focus Mode, ⇧⌘F) blurs and fades every day but one,
   and the Backlog. The focused day is the selected one, or today when none is: click a day's header (or anywhere in a
   blurred card, or a calendar date) to focus it, today included in the blur; click its header again to go back to
   today. Hovering a blurred card brings it back while the pointer is on it. Turning focus mode on shows the focused
@@ -129,7 +142,7 @@ Colors still come from the web app's tokens (`Theme.swift`), plus a card surface
     | ⌥⌘T        | Time: type `9`, `9:30`, `5pm` and Return (⌘⌫ clears it)                           |
     | ⌥⌘R        | Repeat: ⌘0 never, ⌘1 daily, ⌘2 weekly, ⌘3 monthly, Return applies                 |
     | ⌥⌘C        | Color: 1–9 picks one                                                              |
-    | ⌘↩ / ⇧⌘⌫   | Complete / delete                                                                 |
+    | ⌘↩ / ⌫     | Mark as done / delete (⇧⌘⌫ while typing)                                          |
     | ⌥⌘→ / ⇧⌥⌘→ | Move to tomorrow / next week                                                      |
     | ⌥⌘L / ⌘D   | Move to Backlog / duplicate                                                       |
     | Esc        | Close                                                                             |

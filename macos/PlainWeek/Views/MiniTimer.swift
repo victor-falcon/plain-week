@@ -22,7 +22,7 @@ enum TimerActions {
     static func complete(store: TaskStore, planner: PlannerModel, timer: FocusTimer) {
         guard let id = timer.taskId else { return }
         let undo = mainWindow?.undoManager
-        let doneId = store.perform("Complete Task", undoManager: undo) { store.toggleDone(id) } ?? id
+        let doneId = store.perform("Mark as Done", undoManager: undo) { store.toggleDone(id) } ?? id
         let day = timer.day ?? store.item(doneId)?.task.date
         if let day, let next = store.openTasks(on: day).first(where: { $0.id != doneId }) {
             timer.start(next.id, day: day)
@@ -78,9 +78,6 @@ final class MiniTimerPanel {
                 .environment(planner)
                 .environment(timer)
                 .tint(Theme.foreground))
-            if let screen = NSScreen.main?.visibleFrame {
-                panel.setFrameOrigin(NSPoint(x: screen.maxX - 360, y: screen.maxY - 124))
-            }
             self.panel = panel
         }
         if let name = UserDefaults.standard.string(forKey: "appearance"), name != "system" {
@@ -88,10 +85,58 @@ final class MiniTimerPanel {
         } else {
             panel?.appearance = nil
         }
-        panel?.orderFrontRegardless()
+        guard let panel else { return }
+        let opening = !panel.isVisible
+        if opening { place(panel, near: NSEvent.mouseLocation) }
+        panel.orderFrontRegardless()
+        if opening { appear(panel) }
     }
 
-    func close() { panel?.orderOut(nil) }
+    /// Fades (and, without Reduce Motion, shrinks) away, the way it came.
+    func close() {
+        guard let panel, panel.isVisible else { return }
+        let frame = panel.frame
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.18
+            context.timingFunction = CAMediaTimingFunction(name: .easeIn)
+            panel.animator().alphaValue = 0
+            if !Motion.reduceMotion { panel.animator().setFrame(Self.scaled(frame, 0.94), display: true) }
+        } completionHandler: {
+            panel.orderOut(nil)
+            panel.setFrame(frame, display: false)
+            panel.alphaValue = 1
+        }
+    }
+
+    /// Next to the click that started it (below and to its right), kept on screen.
+    private func place(_ panel: NSPanel, near point: NSPoint) {
+        let size = panel.frame.size
+        let screen = NSScreen.screens.first { NSMouseInRect(point, $0.frame, false) } ?? NSScreen.main
+        guard let visible = screen?.visibleFrame else { return }
+        var origin = NSPoint(x: point.x - 24, y: point.y - size.height - 16)
+        origin.x = min(max(origin.x, visible.minX + 12), visible.maxX - size.width - 12)
+        origin.y = min(max(origin.y, visible.minY + 12), visible.maxY - size.height - 12)
+        panel.setFrameOrigin(origin)
+    }
+
+    /// Fades in and grows to full size from where it sits, so it reads as
+    /// coming out of the ▶ that was clicked.
+    private func appear(_ panel: NSPanel) {
+        let frame = panel.frame
+        panel.alphaValue = 0
+        if !Motion.reduceMotion { panel.setFrame(Self.scaled(frame, 0.92), display: false) }
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.24
+            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            panel.animator().alphaValue = 1
+            panel.animator().setFrame(frame, display: true)
+        }
+    }
+
+    private static func scaled(_ frame: NSRect, _ factor: CGFloat) -> NSRect {
+        let width = frame.width * factor, height = frame.height * factor
+        return NSRect(x: frame.midX - width / 2, y: frame.midY - height / 2, width: width, height: height)
+    }
 }
 
 /// The mini window: the task's checkbox and title, the running clock with
@@ -109,9 +154,9 @@ struct MiniTimerView: View {
             } label: {
                 TaskCheckbox(color: item?.task.color ?? .none, done: false, size: 22)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.pressable)
             .disabled(item == nil)
-            .help("Complete and go to the next task")
+            .help("Mark as done and go to the next task")
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(item?.task.text ?? "This task was removed")
@@ -120,7 +165,7 @@ struct MiniTimerView: View {
                     .lineLimit(2)
                 TimelineView(.periodic(from: .now, by: 1)) { context in
                     Text(FocusTimer.format(timer.elapsed(at: context.date)))
-                        .font(.system(size: 24, weight: .bold).monospacedDigit())
+                        .font(Theme.heading.monospacedDigit())
                         .tracking(-0.5)
                         .foregroundStyle(timer.isRunning ? Theme.foreground : Theme.mutedForeground)
                         .contentTransition(.numericText())
@@ -137,7 +182,7 @@ struct MiniTimerView: View {
                     .frame(width: 38, height: 38)
                     .background(Circle().fill(Theme.foreground))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.pressable)
             .keyboardShortcut(.space, modifiers: [])
             .help(timer.isRunning ? "Pause (Space)" : "Resume (Space)")
 
@@ -147,7 +192,7 @@ struct MiniTimerView: View {
                 Button { TimerActions.stop(timer: timer) } label: { Image(systemName: "xmark") }
                     .help("Stop the timer")
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.pressable)
             .font(.system(size: 11, weight: .semibold))
             .foregroundStyle(Theme.mutedForeground)
         }
@@ -155,7 +200,7 @@ struct MiniTimerView: View {
         .padding(.horizontal, 18)
         .padding(.vertical, 16)
         .frame(width: 340)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(Theme.border))
+        .floatingMaterial(in: RoundedRectangle(cornerRadius: Theme.panelRadius, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: Theme.panelRadius, style: .continuous).strokeBorder(Theme.border))
     }
 }

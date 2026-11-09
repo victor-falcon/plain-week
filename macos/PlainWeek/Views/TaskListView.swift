@@ -119,7 +119,7 @@ struct NewTaskRow: View {
                 .opacity(isFocused || hovering ? 1 : 0)
             TextField("", text: $text, prompt: Text(prompt).foregroundStyle(Theme.mutedForeground.opacity(0.7)))
                 .textFieldStyle(.plain)
-                .font(.system(size: 13.5))
+                .font(.system(size: 14))
                 .focused(focus, equals: listKey)
                 .onSubmit { commit() }
                 .onKeyPress(.return, phases: .down) { press in
@@ -149,9 +149,9 @@ struct NewTaskRow: View {
         .contentShape(Rectangle())
         .onHover { hovering = $0 }
         .onTapGesture { focus.wrappedValue = listKey }
-        .animation(.easeOut(duration: 0.15), value: isFocused)
-        .animation(.easeOut(duration: 0.1), value: hovering)
-        .animation(.easeOut(duration: 0.12), value: quick)
+        .animation(Motion.quick, value: isFocused)
+        .animation(Motion.quick, value: hovering)
+        .animation(Motion.quick, value: quick)
     }
 
     private var prompt: String {
@@ -242,16 +242,20 @@ struct TaskRow: View {
             // A round checkbox at the start, like Reminders, carrying the
             // task's color on its border.
             Button {
-                withAnimation(.snappy(duration: 0.2)) {
-                    store.perform(task.done ? "Mark Not Done" : "Complete Task", undoManager: undoManager) {
+                withAnimation(Motion.standard) {
+                    store.perform(task.done ? "Mark as Not Done" : "Mark as Done", undoManager: undoManager) {
                         _ = store.toggleDone(item.id)
                     }
                 }
             } label: {
                 TaskCheckbox(color: task.color, done: task.done, emphasized: hovering)
+                    .frame(width: 28, height: 28)
+                    .contentShape(Rectangle())
+                    .padding(.horizontal, -6)
+                    .padding(.vertical, -6)
             }
-            .buttonStyle(.plain)
-            .help(task.done ? "Mark as not done" : "Complete")
+            .buttonStyle(.pressable)
+            .help(task.done ? "Mark as not done" : "Mark as done")
 
             if item.isRecurring, let series = store.series(of: item), let rule = series.recurrence {
                 Image(systemName: "repeat")
@@ -271,8 +275,11 @@ struct TaskRow: View {
                         .foregroundStyle(Theme.background)
                         .frame(width: 20, height: 20)
                         .background(Circle().fill(Theme.foreground))
+                        .frame(width: 28, height: 28)
+                        .contentShape(Rectangle())
+                        .padding(-4)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressable)
                 .help("Start the timer")
                 .transition(.opacity)
             }
@@ -299,7 +306,7 @@ struct TaskRow: View {
         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { rowHeight = $0 }
         .contentShape(Rectangle())
         .onHover { hovering = $0 }
-        .animation(.easeOut(duration: 0.1), value: hovering)
+        .animation(Motion.quick, value: hovering)
         .onTapGesture { planner.open(item.id) }
         .draggable(item.id) {
             TaskLabel(text: task.text, color: task.color, done: task.done, pill: false)
@@ -403,7 +410,7 @@ struct TaskLabel: View {
 
     var body: some View {
         let label = Text(text)
-            .font(.system(size: 13.5))
+            .font(.system(size: 14))
             .strikethrough(done)
             .lineLimit(lines)
             .fixedSize(horizontal: false, vertical: true)

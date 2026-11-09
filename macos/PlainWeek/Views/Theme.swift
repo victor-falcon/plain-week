@@ -53,12 +53,28 @@ enum Theme {
 
     /// Task rows (and empty rows), 50pt; a title that wraps grows its row.
     static let rowHeight: CGFloat = 50
-    static let cardRadius: CGFloat = 18
     static let sidebarWidth: CGFloat = 250
-    static let rowRadius: CGFloat = 8
 
-    /// The big header type.
+    // MARK: Radii (concentric: an inner radius is the outer one minus its inset)
+
+    static let cardRadius: CGFloat = 18
+    /// Day cards inset their rows by 8pt, so rows round at 18 − 8.
+    static let rowRadius: CGFloat = 10
+    /// Fields and small controls.
+    static let controlRadius: CGFloat = 10
+    /// Floating windows and popover-sized surfaces.
+    static let panelRadius: CGFloat = 20
+
+    // MARK: Type scale
+    //
+    // Eight sizes; large text tracks tighter, small caps looser:
+    //   display 48 / -1.8 · title 32 / -0.9 · heading 24 / -0.6 · subhead 15
+    //   body 14 · label 13 · caption 12 · micro 11 (small caps +0.8)
+    // SF Symbols inside controls may use 9–10 as icon sizes.
+
     static let display = Font.system(size: 48, weight: .bold)
+    static let title = Font.system(size: 32, weight: .bold)
+    static let heading = Font.system(size: 24, weight: .bold)
 
     private static let darkText = oklch(0.147, 0.004, 49.25)
     private static let lightText = oklch(0.985, 0.001, 106.423)
@@ -105,6 +121,77 @@ enum Theme {
         case .red: return pair(oklch(0.577, 0.215, 27.3), oklch(0.637, 0.215, 27.3), darkCheck: lightText)
         case .orange: return pair(oklch(0.66, 0.19, 46), oklch(0.75, 0.175, 48))
         }
+    }
+}
+
+// MARK: Motion
+
+/// Three motion tokens for the whole app, all springs or short fades, so they
+/// can be interrupted. With Reduce Motion on (System Settings › Accessibility),
+/// movement becomes a brief cross-fade.
+enum Motion {
+    static var reduceMotion: Bool { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }
+    static var reduceTransparency: Bool { NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency }
+
+    /// Hover and press feedback.
+    static var quick: Animation { .easeOut(duration: 0.1) }
+    /// Most state changes: toggles, selections, folding.
+    static var standard: Animation { reduceMotion ? .easeInOut(duration: 0.15) : .snappy(duration: 0.25) }
+    /// Layout moves: the strip, the sidebar, focus mode.
+    static var structural: Animation { reduceMotion ? .easeInOut(duration: 0.2) : .smooth(duration: 0.35) }
+
+    /// Slides in from `edge`, or fades with Reduce Motion.
+    static func slide(_ edge: Edge) -> AnyTransition {
+        reduceMotion ? .opacity : .move(edge: edge).combined(with: .opacity)
+    }
+}
+
+// MARK: Buttons
+//
+// One family: PressableButtonStyle (icons and text), PillButtonStyle (secondary
+// capsules), MonoPrimaryButtonStyle (the main action) and ToolbarButtonStyle
+// (the task sheet's round toolbar). Every one answers a press at once.
+
+/// Plain buttons with instant press feedback: a slight shrink and dim.
+struct PressableButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed && !Motion.reduceMotion ? 0.92 : 1)
+            .opacity(configuration.isPressed ? 0.7 : 1)
+            .animation(Motion.quick, value: configuration.isPressed)
+    }
+}
+
+extension ButtonStyle where Self == PressableButtonStyle {
+    static var pressable: PressableButtonStyle { PressableButtonStyle() }
+}
+
+// MARK: Materials
+
+/// A macOS material (the sidebar's). With Reduce Transparency it is solid.
+struct VisualEffect: NSViewRepresentable {
+    var material: NSVisualEffectView.Material = .sidebar
+
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.material = material
+        view.blendingMode = .behindWindow
+        view.state = .followsWindowActiveState
+        return view
+    }
+
+    func updateNSView(_ view: NSVisualEffectView, context: Context) { view.material = material }
+}
+
+extension View {
+    /// The translucent sidebar material, or the solid card color with Reduce Transparency.
+    @ViewBuilder func sidebarMaterial() -> some View {
+        if Motion.reduceTransparency { background(Theme.card) } else { background(VisualEffect(material: .sidebar)) }
+    }
+
+    /// A floating surface's material (toast, mini timer), solid with Reduce Transparency.
+    @ViewBuilder func floatingMaterial<S: Shape>(in shape: S) -> some View {
+        if Motion.reduceTransparency { background(Theme.card, in: shape) } else { background(.regularMaterial, in: shape) }
     }
 }
 
