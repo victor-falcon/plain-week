@@ -1,0 +1,400 @@
+import SwiftUI
+
+/// The task sheet (the web app's task dialog): toolbar (date, time, delete,
+/// repeat, color, more), title with the complete check, notes and subtasks.
+/// Every edit is written to the local store as it happens; no save button.
+struct TaskDetailView: View {
+    @State var taskId: String
+    @Environment(TaskStore.self) private var store
+    @Environment(PlannerModel.self) private var planner
+    @Environment(\.undoManager) private var undoManager
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var title = ""
+    @State private var notes = ""
+    @State private var newSubtask = ""
+    @State private var loaded = false
+    @State private var picker: Picker?
+    @State private var pendingScope: ScopeAction?
+    @State private var pendingRule: PendingRule?
+    @FocusState private var focusedField: Field?
+
+    private enum Picker { case date, time, repeating, color }
+    private enum Field: Hashable { case title, notes, newSubtask, subtask(String) }
+
+    private struct PendingRule: Identifiable {
+        let id = UUID()
+        var rule: Recurrence?
+    }
+
+    init(taskId: String) { _taskId = State(initialValue: taskId) }
+
+    var body: some View {
+        Group {
+            if let item = store.item(taskId) {
+                content(item)
+            } else {
+                Text("This task no longer exists.")
+                    .foregroundStyle(Theme.mutedForeground)
+                    .padding(40)
+            }
+        }
+        .frame(width: 520)
+        .background(Theme.secondary)
+    }
+
+    private var actions: TaskActions { TaskActions(store: store, planner: planner, undoManager: undoManager) }
+
+    private func follow(_ id: String?) { if let id { taskId = id } }
+
+    @ViewBuilder
+    private func content(_ item: PlannerItem) -> some View {
+        let task = item.task
+        VStack(alignment: .leading, spacing: 18) {
+            toolbar(item)
+
+            HStack(alignment: .top, spacing: 10) {
+                TextField("Task", text: $title, axis: .vertical)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 22, weight: .medium))
+                    .strikethrough(task.done)
+                    .foregroundStyle(task.done ? Theme.mutedForeground : Theme.foreground)
+                    .focused($focusedField, equals: .title)
+                    .onSubmit { focusedField = .notes }
+                    .onChange(of: title) { _, value in
+                        let text = value.replacingOccurrences(of: "\n", with: " ")
+                        guard loaded, !text.trimmingCharacters(in: .whitespaces).isEmpty, text != store.item(taskId)?.task.text else { return }
+                        follow(store.update(taskId, TaskPatch(text: text)))
+                    }
+                Button {
+                    follow(store.perform(task.done ? "Mark Not Done" : "Complete Task", undoManager: undoManager) {
+                        store.toggleDone(taskId)
+                    })
+                } label: {
+                    Image(systemName: task.done ? "checkmark.circle.fill" : "circle")
+                        .font(.system(size: 22))
+                        .foregroundStyle(task.done ? Theme.plannerAccent : Theme.mutedForeground)
+                }
+                .buttonStyle(.plain)
+                .help(task.done ? "Mark as not done" : "Complete")
+            }
+            .padding(.bottom, 6)
+            .overlay(alignment: .bottom) { Rectangle().fill(Theme.foreground.opacity(0.3)).frame(height: 1) }
+
+            ZStack(alignment: .topLeading) {
+                if notes.isEmpty {
+                    Text("Add some extra notes here…")
+                        .foregroundStyle(Theme.mutedForeground)
+                        .padding(.top, 1)
+                        .padding(.leading, 5)
+                        .allowsHitTesting(false)
+                }
+                TextEditor(text: $notes)
+                    .scrollContentBackground(.hidden)
+                    .font(.system(size: 13))
+                    .focused($focusedField, equals: .notes)
+                    .frame(minHeight: 70, maxHeight: 200)
+                    .onChange(of: notes) { _, value in
+                        guard loaded, value != store.item(taskId)?.task.notes else { return }
+                        follow(store.update(taskId, TaskPatch(notes: value)))
+                    }
+            }
+
+            subtasks(task)
+        }
+        .padding(24)
+        .onAppear {
+            title = task.text
+            notes = task.notes
+            DispatchQueue.main.async { loaded = true }
+        }
+        .onDisappear(perform: addSubtask)
+        .scopePrompt($pendingScope, item: item) { id in
+            if let id { follow(id) } else { dismiss() }
+        }
+        .confirmationDialog(pendingRule?.rule == nil ? "Stop repeating" : "Change repeat",
+                            isPresented: Binding(get: { pendingRule != nil }, set: { if !$0 { pendingRule = nil } }),
+                            presenting: pendingRule) { pending in
+            Button("Only This Task") { applyRule(pending.rule, scope: .this) }
+            Button("This and All Future") { applyRule(pending.rule, scope: .future) }
+            Button("Cancel", role: .cancel) {}
+        }
+    }
+
+    // MARK: Toolbar
+
+    @ViewBuilder
+    private func toolbar(_ item: PlannerItem) -> some View {
+        let task = item.task
+        HStack(spacing: 6) {
+            Button {
+                picker = .date
+            } label: {
+                Label(task.date.map(Format.fullDate) ?? "Someday", systemImage: "calendar")
+            }
+            .buttonStyle(ToolbarButtonStyle(active: picker == .date))
+            .disabled(item.kind == .series)
+            .popover(isPresented: pickerBinding(.date), arrowEdge: .bottom) { datePicker(item) }
+            .help("Date")
+
+            Button {
+                picker = .time
+            } label: {
+                Label(task.time ?? "Time", systemImage: "clock")
+                    .labelStyle(task.time == nil ? AnyLabelStyle(.iconOnly) : AnyLabelStyle(.titleAndIcon))
+            }
+            .buttonStyle(ToolbarButtonStyle(active: picker == .time))
+            .popover(isPresented: pickerBinding(.time), arrowEdge: .bottom) { timePicker(task) }
+            .help("Time")
+
+            Spacer()
+
+            Button {
+                if store.asksScope(item) { pendingScope = .delete } else {
+                    actions.delete(item)
+                    dismiss()
+                }
+            } label: { Image(systemName: "trash") }
+                .buttonStyle(ToolbarButtonStyle(active: false))
+                .help("Delete")
+
+            Button {
+                picker = .repeating
+            } label: { Image(systemName: "repeat") }
+                .buttonStyle(ToolbarButtonStyle(active: picker == .repeating || item.isRecurring))
+                .disabled(task.date == nil)
+                .popover(isPresented: pickerBinding(.repeating), arrowEdge: .bottom) {
+                    RepeatPicker(item: item, series: store.series(of: item), isFirst: !store.asksScope(item) || store.isFirstOccurrence(item)) { rule in
+                        picker = nil
+                        if store.asksScope(item), !store.isFirstOccurrence(item) {
+                            pendingRule = PendingRule(rule: rule)
+                        } else {
+                            applyRule(rule, scope: .future)
+                        }
+                    }
+                }
+                .help(store.series(of: item)?.recurrence.map { "Repeat: \(RecurrenceEngine.summary($0))" } ?? "Repeat")
+
+            Button {
+                picker = .color
+            } label: { ColorSwatch(color: task.color, size: 14) }
+                .buttonStyle(ToolbarButtonStyle(active: picker == .color))
+                .popover(isPresented: pickerBinding(.color), arrowEdge: .bottom) { colorPicker(item) }
+                .help("Color")
+
+            Menu {
+                Button("Tomorrow") { follow(actions.tomorrow(item)) }
+                Button("Next Week") { follow(actions.nextWeek(item)) }
+                Button("Someday") { follow(actions.move(item, to: nil)) }
+                    .disabled(task.date == nil)
+                Divider()
+                Button("Duplicate") { actions.duplicate(item) }
+            } label: { Image(systemName: "ellipsis") }
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .fixedSize()
+                .help("More")
+
+            Button("Done") { dismiss() }
+                .keyboardShortcut(.cancelAction)
+                .buttonStyle(.borderless)
+                .padding(.leading, 6)
+        }
+        .font(.system(size: 13))
+    }
+
+    private func pickerBinding(_ which: Picker) -> Binding<Bool> {
+        Binding(get: { picker == which }, set: { if !$0, picker == which { picker = nil } })
+    }
+
+    private func datePicker(_ item: PlannerItem) -> some View {
+        VStack(spacing: 10) {
+            DatePicker("Date", selection: Binding(
+                get: { DateKey.localDate(item.task.date ?? planner.today) },
+                set: { date in
+                    picker = nil
+                    let key = DateKey.local(date)
+                    guard key != item.task.date else { return }
+                    follow(store.perform("Move Task", undoManager: undoManager) { store.move(item.id, to: key) })
+                }
+            ), displayedComponents: .date)
+            .datePickerStyle(.graphical)
+            .labelsHidden()
+            .environment(\.calendar, Self.mondayCalendar)
+            Button("Someday") {
+                picker = nil
+                follow(store.perform("Move Task", undoManager: undoManager) { store.move(item.id, to: nil) })
+            }
+            .disabled(item.task.date == nil || item.isRecurring && item.kind == .occurrence && false)
+        }
+        .padding(12)
+    }
+
+    private static let mondayCalendar: Calendar = {
+        var calendar = Calendar.current
+        calendar.firstWeekday = 2
+        return calendar
+    }()
+
+    private func timePicker(_ task: PlainTask) -> some View {
+        let current = task.time ?? "09:00"
+        let parts = current.split(separator: ":").compactMap { Int($0) }
+        let date = Calendar.current.date(bySettingHour: parts[0], minute: parts[1], second: 0, of: Date())!
+        return HStack {
+            DatePicker("Time", selection: Binding(get: { date }, set: { value in
+                let c = Calendar.current.dateComponents([.hour, .minute], from: value)
+                let time = String(format: "%02d:%02d", c.hour!, c.minute!)
+                follow(store.update(taskId, TaskPatch(time: .some(time))))
+            }), displayedComponents: .hourAndMinute)
+            .labelsHidden()
+            .environment(\.locale, Locale(identifier: "en_GB"))
+            Button("Clear") {
+                picker = nil
+                follow(store.perform("Clear Time", undoManager: undoManager) { store.update(taskId, TaskPatch(time: .some(nil))) })
+            }
+            .disabled(task.time == nil)
+        }
+        .padding(12)
+    }
+
+    private func colorPicker(_ item: PlannerItem) -> some View {
+        HStack(spacing: 8) {
+            ForEach(TaskColor.allCases) { color in
+                Button {
+                    picker = nil
+                    if store.asksScope(item) { pendingScope = .color(color) } else { follow(actions.color(item, color)) }
+                } label: { ColorSwatch(color: color, selected: color == item.task.color, size: 22) }
+                    .buttonStyle(.plain)
+                    .help(color.label)
+            }
+        }
+        .padding(12)
+    }
+
+    private func applyRule(_ rule: Recurrence?, scope: ChangeScope) {
+        do {
+            let id = try store.perform(rule == nil ? "Stop Repeating" : "Repeat", undoManager: undoManager) {
+                try store.setRecurrence(taskId, rule, scope: scope)
+            }
+            follow(id)
+            if let id, let date = store.item(id)?.task.date, date != store.item(taskId)?.task.date {
+                planner.show("Starts on \(Format.fullDate(date)).")
+            }
+        } catch {
+            planner.show(error.localizedDescription)
+        }
+    }
+
+    // MARK: Subtasks
+
+    @ViewBuilder
+    private func subtasks(_ task: PlainTask) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            ForEach(task.subtasks) { subtask in
+                SubtaskRow(subtask: subtask) { updated in
+                    setSubtasks { list in
+                        if let i = list.firstIndex(where: { $0.id == subtask.id }) { list[i] = updated }
+                    }
+                } onDelete: {
+                    setSubtasks { $0.removeAll { $0.id == subtask.id } }
+                } onSubmit: {
+                    focusedField = .newSubtask
+                }
+            }
+            HStack(spacing: 10) {
+                Image(systemName: "plus")
+                    .foregroundStyle(Theme.mutedForeground)
+                    .frame(width: 16)
+                TextField("Add subtask…", text: $newSubtask)
+                    .textFieldStyle(.plain)
+                    .focused($focusedField, equals: .newSubtask)
+                    .onSubmit {
+                        addSubtask()
+                        focusedField = .newSubtask
+                    }
+                    .onChange(of: focusedField) { old, _ in if old == .newSubtask { addSubtask() } }
+            }
+            .padding(.vertical, 4)
+        }
+    }
+
+    private func addSubtask() {
+        let text = newSubtask.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+        newSubtask = ""
+        setSubtasks { $0.append(Subtask(id: Clock.uuidV7(), text: text, done: false)) }
+    }
+
+    private func setSubtasks(_ change: (inout [Subtask]) -> Void) {
+        guard var list = store.item(taskId)?.task.subtasks else { return }
+        change(&list)
+        follow(store.update(taskId, TaskPatch(subtasks: list)))
+    }
+}
+
+private struct SubtaskRow: View {
+    var subtask: Subtask
+    var onChange: (Subtask) -> Void
+    var onDelete: () -> Void
+    var onSubmit: () -> Void
+    @State private var text = ""
+    @State private var hovering = false
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Button {
+                var updated = subtask
+                updated.done.toggle()
+                onChange(updated)
+            } label: {
+                Image(systemName: subtask.done ? "checkmark.circle.fill" : "circle")
+                    .foregroundStyle(subtask.done ? Theme.plannerAccent : Theme.mutedForeground)
+                    .frame(width: 16)
+            }
+            .buttonStyle(.plain)
+            TextField("", text: $text)
+                .textFieldStyle(.plain)
+                .strikethrough(subtask.done)
+                .foregroundStyle(subtask.done ? Theme.mutedForeground : Theme.foreground)
+                .onSubmit(onSubmit)
+                .onChange(of: text) { _, value in
+                    guard value != subtask.text, !value.isEmpty else { return }
+                    var updated = subtask
+                    updated.text = value
+                    onChange(updated)
+                }
+            Button(action: onDelete) {
+                Image(systemName: "xmark").font(.system(size: 11))
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(Theme.mutedForeground)
+            .opacity(hovering ? 1 : 0)
+            .help("Delete subtask")
+        }
+        .padding(.vertical, 4)
+        .onHover { hovering = $0 }
+        .onAppear { text = subtask.text }
+    }
+}
+
+/// Round toolbar button; the one whose popover is open is filled.
+struct ToolbarButtonStyle: ButtonStyle {
+    var active: Bool
+    @Environment(\.isEnabled) private var isEnabled
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .padding(.horizontal, 9)
+            .frame(minWidth: 30, minHeight: 30)
+            .foregroundStyle(active ? Theme.background : Theme.foreground)
+            .background(Capsule().fill(active ? Theme.foreground : configuration.isPressed ? Theme.foreground.opacity(0.1) : .clear))
+            .contentShape(Capsule())
+            .opacity(isEnabled ? 1 : 0.4)
+    }
+}
+
+struct AnyLabelStyle: LabelStyle {
+    private let make: (Configuration) -> AnyView
+    init<S: LabelStyle>(_ style: S) { make = { AnyView(style.makeBody(configuration: $0)) } }
+    func makeBody(configuration: Configuration) -> some View { make(configuration) }
+}
