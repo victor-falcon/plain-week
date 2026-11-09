@@ -107,20 +107,17 @@ struct WeekButton: View {
     }
 }
 
+/// The seven days side by side, Monday to Sunday, each with the same number
+/// of ruled rows.
 struct WeekGrid: View {
     var week: [String: [PlannerItem]]
     var focus: FocusState<String?>.Binding
     @Environment(PlannerModel.self) private var planner
 
     var body: some View {
-        let days = planner.days
-        HStack(alignment: .top, spacing: 24) {
-            ForEach(days.prefix(5), id: \.self) { day in
+        HStack(alignment: .top, spacing: 20) {
+            ForEach(planner.days, id: \.self) { day in
                 DayColumn(date: day, items: week[day] ?? [], minRows: 10, focus: focus)
-            }
-            VStack(spacing: 0) {
-                DayColumn(date: days[5], items: week[days[5]] ?? [], minRows: 5, focus: focus)
-                DayColumn(date: days[6], items: week[days[6]] ?? [], minRows: 4, focus: focus, stacked: true)
             }
         }
     }
@@ -131,7 +128,6 @@ struct DayColumn: View {
     var items: [PlannerItem]
     var minRows: Int
     var focus: FocusState<String?>.Binding
-    var stacked = false
     @Environment(PlannerModel.self) private var planner
 
     var body: some View {
@@ -148,9 +144,7 @@ struct DayColumn: View {
                     .font(.system(size: 15))
                     .foregroundStyle(isToday ? Theme.plannerAccentMuted : Theme.mutedForeground.opacity(isWeekend ? 0.5 : 0.7))
             }
-            // Sunday's header takes exactly one row slot, so the stacked
-            // column ends level with the weekdays (5 + 1 + 4 = 10 rows).
-            .frame(height: stacked ? Theme.rowHeight - 10 : Theme.rowHeight - 2, alignment: .bottom)
+            .frame(height: Theme.rowHeight - 2, alignment: .bottom)
             .padding(.bottom, 10)
             .overlay(alignment: .bottom) {
                 Rectangle()
@@ -164,7 +158,7 @@ struct DayColumn: View {
                 UnevenRoundedRectangle(topLeadingRadius: 8, topTrailingRadius: 8)
                     .fill(Theme.todayTint)
                     .padding(.horizontal, -10)
-                    .padding(.top, stacked ? 0 : -10)
+                    .padding(.top, -10)
             }
         }
         .frame(maxWidth: .infinity)

@@ -30,6 +30,11 @@ dark theme) renders the planner with `ImageRenderer` into the app's temporary di
 (`~/Library/Containers/app.plainweek.mac/Data/tmp/`) and quits. `ImageRenderer` draws AppKit-backed controls (text
 fields, drop targets) as yellow placeholders, so only the layout, colors and text are meaningful there.
 
+## Layout
+
+The week is always seven equal columns in one row, Monday to Sunday, each with ten ruled rows; Someday sits below in
+three columns. This differs from the web app's desktop layout, which stacks Saturday over Sunday in a sixth column.
+
 ## What it shares with the web app
 
 | Area             | Same as the web app                                                                                                                       |
@@ -66,7 +71,7 @@ macos/
 │   ├── Model/                  PlainTask (contract), DateKeys (+ Clock, UUID v7), FractionalIndex,
 │   │                           RecurrenceEngine, SmartInput (+ Format)
 │   ├── Store/                  TaskStore (local repository, undo, carry over, import/export), PlannerModel (UI state)
-│   ├── Views/                  PlannerView, TaskListView (rows, new-task row, menu, drops), TaskDetailView,
+│   ├── Views/                  PlannerView (header, 7-column week, Someday), TaskListView (rows, new-task row, menu, drops), TaskDetailView,
 │   │                           RepeatPicker, SettingsView, Theme
 │   └── DebugSnapshot.swift     Debug-only headless render
 └── PlainWeekTests/             XCTest: fractional index, smart input, dates, recurrence, store behaviour
