@@ -68,6 +68,29 @@ final class DateKeyTests: XCTestCase {
     }
 }
 
+final class VisibleDaysTests: XCTestCase {
+    func testCardsAreAtLeast400Wide() {
+        let gap: CGFloat = 12
+        XCTAssertEqual(PlannerModel.visibleCount(for: 300, spacing: gap), 1)
+        XCTAssertEqual(PlannerModel.visibleCount(for: 811, spacing: gap), 1)
+        XCTAssertEqual(PlannerModel.visibleCount(for: 812, spacing: gap), 2)
+        XCTAssertEqual(PlannerModel.visibleCount(for: 1664, spacing: gap), 4)
+        XCTAssertEqual(PlannerModel.visibleCount(for: 2872, spacing: gap), 7)
+        XCTAssertEqual(PlannerModel.visibleCount(for: 5000, spacing: gap), 7)
+    }
+
+    func testTodayStaysVisibleWhenFewerDaysFit() {
+        let planner = PlannerModel(today: "2026-11-12")
+        planner.visibleCount = 3
+        planner.goToToday()
+        XCTAssertTrue(planner.showsToday)
+        XCTAssertEqual(planner.weekStart, "2026-11-12")
+        planner.visibleCount = 7
+        planner.goToToday()
+        XCTAssertEqual(planner.weekStart, "2026-11-09")
+    }
+}
+
 final class RecurrenceTests: XCTestCase {
     func series(_ rule: Recurrence, date: String = "2026-11-09") -> PlainTask {
         PlainTask(id: "s", text: "Gym", date: date, someday_column: nil, position: "a0", recurrence: rule,

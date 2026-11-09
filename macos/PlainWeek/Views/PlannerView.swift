@@ -176,8 +176,9 @@ struct WeekButton: View {
     }
 }
 
-/// The days as one horizontal strip: seven cards fill the width and the strip
-/// scrolls through earlier and later days, snapping to day edges. A trackpad
+/// The days as one horizontal strip: as many whole day cards as fit at
+/// `PlannerModel.minCardWidth` or wider (at most seven) fill the width, and the
+/// strip scrolls through earlier and later days, snapping to day edges. A trackpad
 /// swipes it, a mouse wheel over it steps a day per notch, and dragging a day
 /// header or empty space pans it. `planner.weekStart` is the first visible day,
 /// so the header and the week buttons follow the scroll and move it.
@@ -219,7 +220,7 @@ struct DayStrip: View {
             LazyHStack(alignment: .top, spacing: Self.spacing) {
                 ForEach(days, id: \.self) { day in
                     card(day)
-                        .containerRelativeFrame(.horizontal, count: PlannerModel.visibleDays, spacing: Self.spacing)
+                        .containerRelativeFrame(.horizontal, count: planner.visibleCount, spacing: Self.spacing)
                         .id(day)
                 }
             }
@@ -231,7 +232,14 @@ struct DayStrip: View {
         .scrollPosition(id: $position, anchor: .leading)
         .environment(\.stripPan, pan)
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width in
-            pan.step = (width + Self.spacing) / CGFloat(PlannerModel.visibleDays)
+            let count = PlannerModel.visibleCount(for: width, spacing: Self.spacing)
+            if planner.visibleCount != count {
+                // Resizing never pushes today off screen if it was showing.
+                let keepToday = planner.showsToday
+                planner.visibleCount = count
+                if keepToday, !planner.showsToday { planner.weekStart = planner.today }
+            }
+            pan.step = (width + Self.spacing) / CGFloat(count)
         }
         .onHover { hovering = $0 }
         .onAppear {

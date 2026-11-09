@@ -57,15 +57,31 @@ final class PlannerModel {
 
     /// The days scroll freely, so `weekStart` is the first (leftmost) visible
     /// day; it is a Monday after "Today" or a week jump, any day after a scroll.
-    static let visibleDays = 7
+    static let maxVisibleDays = 7
+    /// Day cards are never narrower than this; a window too narrow for seven
+    /// shows fewer and scrolls to the rest.
+    static let minCardWidth: CGFloat = 400
 
-    /// Whether today is one of the seven days on screen.
-    var showsToday: Bool { today >= weekStart && today <= DateKey.addDays(weekStart, Self.visibleDays - 1) }
-    var days: [String] { DateKey.week(weekStart) }
+    /// How many whole days fit the window (1 to 7), set by the day strip.
+    var visibleCount = PlannerModel.maxVisibleDays
+
+    /// How many cards of at least `minCardWidth` fit in `width`.
+    static func visibleCount(for width: CGFloat, spacing: CGFloat) -> Int {
+        guard width > 0 else { return maxVisibleDays }
+        return max(1, min(maxVisibleDays, Int((width + spacing) / (minCardWidth + spacing))))
+    }
+
+    /// Whether today is one of the days on screen.
+    var showsToday: Bool { today >= weekStart && today <= DateKey.addDays(weekStart, visibleCount - 1) }
+    var days: [String] { (0..<visibleCount).map { DateKey.addDays(weekStart, $0) } }
     /// The day the header names (month, week number): the middle visible day.
-    var headerDay: String { DateKey.addDays(weekStart, 3) }
+    var headerDay: String { DateKey.addDays(weekStart, visibleCount / 2) }
 
-    func goToToday() { weekStart = DateKey.startOfWeek(today) }
+    /// Shows the current week from Monday when a whole week fits, otherwise
+    /// starts at today so it is always on screen.
+    func goToToday() {
+        weekStart = visibleCount == Self.maxVisibleDays ? DateKey.startOfWeek(today) : today
+    }
     func previousWeek() { weekStart = DateKey.addDays(weekStart, -7) }
     func nextWeek() { weekStart = DateKey.addDays(weekStart, 7) }
     /// Moves the visible days by `days` (scroll wheel, drag).

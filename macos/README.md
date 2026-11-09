@@ -40,7 +40,8 @@ A minimal, type-led style in Apple's idiom, rather than the web app's ruled pape
 - **Header:** the month in large bold type ("November"), with the year and week number quietly below. A "Today"
   pill appears when you browse away from the current week, next to a capsule of ‹ › week buttons. The title bar is
   hidden, so the header sits under the window controls.
-- **Days:** a strip of rounded day cards, seven visible at a time, that scrolls through earlier and later days and
+- **Days:** a strip of rounded day cards, at least 400pt wide each, showing as many whole days as fit (up to seven,
+  which needs a window about 2,870pt wide), that scrolls through earlier and later days and
   snaps to day edges: swipe sideways on a trackpad, turn the mouse wheel over the days (one day per notch), or click
   and drag a day header or empty space left or right. The header (month, week number) follows the middle visible
   day; ‹ › jump a week, and "Today" (shown when today is off screen) goes back to the current week's Monday. Each

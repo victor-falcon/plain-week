@@ -14,7 +14,13 @@ enum DebugSnapshot {
         let env = ProcessInfo.processInfo.environment
         guard let name = env["PLAINWEEK_WINDOW_SNAPSHOT"] else { return }
         let shift = Int(env["PLAINWEEK_SNAPSHOT_SHIFT"] ?? "0") ?? 0
+        let width = Double(env["PLAINWEEK_WINDOW_WIDTH"] ?? "")
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            if let width, let window = NSApp.windows.first(where: \.isVisible) {
+                var frame = window.frame
+                frame.size.width = width
+                window.setFrame(frame, display: true)
+            }
             planner.scroll(by: shift)
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                 guard let window = NSApp.windows.first(where: { $0.isVisible && $0.title == "Plain Week" }) ?? NSApp.windows.first(where: \.isVisible),
@@ -22,7 +28,7 @@ enum DebugSnapshot {
                 else { NSLog("Window capture failed"); NSApp.terminate(nil); return }
                 let url = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(name)
                 try? NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:])?.write(to: url)
-                NSLog("first visible day %@", planner.weekStart)
+                NSLog("first visible day %@, %d days visible", planner.weekStart, planner.visibleCount)
                 NSApp.terminate(nil)
             }
         }
