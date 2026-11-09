@@ -23,6 +23,9 @@ struct NotesEditor: NSViewRepresentable {
         textView.isRichText = false
         textView.allowsUndo = true
         textView.drawsBackground = false
+        // Monochrome: a black caret and a grey selection, not the system accent.
+        textView.insertionPointColor = .labelColor
+        textView.selectedTextAttributes = [.backgroundColor: NSColor.labelColor.withAlphaComponent(0.14)]
         textView.isAutomaticQuoteSubstitutionEnabled = false
         textView.isAutomaticDashSubstitutionEnabled = false
         textView.isAutomaticTextReplacementEnabled = false

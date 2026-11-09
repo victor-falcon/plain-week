@@ -70,15 +70,25 @@ final class PlannerModel {
     static let carryOverKey = "carryOver"
     static let focusModeKey = "focusMode"
 
-    /// Turns focus mode on or off; turning it on shows the current week, where
-    /// today is.
+    /// Turns focus mode on or off; turning it on shows the focused day.
     func toggleFocusMode() {
         focusMode.toggle()
-        if focusMode { goToToday() }
+        guard focusMode else { return }
+        if let selectedDay { reveal(selectedDay) } else { goToToday() }
     }
 
-    /// Whether a day (or Someday, `nil`) is blurred by focus mode.
-    func isBlurred(_ date: String?) -> Bool { focusMode && date != today }
+    /// The day focus mode keeps sharp: the selected day, else today.
+    var focusedDay: String { selectedDay ?? today }
+
+    /// Whether a day (or the Backlog, `nil`) is blurred by focus mode: every
+    /// day but the focused one, today included when another day is selected.
+    func isBlurred(_ date: String?) -> Bool { focusMode && date != focusedDay }
+
+    /// In focus mode, a click in a blurred day focuses it.
+    func focusDay(_ day: String) {
+        guard focusMode, day != focusedDay else { return }
+        selectedDay = day
+    }
 
     init(today: String = DateKey.local()) {
         self.today = today

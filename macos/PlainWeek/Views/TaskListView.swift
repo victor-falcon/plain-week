@@ -234,6 +234,7 @@ struct TaskRow: View {
     @State private var dropLine: Bool?
     @State private var pendingScope: ScopeAction?
     @State private var rowHeight = Theme.rowHeight
+    @Environment(FocusTimer.self) private var timer
 
     var body: some View {
         let task = item.task
@@ -261,6 +262,20 @@ struct TaskRow: View {
             }
             TaskLabel(text: task.text, color: task.color, done: task.done, lines: 2, pill: false)
             Spacer(minLength: 4)
+            if hovering, !task.done {
+                Button {
+                    TimerActions.start(item.id, day: task.date, store: store, planner: planner, timer: timer)
+                } label: {
+                    Image(systemName: "play.fill")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(Theme.background)
+                        .frame(width: 20, height: 20)
+                        .background(Circle().fill(Theme.foreground))
+                }
+                .buttonStyle(.plain)
+                .help("Start the timer")
+                .transition(.opacity)
+            }
             TaskMarkers(task: task)
                 .padding(.top, 2)
             if let time = task.time {

@@ -31,14 +31,18 @@ dark theme) renders the planner with `ImageRenderer` into the app's temporary di
 fields, drop targets) as yellow placeholders, so only the layout, colors and text are meaningful there. It also draws
 the seven visible days without their scroll view. To capture the real window instead (scroll views and controls
 included, or a task's sheet with `PLAINWEEK_SNAPSHOT_OPEN=<task id>`), use `PLAINWEEK_WINDOW_SNAPSHOT=strip.png`, optionally with `PLAINWEEK_SNAPSHOT_SHIFT=<days>` to scroll the
-strip first, and `PLAINWEEK_DATA_FILE=<name>` to read a sample file from that temporary directory instead of
+strip first, `PLAINWEEK_SNAPSHOT_SELECT=<day>` to select (and focus) a day, `PLAINWEEK_SNAPSHOT_TIMER=<day>` to
+start that day's timer and capture the mini window, and `PLAINWEEK_DATA_FILE=<name>` to read a sample file from that temporary directory instead of
 your tasks.
 
 ## Look and layout
 
 A minimal, type-led style in Apple's idiom, rather than the web app's ruled paper planner. The interface is
 **monochrome**, like Calendar on the Mac: black, white and greys (swapped in dark mode). The nine task colors are the
-only color; today, the selected day, done checks and the drop line use the text color.
+only color; today, the selected day, done checks and the drop line use the text color. System controls follow
+suit: the app's tint is black, the notes caret and selection are black and grey, and popovers use black-and-white parts
+(the repeat popover's segmented control, − n + steppers, weekday chips, switch and black Apply button). Popovers,
+sheets and the mini timer follow the app's Light / Dark setting, not the system's.
 
 - **Header:** the month in large bold type ("November"), with the year and week number quietly below. A "Today"
   pill appears when you browse away from the current week, next to a capsule of ‹ › week buttons. The title bar is
@@ -56,6 +60,14 @@ only color; today, the selected day, done checks and the drop line use the text 
   instead of a colored background behind the text. The end of the row holds quiet markers and the time: a notes
   icon when the task has a description, a checklist with "done/total" when it has subtasks (darker once all are
   done), then the time. Empty space in a card adds a task, with a "New task" hint on hover.
+- **Progress and timer:** a thin bar across the top of each day card fills as its tasks get done ("2 of 4 done" on
+  hover). The ▶ in a day's header starts a timer on its next unfinished task (timed tasks first); a task row shows its
+  own ▶ on hover. Starting a timer minimizes the planner to the Dock and opens a small floating window that stays on
+  top of other apps and on every Space: the task's checkbox and title, the running clock (`12:34`, `1:02:03` past an
+  hour) with play / pause (Space), a button back to Plain Week and ✕ to stop. Ticking the checkbox completes the task
+  and moves the timer to the day's next unfinished task, from zero; after the last one it stops and the planner comes
+  back. While a timer runs, a pill in the header shows the task and clock and brings the window back. The timer is not
+  saved: it lives while the app runs.
 - **Sidebar:** 250pt on the left; the header's sidebar button (or View › Hide Backlog and Done, ⌃⌘S) closes and opens
   it.
     - **Backlog** (tasks without a date: the web app's Someday; the data is unchanged) and **Done**, as accordion
@@ -70,9 +82,11 @@ only color; today, the selected day, done checks and the drop line use the text 
       it folds it away (a month button brings it back), remembered between launches.
 - **Task sheet:** a large, bold, Notion-style title with no underline, then notes and subtasks. Notes are a small
   Markdown editor (below).
-- **Focus mode:** the "Focus" pill in the header (or View › Focus on Today, ⇧⌘F) blurs and fades every day but
-  today, and Backlog, so only today's list stands out. Hovering a blurred card brings it back while the pointer is
-  on it. Turning it on jumps to the current week; the setting is remembered between launches.
+- **Focus mode:** the "Focus" pill in the header (or View › Focus on Today, ⇧⌘F) blurs and fades every day but one,
+  and the Backlog. The focused day is the selected one, or today when none is: click a day's header (or anywhere in a
+  blurred card, or a calendar date) to focus it, today included in the blur; click its header again to go back to
+  today. Hovering a blurred card brings it back while the pointer is on it. Turning focus mode on shows the focused
+  day; the setting is remembered between launches.
 
 Colors still come from the web app's tokens (`Theme.swift`), plus a card surface and a hover tint.
 
@@ -133,6 +147,9 @@ Colors still come from the web app's tokens (`Theme.swift`), plus a card surface
 
     Each key toggles: pressing it again on formatted text removes the formatting. The web app shows the raw text.
 
+- The **repeat** popover (⌥⌘R) picks Never, Daily, Weekly or Monthly (⌘0–3), then the details: every N days, the
+  weekdays (the task's own day always included) or the day of the month, and an optional end date. A line under it
+  says what will happen ("Every Mon, Wed, Fri, from Mon 9 Nov"), and Return applies.
 - Right-click a task for colors, moves, duplicate and delete. Each row's checkbox completes it.
 - Drag a task onto another row (upper or lower half), onto a list's empty rows, or onto the ‹ › week buttons to move
   it a week back or forward.
@@ -149,8 +166,8 @@ macos/
 │   ├── PlainWeekApp.swift      App, window, menu commands, export/import panels
 │   ├── Model/                  PlainTask (contract), DateKeys (+ Clock, UUID v7), FractionalIndex, QuickAdd, NoteMarkdown,
 │   │                           RecurrenceEngine, SmartInput (+ Format)
-│   ├── Store/                  TaskStore (local repository, undo, carry over, import/export), PlannerModel (UI state)
-│   ├── Views/                  PlannerView (sidebar with Backlog and Done, header, day strip), TaskListView (rows, new-task row, menu, drops), TaskDetailView, NotesEditor,
+│   ├── Store/                  TaskStore (local repository, undo, carry over, import/export), PlannerModel (UI state), FocusTimer
+│   ├── Views/                  PlannerView (sidebar with Backlog and Done, header, day strip), TaskListView (rows, new-task row, menu, drops), TaskDetailView, NotesEditor, MiniTimer,
 │   │                           RepeatPicker, SettingsView, Theme
 │   └── DebugSnapshot.swift     Debug-only headless render
 └── PlainWeekTests/             XCTest: fractional index, smart input, dates, recurrence, store behaviour

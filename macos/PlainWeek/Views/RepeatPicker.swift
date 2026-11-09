@@ -25,87 +25,128 @@ struct RepeatPicker: View {
     private var anchor: String { item.occurrenceDate ?? item.task.date ?? DateKey.local() }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Picker("Repeat", selection: $kind) {
-                ForEach(Kind.allCases) { Text($0.rawValue).tag($0) }
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .background {
-                // ⌘0 Never, ⌘1 Daily, ⌘2 Weekly, ⌘3 Monthly; Return applies.
-                ForEach(Array(Kind.allCases.enumerated()), id: \.element) { index, value in
-                    Button(value.rawValue) { kind = value }
-                        .keyboardShortcut(KeyEquivalent(Character("\(index)")), modifiers: [.command])
+        VStack(alignment: .leading, spacing: 16) {
+            MonoSegmented(options: Kind.allCases, selection: $kind, label: \.rawValue)
+                .background {
+                    // ⌘0 Never, ⌘1 Daily, ⌘2 Weekly, ⌘3 Monthly; Return applies.
+                    ForEach(Array(Kind.allCases.enumerated()), id: \.element) { index, value in
+                        Button(value.rawValue) { withAnimation(.snappy(duration: 0.2)) { kind = value } }
+                            .keyboardShortcut(KeyEquivalent(Character("\(index)")), modifiers: [.command])
+                    }
+                    .opacity(0)
+                    .allowsHitTesting(false)
                 }
-                .opacity(0)
-                .allowsHitTesting(false)
-            }
-            Text("⌘0 never  ·  ⌘1 daily  ·  ⌘2 weekly  ·  ⌘3 monthly  ·  ↩ apply")
-                .font(.system(size: 11))
-                .foregroundStyle(Theme.mutedForeground)
 
-            switch kind {
-            case .never:
-                EmptyView()
-            case .daily:
-                HStack {
-                    Text("Every")
-                    TextField("", value: $every, format: .number)
-                        .frame(width: 50)
-                        .multilineTextAlignment(.trailing)
-                    Stepper("", value: $every, in: 1...RecurrenceEngine.maxEveryDays).labelsHidden()
-                    Text(every == 1 ? "day" : "days")
-                }
-                if !(1...RecurrenceEngine.maxEveryDays).contains(every) {
-                    note("Enter a number of days from 1 to 365.")
-                }
-            case .weekly:
-                HStack(spacing: 4) {
-                    ForEach(1...7, id: \.self) { weekday in
-                        let own = weekday == DateKey.isoWeekday(anchor)
-                        Toggle(Format.weekdayName(weekday).prefix(2), isOn: Binding(
-                            get: { weekdays.contains(weekday) || own },
-                            set: { on in if on { weekdays.insert(weekday) } else if !own { weekdays.remove(weekday) } }
-                        ))
-                        .toggleStyle(.button)
-                        .help(Format.weekdayName(weekday, long: true))
+            Group {
+                switch kind {
+                case .never:
+                    note(series != nil || item.task.recurrence != nil ? "Stops repeating." : "This task happens once.")
+                case .daily:
+                    row("Every") {
+                        NumberStepper(value: $every, range: 1...RecurrenceEngine.maxEveryDays)
+                        Text(every == 1 ? "day" : "days").foregroundStyle(Theme.mutedForeground)
+                    }
+                case .weekly:
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("On").font(.system(size: 13)).foregroundStyle(Theme.mutedForeground)
+                        HStack(spacing: 6) {
+                            ForEach(1...7, id: \.self) { weekday in
+                                weekdayChip(weekday)
+                            }
+                        }
+                    }
+                case .monthly:
+                    row("On day") {
+                        NumberStepper(value: $day, range: 1...31)
+                        Text("of each month").foregroundStyle(Theme.mutedForeground)
                     }
                 }
-            case .monthly:
-                Picker("Monthly on day", selection: $day) {
-                    ForEach(1...31, id: \.self) { Text("\($0)").tag($0) }
-                }
-                .frame(width: 200)
-                if day >= 29 { note("On the last day in shorter months.") }
-                if day != DateKey.dayOfMonth(anchor), let start = firstDate {
-                    note("Starts on \(Format.fullDate(start)).")
-                }
             }
+            .transition(.opacity)
 
             if kind != .never {
-                HStack {
-                    Toggle("Ends", isOn: $hasEnd)
+                VStack(alignment: .leading, spacing: 10) {
+                    Toggle(isOn: $hasEnd.animation(.snappy(duration: 0.2))) {
+                        Text("Ends").font(.system(size: 13, weight: .medium))
+                    }
+                    .toggleStyle(MonoSwitchStyle())
                     if hasEnd {
                         DatePicker("", selection: $until, in: DateKey.localDate(anchor)..., displayedComponents: .date)
                             .labelsHidden()
+                            .datePickerStyle(.field)
+                            .transition(.opacity)
                     }
                 }
             }
 
-            if isFirst, series != nil {
-                note(kind == .never ? "Stops the whole series." : "Applies to the whole series.")
+            // What will happen, in plain words.
+            if let summary {
+                Text(summary)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(isValid ? Theme.foreground.opacity(0.8) : Color.primary.opacity(0.5))
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
+            Rectangle().fill(Theme.border).frame(height: 1)
+
             HStack {
+                Text("⌘0–3 type  ·  ↩ apply")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Theme.mutedForeground)
                 Spacer()
                 Button("Apply") { onApply(draft) }
                     .keyboardShortcut(.defaultAction)
+                    .buttonStyle(MonoPrimaryButtonStyle())
                     .disabled(!isValid)
             }
         }
-        .padding(16)
+        .padding(18)
         .frame(width: 340)
+        .focusEffectDisabled()
+        .animation(.snappy(duration: 0.2), value: kind)
         .onAppear(perform: load)
+    }
+
+    private func row<Content: View>(_ label: String, @ViewBuilder content: () -> Content) -> some View {
+        HStack(spacing: 10) {
+            Text(label).font(.system(size: 13)).foregroundStyle(Theme.mutedForeground)
+            content()
+        }
+        .font(.system(size: 13))
+    }
+
+    private func weekdayChip(_ weekday: Int) -> some View {
+        let own = weekday == DateKey.isoWeekday(anchor)
+        let on = weekdays.contains(weekday) || own
+        return Button {
+            guard !own else { return }
+            if on { weekdays.remove(weekday) } else { weekdays.insert(weekday) }
+        } label: {
+            Text(Format.weekdayName(weekday).prefix(1))
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(on ? Theme.background : Theme.foreground)
+                .frame(width: 34, height: 34)
+                .background(Circle().fill(on ? Theme.foreground : Theme.hover))
+                .overlay(Circle().strokeBorder(Theme.border, lineWidth: on ? 0 : 1))
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .help(own ? "\(Format.weekdayName(weekday, long: true)): the task's own day, always included"
+                  : Format.weekdayName(weekday, long: true))
+        .accessibilityAddTraits(on ? .isSelected : [])
+    }
+
+    /// The rule in words, with where it starts and ends.
+    private var summary: String? {
+        guard let rule = draft else { return nil }
+        guard isValid else {
+            return kind == .daily ? "Enter a number of days from 1 to 365." : "This rule never happens after the end date."
+        }
+        var text = RecurrenceEngine.summary(rule)
+        if let start = firstDate { text += ", from \(Format.weekdayDate(start))" }
+        if kind == .monthly, day >= 29 { text += ". Shorter months use their last day" }
+        if isFirst, series != nil { text += ". Applies to the whole series" }
+        return text + "."
     }
 
     private func note(_ text: String) -> some View {
@@ -146,5 +187,117 @@ struct RepeatPicker: View {
         case .monthly: kind = .monthly; day = rule.day ?? day
         }
         if let end = rule.until { hasEnd = true; until = DateKey.localDate(end) }
+    }
+}
+
+/// A segmented control in black and white: a black pill slides to the choice.
+struct MonoSegmented<Option: Hashable>: View {
+    var options: [Option]
+    @Binding var selection: Option
+    var label: (Option) -> String
+    @Namespace private var pill
+
+    init(options: [Option], selection: Binding<Option>, label: @escaping (Option) -> String) {
+        self.options = options
+        _selection = selection
+        self.label = label
+    }
+
+    var body: some View {
+        HStack(spacing: 2) {
+            ForEach(options, id: \.self) { option in
+                let selected = option == selection
+                Button {
+                    withAnimation(.snappy(duration: 0.2)) { selection = option }
+                } label: {
+                    Text(label(option))
+                        .font(.system(size: 13, weight: selected ? .semibold : .medium))
+                        .foregroundStyle(selected ? Theme.background : Theme.foreground.opacity(0.75))
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 30)
+                        .background {
+                            if selected {
+                                Capsule().fill(Theme.foreground).matchedGeometryEffect(id: "pill", in: pill)
+                            }
+                        }
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(selected ? .isSelected : [])
+            }
+        }
+        .padding(3)
+        .background(Capsule().fill(Theme.hover))
+    }
+}
+
+/// − n + in one capsule; the number can also be typed.
+struct NumberStepper: View {
+    @Binding var value: Int
+    var range: ClosedRange<Int>
+
+    var body: some View {
+        HStack(spacing: 0) {
+            step("minus", -1)
+            TextField("", value: $value, format: .number)
+                .textFieldStyle(.plain)
+                .multilineTextAlignment(.center)
+                .font(.system(size: 13, weight: .semibold).monospacedDigit())
+                .frame(width: 38)
+            step("plus", 1)
+        }
+        .frame(height: 30)
+        .background(Capsule().fill(Theme.hover))
+        .overlay(Capsule().strokeBorder(Theme.border))
+    }
+
+    private func step(_ icon: String, _ delta: Int) -> some View {
+        Button {
+            value = min(max(value + delta, range.lowerBound), range.upperBound)
+        } label: {
+            Image(systemName: icon)
+                .font(.system(size: 10, weight: .bold))
+                .frame(width: 28, height: 30)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(Theme.foreground)
+        .disabled(delta < 0 ? value <= range.lowerBound : value >= range.upperBound)
+    }
+}
+
+/// A switch in black and white.
+struct MonoSwitchStyle: ToggleStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack {
+            configuration.label
+            Spacer()
+            Capsule()
+                .fill(configuration.isOn ? Theme.foreground : Theme.border)
+                .frame(width: 36, height: 22)
+                .overlay(alignment: configuration.isOn ? .trailing : .leading) {
+                    Circle().fill(Theme.background).padding(2).shadow(color: .black.opacity(0.15), radius: 1, y: 1)
+                }
+                .onTapGesture { configuration.isOn.toggle() }
+                .animation(.snappy(duration: 0.15), value: configuration.isOn)
+        }
+        .contentShape(Rectangle())
+        .accessibilityAddTraits(.isToggle)
+    }
+}
+
+/// The main action of a popover or sheet: a black capsule (grey when disabled).
+struct MonoPrimaryButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 13, weight: .semibold))
+            .foregroundStyle(isEnabled ? Theme.background : Theme.mutedForeground)
+            .padding(.horizontal, 18)
+            .frame(height: 30)
+            .background(Capsule().fill(isEnabled ? Theme.foreground : Theme.border))
+            .opacity(configuration.isPressed ? 0.8 : 1)
+            .contentShape(Capsule())
     }
 }

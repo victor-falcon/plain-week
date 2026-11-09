@@ -13,6 +13,7 @@
 		45B4439DC91285C573C8325E /* QuickAdd.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64C4826FCE4386231546D627 /* QuickAdd.swift */; };
 		4DD14EE0D777C45EC6279E34 /* NotesEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3D92AD4F6E11EF63279E0AB /* NotesEditor.swift */; };
 		53D160917545F3029C814F39 /* TaskStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A220C28F9C0954BDFAC1EE55 /* TaskStore.swift */; };
+		54700322946ACD53F07F6683 /* MiniTimer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E6200D492FED7BA1B4795F1 /* MiniTimer.swift */; };
 		549E23F7DDC5C05FD0EFC5BE /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D47E36CF3DA5878BE0132A78 /* SettingsView.swift */; };
 		5DC9062035F785AC53638881 /* PlainTask.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28D9E3752E7210826C6190D8 /* PlainTask.swift */; };
 		6AB732842F8D9CD62C153715 /* RecurrenceEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6865ECB28A0EFD886CAE5FD2 /* RecurrenceEngine.swift */; };
@@ -21,6 +22,7 @@
 		B6CF3DD472403B6C47B08B92 /* NoteMarkdown.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63AA630AC51337CC1E5CDED2 /* NoteMarkdown.swift */; };
 		BFF8DA9F1F273F76477026CA /* DebugSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83DC5A7D9500DE76DF89B034 /* DebugSnapshot.swift */; };
 		C4D19507BA9D12BC86DC3372 /* FractionalIndex.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00A8F9B8FE2CDA0EBAEAE537 /* FractionalIndex.swift */; };
+		CAAD8BE1C04D58E7158E7318 /* FocusTimer.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9DC4DD551ACF3226A5E4C39 /* FocusTimer.swift */; };
 		CF4C565892E2E2E74A03D5E3 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FB14DCE8C020A3E76ADA688 /* Theme.swift */; };
 		CFA561E717B2B21E4571DF84 /* PlannerModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46E62123169CF8184AC93942 /* PlannerModel.swift */; };
 		E11639B088EB7FA49C41D875 /* PlainWeekTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26C0E1AC36B2C24A5828C751 /* PlainWeekTests.swift */; };
@@ -57,9 +59,11 @@
 		83DC5A7D9500DE76DF89B034 /* DebugSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugSnapshot.swift; sourceTree = "<group>"; };
 		84522E606A6F04225B55A261 /* TaskDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskDetailView.swift; sourceTree = "<group>"; };
 		8F00D45CD514DD0F7A61EBD2 /* SmartInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartInput.swift; sourceTree = "<group>"; };
+		9E6200D492FED7BA1B4795F1 /* MiniTimer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniTimer.swift; sourceTree = "<group>"; };
 		A220C28F9C0954BDFAC1EE55 /* TaskStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskStore.swift; sourceTree = "<group>"; };
 		B3D92AD4F6E11EF63279E0AB /* NotesEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotesEditor.swift; sourceTree = "<group>"; };
 		D47E36CF3DA5878BE0132A78 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		E9DC4DD551ACF3226A5E4C39 /* FocusTimer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusTimer.swift; sourceTree = "<group>"; };
 		F709876E0BDBE2808E9BE5D4 /* TaskListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskListView.swift; sourceTree = "<group>"; };
 		F95EC84350E560BAD1A20C02 /* PlainWeekApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlainWeekApp.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -77,6 +81,7 @@
 		4D9237E8D8E0DBAEF98D5D07 /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				9E6200D492FED7BA1B4795F1 /* MiniTimer.swift */,
 				B3D92AD4F6E11EF63279E0AB /* NotesEditor.swift */,
 				298E1BA5885E900139DABA3A /* PlannerView.swift */,
 				4A53DABD8A0F881620B0F612 /* RepeatPicker.swift */,
@@ -104,6 +109,7 @@
 		6805C7952FF4E36DEA25822E /* Store */ = {
 			isa = PBXGroup;
 			children = (
+				E9DC4DD551ACF3226A5E4C39 /* FocusTimer.swift */,
 				46E62123169CF8184AC93942 /* PlannerModel.swift */,
 				A220C28F9C0954BDFAC1EE55 /* TaskStore.swift */,
 			);
@@ -232,7 +238,9 @@
 			files = (
 				3C346202D6FEBE3C74951D58 /* DateKeys.swift in Sources */,
 				BFF8DA9F1F273F76477026CA /* DebugSnapshot.swift in Sources */,
+				CAAD8BE1C04D58E7158E7318 /* FocusTimer.swift in Sources */,
 				C4D19507BA9D12BC86DC3372 /* FractionalIndex.swift in Sources */,
+				54700322946ACD53F07F6683 /* MiniTimer.swift in Sources */,
 				B6CF3DD472403B6C47B08B92 /* NoteMarkdown.swift in Sources */,
 				4DD14EE0D777C45EC6279E34 /* NotesEditor.swift in Sources */,
 				5DC9062035F785AC53638881 /* PlainTask.swift in Sources */,

@@ -170,6 +170,46 @@ final class NoteMarkdownTests: XCTestCase {
     }
 }
 
+final class FocusTimerTests: XCTestCase {
+    func testCountsPausesAndResumes() {
+        var clock = Date(timeIntervalSince1970: 1000)
+        let timer = FocusTimer()
+        timer.now = { clock }
+        timer.start("a", day: "2026-11-09")
+        clock += 90
+        XCTAssertEqual(timer.elapsed(), 90)
+        timer.pause()
+        clock += 600
+        XCTAssertEqual(timer.elapsed(), 90)
+        timer.resume()
+        clock += 30
+        XCTAssertEqual(timer.elapsed(), 120)
+        XCTAssertTrue(timer.isRunning)
+        timer.stop()
+        XCTAssertFalse(timer.isActive)
+        XCTAssertEqual(timer.elapsed(), 0)
+    }
+
+    func testFormat() {
+        XCTAssertEqual(FocusTimer.format(5), "00:05")
+        XCTAssertEqual(FocusTimer.format(754), "12:34")
+        XCTAssertEqual(FocusTimer.format(3723), "1:02:03")
+    }
+
+    func testProgressAndNextTask() {
+        let store = TaskStore(fileURL: nil)
+        let a = store.create(text: "A", date: "2026-11-09")
+        let b = store.create(text: "B", date: "2026-11-09", time: "08:00")
+        store.create(text: "C", date: "2026-11-09")
+        store.toggleDone(b)
+        XCTAssertEqual(store.progress(on: "2026-11-09").done, 1)
+        XCTAssertEqual(store.progress(on: "2026-11-09").total, 3)
+        // Timed tasks come first, done ones are skipped.
+        XCTAssertEqual(store.openTasks(on: "2026-11-09").first?.id, a)
+        XCTAssertEqual(store.progress(on: "2026-11-10").total, 0)
+    }
+}
+
 final class DateKeyTests: XCTestCase {
     func testWeekMath() {
         XCTAssertEqual(DateKey.startOfWeek("2026-11-09"), "2026-11-09")
@@ -399,6 +439,31 @@ final class TaskStoreTests: XCTestCase {
         planner.visibleCount = 2
         planner.reveal("2026-12-03")
         XCTAssertEqual(planner.weekStart, "2026-12-03")
+    }
+
+    func testFocusModeFollowsTheSelectedDay() {
+        // Focus mode is a saved setting: leave the user's as it was.
+        let saved = UserDefaults.standard.object(forKey: PlannerModel.focusModeKey)
+        defer { UserDefaults.standard.set(saved, forKey: PlannerModel.focusModeKey) }
+        let planner = PlannerModel(today: "2026-11-09")
+        planner.focusMode = false
+        planner.toggleFocusMode()
+        XCTAssertEqual(planner.focusedDay, "2026-11-09")
+        XCTAssertFalse(planner.isBlurred("2026-11-09"))
+        XCTAssertTrue(planner.isBlurred("2026-11-11"))
+        // Clicking another day focuses it; today blurs.
+        planner.focusDay("2026-11-11")
+        XCTAssertFalse(planner.isBlurred("2026-11-11"))
+        XCTAssertTrue(planner.isBlurred("2026-11-09"))
+        XCTAssertTrue(planner.isBlurred(nil))
+        // Clicking its header again clears the selection: back to today.
+        planner.select("2026-11-11")
+        XCTAssertFalse(planner.isBlurred("2026-11-09"))
+        // Outside focus mode nothing is blurred and clicks select nothing.
+        planner.toggleFocusMode()
+        planner.focusDay("2026-11-12")
+        XCTAssertNil(planner.selectedDay)
+        XCTAssertFalse(planner.isBlurred("2026-11-12"))
     }
 
     func testSelectingADayTogglesIt() {

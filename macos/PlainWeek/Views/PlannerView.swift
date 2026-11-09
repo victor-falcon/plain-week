@@ -75,6 +75,7 @@ struct PlannerHeader: View {
             }
             Spacer()
             HStack(spacing: 8) {
+                TimerPill()
                 Button {
                     withAnimation(.smooth(duration: 0.3)) { planner.showSidebar.toggle() }
                 } label: {
@@ -103,6 +104,83 @@ struct PlannerHeader: View {
     }
 }
 
+/// A thin bar across the top of a day card: the share of its tasks done.
+struct DayProgressBar: View {
+    var date: String
+    @Environment(TaskStore.self) private var store
+
+    var body: some View {
+        let progress = store.progress(on: date)
+        let fraction = progress.total == 0 ? 0 : CGFloat(progress.done) / CGFloat(progress.total)
+        GeometryReader { proxy in
+            ZStack(alignment: .leading) {
+                Capsule().fill(Theme.border)
+                Capsule()
+                    .fill(Theme.foreground)
+                    .frame(width: proxy.size.width * fraction)
+                    .animation(.smooth(duration: 0.35), value: fraction)
+            }
+        }
+        .frame(height: 4)
+        .opacity(progress.total == 0 ? 0.5 : 1)
+        .help(progress.total == 0 ? "No tasks" : "\(progress.done) of \(progress.total) done")
+        .accessibilityElement()
+        .accessibilityLabel("Progress")
+        .accessibilityValue("\(progress.done) of \(progress.total) done")
+    }
+}
+
+/// ▶ in a day's header: starts the timer on its next unfinished task.
+struct DayPlayButton: View {
+    var date: String
+    @Environment(TaskStore.self) private var store
+    @Environment(PlannerModel.self) private var planner
+    @Environment(FocusTimer.self) private var timer
+
+    var body: some View {
+        let next = store.openTasks(on: date).first
+        Button {
+            TimerActions.startDay(date, store: store, planner: planner, timer: timer)
+        } label: {
+            Image(systemName: "play.fill")
+                .font(.system(size: 10, weight: .bold))
+                .foregroundStyle(next == nil ? Theme.mutedForeground.opacity(0.4) : Theme.background)
+                .frame(width: 26, height: 26)
+                .background(Circle().fill(next == nil ? Theme.border : Theme.foreground))
+        }
+        .buttonStyle(.plain)
+        .focusEffectDisabled()
+        .disabled(next == nil)
+        .help(next.map { "Start the timer on “\($0.task.text)”" } ?? "Nothing left to do on this day")
+    }
+}
+
+/// While a timer runs: the task and clock in the header; a click shows the
+/// mini window again.
+struct TimerPill: View {
+    @Environment(TaskStore.self) private var store
+    @Environment(PlannerModel.self) private var planner
+    @Environment(FocusTimer.self) private var timer
+
+    var body: some View {
+        if timer.isActive, let item = timer.taskId.flatMap({ store.item($0) }) {
+            Button {
+                MiniTimerPanel.shared.show(store: store, planner: planner, timer: timer)
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: timer.isRunning ? "timer" : "pause.fill")
+                    Text(item.task.text).lineLimit(1).frame(maxWidth: 160)
+                    TimelineView(.periodic(from: .now, by: 1)) { context in
+                        Text(FocusTimer.format(timer.elapsed(at: context.date))).monospacedDigit()
+                    }
+                }
+            }
+            .buttonStyle(PillButtonStyle(active: false))
+            .help("Show the timer")
+        }
+    }
+}
+
 /// Turns focus mode on and off: everything but today is blurred.
 struct FocusButton: View {
     @Environment(PlannerModel.self) private var planner
@@ -116,7 +194,7 @@ struct FocusButton: View {
                 .foregroundStyle(planner.focusMode ? Theme.background : Theme.foreground)
         }
         .buttonStyle(PillButtonStyle(active: planner.focusMode))
-        .help(planner.focusMode ? "Turn off focus mode (⇧⌘F)" : "Focus on today (⇧⌘F)")
+        .help(planner.focusMode ? "Turn off focus mode (⇧⌘F)" : "Focus on one day: the selected one, else today (⇧⌘F)")
     }
 }
 
@@ -381,6 +459,8 @@ struct DayColumn: View {
         let isWeekend = DateKey.isoWeekday(date) >= 6
         let isSelected = planner.selectedDay == date
         VStack(alignment: .leading, spacing: 8) {
+            DayProgressBar(date: date)
+                .padding(.horizontal, 6)
             HStack(alignment: .center, spacing: 8) {
                 Text("\(DateKey.dayOfMonth(date))")
                     .font(.system(size: 26, weight: .bold))
@@ -400,6 +480,7 @@ struct DayColumn: View {
                         .foregroundStyle(Theme.plannerAccent)
                         .help("Selected: Done shows this day")
                 }
+                DayPlayButton(date: date)
             }
             .padding(.horizontal, 6)
             .contentShape(Rectangle())
@@ -435,6 +516,10 @@ struct DayColumn: View {
         )
         .frame(maxWidth: .infinity)
         .focusBlur(planner.isBlurred(date))
+        // In focus mode, a click anywhere in a blurred day focuses it.
+        .simultaneousGesture(TapGesture().onEnded {
+            withAnimation(.smooth(duration: 0.3)) { planner.focusDay(date) }
+        })
     }
 }
 
@@ -724,6 +809,12 @@ struct DoneList: View {
     var day: String?
     @Environment(PlannerModel.self) private var planner
 
+    /// "today", "yesterday", "tomorrow" or "on Tue 10 Nov", for sentences.
+    static func relativeLabel(_ day: String, today: String) -> String {
+        let label = dayLabel(day, today: today)
+        return ["Today", "Yesterday", "Tomorrow"].contains(label) ? label.lowercased() : "on \(label)"
+    }
+
     static func dayLabel(_ day: String?, today: String) -> String {
         guard let day else { return "Backlog" }
         if day == today { return "Today" }
@@ -734,7 +825,7 @@ struct DoneList: View {
 
     var body: some View {
         if items.isEmpty {
-            Text(day.map { "Nothing done on \(Self.dayLabel($0, today: planner.today).lowercased() == "today" ? "today" : Self.dayLabel($0, today: planner.today)) yet." } ?? "Nothing done yet.")
+            Text(day.map { "Nothing done \(Self.relativeLabel($0, today: planner.today)) yet." } ?? "Nothing done yet.")
                 .font(.system(size: 13))
                 .foregroundStyle(Theme.mutedForeground)
                 .padding(.horizontal, 6)

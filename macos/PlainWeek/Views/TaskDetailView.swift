@@ -119,6 +119,16 @@ struct TaskDetailView: View {
         .onAppear {
             title = task.text
             notes = task.notes
+            #if DEBUG
+            // Debug captures: PLAINWEEK_SNAPSHOT_PICKER=repeat|color|date|time opens that popover.
+            switch ProcessInfo.processInfo.environment["PLAINWEEK_SNAPSHOT_PICKER"] {
+            case "repeat": DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { picker = .repeating }
+            case "color": DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { picker = .color }
+            case "date": DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { picker = .date }
+            case "time": DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { picker = .time }
+            default: break
+            }
+            #endif
             DispatchQueue.main.async { loaded = true }
         }
         .onDisappear(perform: addSubtask)
@@ -514,7 +524,13 @@ struct QuickEntryField: View {
 
     var body: some View {
         TextField("", text: $text, prompt: Text(prompt))
-            .textFieldStyle(.roundedBorder)
+            .textFieldStyle(.plain)
+            .font(.system(size: 13))
+            .padding(.horizontal, 10)
+            .frame(height: 30)
+            .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Theme.hover))
+            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .strokeBorder(focused ? Theme.foreground.opacity(0.6) : Theme.border))
             .focused($focused)
             .onSubmit {
                 let typed = text.trimmingCharacters(in: .whitespaces)
@@ -522,7 +538,8 @@ struct QuickEntryField: View {
                 invalid = !onSubmit(typed)
             }
             .onChange(of: text) { invalid = false }
-            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(invalid ? Color.red.opacity(0.7) : .clear))
+            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(invalid ? Theme.foreground : .clear, lineWidth: 2))
+            .help(invalid ? "Not understood" : "")
             .frame(minWidth: 220)
             .onAppear { DispatchQueue.main.async { focused = true } }
     }

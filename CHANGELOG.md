@@ -19,7 +19,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   ⌘T todo lines, ⌘E time, ⇧⌘C colors, ⌥⌘B block caret). Each row starts with a round
   checkbox in the task's color and ends with the time and markers for notes and subtasks. New tasks read natural
   words ("tomorrow call Joao @11:30 #yellow daily") with a live preview, and the task sheet works from the keyboard
-  alone (⌥⌘D date, ⌥⌘T time, ⌥⌘R repeat, ⌥⌘C color). A focus mode (⇧⌘F) blurs every day but today. It has the eleven
+  alone (⌥⌘D date, ⌥⌘T time, ⌥⌘R repeat, ⌥⌘C color). Each day shows a progress bar and a ▶ that starts a timer on
+  its next task in a floating mini window (title, checkbox, play / pause). A focus mode (⇧⌘F) blurs every day but
+  the one you click (today by default). It has the eleven
   task colors in light and dark, drag and drop, a task sheet with notes, subtasks, time and repeat rules (daily,
   weekly, monthly, with "only this" or "this and all future"), carry over of unfinished tasks, undo, and JSON
   export/import in the web app's format. It stores tasks locally and does not sync yet. See

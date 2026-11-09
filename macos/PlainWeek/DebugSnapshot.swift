@@ -10,7 +10,7 @@ import SwiftUI
 enum DebugSnapshot {
     /// `PLAINWEEK_WINDOW_SNAPSHOT=<file>` captures the real window (scroll views
     /// included) after `PLAINWEEK_SNAPSHOT_SHIFT=<days>` scrolls the strip.
-    static func scheduleWindowCaptureIfRequested(planner: PlannerModel) {
+    static func scheduleWindowCaptureIfRequested(planner: PlannerModel, store: TaskStore, timer: FocusTimer) {
         let env = ProcessInfo.processInfo.environment
         guard let name = env["PLAINWEEK_WINDOW_SNAPSHOT"] else { return }
         let shift = Int(env["PLAINWEEK_SNAPSHOT_SHIFT"] ?? "0") ?? 0
@@ -29,8 +29,15 @@ enum DebugSnapshot {
             planner.scroll(by: shift)
             // PLAINWEEK_SNAPSHOT_OPEN=<task id> captures that task's sheet.
             if let id = env["PLAINWEEK_SNAPSHOT_OPEN"] { planner.open(id) }
+            // PLAINWEEK_SNAPSHOT_SELECT=<day> selects (and in focus mode focuses) a day.
+            if let day = env["PLAINWEEK_SNAPSHOT_SELECT"] { planner.reveal(day) }
+            // PLAINWEEK_SNAPSHOT_TIMER=<day> starts its timer and captures the mini window.
+            if let day = env["PLAINWEEK_SNAPSHOT_TIMER"] { TimerActions.startDay(day, store: store, planner: planner, timer: timer) }
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                let main = NSApp.windows.first(where: { $0.isVisible && $0.title == "Plain Week" }) ?? NSApp.windows.first(where: \.isVisible)
+                let popover = env["PLAINWEEK_SNAPSHOT_PICKER"] != nil
+                    ? NSApp.windows.first(where: { $0.isVisible && String(describing: type(of: $0)).contains("Popover") }) : nil
+                let main = popover != nil ? popover : env["PLAINWEEK_SNAPSHOT_TIMER"] != nil ? NSApp.windows.first(where: { $0 is NSPanel && $0.isVisible })
+                    : NSApp.windows.first(where: { $0.isVisible && $0.title == "Plain Week" }) ?? NSApp.windows.first(where: \.isVisible)
                 guard let window = main?.attachedSheet ?? main,
                       let image = CGWindowListCreateImage(.null, .optionIncludingWindow, CGWindowID(window.windowNumber), [.boundsIgnoreFraming, .bestResolution])
                 else { NSLog("Window capture failed"); exit(1) }
@@ -56,6 +63,7 @@ enum DebugSnapshot {
                 let view = SnapshotView()
                     .environment(store)
                     .environment(planner)
+                    .environment(FocusTimer())
                     .environment(\.colorScheme, dark ? .dark : .light)
                     .frame(width: 1320)
                 let renderer = ImageRenderer(content: view)

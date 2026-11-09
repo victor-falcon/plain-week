@@ -17,6 +17,7 @@ struct PlainWeekApp: App {
         return TaskStore.defaultFileURL()
     }
     @State private var planner = PlannerModel()
+    @State private var timer = FocusTimer()
     @AppStorage("appearance") private var appearance = Appearance.system.rawValue
 
     var body: some Scene {
@@ -24,16 +25,27 @@ struct PlainWeekApp: App {
             PlannerView()
                 .environment(store)
                 .environment(planner)
+                .environment(timer)
                 .frame(minWidth: 760, minHeight: 600)
                 .ignoresSafeArea(.container, edges: .top)
                 .preferredColorScheme(Appearance(rawValue: appearance)?.colorScheme)
+                .tint(Theme.foreground)
+                // Popovers, sheets and the mini timer are windows of their own:
+                // give them the app's Light / Dark choice too, not the system's.
+                .onChange(of: appearance, initial: true) { _, value in
+                    NSApp.appearance = switch Appearance(rawValue: value) {
+                    case .light: NSAppearance(named: .aqua)
+                    case .dark: NSAppearance(named: .darkAqua)
+                    default: nil
+                    }
+                }
                 .onAppear {
                     planner.onDayChange = { [store, planner] today in store.carryOverIfEnabled(today: today, planner: planner) }
                     planner.startClock()
                     store.carryOverIfEnabled(today: planner.today, planner: planner)
                     #if DEBUG
                     DebugSnapshot.scheduleIfRequested(store: store, planner: planner)
-                    DebugSnapshot.scheduleWindowCaptureIfRequested(planner: planner)
+                    DebugSnapshot.scheduleWindowCaptureIfRequested(planner: planner, store: store, timer: timer)
                     #endif
                 }
         }
@@ -45,7 +57,9 @@ struct PlainWeekApp: App {
             SettingsView()
                 .environment(store)
                 .environment(planner)
+                .environment(timer)
                 .preferredColorScheme(Appearance(rawValue: appearance)?.colorScheme)
+                .tint(Theme.foreground)
         }
     }
 }
