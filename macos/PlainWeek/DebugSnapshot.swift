@@ -31,16 +31,26 @@ enum DebugSnapshot {
             if let id = env["PLAINWEEK_SNAPSHOT_OPEN"] { planner.open(id) }
             // PLAINWEEK_SNAPSHOT_SELECT=<day> selects (and in focus mode focuses) a day.
             if let day = env["PLAINWEEK_SNAPSHOT_SELECT"] { planner.reveal(day) }
+            // PLAINWEEK_SNAPSHOT_SHEET=review|palette|quick opens that window.
+            switch env["PLAINWEEK_SNAPSHOT_SHEET"] {
+            case "review": planner.showReview = true
+            case "palette": planner.showPalette = true
+            case "quick": QuickCapture.shared.show()
+            default: break
+            }
             // PLAINWEEK_SNAPSHOT_TIMER=<day> starts its timer and captures the mini window.
             if let day = env["PLAINWEEK_SNAPSHOT_TIMER"] { TimerActions.startDay(day, store: store, planner: planner, timer: timer) }
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                 let popover = env["PLAINWEEK_SNAPSHOT_PICKER"] != nil
                     ? NSApp.windows.first(where: { $0.isVisible && String(describing: type(of: $0)).contains("Popover") }) : nil
-                let main = popover != nil ? popover : env["PLAINWEEK_SNAPSHOT_TIMER"] != nil ? NSApp.windows.first(where: { $0 is NSPanel && $0.isVisible })
+                let main = popover != nil ? popover : (env["PLAINWEEK_SNAPSHOT_TIMER"] != nil || env["PLAINWEEK_SNAPSHOT_SHEET"] == "quick") ? NSApp.windows.first(where: { $0 is NSPanel && $0.isVisible })
                     : NSApp.windows.first(where: { $0.isVisible && $0.title == "Plain Week" }) ?? NSApp.windows.first(where: \.isVisible)
                 guard let window = main?.attachedSheet ?? main,
                       let image = CGWindowListCreateImage(.null, .optionIncludingWindow, CGWindowID(window.windowNumber), [.boundsIgnoreFraming, .bestResolution])
-                else { NSLog("Window capture failed"); exit(1) }
+                else {
+                    NSLog("Window capture failed; windows: %@", NSApp.windows.map { "\(type(of: $0)) visible=\($0.isVisible)" }.joined(separator: ", "))
+                    exit(1)
+                }
                 let url = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(name)
                 try? NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:])?.write(to: url)
                 NSLog("first visible day %@, %d days visible", planner.weekStart, planner.visibleCount)
@@ -64,6 +74,8 @@ enum DebugSnapshot {
                     .environment(store)
                     .environment(planner)
                     .environment(FocusTimer())
+                    .environment(AppModel.shared.timeLog)
+                    .environment(AppModel.shared.calendar)
                     .environment(\.colorScheme, dark ? .dark : .light)
                     .frame(width: 1320)
                 let renderer = ImageRenderer(content: view)

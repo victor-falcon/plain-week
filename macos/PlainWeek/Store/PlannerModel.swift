@@ -30,6 +30,13 @@ final class PlannerModel {
     /// The day picked by clicking its header; the Done section shows its
     /// completed tasks, or every completed task when nil.
     var selectedDay: String?
+    /// The keyboard cursor (vim keys); nil while hidden.
+    var cursor: Cursor?
+    /// The first "d" of "d d" (delete), waiting a second for the second one.
+    @ObservationIgnored var pendingDeleteAt: Date?
+    /// The weekly review and the command palette sheets.
+    var showReview = false
+    var showPalette = false
     /// The Backlog and Done sidebar (remembered across launches).
     var showSidebar: Bool = UserDefaults.standard.object(forKey: "showSidebar") as? Bool ?? true {
         didSet { UserDefaults.standard.set(showSidebar, forKey: "showSidebar") }

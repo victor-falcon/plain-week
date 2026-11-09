@@ -163,8 +163,14 @@ struct MiniTimerView: View {
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(item == nil ? Theme.mutedForeground : Theme.foreground)
                     .lineLimit(2)
+                if timer.mode == .pomodoro {
+                    Text(timer.phase == .work ? "FOCUS" : "BREAK")
+                        .font(.system(size: 10, weight: .semibold))
+                        .tracking(0.8)
+                        .foregroundStyle(Theme.mutedForeground)
+                }
                 TimelineView(.periodic(from: .now, by: 1)) { context in
-                    Text(FocusTimer.format(timer.elapsed(at: context.date)))
+                    Text(FocusTimer.format(timer.display(at: context.date)))
                         .font(Theme.heading.monospacedDigit())
                         .tracking(-0.5)
                         .foregroundStyle(timer.isRunning ? Theme.foreground : Theme.mutedForeground)

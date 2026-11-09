@@ -4,28 +4,18 @@ import UniformTypeIdentifiers
 
 @main
 struct PlainWeekApp: App {
-    @State private var store = TaskStore(fileURL: PlainWeekApp.dataFileURL)
-
-    /// Debug builds can point at another file with `PLAINWEEK_DATA_FILE` (a
-    /// name in the app's temporary directory), so snapshots never touch real data.
-    private static var dataFileURL: URL? {
-        #if DEBUG
-        if let name = ProcessInfo.processInfo.environment["PLAINWEEK_DATA_FILE"] {
-            return URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(name)
-        }
-        #endif
-        return TaskStore.defaultFileURL()
-    }
-    @State private var planner = PlannerModel()
-    @State private var timer = FocusTimer()
+    private let model = AppModel.shared
     @AppStorage("appearance") private var appearance = Appearance.system.rawValue
+    @AppStorage(MenuBarSettings.key) private var showMenuBar = true
 
     var body: some Scene {
         Window("Plain Week", id: "planner") {
             PlannerView()
-                .environment(store)
-                .environment(planner)
-                .environment(timer)
+                .environment(model.store)
+                .environment(model.planner)
+                .environment(model.timer)
+                .environment(model.timeLog)
+                .environment(model.calendar)
                 .frame(minWidth: 760, minHeight: 600)
                 .ignoresSafeArea(.container, edges: .top)
                 .preferredColorScheme(Appearance(rawValue: appearance)?.colorScheme)
@@ -40,28 +30,42 @@ struct PlainWeekApp: App {
                     }
                 }
                 .onAppear {
-                    planner.onDayChange = { [store, planner] today in store.carryOverIfEnabled(today: today, planner: planner) }
-                    planner.startClock()
-                    store.carryOverIfEnabled(today: planner.today, planner: planner)
+                    model.launch()
                     #if DEBUG
-                    DebugSnapshot.scheduleIfRequested(store: store, planner: planner)
-                    DebugSnapshot.scheduleWindowCaptureIfRequested(planner: planner, store: store, timer: timer)
+                    DebugSnapshot.scheduleIfRequested(store: model.store, planner: model.planner)
+                    DebugSnapshot.scheduleWindowCaptureIfRequested(planner: model.planner, store: model.store, timer: model.timer)
                     #endif
                 }
         }
         .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 1360, height: 900)
-        .commands { PlannerCommands(store: store, planner: planner) }
+        .commands { PlannerCommands(store: model.store, planner: model.planner) }
+
+        MenuBarExtra(isInserted: $showMenuBar) {
+            MenuBarView()
+                .environment(model.store)
+                .environment(model.planner)
+                .environment(model.timer)
+                .preferredColorScheme(Appearance(rawValue: appearance)?.colorScheme)
+        } label: {
+            MenuBarLabel().environment(model.timer)
+        }
+        .menuBarExtraStyle(.window)
 
         Settings {
             SettingsView()
-                .environment(store)
-                .environment(planner)
-                .environment(timer)
+                .environment(model.store)
+                .environment(model.planner)
+                .environment(model.timer)
+                .environment(model.calendar)
                 .preferredColorScheme(Appearance(rawValue: appearance)?.colorScheme)
                 .tint(Theme.foreground)
         }
     }
+}
+
+enum MenuBarSettings {
+    static let key = "showMenuBar"
 }
 
 enum Appearance: String, CaseIterable, Identifiable {
@@ -104,7 +108,15 @@ struct PlannerCommands: Commands {
                 .keyboardShortcut("f", modifiers: [.command, .shift])
             Divider()
         }
+        CommandGroup(after: .newItem) {
+            Button("Quick Add…  ⌥Space") { QuickCapture.shared.show() }
+        }
         CommandMenu("Go") {
+            Button("Search and Commands…") { planner.showPalette = true }
+                .keyboardShortcut("k")
+            Button("Weekly Review") { planner.showReview = true }
+                .keyboardShortcut("r", modifiers: [.command, .shift])
+            Divider()
             Button("Today") { planner.goToToday() }
                 .keyboardShortcut("t")
             Button("Previous Week") { planner.previousWeek() }

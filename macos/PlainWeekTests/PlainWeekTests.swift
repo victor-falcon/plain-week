@@ -210,6 +210,112 @@ final class FocusTimerTests: XCTestCase {
     }
 }
 
+final class NewFeatureTests: XCTestCase {
+    func testTimeLogTotals() {
+        let log = TimeLog(fileURL: nil)
+        let monday = DateKey.localDate("2026-11-09").addingTimeInterval(9 * 3600)
+        log.add("a", seconds: 600, start: monday)
+        log.add("a", seconds: 300, start: monday.addingTimeInterval(86400))
+        log.add("b", seconds: 0.4, start: monday)
+        XCTAssertEqual(log.total(for: "a"), 900)
+        XCTAssertEqual(log.total(for: "b"), 0)
+        XCTAssertEqual(log.total(on: "2026-11-09"), 600)
+        XCTAssertEqual(TimeLog.format(4800), "1h 20m")
+        XCTAssertEqual(TimeLog.format(2700), "45m")
+    }
+
+    func testPomodoroSwitchesPhaseAndLogsOnlyFocus() {
+        var clock = Date(timeIntervalSince1970: 1000)
+        let timer = FocusTimer()
+        timer.now = { clock }
+        var logged: TimeInterval = 0
+        var ended: [FocusTimer.Phase] = []
+        timer.onLog = { _, seconds, _ in logged += seconds }
+        timer.onPhaseEnd = { ended.append($0) }
+        timer.start("a", day: nil, mode: .pomodoro)
+        clock += timer.workLength
+        timer.tick()
+        XCTAssertEqual(ended, [.work])
+        XCTAssertEqual(timer.phase, .rest)
+        XCTAssertEqual(logged, timer.workLength)
+        clock += timer.breakLength
+        timer.tick()
+        XCTAssertEqual(ended, [.work, .rest])
+        XCTAssertEqual(logged, timer.workLength, "a break is not focus time")
+        clock += 60
+        XCTAssertEqual(timer.remaining(), timer.workLength - 60)
+        timer.stop()
+        XCTAssertEqual(logged, timer.workLength + 60)
+    }
+
+    @MainActor
+    func testRemindersPlanTimedOpenTasks() {
+        let store = TaskStore(fileURL: nil)
+        store.create(text: "Dentist", date: "2026-11-10", time: "14:00")
+        store.create(text: "No time", date: "2026-11-10")
+        let done = store.create(text: "Done", date: "2026-11-10", time: "09:00")
+        store.toggleDone(done)
+        store.create(text: "Too late", date: "2026-11-09", time: "08:00")
+        let now = DateKey.localDate("2026-11-09").addingTimeInterval(12 * 3600)
+        let plan = Reminders.plan(store: store, now: now, lead: 5)
+        XCTAssertEqual(plan.map(\.title), ["Dentist"])
+        XCTAssertEqual(plan.first?.fireDate, DateKey.localDate("2026-11-10").addingTimeInterval(14 * 3600 - 300))
+        XCTAssertEqual(plan.first?.body, "In 5 min · 14:00")
+    }
+
+    func testBackupsWriteOncePerDayAndPrune() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let store = TaskStore(fileURL: nil)
+        XCTAssertNil(Backups.runIfNeeded(store: store, today: "2026-11-09", folder: folder, force: true), "nothing to back up")
+        store.create(text: "A", date: "2026-11-09")
+        XCTAssertNotNil(Backups.runIfNeeded(store: store, today: "2026-11-09", folder: folder, force: true))
+        for day in 1...20 { FileManager.default.createFile(atPath: folder.appendingPathComponent(Backups.fileName(String(format: "2026-10-%02d", day))).path, contents: Data()) }
+        Backups.prune(folder)
+        let left = try FileManager.default.contentsOfDirectory(atPath: folder.path).sorted()
+        XCTAssertEqual(left.count, Backups.keep)
+        XCTAssertEqual(left.last, "plain-week-2026-11-09.json")
+    }
+
+    func testPaletteFindsCommandsDaysAndTasks() {
+        let store = TaskStore(fileURL: nil)
+        store.create(text: "Call Joao", date: "2026-11-10", notes: "about the release")
+        let today = "2026-11-09"
+        XCTAssertTrue(Palette.results("review", store: store, today: today).contains { $0.target == .command(.review) })
+        XCTAssertEqual(Palette.results("fri", store: store, today: today).first?.target, .day("2026-11-13"))
+        XCTAssertTrue(Palette.results("release", store: store, today: today).contains { $0.title == "Call Joao" })
+        XCTAssertEqual(Palette.results("", store: store, today: today).count, Palette.Command.allCases.count)
+    }
+
+    @MainActor
+    func testVimKeysMoveMarkAndDelete() {
+        let store = TaskStore(fileURL: nil)
+        let planner = PlannerModel(today: "2026-11-09")
+        let timer = FocusTimer()
+        let a = store.create(text: "A", date: "2026-11-09")
+        let b = store.create(text: "B", date: "2026-11-09")
+        store.create(text: "C", date: "2026-11-10")
+        let key = { (k: String) in KeyboardNav.handle(k, store: store, planner: planner, timer: timer, undoManager: nil) }
+        key("j")
+        XCTAssertEqual(planner.cursor, Cursor(day: "2026-11-09", index: 0), "the first key shows the cursor on today")
+        key("j")
+        XCTAssertEqual(planner.cursor?.index, 1)
+        key("x")
+        XCTAssertTrue(store.rows[b]!.done)
+        key("l")
+        XCTAssertEqual(planner.cursor, Cursor(day: "2026-11-10", index: 0))
+        key("h"); key("k")
+        let now = Date()
+        KeyboardNav.handle("d", store: store, planner: planner, timer: timer, undoManager: nil, now: now)
+        XCTAssertNotNil(store.item(a), "one d does nothing yet")
+        KeyboardNav.handle("d", store: store, planner: planner, timer: timer, undoManager: nil, now: now.addingTimeInterval(0.3))
+        XCTAssertNil(store.item(a))
+        key("\u{1B}")
+        XCTAssertNil(planner.cursor)
+    }
+}
+
 final class DateKeyTests: XCTestCase {
     func testWeekMath() {
         XCTAssertEqual(DateKey.startOfWeek("2026-11-09"), "2026-11-09")

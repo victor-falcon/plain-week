@@ -6,6 +6,7 @@ import SwiftUI
 struct TaskDetailView: View {
     @State var taskId: String
     @Environment(TaskStore.self) private var store
+    @Environment(TimeLog.self) private var timeLog
     @Environment(PlannerModel.self) private var planner
     @Environment(\.undoManager) private var undoManager
     @Environment(\.dismiss) private var dismiss
@@ -111,6 +112,13 @@ struct TaskDetailView: View {
             }
 
             subtasks(task)
+
+            let tracked = timeLog.total(for: taskId)
+            if tracked > 0 {
+                Label("\(TimeLog.format(tracked)) focused on this task", systemImage: "timer")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Theme.mutedForeground)
+            }
 
             shortcutFooter
         }

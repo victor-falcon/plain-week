@@ -31,7 +31,7 @@ dark theme) renders the planner with `ImageRenderer` into the app's temporary di
 fields, drop targets) as yellow placeholders, so only the layout, colors and text are meaningful there. It also draws
 the seven visible days without their scroll view. To capture the real window instead (scroll views and controls
 included, or a task's sheet with `PLAINWEEK_SNAPSHOT_OPEN=<task id>`), use `PLAINWEEK_WINDOW_SNAPSHOT=strip.png`, optionally with `PLAINWEEK_SNAPSHOT_SHIFT=<days>` to scroll the
-strip first, `PLAINWEEK_SNAPSHOT_SELECT=<day>` to select (and focus) a day, `PLAINWEEK_SNAPSHOT_TIMER=<day>` to
+strip first, `PLAINWEEK_SNAPSHOT_SHEET=review|palette|quick` to open those, `PLAINWEEK_SNAPSHOT_SELECT=<day>` to select (and focus) a day, `PLAINWEEK_SNAPSHOT_TIMER=<day>` to
 start that day's timer and capture the mini window, and `PLAINWEEK_DATA_FILE=<name>` to read a sample file from that temporary directory instead of
 your tasks.
 
@@ -102,6 +102,26 @@ blurring them. Click targets are at least 28pt (the row checkbox and ▶ keep th
   day; the setting is remembered between launches.
 
 Colors still come from the web app's tokens (`Theme.swift`), plus a card surface and a hover tint.
+
+## Beyond the planner window
+
+| Feature            | How it works                                                                                                                                                                                                        |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Quick add          | ⌥Space from any app opens a floating field (Spotlight-style) with the same natural typing as a new-task row; Return adds to today or the day typed. Settings can turn the hotkey off. No permission needed.         |
+| Menu bar           | Today's progress and tasks (tick them, ▶ them), the running timer with pause and stop, a quick-add field, Open Plain Week and Weekly Review. The icon shows the clock while a timer runs. Can be hidden.            |
+| Reminders          | A notification for tasks with a time in the next week (at the time, or 5 to 60 minutes before; default 5), with Mark as Done and Snooze 10 min. Rescheduled after every change; works offline.                      |
+| Calendar events    | Off by default. When on (Settings, asks for Calendar access), each day card lists its events read-only above the tasks: all-day first, then by time, in grey.                                                       |
+| Time tracking      | Focus time from the timer is saved per task in `time.json` next to `tasks.json` (local only, not synced). The task sheet shows "1h 20m focused on this task"; the weekly review sums it per day.                    |
+| Pomodoro           | Settings › Timer › Pomodoro: focus and break phases (25 and 5 minutes by default) switch on their own with a notification; the mini window and menu bar show FOCUS or BREAK and the time left. Breaks do not count. |
+| Weekly review      | Go › Weekly Review (⇧⌘R): done, open and focused time for the week, done per day as bars, and each unfinished task with Today, Next week, Backlog and Mark as Done buttons, or Move All to Next Week. Undoable.     |
+| Command palette    | ⌘K (or / in the planner): commands, a day typed like "fri" or "31 dec", and tasks found by title or notes. ↑ ↓ choose, Return runs.                                                                                 |
+| Shortcuts and Siri | Add Task (natural typing), Show Today's Tasks and Start Timer on Next Task, with Siri phrases such as "Add a task in Plain Week".                                                                                   |
+| Daily backups      | Once a day, a JSON backup in the export format in Application Support › Plain Week › Backups, keeping the last 14. Settings: turn off, Back Up Now, Show Backups.                                                   |
+| Vim keys           | j k (↓ ↑) tasks, h l (← →) days, H L weeks, t today, ↩ or o open, x or Space mark as done, d d delete, a i n add, p timer, / palette, Esc hide the cursor. Only while no text field is focused.                     |
+
+Not yet: **widgets** need a development team to sign an App Group (the widget reads the tasks through it); with the
+ad-hoc signing used here the app could not launch with that entitlement. **macOS Focus** (Do Not Disturb) has no
+public API for apps; pair Pomodoro with a Shortcuts automation that turns on a Focus instead.
 
 ## What it shares with the web app
 
@@ -179,9 +199,11 @@ macos/
 │   ├── PlainWeekApp.swift      App, window, menu commands, export/import panels
 │   ├── Model/                  PlainTask (contract), DateKeys (+ Clock, UUID v7), FractionalIndex, QuickAdd, NoteMarkdown,
 │   │                           RecurrenceEngine, SmartInput (+ Format)
-│   ├── Store/                  TaskStore (local repository, undo, carry over, import/export), PlannerModel (UI state), FocusTimer
-│   ├── Views/                  PlannerView (sidebar with Backlog and Done, header, day strip), TaskListView (rows, new-task row, menu, drops), TaskDetailView, NotesEditor, MiniTimer,
+│   ├── Store/                  TaskStore (local repository, undo, carry over, import/export), PlannerModel (UI state), AppModel,
+│   │                           FocusTimer, TimeLog, Reminders, CalendarEvents, Backups, KeyboardCursor
+│   ├── Views/                  PlannerView (sidebar with Backlog and Done, header, day strip), TaskListView (rows, new-task row, menu, drops), TaskDetailView, NotesEditor, MiniTimer, QuickCapture, MenuBar, WeeklyReview, CommandPalette,
 │   │                           RepeatPicker, SettingsView, Theme
+│   ├── Intents/                PlainWeekIntents (Shortcuts and Siri: Add Task, Today's Tasks, Start Timer)
 │   └── DebugSnapshot.swift     Debug-only headless render
 └── PlainWeekTests/             XCTest: fractional index, smart input, dates, recurrence, store behaviour
 ```

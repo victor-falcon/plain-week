@@ -7,6 +7,7 @@ import SwiftUI
 struct PlannerView: View {
     @Environment(TaskStore.self) private var store
     @Environment(PlannerModel.self) private var planner
+    @Environment(TimeLog.self) private var timeLog
     @Environment(\.undoManager) private var undoManager
     @FocusState private var focusedList: String?
 
@@ -29,6 +30,8 @@ struct PlannerView: View {
         .sheet(item: $planner.openTask) { open in
             TaskDetailView(taskId: open.id)
         }
+        .sheet(isPresented: $planner.showReview) { WeeklyReview(timeLog: timeLog) }
+        .sheet(isPresented: $planner.showPalette) { CommandPaletteView() }
         .onChange(of: planner.focusRequest) { _, request in
             guard let request else { return }
             if request == DataTransfer.somedayKey { planner.showSidebar = true }
@@ -41,6 +44,11 @@ struct PlannerView: View {
 /// The header over the day strip, filling the window's height.
 struct PlannerMain: View {
     var focus: FocusState<String?>.Binding
+    @Environment(TaskStore.self) private var store
+    @Environment(PlannerModel.self) private var planner
+    @Environment(FocusTimer.self) private var timer
+    @Environment(\.undoManager) private var undoManager
+    @FocusState private var keyboardFocus: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
@@ -52,6 +60,22 @@ struct PlannerMain: View {
         // Room for the window controls over the hidden title bar.
         .padding(.top, 40)
         .padding(.bottom, 24)
+        // Vim keys while nothing else takes the keyboard (see KeyboardNav).
+        .focusable()
+        .focused($keyboardFocus)
+        .focusEffectDisabled()
+        .onKeyPress(phases: .down) { press in
+            guard press.modifiers.isDisjoint(with: [.command, .control, .option]) else { return .ignored }
+            let key = press.key == .escape ? "\u{1B}" : press.key == .return ? "\r" : press.characters
+            return withAnimation(Motion.standard) {
+                KeyboardNav.handle(key, store: store, planner: planner, timer: timer, undoManager: undoManager)
+            } ? .handled : .ignored
+        }
+        .onAppear { keyboardFocus = true }
+        // Back to the planner keys after typing, a sheet or the palette.
+        .onChange(of: focus.wrappedValue) { _, list in if list == nil { keyboardFocus = true } }
+        .onChange(of: planner.openTask) { _, open in if open == nil { keyboardFocus = true } }
+        .onChange(of: planner.showPalette) { _, shown in if !shown { keyboardFocus = true } }
     }
 }
 
@@ -100,6 +124,36 @@ struct PlannerHeader: View {
             }
             .padding(.bottom, 8)
             .animation(Motion.standard, value: planner.showsToday)
+        }
+    }
+}
+
+/// The day's Calendar events (when turned on in Settings): quiet grey rows
+/// above the tasks, all-day ones first, read-only.
+struct DayEvents: View {
+    var date: String
+    @Environment(CalendarEvents.self) private var calendar
+
+    var body: some View {
+        let events = calendar.events(on: date)
+        if !events.isEmpty {
+            VStack(alignment: .leading, spacing: 2) {
+                ForEach(events) { event in
+                    HStack(spacing: 8) {
+                        Rectangle().fill(Theme.mutedForeground.opacity(0.5)).frame(width: 2, height: 14)
+                        Text(event.title).font(.system(size: 12, weight: .medium)).lineLimit(1)
+                        Spacer(minLength: 4)
+                        Text(event.time ?? "all day").font(.system(size: 11).monospacedDigit())
+                    }
+                    .foregroundStyle(Theme.mutedForeground)
+                    .padding(.horizontal, 6)
+                    .frame(height: 24)
+                    .help(event.title)
+                }
+            }
+            .padding(.bottom, 6)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Calendar: " + events.map { "\($0.title) \($0.time ?? "all day")" }.joined(separator: ", "))
         }
     }
 }
@@ -171,7 +225,7 @@ struct TimerPill: View {
                     Image(systemName: timer.isRunning ? "timer" : "pause.fill")
                     Text(item.task.text).lineLimit(1).frame(maxWidth: 160)
                     TimelineView(.periodic(from: .now, by: 1)) { context in
-                        Text(FocusTimer.format(timer.elapsed(at: context.date))).monospacedDigit()
+                        Text(FocusTimer.format(timer.display(at: context.date))).monospacedDigit()
                     }
                 }
             }
@@ -277,6 +331,7 @@ struct WeekButton: View {
 /// so the header and the week buttons follow the scroll and move it.
 struct DayStrip: View {
     var focus: FocusState<String?>.Binding
+    @Environment(CalendarEvents.self) private var calendar
     @Environment(TaskStore.self) private var store
     @Environment(PlannerModel.self) private var planner
     @Environment(\.staticDayStrip) private var staticStrip
@@ -337,6 +392,7 @@ struct DayStrip: View {
             pan.step = (width + Self.spacing) / CGFloat(count)
         }
         .onHover { hovering = $0 }
+        .onChange(of: planner.weekStart, initial: true) { _, day in calendar.prepare(around: day) }
         .onAppear {
             anchor = planner.weekStart
             position = planner.weekStart
@@ -495,6 +551,7 @@ struct DayColumn: View {
                 Spacer(minLength: 0)
             } else {
                 ScrollView(.vertical) {
+                    DayEvents(date: date)
                     TaskListView(listKey: date, date: date, items: items, minRows: fillRows, focus: focus)
                 }
                 .scrollIndicators(.automatic)

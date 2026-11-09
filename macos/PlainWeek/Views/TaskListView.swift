@@ -13,6 +13,7 @@ struct TaskListView: View {
     var columns = 1
     var focus: FocusState<String?>.Binding
     @Environment(TaskStore.self) private var store
+    @Environment(PlannerModel.self) private var planner
     @Environment(\.undoManager) private var undoManager
 
     private enum Slot: Hashable {
@@ -49,7 +50,8 @@ struct TaskListView: View {
     private func slotView(_ slot: Slot) -> some View {
         switch slot {
         case let .task(index):
-            TaskRow(item: items[index], listDate: date, onDrop: { id, below in drop(id, at: below ? index + 1 : index) })
+            TaskRow(item: items[index], listDate: date, onDrop: { id, below in drop(id, at: below ? index + 1 : index) },
+                    isCursor: date.map { planner.cursor == Cursor(day: $0, index: index) } ?? false)
         case .new:
             NewTaskRow(listKey: listKey, date: date, focus: focus, afterId: items.last?.id)
                 .dropDestination(for: String.self) { ids, _ in
@@ -227,6 +229,8 @@ struct TaskRow: View {
     var item: PlannerItem
     var listDate: String?
     var onDrop: (String, Bool) -> Void
+    /// The keyboard cursor is on this row.
+    var isCursor = false
     @Environment(TaskStore.self) private var store
     @Environment(PlannerModel.self) private var planner
     @Environment(\.undoManager) private var undoManager
@@ -298,8 +302,11 @@ struct TaskRow: View {
         .frame(minHeight: Theme.rowHeight)
         .background(
             RoundedRectangle(cornerRadius: Theme.rowRadius, style: .continuous)
-                .fill(hovering ? Theme.hover : .clear)
+                .fill(hovering || isCursor ? Theme.hover : .clear)
         )
+        .overlay(alignment: .leading) {
+            if isCursor { Capsule().fill(Theme.foreground).frame(width: 3).padding(.vertical, 10).offset(x: -2) }
+        }
         .overlay(alignment: dropLine == true ? .bottom : .top) {
             if dropLine != nil { Capsule().fill(Theme.plannerAccent).frame(height: 2).padding(.horizontal, 4) }
         }

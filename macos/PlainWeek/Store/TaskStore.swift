@@ -47,8 +47,12 @@ final class TaskStore {
         rows = Dictionary(tasks.map { ($0.id, $0) }, uniquingKeysWith: { a, b in a.updated_at >= b.updated_at ? a : b })
     }
 
+    /// Called after every save (reminders and widgets follow the data).
+    @ObservationIgnored var onSave: (() -> Void)?
+
     private func save() {
         revision += 1
+        defer { onSave?() }
         guard let fileURL else { return }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]

@@ -28,6 +28,10 @@ targets:
                 INFOPLIST_KEY_NSHumanReadableCopyright: 'MIT License'
                 ENABLE_APP_SANDBOX: YES
                 ENABLE_USER_SELECTED_FILES: readwrite
+        ENABLE_RESOURCE_ACCESS_CALENDARS: YES
+        INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription: "Plain Week shows your calendar events in each day, read-only, so you can plan tasks around them."
+        INFOPLIST_KEY_NSCalendarsUsageDescription: "Plain Week shows your calendar events in each day, read-only, so you can plan tasks around them."
+        INFOPLIST_KEY_LSUIElement: NO
                 ENABLE_HARDENED_RUNTIME: YES
                 CODE_SIGN_STYLE: Automatic
                 CODE_SIGN_IDENTITY: '-'
