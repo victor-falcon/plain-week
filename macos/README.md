@@ -28,7 +28,10 @@ build without XcodeGen.
 Headless layout check (debug builds only): `PLAINWEEK_SNAPSHOT=light.png` (plus `PLAINWEEK_SNAPSHOT_DARK=1` for the
 dark theme) renders the planner with `ImageRenderer` into the app's temporary directory
 (`~/Library/Containers/app.plainweek.mac/Data/tmp/`) and quits. `ImageRenderer` draws AppKit-backed controls (text
-fields, drop targets) as yellow placeholders, so only the layout, colors and text are meaningful there.
+fields, drop targets) as yellow placeholders, so only the layout, colors and text are meaningful there. It also draws
+the seven visible days without their scroll view. To capture the real window instead (scroll views and controls
+included), use `PLAINWEEK_WINDOW_SNAPSHOT=strip.png`, optionally with `PLAINWEEK_SNAPSHOT_SHIFT=<days>` to scroll the
+strip first.
 
 ## Look and layout
 
@@ -37,9 +40,12 @@ A minimal, type-led style in Apple's idiom, rather than the web app's ruled pape
 - **Header:** the month in large bold type ("November"), with the year and week number quietly below. A "Today"
   pill appears when you browse away from the current week, next to a capsule of ‹ › week buttons. The title bar is
   hidden, so the header sits under the window controls.
-- **Week:** always seven equal day cards in one row, Monday to Sunday, with continuous rounded corners and the same
-  height. Each card shows its day number large with the weekday in small caps; today's number sits in an accent
-  circle, like Calendar, and its card is tinted.
+- **Days:** a strip of rounded day cards, seven visible at a time, that scrolls through earlier and later days and
+  snaps to day edges: swipe sideways on a trackpad, turn the mouse wheel over the days (one day per notch), or click
+  and drag a day header or empty space left or right. The header (month, week number) follows the middle visible
+  day; ‹ › jump a week, and "Today" (shown when today is off screen) goes back to the current week's Monday. Each
+  card shows its day number large with the weekday in small caps; today's number sits in an accent circle, like
+  Calendar, and its card is tinted.
 - **Rows:** no ruled lines. A round checkbox at the start, like Reminders; rows highlight with rounded corners on
   hover; long titles wrap to two lines. Times are quiet text, colored tasks keep the nine colors as rounded pills.
   Empty space in a card adds a task, with a "New task" hint on hover.
@@ -87,7 +93,7 @@ macos/
 │   ├── Model/                  PlainTask (contract), DateKeys (+ Clock, UUID v7), FractionalIndex,
 │   │                           RecurrenceEngine, SmartInput (+ Format)
 │   ├── Store/                  TaskStore (local repository, undo, carry over, import/export), PlannerModel (UI state)
-│   ├── Views/                  PlannerView (header, 7-column week, Someday), TaskListView (rows, new-task row, menu, drops), TaskDetailView,
+│   ├── Views/                  PlannerView (header, scrolling day strip, Someday), TaskListView (rows, new-task row, menu, drops), TaskDetailView,
 │   │                           RepeatPicker, SettingsView, Theme
 │   └── DebugSnapshot.swift     Debug-only headless render
 └── PlainWeekTests/             XCTest: fractional index, smart input, dates, recurrence, store behaviour

@@ -142,6 +142,16 @@ final class TaskStore {
         return map
     }
 
+    /// Every day from `start` to `end` (inclusive), timed tasks first.
+    func days(from start: String, to end: String) -> [String: [PlannerItem]] {
+        var map: [String: [PlannerItem]] = [:]
+        for item in items(from: start, to: end) {
+            if let date = item.task.date { map[date, default: []].append(item) }
+        }
+        for key in map.keys { map[key]?.sort(by: Self.dayOrder) }
+        return map
+    }
+
     /// Someday, without tasks done before the archive week.
     func someday(weekStart: String, today: String) -> [PlannerItem] {
         let current = DateKey.startOfWeek(today)

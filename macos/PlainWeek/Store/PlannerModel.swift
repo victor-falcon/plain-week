@@ -55,12 +55,21 @@ final class PlannerModel {
         weekStart = DateKey.startOfWeek(today)
     }
 
-    var isCurrentWeek: Bool { weekStart == DateKey.startOfWeek(today) }
+    /// The days scroll freely, so `weekStart` is the first (leftmost) visible
+    /// day; it is a Monday after "Today" or a week jump, any day after a scroll.
+    static let visibleDays = 7
+
+    /// Whether today is one of the seven days on screen.
+    var showsToday: Bool { today >= weekStart && today <= DateKey.addDays(weekStart, Self.visibleDays - 1) }
     var days: [String] { DateKey.week(weekStart) }
+    /// The day the header names (month, week number): the middle visible day.
+    var headerDay: String { DateKey.addDays(weekStart, 3) }
 
     func goToToday() { weekStart = DateKey.startOfWeek(today) }
     func previousWeek() { weekStart = DateKey.addDays(weekStart, -7) }
     func nextWeek() { weekStart = DateKey.addDays(weekStart, 7) }
+    /// Moves the visible days by `days` (scroll wheel, drag).
+    func scroll(by days: Int) { if days != 0 { weekStart = DateKey.addDays(weekStart, days) } }
 
     func open(_ id: String) { openTask = OpenTask(id: id) }
 
@@ -89,7 +98,7 @@ final class PlannerModel {
     func refreshToday() {
         let now = DateKey.local()
         guard now != today else { return }
-        let followWeek = isCurrentWeek
+        let followWeek = showsToday
         today = now
         if followWeek { goToToday() }
         onDayChange?(now)

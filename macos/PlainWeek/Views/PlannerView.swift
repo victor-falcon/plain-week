@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// The planner: a large header, the week as seven rounded day cards in one row,
-/// and Someday below. Minimal, type-led and soft-cornered, in Apple's idiom.
+/// The planner: a large header, the days as a strip of rounded cards (seven
+/// visible, scrolling sideways through the past and future), and Someday below.
+/// Minimal, type-led and soft-cornered, in Apple's idiom.
 struct PlannerView: View {
     @Environment(TaskStore.self) private var store
     @Environment(PlannerModel.self) private var planner
@@ -10,11 +11,10 @@ struct PlannerView: View {
 
     var body: some View {
         @Bindable var planner = planner
-        let week = store.week(planner.weekStart)
-        let someday = store.someday(weekStart: planner.weekStart, today: planner.today)
+        let someday = store.someday(weekStart: DateKey.startOfWeek(planner.weekStart), today: planner.today)
 
-        ScrollView {
-            PlannerContent(week: week, someday: someday, focus: $focusedList)
+        ScrollView(.vertical) {
+            PlannerContent(someday: someday, focus: $focusedList)
         }
         .scrollIndicators(.automatic)
         .background(Theme.background)
@@ -32,14 +32,13 @@ struct PlannerView: View {
 
 /// Header, week and Someday (the scrolling content of the planner).
 struct PlannerContent: View {
-    var week: [String: [PlannerItem]]
     var someday: [PlannerItem]
     var focus: FocusState<String?>.Binding
 
     var body: some View {
         VStack(alignment: .leading, spacing: 36) {
             PlannerHeader()
-            WeekGrid(week: week, focus: focus)
+            DayStrip(focus: focus)
             SomedaySection(items: someday, focus: focus)
         }
         .padding(.horizontal, 32)
@@ -55,22 +54,22 @@ struct PlannerHeader: View {
     @Environment(PlannerModel.self) private var planner
 
     var body: some View {
-        let thursday = DateKey.addDays(planner.weekStart, 3)
+        let thursday = planner.headerDay
         HStack(alignment: .bottom, spacing: 16) {
             VStack(alignment: .leading, spacing: 6) {
                 Text(Format.month(thursday))
                     .font(Theme.display)
                     .tracking(-1.8)
-                    .foregroundStyle(planner.isCurrentWeek ? Theme.foreground : Theme.plannerAccent)
+                    .foregroundStyle(planner.showsToday ? Theme.foreground : Theme.plannerAccent)
                     .contentTransition(.numericText())
-                Text("\(Format.year(thursday))  ·  Week \(DateKey.isoWeekNumber(planner.weekStart))")
+                Text("\(Format.year(thursday))  ·  Week \(DateKey.isoWeekNumber(thursday))")
                     .font(.system(size: 15, weight: .medium))
                     .foregroundStyle(Theme.mutedForeground)
             }
             Spacer()
             HStack(spacing: 8) {
                 FocusButton()
-                if !planner.isCurrentWeek {
+                if !planner.showsToday {
                     Button("Today", action: planner.goToToday)
                         .buttonStyle(PillButtonStyle())
                         .help("Current week (⌘T)")
@@ -85,7 +84,7 @@ struct PlannerHeader: View {
                 .overlay(Capsule().strokeBorder(Theme.border))
             }
             .padding(.bottom, 8)
-            .animation(.snappy(duration: 0.2), value: planner.isCurrentWeek)
+            .animation(.snappy(duration: 0.2), value: planner.showsToday)
         }
     }
 }
@@ -177,21 +176,167 @@ struct WeekButton: View {
     }
 }
 
-/// The seven days side by side, Monday to Sunday.
-struct WeekGrid: View {
-    var week: [String: [PlannerItem]]
+/// The days as one horizontal strip: seven cards fill the width and the strip
+/// scrolls through earlier and later days, snapping to day edges. A trackpad
+/// swipes it, a mouse wheel over it steps a day per notch, and dragging a day
+/// header or empty space pans it. `planner.weekStart` is the first visible day,
+/// so the header and the week buttons follow the scroll and move it.
+struct DayStrip: View {
     var focus: FocusState<String?>.Binding
+    @Environment(TaskStore.self) private var store
     @Environment(PlannerModel.self) private var planner
+    @Environment(\.staticDayStrip) private var staticStrip
+    @State private var anchor: String?
+    @State private var position: String?
+    @State private var pan = StripPan()
+    @State private var wheelMonitor: Any?
+    @State private var hovering = false
+
+    /// Days rendered either side of the anchor (lazily); the anchor moves when
+    /// the strip gets near either end, so it never runs out.
+    private static let reach = 400
+    static let spacing: CGFloat = 12
 
     var body: some View {
-        // Every card as tall as the tallest one, so the row ends level.
-        HStack(alignment: .top, spacing: 12) {
-            ForEach(planner.days, id: \.self) { day in
-                DayColumn(date: day, items: week[day] ?? [], minRows: 9, focus: focus)
+        if staticStrip {
+            // Headless snapshots: ImageRenderer cannot draw a ScrollView.
+            HStack(alignment: .top, spacing: Self.spacing) {
+                ForEach(planner.days, id: \.self) { day in card(day).frame(maxWidth: .infinity) }
             }
+        } else {
+            scrollingStrip
         }
-        .fixedSize(horizontal: false, vertical: true)
     }
+
+    private func card(_ day: String) -> some View {
+        DayColumn(date: day, items: store.days(from: day, to: day)[day] ?? [], minRows: 9, focus: focus)
+    }
+
+    private var scrollingStrip: some View {
+        let center = anchor ?? planner.weekStart
+        let days = (-Self.reach...Self.reach).map { DateKey.addDays(center, $0) }
+        return ScrollView(.horizontal) {
+            LazyHStack(alignment: .top, spacing: Self.spacing) {
+                ForEach(days, id: \.self) { day in
+                    card(day)
+                        .containerRelativeFrame(.horizontal, count: PlannerModel.visibleDays, spacing: Self.spacing)
+                        .id(day)
+                }
+            }
+            .scrollTargetLayout()
+            .offset(x: pan.offset)
+        }
+        .scrollIndicators(.never)
+        .scrollTargetBehavior(.viewAligned)
+        .scrollPosition(id: $position, anchor: .leading)
+        .environment(\.stripPan, pan)
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width in
+            pan.step = (width + Self.spacing) / CGFloat(PlannerModel.visibleDays)
+        }
+        .onHover { hovering = $0 }
+        .onAppear {
+            anchor = planner.weekStart
+            position = planner.weekStart
+            pan.onCommit = { days in withAnimation(.smooth(duration: 0.35)) { planner.scroll(by: days) } }
+            installWheelMonitor()
+        }
+        .onDisappear(perform: removeWheelMonitor)
+        // A scroll moves the first visible day...
+        .onChange(of: position) { _, day in
+            guard let day, day != planner.weekStart else { return }
+            planner.weekStart = day
+        }
+        // ...and the buttons, "Today", the wheel and drags move the scroll.
+        .onChange(of: planner.weekStart) { _, day in
+            if let anchor, abs(DateKey.daysBetween(anchor, day)) > Self.reach - 60 {
+                self.anchor = day
+                position = day
+                return
+            }
+            guard position != day else { return }
+            withAnimation(.smooth(duration: 0.35)) { position = day }
+        }
+    }
+
+    /// A mouse wheel (not a trackpad) over the strip steps one day per notch:
+    /// down or right goes forward, up or left back.
+    private func installWheelMonitor() {
+        guard wheelMonitor == nil else { return }
+        wheelMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { event in
+            guard hovering, !event.hasPreciseScrollingDeltas else { return event }
+            let dx = event.scrollingDeltaX, dy = event.scrollingDeltaY
+            let delta = abs(dx) > abs(dy) ? dx : dy
+            guard delta != 0 else { return event }
+            withAnimation(.smooth(duration: 0.25)) { planner.scroll(by: delta < 0 ? 1 : -1) }
+            return nil
+        }
+    }
+
+    private func removeWheelMonitor() {
+        if let wheelMonitor { NSEvent.removeMonitor(wheelMonitor) }
+        wheelMonitor = nil
+    }
+}
+
+/// Click-and-drag panning of the day strip. Day headers and empty rows report
+/// their horizontal drags here; the strip follows the pointer and, on release,
+/// moves by the nearest whole number of days (with a flick carrying further).
+@Observable
+final class StripPan {
+    var offset: CGFloat = 0
+    @ObservationIgnored var step: CGFloat = 160
+    @ObservationIgnored var onCommit: ((Int) -> Void)?
+
+    func changed(_ value: DragGesture.Value) {
+        offset = value.translation.width
+    }
+
+    func ended(_ value: DragGesture.Value) {
+        let travel = value.predictedEndTranslation.width
+        let days = step > 0 ? Int((-travel / step).rounded()) : 0
+        withAnimation(.smooth(duration: 0.3)) { offset = 0 }
+        onCommit?(max(-28, min(28, days)))
+    }
+}
+
+private struct StripPanKey: EnvironmentKey { static let defaultValue: StripPan? = nil }
+private struct StaticDayStripKey: EnvironmentKey { static let defaultValue = false }
+
+extension EnvironmentValues {
+    var stripPan: StripPan? {
+        get { self[StripPanKey.self] }
+        set { self[StripPanKey.self] = newValue }
+    }
+
+    /// Draws the seven visible days without a ScrollView (headless snapshots).
+    var staticDayStrip: Bool {
+        get { self[StaticDayStripKey.self] }
+        set { self[StaticDayStripKey.self] = newValue }
+    }
+}
+
+/// Lets a view pan the day strip by dragging sideways (when inside one).
+struct StripPanGesture: ViewModifier {
+    @Environment(\.stripPan) private var pan
+
+    func body(content: Content) -> some View {
+        if let pan {
+            content.simultaneousGesture(
+                DragGesture(minimumDistance: 8)
+                    .onChanged { value in
+                        guard abs(value.translation.width) > abs(value.translation.height) else { return }
+                        pan.changed(value)
+                    }
+                    .onEnded { value in pan.ended(value) }
+            )
+        } else {
+            content
+        }
+    }
+}
+
+extension View {
+    func stripPanGesture() -> some View { modifier(StripPanGesture()) }
 }
 
 /// A rounded day card: the weekday in small caps over a large day number
@@ -222,10 +367,13 @@ struct DayColumn: View {
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, 6)
+            .contentShape(Rectangle())
+            .stripPanGesture()
             TaskListView(listKey: date, date: date, items: items, minRows: minRows, focus: focus)
             Spacer(minLength: 0)
         }
-        .frame(maxHeight: .infinity, alignment: .top)
+        // Cards line up at the same height; a long list grows its own card.
+        .frame(minHeight: 48 + CGFloat(minRows) * Theme.rowHeight, alignment: .top)
         .padding(8)
         .padding(.top, 4)
         .background(

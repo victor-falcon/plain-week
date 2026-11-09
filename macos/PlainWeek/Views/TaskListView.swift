@@ -61,6 +61,7 @@ struct TaskListView: View {
             RuledRow()
                 .contentShape(Rectangle())
                 .onTapGesture { focus.wrappedValue = listKey }
+                .stripPanGesture()
                 .dropDestination(for: String.self) { ids, _ in
                     guard let id = ids.first else { return false }
                     drop(id, at: items.count)

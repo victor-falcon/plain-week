@@ -22,6 +22,7 @@ struct PlainWeekApp: App {
                     store.carryOverIfEnabled(today: planner.today, planner: planner)
                     #if DEBUG
                     DebugSnapshot.scheduleIfRequested(store: store, planner: planner)
+                    DebugSnapshot.scheduleWindowCaptureIfRequested(planner: planner)
                     #endif
                 }
         }

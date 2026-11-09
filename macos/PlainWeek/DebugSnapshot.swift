@@ -8,6 +8,26 @@ import SwiftUI
 /// `PLAINWEEK_SNAPSHOT_DARK=1` renders the dark theme, `PLAINWEEK_SNAPSHOT_FOCUS=1`
 /// focus mode (without changing the saved setting).
 enum DebugSnapshot {
+    /// `PLAINWEEK_WINDOW_SNAPSHOT=<file>` captures the real window (scroll views
+    /// included) after `PLAINWEEK_SNAPSHOT_SHIFT=<days>` scrolls the strip.
+    static func scheduleWindowCaptureIfRequested(planner: PlannerModel) {
+        let env = ProcessInfo.processInfo.environment
+        guard let name = env["PLAINWEEK_WINDOW_SNAPSHOT"] else { return }
+        let shift = Int(env["PLAINWEEK_SNAPSHOT_SHIFT"] ?? "0") ?? 0
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            planner.scroll(by: shift)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                guard let window = NSApp.windows.first(where: { $0.isVisible && $0.title == "Plain Week" }) ?? NSApp.windows.first(where: \.isVisible),
+                      let image = CGWindowListCreateImage(.null, .optionIncludingWindow, CGWindowID(window.windowNumber), [.boundsIgnoreFraming, .bestResolution])
+                else { NSLog("Window capture failed"); NSApp.terminate(nil); return }
+                let url = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(name)
+                try? NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:])?.write(to: url)
+                NSLog("first visible day %@", planner.weekStart)
+                NSApp.terminate(nil)
+            }
+        }
+    }
+
     static func scheduleIfRequested(store: TaskStore, planner: PlannerModel) {
         let env = ProcessInfo.processInfo.environment
         guard let name = env["PLAINWEEK_SNAPSHOT"] else { return }
@@ -43,9 +63,8 @@ private struct SnapshotView: View {
     @FocusState private var focus: String?
 
     var body: some View {
-        PlannerContent(week: store.week(planner.weekStart),
-                       someday: store.someday(weekStart: planner.weekStart, today: planner.today),
-                       focus: $focus)
+        PlannerContent(someday: store.someday(weekStart: planner.weekStart, today: planner.today), focus: $focus)
+            .environment(\.staticDayStrip, true)
             .background(Theme.background)
     }
 }
