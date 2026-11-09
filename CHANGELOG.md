@@ -26,7 +26,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   task colors in light and dark, drag and drop, a task sheet with notes, subtasks, time and repeat rules (daily,
   weekly, monthly, with "only this" or "this and all future"), carry over of unfinished tasks, undo, and JSON
   export/import in the web app's format. Beyond the window: quick add from any app (⌥Space), a menu bar panel, reminders for timed tasks, Calendar events
-  in each day, time tracking and a Pomodoro mode, a weekly review, a ⌘K command palette, Shortcuts and Siri, daily
+  in each day, time tracking and a Pomodoro mode (long breaks, session dots,
+  optional auto-start), a weekly review, a ⌘K command palette, Shortcuts and Siri, daily
   backups and vim keys. It stores tasks locally and does not sync yet. See
   [macos/README.md](./macos/README.md).
 
