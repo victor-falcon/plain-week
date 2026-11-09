@@ -176,8 +176,9 @@ struct TaskRow: View {
 
     var body: some View {
         let task = item.task
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-            // A round checkbox at the start, like Reminders.
+        HStack(alignment: .top, spacing: 8) {
+            // A round checkbox at the start, like Reminders, carrying the
+            // task's color on its border.
             Button {
                 withAnimation(.snappy(duration: 0.2)) {
                     store.perform(task.done ? "Mark Not Done" : "Complete Task", undoManager: undoManager) {
@@ -185,29 +186,28 @@ struct TaskRow: View {
                     }
                 }
             } label: {
-                Image(systemName: task.done ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 15, weight: .regular))
-                    .foregroundStyle(task.done ? Theme.plannerAccent : hovering ? Theme.foreground.opacity(0.55) : Theme.mutedForeground.opacity(0.55))
-                    .contentTransition(.symbolEffect(.replace))
-                    .frame(width: 18, height: 18)
-                    .contentShape(Circle())
+                TaskCheckbox(color: task.color, done: task.done, emphasized: hovering)
             }
             .buttonStyle(.plain)
             .help(task.done ? "Mark as not done" : "Complete")
 
-            if let time = task.time {
-                Text(time)
-                    .font(.system(size: 12, weight: .medium).monospacedDigit())
-                    .foregroundStyle(Theme.mutedForeground)
-            }
             if item.isRecurring, let series = store.series(of: item), let rule = series.recurrence {
                 Image(systemName: "repeat")
                     .font(.system(size: 10, weight: .medium))
                     .foregroundStyle(Theme.mutedForeground)
+                    .padding(.top, 3)
                     .help(RecurrenceEngine.summary(rule))
             }
-            TaskLabel(text: task.text, color: task.color, done: task.done, lines: 2)
-            Spacer(minLength: 0)
+            TaskLabel(text: task.text, color: task.color, done: task.done, lines: 2, pill: false)
+            Spacer(minLength: 4)
+            TaskMarkers(task: task)
+                .padding(.top, 2)
+            if let time = task.time {
+                Text(time)
+                    .font(.system(size: 12, weight: .medium).monospacedDigit())
+                    .foregroundStyle(Theme.mutedForeground)
+                    .padding(.top, 1)
+            }
         }
         .foregroundStyle(task.done ? Theme.mutedForeground : Theme.foreground)
         .padding(.horizontal, 6)
@@ -226,7 +226,7 @@ struct TaskRow: View {
         .animation(.easeOut(duration: 0.1), value: hovering)
         .onTapGesture { planner.open(item.id) }
         .draggable(item.id) {
-            TaskLabel(text: task.text, color: task.color, done: task.done)
+            TaskLabel(text: task.text, color: task.color, done: task.done, pill: false)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
                 .background(Theme.background, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
@@ -251,6 +251,69 @@ struct TaskRow: View {
     }
 }
 
+/// A round checkbox whose border carries the task color (grey for none). Done,
+/// it fills with that color (the accent for none) and shows a check.
+struct TaskCheckbox: View {
+    var color: TaskColor
+    var done: Bool
+    var emphasized = false
+    var size: CGFloat = 16
+
+    var body: some View {
+        let pill = Theme.pill(color)
+        let tint = pill?.background ?? (emphasized ? Theme.foreground.opacity(0.55) : Theme.mutedForeground.opacity(0.55))
+        ZStack {
+            if done {
+                Circle().fill(pill?.background ?? Theme.plannerAccent)
+                Image(systemName: "checkmark")
+                    .font(.system(size: size * 0.55, weight: .bold))
+                    .foregroundStyle(pill?.text ?? Theme.background)
+            } else {
+                Circle().strokeBorder(tint, lineWidth: pill == nil ? 1.25 : 2)
+            }
+        }
+        .frame(width: size, height: size)
+        .opacity(done && pill != nil ? 0.75 : 1)
+        .contentShape(Circle())
+        .padding(.top, 1)
+        .accessibilityLabel(done ? "Done" : "Not done")
+    }
+}
+
+/// Quiet markers at the end of a row: a notes icon when the task has a
+/// description, and a checklist with "done/total" when it has subtasks.
+struct TaskMarkers: View {
+    var task: PlainTask
+
+    var body: some View {
+        let hasNotes = !task.notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let total = task.subtasks.count
+        let finished = task.subtasks.filter(\.done).count
+        if hasNotes || total > 0 {
+            HStack(spacing: 6) {
+                if hasNotes {
+                    Image(systemName: "text.alignleft")
+                        .help("Has notes")
+                        .accessibilityLabel("Has notes")
+                }
+                if total > 0 {
+                    HStack(spacing: 2) {
+                        Image(systemName: "checklist")
+                        Text("\(finished)/\(total)").monospacedDigit()
+                    }
+                    .foregroundStyle(finished == total ? Theme.plannerAccent : Theme.mutedForeground)
+                    .help("\(finished) of \(total) subtasks done")
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel("\(finished) of \(total) subtasks done")
+                }
+            }
+            .font(.system(size: 11, weight: .medium))
+            .foregroundStyle(Theme.mutedForeground)
+            .fixedSize()
+        }
+    }
+}
+
 /// The task text; a colored task gets a pill that fades when done.
 struct TaskLabel: View {
     var text: String
@@ -258,6 +321,9 @@ struct TaskLabel: View {
     var done: Bool
     /// Long titles wrap to this many lines in the narrow day cards.
     var lines = 1
+    /// A colored background behind the text; rows show the color on their
+    /// checkbox instead.
+    var pill = true
 
     var body: some View {
         let label = Text(text)
@@ -266,7 +332,7 @@ struct TaskLabel: View {
             .lineLimit(lines)
             .fixedSize(horizontal: false, vertical: true)
             .truncationMode(.tail)
-        if let pill = Theme.pill(color) {
+        if pill, let pill = Theme.pill(color) {
             label
                 .foregroundStyle(pill.text)
                 .padding(.horizontal, 7)

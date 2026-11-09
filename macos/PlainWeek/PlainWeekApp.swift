@@ -4,7 +4,18 @@ import UniformTypeIdentifiers
 
 @main
 struct PlainWeekApp: App {
-    @State private var store = TaskStore()
+    @State private var store = TaskStore(fileURL: PlainWeekApp.dataFileURL)
+
+    /// Debug builds can point at another file with `PLAINWEEK_DATA_FILE` (a
+    /// name in the app's temporary directory), so snapshots never touch real data.
+    private static var dataFileURL: URL? {
+        #if DEBUG
+        if let name = ProcessInfo.processInfo.environment["PLAINWEEK_DATA_FILE"] {
+            return URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(name)
+        }
+        #endif
+        return TaskStore.defaultFileURL()
+    }
     @State private var planner = PlannerModel()
     @AppStorage("appearance") private var appearance = Appearance.system.rawValue
 

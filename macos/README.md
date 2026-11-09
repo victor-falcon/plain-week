@@ -31,7 +31,8 @@ dark theme) renders the planner with `ImageRenderer` into the app's temporary di
 fields, drop targets) as yellow placeholders, so only the layout, colors and text are meaningful there. It also draws
 the seven visible days without their scroll view. To capture the real window instead (scroll views and controls
 included), use `PLAINWEEK_WINDOW_SNAPSHOT=strip.png`, optionally with `PLAINWEEK_SNAPSHOT_SHIFT=<days>` to scroll the
-strip first.
+strip first, and `PLAINWEEK_DATA_FILE=<name>` to read a sample file from that temporary directory instead of
+your tasks.
 
 ## Look and layout
 
@@ -47,9 +48,11 @@ A minimal, type-led style in Apple's idiom, rather than the web app's ruled pape
   day; ‹ › jump a week, and "Today" (shown when today is off screen) goes back to the current week's Monday. Each
   card shows its day number large with the weekday in small caps; today's number sits in an accent circle, like
   Calendar, and its card is tinted.
-- **Rows:** no ruled lines. A round checkbox at the start, like Reminders; rows highlight with rounded corners on
-  hover; long titles wrap to two lines. Times are quiet text, colored tasks keep the nine colors as rounded pills.
-  Empty space in a card adds a task, with a "New task" hint on hover.
+- **Rows:** no ruled lines; rows highlight with rounded corners on hover and long titles wrap to two lines. A round
+  checkbox starts each row, like Reminders, and carries the task's color on its border (filled with it when done)
+  instead of a colored background behind the text. The end of the row holds quiet markers and the time: a notes
+  icon when the task has a description, a checklist with "done/total" when it has subtasks (accent once all are
+  done), then the time. Empty space in a card adds a task, with a "New task" hint on hover.
 - **Someday:** a large title over one rounded card of three columns.
 - **Task sheet:** a large, bold, Notion-style title with no underline, then notes and subtasks.
 - **Focus mode:** the "Focus" pill in the header (or View › Focus on Today, ⇧⌘F) blurs and fades every day but
