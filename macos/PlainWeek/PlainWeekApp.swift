@@ -71,6 +71,11 @@ struct PlannerCommands: Commands {
             Button("Import Tasks…") { DataTransfer.import(into: store, planner: planner) }
                 .keyboardShortcut("i", modifiers: [.command, .shift])
         }
+        CommandGroup(after: .toolbar) {
+            Button(planner.focusMode ? "Turn Off Focus Mode" : "Focus on Today") { planner.toggleFocusMode() }
+                .keyboardShortcut("f", modifiers: [.command, .shift])
+            Divider()
+        }
         CommandMenu("Go") {
             Button("Today") { planner.goToToday() }
                 .keyboardShortcut("t")

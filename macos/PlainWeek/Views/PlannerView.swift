@@ -69,6 +69,7 @@ struct PlannerHeader: View {
             }
             Spacer()
             HStack(spacing: 8) {
+                FocusButton()
                 if !planner.isCurrentWeek {
                     Button("Today", action: planner.goToToday)
                         .buttonStyle(PillButtonStyle())
@@ -89,15 +90,56 @@ struct PlannerHeader: View {
     }
 }
 
+/// Turns focus mode on and off: everything but today is blurred.
+struct FocusButton: View {
+    @Environment(PlannerModel.self) private var planner
+
+    var body: some View {
+        Button {
+            withAnimation(.smooth(duration: 0.35)) { planner.toggleFocusMode() }
+        } label: {
+            Label("Focus", systemImage: planner.focusMode ? "scope" : "circle.dashed")
+                .labelStyle(.titleAndIcon)
+                .foregroundStyle(planner.focusMode ? Theme.background : Theme.foreground)
+        }
+        .buttonStyle(PillButtonStyle(active: planner.focusMode))
+        .help(planner.focusMode ? "Turn off focus mode (⇧⌘F)" : "Focus on today (⇧⌘F)")
+    }
+}
+
+/// Blurs and fades a card in focus mode; hovering it brings it back into view.
+struct FocusBlur: ViewModifier {
+    var blurred: Bool
+    @State private var peeking = false
+
+    func body(content: Content) -> some View {
+        let hidden = blurred && !peeking
+        content
+            .blur(radius: hidden ? 7 : 0)
+            .opacity(hidden ? 0.35 : 1)
+            .saturation(hidden ? 0.4 : 1)
+            .onHover { peeking = $0 }
+            .animation(.smooth(duration: 0.3), value: hidden)
+            .accessibilityHint(blurred ? "Hidden by focus mode" : "")
+    }
+}
+
+extension View {
+    func focusBlur(_ blurred: Bool) -> some View { modifier(FocusBlur(blurred: blurred)) }
+}
+
 /// A capsule text button.
 struct PillButtonStyle: ButtonStyle {
+    /// Filled with the foreground color while on.
+    var active = false
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: 13, weight: .semibold))
             .padding(.horizontal, 14)
             .frame(height: 34)
-            .background(Capsule().fill(configuration.isPressed ? Theme.hover : Theme.card))
-            .overlay(Capsule().strokeBorder(Theme.border))
+            .background(Capsule().fill(active ? Theme.foreground : configuration.isPressed ? Theme.hover : Theme.card))
+            .overlay(Capsule().strokeBorder(active ? .clear : Theme.border))
             .contentShape(Capsule())
     }
 }
@@ -195,12 +237,14 @@ struct DayColumn: View {
                 .strokeBorder(isToday ? Theme.plannerAccent.opacity(0.25) : Theme.border)
         )
         .frame(maxWidth: .infinity)
+        .focusBlur(planner.isBlurred(date))
     }
 }
 
 struct SomedaySection: View {
     var items: [PlannerItem]
     var focus: FocusState<String?>.Binding
+    @Environment(PlannerModel.self) private var planner
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -213,6 +257,7 @@ struct SomedaySection: View {
                 .background(RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous).fill(Theme.card))
                 .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous).strokeBorder(Theme.border))
         }
+        .focusBlur(planner.isBlurred(nil))
     }
 }
 

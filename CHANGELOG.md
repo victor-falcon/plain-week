@@ -11,10 +11,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - **Native macOS app** (`macos/`). A SwiftUI version of the planner for macOS 14 and later, in a minimal,
   type-led style: a large month title, seven rounded day cards in one row (Monday to Sunday), round checkboxes and
-  Someday in three columns below, the nine task colors in light and dark, smart
-  date and time on new tasks, drag and drop, a task sheet with notes, subtasks, time and repeat rules (daily, weekly,
-  monthly, with "only this" or "this and all future"), carry over of unfinished tasks, undo, and JSON export/import
-  in the web app's format. It stores tasks locally and does not sync yet. See [macos/README.md](./macos/README.md).
+  Someday in three columns below. A focus mode (⇧⌘F) blurs every day but today. It has the nine task colors in light
+  and dark, smart date and time on new tasks, drag and drop, a task sheet with notes, subtasks, time and repeat rules
+  (daily, weekly, monthly, with "only this" or "this and all future"), carry over of unfinished tasks, undo, and JSON
+  export/import in the web app's format. It stores tasks locally and does not sync yet. See
+  [macos/README.md](./macos/README.md).
 
 ## [0.3.15] - 2026-11-08
 

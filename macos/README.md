@@ -45,6 +45,9 @@ A minimal, type-led style in Apple's idiom, rather than the web app's ruled pape
   Empty space in a card adds a task, with a "New task" hint on hover.
 - **Someday:** a large title over one rounded card of three columns.
 - **Task sheet:** a large, bold, Notion-style title with no underline, then notes and subtasks.
+- **Focus mode:** the "Focus" pill in the header (or View › Focus on Today, ⇧⌘F) blurs and fades every day but
+  today, and Someday, so only today's list stands out. Hovering a blurred card brings it back while the pointer is
+  on it. Turning it on jumps to the current week; the setting is remembered between launches.
 
 Colors still come from the web app's tokens (`Theme.swift`), plus a card surface and a hover tint.
 
@@ -70,7 +73,7 @@ Colors still come from the web app's tokens (`Theme.swift`), plus a card surface
 - Right-click a task for colors, moves, duplicate and delete. Hover a task to show its complete check.
 - Drag a task onto another row (upper or lower half), onto a list's empty rows, or onto the ‹ › week buttons to move
   it a week back or forward.
-- ⌘T today, ⌘[ / ⌘] previous / next week, ⌘Z undo, ⇧⌘E export, ⇧⌘I import, ⌘, settings.
+- ⌘T today, ⌘[ / ⌘] previous / next week, ⇧⌘F focus mode, ⌘Z undo, ⇧⌘E export, ⇧⌘I import, ⌘, settings.
 
 Data lives in `~/Library/Containers/app.plainweek.mac/Data/Library/Application Support/Plain Week/tasks.json`.
 

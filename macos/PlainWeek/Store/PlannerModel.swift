@@ -27,6 +27,10 @@ final class PlannerModel {
     var toast: Toast?
     /// The list whose new-task row should take focus (⌘N, after an action).
     var focusRequest: String?
+    /// Focus mode: every day but today is blurred (remembered across launches).
+    var focusMode: Bool = UserDefaults.standard.bool(forKey: PlannerModel.focusModeKey) {
+        didSet { UserDefaults.standard.set(focusMode, forKey: Self.focusModeKey) }
+    }
 
     @ObservationIgnored private var timer: Timer?
     @ObservationIgnored private var observers: [NSObjectProtocol] = []
@@ -34,6 +38,17 @@ final class PlannerModel {
     @ObservationIgnored var onDayChange: ((String) -> Void)?
 
     static let carryOverKey = "carryOver"
+    static let focusModeKey = "focusMode"
+
+    /// Turns focus mode on or off; turning it on shows the current week, where
+    /// today is.
+    func toggleFocusMode() {
+        focusMode.toggle()
+        if focusMode { goToToday() }
+    }
+
+    /// Whether a day (or Someday, `nil`) is blurred by focus mode.
+    func isBlurred(_ date: String?) -> Bool { focusMode && date != today }
 
     init(today: String = DateKey.local()) {
         self.today = today
