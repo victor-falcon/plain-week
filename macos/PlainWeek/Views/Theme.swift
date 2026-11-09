@@ -39,8 +39,18 @@ enum Theme {
     static let plannerAccentMuted = dynamic(light: oklch(0.54, 0.2, 264.4), dark: oklch(0.62, 0.14, 264.4))
     static let todayTint = dynamic(light: oklch(0.488, 0.243, 264.376, alpha: 0.06), dark: oklch(0.75, 0.14, 264.4, alpha: 0.10))
 
-    /// 42pt, the web app's `--spacing-row`.
-    static let rowHeight: CGFloat = 42
+    /// Day cards and Someday: a warm off-white (stone 50) / raised dark surface.
+    static let card = dynamic(light: oklch(0.985, 0.001, 106.423), dark: oklch(0.205, 0.004, 49.25))
+    /// Row hover and pressed states.
+    static let hover = dynamic(light: oklch(0.147, 0.004, 49.25, alpha: 0.05), dark: oklch(1, 0, 0, alpha: 0.07))
+
+    /// Task rows; tighter than the web's 42px, since rows have no rules.
+    static let rowHeight: CGFloat = 34
+    static let cardRadius: CGFloat = 18
+    static let rowRadius: CGFloat = 8
+
+    /// The big header type.
+    static let display = Font.system(size: 48, weight: .bold)
 
     private static let darkText = oklch(0.147, 0.004, 49.25)
     private static let lightText = oklch(0.985, 0.001, 106.423)

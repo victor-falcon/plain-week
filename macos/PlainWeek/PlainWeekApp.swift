@@ -13,7 +13,8 @@ struct PlainWeekApp: App {
             PlannerView()
                 .environment(store)
                 .environment(planner)
-                .frame(minWidth: 980, minHeight: 640)
+                .frame(minWidth: 1040, minHeight: 640)
+                .ignoresSafeArea(.container, edges: .top)
                 .preferredColorScheme(Appearance(rawValue: appearance)?.colorScheme)
                 .onAppear {
                     planner.onDayChange = { [store, planner] today in store.carryOverIfEnabled(today: today, planner: planner) }
@@ -24,7 +25,8 @@ struct PlainWeekApp: App {
                     #endif
                 }
         }
-        .defaultSize(width: 1320, height: 900)
+        .windowStyle(.hiddenTitleBar)
+        .defaultSize(width: 1360, height: 900)
         .commands { PlannerCommands(store: store, planner: planner) }
 
         Settings {

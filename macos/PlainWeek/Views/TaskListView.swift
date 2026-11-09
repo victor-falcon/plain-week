@@ -25,7 +25,7 @@ struct TaskListView: View {
             VStack(spacing: 0) { ForEach(slots, id: \.self, content: slotView) }
         } else {
             let perColumn = Int((Double(slots.count) / Double(columns)).rounded(.up))
-            HStack(alignment: .top, spacing: 24) {
+            HStack(alignment: .top, spacing: 16) {
                 ForEach(0..<columns, id: \.self) { column in
                     VStack(spacing: 0) {
                         ForEach(Array(slots.dropFirst(column * perColumn).prefix(perColumn)), id: \.self, content: slotView)
@@ -83,13 +83,10 @@ struct TaskListView: View {
     }
 }
 
-/// An empty ruled row.
+/// An empty row: blank space that adds a task when clicked.
 struct RuledRow: View {
     var body: some View {
-        Color.clear
-            .frame(height: Theme.rowHeight - 1)
-            .overlay(alignment: .bottom) { Rectangle().fill(Theme.border).frame(height: 1).offset(y: 1) }
-            .padding(.bottom, 1)
+        Color.clear.frame(height: Theme.rowHeight)
     }
 }
 
@@ -102,6 +99,7 @@ struct NewTaskRow: View {
     var focus: FocusState<String?>.Binding
     var afterId: String?
     @State private var text = ""
+    @State private var hovering = false
     @Environment(TaskStore.self) private var store
     @Environment(PlannerModel.self) private var planner
     @Environment(\.undoManager) private var undoManager
@@ -109,33 +107,37 @@ struct NewTaskRow: View {
     private var isFocused: Bool { focus.wrappedValue == listKey }
 
     var body: some View {
-        TextField("", text: $text)
-            .textFieldStyle(.plain)
-            .font(.system(size: 13))
-            .focused(focus, equals: listKey)
-            .onSubmit(commit)
-            .onExitCommand {
-                text = ""
-                focus.wrappedValue = nil
-            }
-            .onChange(of: isFocused) { _, focused in
-                if !focused { commit() }
-            }
-            .padding(.horizontal, isFocused ? 8 : 0)
-            .frame(height: Theme.rowHeight - 1)
-            .background {
-                if isFocused {
-                    RoundedRectangle(cornerRadius: 6)
-                        .fill(Theme.background)
-                        .shadow(color: .black.opacity(0.12), radius: 6, y: 2)
-                        .padding(.horizontal, -4)
+        HStack(spacing: 8) {
+            Image(systemName: "plus")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(Theme.mutedForeground)
+                .frame(width: 18)
+                .opacity(isFocused || hovering ? 1 : 0)
+            TextField("", text: $text, prompt: Text(isFocused || hovering ? "New task" : "").foregroundStyle(Theme.mutedForeground.opacity(0.7)))
+                .textFieldStyle(.plain)
+                .font(.system(size: 13.5))
+                .focused(focus, equals: listKey)
+                .onSubmit(commit)
+                .onExitCommand {
+                    text = ""
+                    focus.wrappedValue = nil
                 }
-            }
-            .overlay(alignment: .bottom) { Rectangle().fill(Theme.border).frame(height: 1).offset(y: 1) }
-            .padding(.bottom, 1)
-            .contentShape(Rectangle())
-            .onTapGesture { focus.wrappedValue = listKey }
-            .animation(.easeOut(duration: 0.12), value: isFocused)
+                .onChange(of: isFocused) { _, focused in
+                    if !focused { commit() }
+                }
+        }
+        .padding(.horizontal, 6)
+        .frame(height: Theme.rowHeight)
+        .background {
+            RoundedRectangle(cornerRadius: Theme.rowRadius, style: .continuous)
+                .fill(isFocused ? Theme.background : hovering ? Theme.hover : .clear)
+                .shadow(color: .black.opacity(isFocused ? 0.08 : 0), radius: 8, y: 2)
+        }
+        .contentShape(Rectangle())
+        .onHover { hovering = $0 }
+        .onTapGesture { focus.wrappedValue = listKey }
+        .animation(.easeOut(duration: 0.15), value: isFocused)
+        .animation(.easeOut(duration: 0.1), value: hovering)
     }
 
     private func commit() {
@@ -169,60 +171,69 @@ struct TaskRow: View {
     @State private var hovering = false
     @State private var dropLine: Bool?
     @State private var pendingScope: ScopeAction?
+    @State private var rowHeight = Theme.rowHeight
 
     var body: some View {
         let task = item.task
-        HStack(spacing: 4) {
-            if let time = task.time {
-                Text(time)
-                    .font(.system(size: 11).monospacedDigit())
-                    .padding(.horizontal, 5)
-                    .padding(.vertical, 1)
-                    .overlay(Capsule().strokeBorder(lineWidth: 1))
-            }
-            if item.isRecurring, let series = store.series(of: item), let rule = series.recurrence {
-                Image(systemName: "repeat")
-                    .font(.system(size: 10))
-                    .opacity(0.7)
-                    .help(RecurrenceEngine.summary(rule))
-            }
-            TaskLabel(text: task.text, color: task.color, done: task.done)
-            Spacer(minLength: 4)
-            if hovering || task.done {
-                Button {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            // A round checkbox at the start, like Reminders.
+            Button {
+                withAnimation(.snappy(duration: 0.2)) {
                     store.perform(task.done ? "Mark Not Done" : "Complete Task", undoManager: undoManager) {
                         _ = store.toggleDone(item.id)
                     }
-                } label: {
-                    Image(systemName: task.done ? "checkmark.circle.fill" : "checkmark")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(task.done ? Theme.mutedForeground : Theme.foreground)
-                        .frame(width: 24, height: 24)
-                        .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
-                .help(task.done ? "Mark as not done" : "Complete")
+            } label: {
+                Image(systemName: task.done ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 15, weight: .regular))
+                    .foregroundStyle(task.done ? Theme.plannerAccent : hovering ? Theme.foreground.opacity(0.55) : Theme.mutedForeground.opacity(0.55))
+                    .contentTransition(.symbolEffect(.replace))
+                    .frame(width: 18, height: 18)
+                    .contentShape(Circle())
             }
+            .buttonStyle(.plain)
+            .help(task.done ? "Mark as not done" : "Complete")
+
+            if let time = task.time {
+                Text(time)
+                    .font(.system(size: 12, weight: .medium).monospacedDigit())
+                    .foregroundStyle(Theme.mutedForeground)
+            }
+            if item.isRecurring, let series = store.series(of: item), let rule = series.recurrence {
+                Image(systemName: "repeat")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(Theme.mutedForeground)
+                    .help(RecurrenceEngine.summary(rule))
+            }
+            TaskLabel(text: task.text, color: task.color, done: task.done, lines: 2)
+            Spacer(minLength: 0)
         }
         .foregroundStyle(task.done ? Theme.mutedForeground : Theme.foreground)
-        .frame(height: Theme.rowHeight - 1)
-        .overlay(alignment: .bottom) { Rectangle().fill(Theme.border).frame(height: 1).offset(y: 1) }
-        .padding(.bottom, 1)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 7)
+        .frame(minHeight: Theme.rowHeight)
+        .background(
+            RoundedRectangle(cornerRadius: Theme.rowRadius, style: .continuous)
+                .fill(hovering ? Theme.hover : .clear)
+        )
         .overlay(alignment: dropLine == true ? .bottom : .top) {
-            if dropLine != nil { Rectangle().fill(Theme.primary).frame(height: 2) }
+            if dropLine != nil { Capsule().fill(Theme.plannerAccent).frame(height: 2).padding(.horizontal, 4) }
         }
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { rowHeight = $0 }
         .contentShape(Rectangle())
         .onHover { hovering = $0 }
+        .animation(.easeOut(duration: 0.1), value: hovering)
         .onTapGesture { planner.open(item.id) }
         .draggable(item.id) {
             TaskLabel(text: task.text, color: task.color, done: task.done)
-                .padding(8)
-                .background(Theme.background, in: RoundedRectangle(cornerRadius: 6))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(Theme.background, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
         .dropDestination(for: String.self) { ids, location in
             dropLine = nil
             guard let id = ids.first else { return false }
-            onDrop(id, location.y > Theme.rowHeight / 2)
+            onDrop(id, location.y > rowHeight / 2)
             return true
         } isTargeted: { targeted in
             if !targeted { dropLine = nil }
@@ -244,19 +255,22 @@ struct TaskLabel: View {
     var text: String
     var color: TaskColor
     var done: Bool
+    /// Long titles wrap to this many lines in the narrow day cards.
+    var lines = 1
 
     var body: some View {
         let label = Text(text)
-            .font(.system(size: 13))
+            .font(.system(size: 13.5))
             .strikethrough(done)
-            .lineLimit(1)
+            .lineLimit(lines)
+            .fixedSize(horizontal: false, vertical: true)
             .truncationMode(.tail)
         if let pill = Theme.pill(color) {
             label
                 .foregroundStyle(pill.text)
-                .padding(.horizontal, 6)
+                .padding(.horizontal, 7)
                 .padding(.vertical, 2)
-                .background(Capsule().fill(pill.background))
+                .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(pill.background))
                 .opacity(done ? 0.5 : 1)
         } else {
             label

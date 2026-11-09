@@ -30,10 +30,23 @@ dark theme) renders the planner with `ImageRenderer` into the app's temporary di
 (`~/Library/Containers/app.plainweek.mac/Data/tmp/`) and quits. `ImageRenderer` draws AppKit-backed controls (text
 fields, drop targets) as yellow placeholders, so only the layout, colors and text are meaningful there.
 
-## Layout
+## Look and layout
 
-The week is always seven equal columns in one row, Monday to Sunday, each with ten ruled rows; Someday sits below in
-three columns. This differs from the web app's desktop layout, which stacks Saturday over Sunday in a sixth column.
+A minimal, type-led style in Apple's idiom, rather than the web app's ruled paper planner:
+
+- **Header:** the month in large bold type ("November"), with the year and week number quietly below. A "Today"
+  pill appears when you browse away from the current week, next to a capsule of ‹ › week buttons. The title bar is
+  hidden, so the header sits under the window controls.
+- **Week:** always seven equal day cards in one row, Monday to Sunday, with continuous rounded corners and the same
+  height. Each card shows its day number large with the weekday in small caps; today's number sits in an accent
+  circle, like Calendar, and its card is tinted.
+- **Rows:** no ruled lines. A round checkbox at the start, like Reminders; rows highlight with rounded corners on
+  hover; long titles wrap to two lines. Times are quiet text, colored tasks keep the nine colors as rounded pills.
+  Empty space in a card adds a task, with a "New task" hint on hover.
+- **Someday:** a large title over one rounded card of three columns.
+- **Task sheet:** a large, bold, Notion-style title with no underline, then notes and subtasks.
+
+Colors still come from the web app's tokens (`Theme.swift`), plus a card surface and a hover tint.
 
 ## What it shares with the web app
 

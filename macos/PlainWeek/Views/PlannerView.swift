@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// The planner: header, the week (Monday to Friday, then Saturday over Sunday)
-/// and Someday below, following the web app's layout (docs/style.md).
+/// The planner: a large header, the week as seven rounded day cards in one row,
+/// and Someday below. Minimal, type-led and soft-cornered, in Apple's idiom.
 struct PlannerView: View {
     @Environment(TaskStore.self) private var store
     @Environment(PlannerModel.self) private var planner
@@ -16,6 +16,7 @@ struct PlannerView: View {
         ScrollView {
             PlannerContent(week: week, someday: someday, focus: $focusedList)
         }
+        .scrollIndicators(.automatic)
         .background(Theme.background)
         .overlay(alignment: .bottom) { ToastView() }
         .sheet(item: $planner.openTask) { open in
@@ -36,46 +37,73 @@ struct PlannerContent: View {
     var focus: FocusState<String?>.Binding
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 40) {
+        VStack(alignment: .leading, spacing: 36) {
             PlannerHeader()
             WeekGrid(week: week, focus: focus)
             SomedaySection(items: someday, focus: focus)
         }
-        .padding(.horizontal, 24)
-        .padding(.top, 20)
-        .padding(.bottom, 48)
+        .padding(.horizontal, 32)
+        // Room for the window controls over the hidden title bar.
+        .padding(.top, 44)
+        .padding(.bottom, 56)
     }
 }
 
+/// "November" in large bold type, "2026 · Week 46" quietly below it, and the
+/// week controls on the right.
 struct PlannerHeader: View {
     @Environment(PlannerModel.self) private var planner
-    @Environment(TaskStore.self) private var store
-    @Environment(\.undoManager) private var undoManager
 
     var body: some View {
         let thursday = DateKey.addDays(planner.weekStart, 3)
-        HStack(alignment: .firstTextBaseline, spacing: 12) {
-            Button(action: planner.goToToday) {
-                Text(Format.monthYear(thursday))
-                    .font(.system(size: 36, weight: .bold))
-                    .tracking(-1.2)
+        HStack(alignment: .bottom, spacing: 16) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(Format.month(thursday))
+                    .font(Theme.display)
+                    .tracking(-1.8)
                     .foregroundStyle(planner.isCurrentWeek ? Theme.foreground : Theme.plannerAccent)
+                    .contentTransition(.numericText())
+                Text("\(Format.year(thursday))  ·  Week \(DateKey.isoWeekNumber(planner.weekStart))")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(Theme.mutedForeground)
             }
-            .buttonStyle(.plain)
-            .help("Current week (⌘T)")
-            Text("W\(DateKey.isoWeekNumber(planner.weekStart))")
-                .font(.system(size: 36, weight: .bold))
-                .tracking(-1.2)
-                .foregroundStyle(Theme.mutedForeground.opacity(0.5))
             Spacer()
-            WeekButton(systemImage: "chevron.left", help: "Previous week (⌘[)", offset: -7, action: planner.previousWeek)
-            WeekButton(systemImage: "chevron.right", help: "Next week (⌘])", offset: 7, action: planner.nextWeek)
+            HStack(spacing: 8) {
+                if !planner.isCurrentWeek {
+                    Button("Today", action: planner.goToToday)
+                        .buttonStyle(PillButtonStyle())
+                        .help("Current week (⌘T)")
+                        .transition(.opacity.combined(with: .scale(scale: 0.9)))
+                }
+                HStack(spacing: 0) {
+                    WeekButton(systemImage: "chevron.left", help: "Previous week (⌘[)", offset: -7, action: planner.previousWeek)
+                    Divider().frame(height: 16)
+                    WeekButton(systemImage: "chevron.right", help: "Next week (⌘])", offset: 7, action: planner.nextWeek)
+                }
+                .background(Capsule().fill(Theme.card))
+                .overlay(Capsule().strokeBorder(Theme.border))
+            }
+            .padding(.bottom, 8)
+            .animation(.snappy(duration: 0.2), value: planner.isCurrentWeek)
         }
     }
 }
 
-/// A round week button. Dropping a task on it moves the task a week back or
-/// forward (the web app's drag edge zones).
+/// A capsule text button.
+struct PillButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 13, weight: .semibold))
+            .padding(.horizontal, 14)
+            .frame(height: 34)
+            .background(Capsule().fill(configuration.isPressed ? Theme.hover : Theme.card))
+            .overlay(Capsule().strokeBorder(Theme.border))
+            .contentShape(Capsule())
+    }
+}
+
+/// One half of the week control. Dropping a task on it moves the task a week
+/// back or forward (the web app's drag edge zones).
 struct WeekButton: View {
     var systemImage: String
     var help: String
@@ -89,10 +117,10 @@ struct WeekButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: systemImage)
-                .font(.system(size: 14, weight: .semibold))
-                .frame(width: 40, height: 40)
-                .background(Circle().fill(targeted ? Theme.foreground.opacity(0.15) : Theme.secondary))
-                .contentShape(Circle())
+                .font(.system(size: 13, weight: .semibold))
+                .frame(width: 40, height: 34)
+                .background(Capsule().fill(targeted ? Theme.hover : .clear))
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .help(help)
@@ -107,22 +135,25 @@ struct WeekButton: View {
     }
 }
 
-/// The seven days side by side, Monday to Sunday, each with the same number
-/// of ruled rows.
+/// The seven days side by side, Monday to Sunday.
 struct WeekGrid: View {
     var week: [String: [PlannerItem]]
     var focus: FocusState<String?>.Binding
     @Environment(PlannerModel.self) private var planner
 
     var body: some View {
-        HStack(alignment: .top, spacing: 20) {
+        // Every card as tall as the tallest one, so the row ends level.
+        HStack(alignment: .top, spacing: 12) {
             ForEach(planner.days, id: \.self) { day in
-                DayColumn(date: day, items: week[day] ?? [], minRows: 10, focus: focus)
+                DayColumn(date: day, items: week[day] ?? [], minRows: 9, focus: focus)
             }
         }
+        .fixedSize(horizontal: false, vertical: true)
     }
 }
 
+/// A rounded day card: the weekday in small caps over a large day number
+/// (today's number sits in an accent circle, like Calendar), then its tasks.
 struct DayColumn: View {
     var date: String
     var items: [PlannerItem]
@@ -133,34 +164,36 @@ struct DayColumn: View {
     var body: some View {
         let isToday = date == planner.today
         let isWeekend = DateKey.isoWeekday(date) >= 6
-        VStack(spacing: 0) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(Format.dayHeader(date))
-                    .font(.system(size: 15, weight: .bold))
-                    .tracking(-0.3)
-                    .foregroundStyle(isToday ? Theme.plannerAccent : isWeekend ? Theme.mutedForeground.opacity(0.7) : Theme.foreground)
-                Spacer()
-                Text(Format.weekday(date))
-                    .font(.system(size: 15))
-                    .foregroundStyle(isToday ? Theme.plannerAccentMuted : Theme.mutedForeground.opacity(isWeekend ? 0.5 : 0.7))
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .center, spacing: 8) {
+                Text("\(DateKey.dayOfMonth(date))")
+                    .font(.system(size: 26, weight: .bold))
+                    .tracking(-0.8)
+                    .monospacedDigit()
+                    .foregroundStyle(isToday ? Theme.background : isWeekend ? Theme.mutedForeground : Theme.foreground)
+                    .frame(minWidth: 40, minHeight: 40)
+                    .background { if isToday { Circle().fill(Theme.plannerAccent) } }
+                Text(Format.weekday(date).uppercased())
+                    .font(.system(size: 11, weight: .semibold))
+                    .tracking(0.8)
+                    .foregroundStyle(isToday ? Theme.plannerAccent : Theme.mutedForeground)
+                Spacer(minLength: 0)
             }
-            .frame(height: Theme.rowHeight - 2, alignment: .bottom)
-            .padding(.bottom, 10)
-            .overlay(alignment: .bottom) {
-                Rectangle()
-                    .fill(isToday ? Theme.plannerAccent : isWeekend ? Theme.mutedForeground.opacity(0.25) : Theme.foreground)
-                    .frame(height: 2)
-            }
+            .padding(.horizontal, 6)
             TaskListView(listKey: date, date: date, items: items, minRows: minRows, focus: focus)
+            Spacer(minLength: 0)
         }
-        .background(alignment: .top) {
-            if isToday {
-                UnevenRoundedRectangle(topLeadingRadius: 8, topTrailingRadius: 8)
-                    .fill(Theme.todayTint)
-                    .padding(.horizontal, -10)
-                    .padding(.top, -10)
-            }
-        }
+        .frame(maxHeight: .infinity, alignment: .top)
+        .padding(8)
+        .padding(.top, 4)
+        .background(
+            RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous)
+                .fill(isToday ? Theme.todayTint : Theme.card)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous)
+                .strokeBorder(isToday ? Theme.plannerAccent.opacity(0.25) : Theme.border)
+        )
         .frame(maxWidth: .infinity)
     }
 }
@@ -170,15 +203,15 @@ struct SomedaySection: View {
     var focus: FocusState<String?>.Binding
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        VStack(alignment: .leading, spacing: 14) {
             Text("Someday")
-                .font(.system(size: 15, weight: .bold))
-                .tracking(-0.3)
-                .frame(height: Theme.rowHeight - 2, alignment: .bottom)
-                .padding(.bottom, 10)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .overlay(alignment: .bottom) { Rectangle().fill(Theme.foreground).frame(height: 2) }
-            TaskListView(listKey: DataTransfer.somedayKey, date: nil, items: items, minRows: 2, columns: 3, focus: focus)
+                .font(.system(size: 28, weight: .bold))
+                .tracking(-0.8)
+                .padding(.leading, 4)
+            TaskListView(listKey: DataTransfer.somedayKey, date: nil, items: items, minRows: 3, columns: 3, focus: focus)
+                .padding(8)
+                .background(RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous).fill(Theme.card))
+                .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous).strokeBorder(Theme.border))
         }
     }
 }
@@ -190,7 +223,7 @@ struct ToastView: View {
     var body: some View {
         if let toast = planner.toast {
             HStack(spacing: 14) {
-                Text(toast.message).font(.callout)
+                Text(toast.message).font(.system(size: 13, weight: .medium))
                 if toast.canUndo, undoManager?.canUndo == true {
                     Button("Undo") {
                         undoManager?.undo()
@@ -200,12 +233,12 @@ struct ToastView: View {
                     .fontWeight(.semibold)
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
+            .padding(.horizontal, 18)
+            .padding(.vertical, 11)
             .background(.regularMaterial, in: Capsule())
             .overlay(Capsule().strokeBorder(Theme.border))
-            .shadow(color: .black.opacity(0.12), radius: 12, y: 4)
-            .padding(.bottom, 24)
+            .shadow(color: .black.opacity(0.12), radius: 16, y: 6)
+            .padding(.bottom, 28)
             .transition(.move(edge: .bottom).combined(with: .opacity))
             .id(toast.id)
         }

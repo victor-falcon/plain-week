@@ -84,6 +84,9 @@ enum Format {
     private static let weekdayDay = formatter("EEE d MMM")
 
     static func monthYear(_ key: String) -> String { monthYear.string(from: DateKey.localDate(key)) }
+    private static let monthOnly = formatter("MMMM")
+    static func month(_ key: String) -> String { monthOnly.string(from: DateKey.localDate(key)) }
+    static func year(_ key: String) -> String { String(DateKey.parts(key).year) }
     static func weekday(_ key: String) -> String { weekdayShort.string(from: DateKey.localDate(key)) }
     static func shortDate(_ key: String) -> String { dayMonth.string(from: DateKey.localDate(key)) }
     static func fullDate(_ key: String) -> String { full.string(from: DateKey.localDate(key)) }

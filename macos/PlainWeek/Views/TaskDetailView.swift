@@ -39,8 +39,8 @@ struct TaskDetailView: View {
                     .padding(40)
             }
         }
-        .frame(width: 520)
-        .background(Theme.secondary)
+        .frame(width: 560)
+        .background(Theme.background)
     }
 
     private var actions: TaskActions { TaskActions(store: store, planner: planner, undoManager: undoManager) }
@@ -50,13 +50,14 @@ struct TaskDetailView: View {
     @ViewBuilder
     private func content(_ item: PlannerItem) -> some View {
         let task = item.task
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: 20) {
             toolbar(item)
 
-            HStack(alignment: .top, spacing: 10) {
-                TextField("Task", text: $title, axis: .vertical)
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                TextField("Untitled", text: $title, axis: .vertical)
                     .textFieldStyle(.plain)
-                    .font(.system(size: 22, weight: .medium))
+                    .font(.system(size: 32, weight: .bold))
+                    .tracking(-0.9)
                     .strikethrough(task.done)
                     .foregroundStyle(task.done ? Theme.mutedForeground : Theme.foreground)
                     .focused($focusedField, equals: .title)
@@ -72,14 +73,13 @@ struct TaskDetailView: View {
                     })
                 } label: {
                     Image(systemName: task.done ? "checkmark.circle.fill" : "circle")
-                        .font(.system(size: 22))
-                        .foregroundStyle(task.done ? Theme.plannerAccent : Theme.mutedForeground)
+                        .font(.system(size: 24))
+                        .foregroundStyle(task.done ? Theme.plannerAccent : Theme.mutedForeground.opacity(0.6))
+                        .contentTransition(.symbolEffect(.replace))
                 }
                 .buttonStyle(.plain)
                 .help(task.done ? "Mark as not done" : "Complete")
             }
-            .padding(.bottom, 6)
-            .overlay(alignment: .bottom) { Rectangle().fill(Theme.foreground.opacity(0.3)).frame(height: 1) }
 
             ZStack(alignment: .topLeading) {
                 if notes.isEmpty {
@@ -91,7 +91,7 @@ struct TaskDetailView: View {
                 }
                 TextEditor(text: $notes)
                     .scrollContentBackground(.hidden)
-                    .font(.system(size: 13))
+                    .font(.system(size: 14))
                     .focused($focusedField, equals: .notes)
                     .frame(minHeight: 70, maxHeight: 200)
                     .onChange(of: notes) { _, value in
@@ -102,7 +102,7 @@ struct TaskDetailView: View {
 
             subtasks(task)
         }
-        .padding(24)
+        .padding(28)
         .onAppear {
             title = task.text
             notes = task.notes
