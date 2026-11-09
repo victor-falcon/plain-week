@@ -16,7 +16,7 @@ import { TOOLBAR_BUTTON_CLASS, ToolbarTooltip } from './toolbar-tooltip';
 
 /**
  * Toolbar button showing the task's color as a dot. Its popover holds the
- * nine swatches; the current one is checked.
+ * eleven swatches; the current one is checked.
  */
 export function TaskColorPicker() {
     const { task, edit } = useTaskEditor();
@@ -59,7 +59,7 @@ export function TaskColorPicker() {
                         }
                     }}
                     spacing={1}
-                    className="grid grid-cols-5"
+                    className="grid grid-cols-6"
                 >
                     {TASK_COLORS.map((color) => (
                         <ToggleGroupItem

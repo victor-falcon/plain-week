@@ -90,7 +90,8 @@ final class QuickAddTests: XCTestCase {
     }
 
     func testColors() {
-        XCTAssertEqual(QuickAdd.parse("Pay #red", today: today).color, .pink)
+        XCTAssertEqual(QuickAdd.parse("Pay #red", today: today).color, .red)
+        XCTAssertEqual(QuickAdd.parse("Pay #Orange", today: today).color, .orange)
         XCTAssertEqual(QuickAdd.parse("Pay #Blue", today: today).color, .cornflower)
         XCTAssertNil(QuickAdd.parse("Fix #123", today: today).color)
         XCTAssertEqual(QuickAdd.parse("Fix #123", today: today).text, "Fix #123")
@@ -118,6 +119,54 @@ final class QuickAddTests: XCTestCase {
         XCTAssertNil(plain.targetDate(listDate: nil, today: today))
         // Someday cannot repeat: a repeating task typed there starts today.
         XCTAssertEqual(QuickAdd.parse("Gym daily", today: today).targetDate(listDate: nil, today: today), today)
+    }
+}
+
+final class NoteMarkdownTests: XCTestCase {
+    typealias Edit = NoteMarkdown.Edit
+    func caret(_ text: String, _ at: Int) -> Edit { Edit(text: text, selection: NSRange(location: at, length: 0)) }
+    func select(_ text: String, _ at: Int, _ length: Int) -> Edit { Edit(text: text, selection: NSRange(location: at, length: length)) }
+
+    func testHeadings() {
+        let h2 = NoteMarkdown.toggleHeading(caret("Plan\nnext", 2), level: 2)
+        XCTAssertEqual(h2, caret("## Plan\nnext", 5))
+        // Another level replaces it; the same level removes it.
+        XCTAssertEqual(NoteMarkdown.toggleHeading(h2, level: 1).text, "# Plan\nnext")
+        XCTAssertEqual(NoteMarkdown.toggleHeading(h2, level: 2).text, "Plan\nnext")
+    }
+
+    func testTodoLinesAndBoxes() {
+        let todo = NoteMarkdown.toggleTodo(caret("Milk", 4))
+        XCTAssertEqual(todo, caret("- [ ] Milk", 10))
+        XCTAssertEqual(NoteMarkdown.toggleTodo(todo).text, "Milk")
+        // Several lines at once.
+        XCTAssertEqual(NoteMarkdown.toggleTodo(select("a\nb", 0, 3)).text, "- [ ] a\n- [ ] b")
+        XCTAssertEqual(NoteMarkdown.toggleTodoBox("x\n- [ ] Milk", at: 4), "x\n- [x] Milk")
+        XCTAssertEqual(NoteMarkdown.toggleTodoBox("- [x] Milk", at: 2), "- [ ] Milk")
+        XCTAssertNil(NoteMarkdown.toggleTodoBox("Milk", at: 1))
+    }
+
+    func testWrapAndUnwrap() {
+        let bold = NoteMarkdown.toggleWrap(select("a word b", 2, 4), .bold)
+        XCTAssertEqual(bold, select("a **word** b", 4, 4))
+        XCTAssertEqual(NoteMarkdown.toggleWrap(bold, .bold), select("a word b", 2, 4))
+        XCTAssertEqual(NoteMarkdown.toggleWrap(select("**word**", 0, 8), .bold), select("word", 0, 4))
+        // No selection: an empty pair with the caret inside.
+        XCTAssertEqual(NoteMarkdown.toggleWrap(caret("", 0), .strike), caret("~~~~", 2))
+        XCTAssertEqual(NoteMarkdown.toggleWrap(select("hi", 0, 2), .underline).text, "++hi++")
+        XCTAssertEqual(NoteMarkdown.toggleWrap(select("hi", 0, 2), .italic).text, "_hi_")
+    }
+
+    func testColors() {
+        XCTAssertEqual(NoteMarkdown.setTextColor(select("say hi", 4, 2), "red"), select("say {red}hi{/}", 9, 2))
+        XCTAssertEqual(NoteMarkdown.setTextColor(select("say {red}hi{/}", 9, 2), nil).text, "say hi")
+        XCTAssertEqual(NoteMarkdown.setTextColor(select("say {red}hi{/}", 9, 2), "green").text, "say {green}hi{/}")
+        XCTAssertEqual(NoteMarkdown.setHighlight(select("hi", 0, 2), "yellow").text, "==hi==")
+        XCTAssertEqual(NoteMarkdown.setHighlight(select("hi", 0, 2), "green").text, "=={green}hi==")
+    }
+
+    func testInsert() {
+        XCTAssertEqual(NoteMarkdown.insert(select("at X", 3, 1), "09:30"), caret("at 09:30", 8))
     }
 }
 
@@ -336,6 +385,20 @@ final class TaskStoreTests: XCTestCase {
         XCTAssertEqual(store.doneTasks(on: "2026-11-11").map(\.id), [gymDone])
         // Newest first; Backlog included; the series row itself never.
         XCTAssertEqual(store.doneTasks().map(\.id), [gymDone, c, b, a])
+    }
+
+    func testCalendarRevealsAndSelectsADay() {
+        let planner = PlannerModel(today: "2026-11-09")
+        planner.reveal("2026-11-26")
+        XCTAssertEqual(planner.weekStart, "2026-11-23")
+        XCTAssertEqual(planner.selectedDay, "2026-11-26")
+        // A day already on screen does not scroll.
+        planner.reveal("2026-11-24")
+        XCTAssertEqual(planner.weekStart, "2026-11-23")
+        // With fewer days fitting, the strip starts at the day.
+        planner.visibleCount = 2
+        planner.reveal("2026-12-03")
+        XCTAssertEqual(planner.weekStart, "2026-12-03")
     }
 
     func testSelectingADayTogglesIt() {

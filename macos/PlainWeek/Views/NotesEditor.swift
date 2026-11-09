@@ -1,0 +1,352 @@
+import AppKit
+import SwiftUI
+
+/// The notes field of the task sheet: plain text with light Markdown
+/// (`NoteMarkdown`) styled live as you type, and the formatting keys of a
+/// writing app. The keys act only while the notes have focus.
+///
+/// ⌘1–4 heading · ⌘T todo line · ⌘E time · ⇧⌘E date · ⇧⌘X strikethrough ·
+/// ⌘B bold · ⌘I italic · ⌘U underline · ⇧⌘C text and highlight color ·
+/// ⌥⌘B block caret (Vim style). A click on a todo box ticks it.
+struct NotesEditor: NSViewRepresentable {
+    @Binding var text: String
+    /// Bump to give the editor keyboard focus.
+    var focusTick: Int
+    var onFocusChange: (Bool) -> Void = { _ in }
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    func makeNSView(context: Context) -> NSScrollView {
+        let textView = NoteTextView(frame: .zero)
+        textView.delegate = context.coordinator
+        textView.onFocusChange = { focused in context.coordinator.parent.onFocusChange(focused) }
+        textView.isRichText = false
+        textView.allowsUndo = true
+        textView.drawsBackground = false
+        textView.isAutomaticQuoteSubstitutionEnabled = false
+        textView.isAutomaticDashSubstitutionEnabled = false
+        textView.isAutomaticTextReplacementEnabled = false
+        textView.textContainerInset = NSSize(width: 0, height: 2)
+        textView.textContainer?.lineFragmentPadding = 4
+        textView.isVerticallyResizable = true
+        textView.isHorizontallyResizable = false
+        textView.autoresizingMask = [.width]
+        textView.textContainer?.widthTracksTextView = true
+        textView.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
+        textView.string = text
+        NoteStyler.apply(to: textView)
+
+        let scroll = NSScrollView()
+        scroll.drawsBackground = false
+        scroll.hasVerticalScroller = true
+        scroll.autohidesScrollers = true
+        scroll.documentView = textView
+        context.coordinator.lastFocusTick = focusTick
+        return scroll
+    }
+
+    func updateNSView(_ scroll: NSScrollView, context: Context) {
+        context.coordinator.parent = self
+        guard let textView = scroll.documentView as? NoteTextView else { return }
+        if textView.string != text {
+            textView.string = text
+            NoteStyler.apply(to: textView)
+        }
+        if context.coordinator.lastFocusTick != focusTick {
+            context.coordinator.lastFocusTick = focusTick
+            DispatchQueue.main.async { textView.window?.makeFirstResponder(textView) }
+        }
+    }
+
+    final class Coordinator: NSObject, NSTextViewDelegate {
+        var parent: NotesEditor
+        var lastFocusTick = 0
+
+        init(_ parent: NotesEditor) { self.parent = parent }
+
+        func textDidChange(_ notification: Notification) {
+            guard let textView = notification.object as? NSTextView else { return }
+            NoteStyler.apply(to: textView)
+            if parent.text != textView.string { parent.text = textView.string }
+        }
+    }
+}
+
+/// The text view: formatting keys, todo boxes, the color menu, block caret.
+final class NoteTextView: NSTextView {
+    static let blockCaretKey = "notesBlockCaret"
+    var onFocusChange: ((Bool) -> Void)?
+
+    private var blockCaret: Bool {
+        get { UserDefaults.standard.bool(forKey: Self.blockCaretKey) }
+        set { UserDefaults.standard.set(newValue, forKey: Self.blockCaretKey) }
+    }
+
+    override func becomeFirstResponder() -> Bool {
+        let ok = super.becomeFirstResponder()
+        if ok { onFocusChange?(true) }
+        return ok
+    }
+
+    override func resignFirstResponder() -> Bool {
+        let ok = super.resignFirstResponder()
+        if ok { onFocusChange?(false) }
+        return ok
+    }
+
+    // MARK: Keys
+
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        guard window?.firstResponder === self, event.type == .keyDown else { return super.performKeyEquivalent(with: event) }
+        let mods = event.modifierFlags.intersection([.command, .shift, .option, .control])
+        let key = event.charactersIgnoringModifiers?.lowercased() ?? ""
+
+        switch (mods, key) {
+        case ([.command], "1"), ([.command], "2"), ([.command], "3"), ([.command], "4"):
+            run { NoteMarkdown.toggleHeading($0, level: Int(key)!) }
+        case ([.command], "t"): run(NoteMarkdown.toggleTodo)
+        case ([.command], "e"): run { NoteMarkdown.insert($0, NoteMarkdown.timeStamp()) }
+        case ([.command, .shift], "e"): run { NoteMarkdown.insert($0, NoteMarkdown.dateStamp()) }
+        case ([.command, .shift], "x"): run { NoteMarkdown.toggleWrap($0, .strike) }
+        case ([.command], "b"): run { NoteMarkdown.toggleWrap($0, .bold) }
+        case ([.command], "i"): run { NoteMarkdown.toggleWrap($0, .italic) }
+        case ([.command], "u"): run { NoteMarkdown.toggleWrap($0, .underline) }
+        case ([.command, .shift], "c"): showColorMenu()
+        case ([.command, .option], "b"):
+            blockCaret.toggle()
+            updateInsertionPointStateAndRestartTimer(true)
+            needsDisplay = true
+        default:
+            return super.performKeyEquivalent(with: event)
+        }
+        return true
+    }
+
+    /// Applies a command as one undoable edit.
+    private func run(_ command: (NoteMarkdown.Edit) -> NoteMarkdown.Edit) {
+        let before = NoteMarkdown.Edit(text: string, selection: selectedRange())
+        let after = command(before)
+        guard after != before else { return }
+        replaceAll(with: after.text, actionName: "Format")
+        setSelectedRange(after.selection)
+    }
+
+    private func replaceAll(with newText: String, actionName: String) {
+        let full = NSRange(location: 0, length: (string as NSString).length)
+        guard shouldChangeText(in: full, replacementString: newText) else { return }
+        replaceCharacters(in: full, with: newText)
+        didChangeText()
+        undoManager?.setActionName(actionName)
+    }
+
+    // MARK: Todo boxes
+
+    override func mouseDown(with event: NSEvent) {
+        let point = convert(event.locationInWindow, from: nil)
+        let index = characterIndexForInsertion(at: point)
+        let ns = string as NSString
+        if index <= ns.length {
+            let line = ns.lineRange(for: NSRange(location: min(index, ns.length), length: 0))
+            // The click landed on "- [ ]" of a todo line.
+            if index - line.location <= 5, let toggled = NoteMarkdown.toggleTodoBox(string, at: index) {
+                let selection = selectedRange()
+                replaceAll(with: toggled, actionName: "Tick")
+                setSelectedRange(selection)
+                return
+            }
+        }
+        super.mouseDown(with: event)
+    }
+
+    // MARK: Colors
+
+    private func showColorMenu() {
+        let menu = NSMenu(title: "Color")
+        menu.addItem(NSMenuItem.sectionHeader(title: "Text color"))
+        for name in NoteMarkdown.colorNames {
+            let item = NSMenuItem(title: name.capitalized, action: #selector(applyTextColor(_:)), keyEquivalent: "")
+            item.representedObject = name
+            item.image = swatch(NoteStyler.textColor(name))
+            item.target = self
+            menu.addItem(item)
+        }
+        menu.addItem(.separator())
+        menu.addItem(NSMenuItem.sectionHeader(title: "Highlight"))
+        for name in NoteMarkdown.colorNames {
+            let item = NSMenuItem(title: name.capitalized, action: #selector(applyHighlight(_:)), keyEquivalent: "")
+            item.representedObject = name
+            item.image = swatch(NoteStyler.highlightColor(name))
+            item.target = self
+            menu.addItem(item)
+        }
+        menu.addItem(.separator())
+        let clear = NSMenuItem(title: "Remove Text Color", action: #selector(removeTextColor(_:)), keyEquivalent: "")
+        clear.target = self
+        menu.addItem(clear)
+
+        var location = NSPoint(x: 0, y: 0)
+        if let layoutManager, let container = textContainer {
+            let glyph = layoutManager.glyphRange(forCharacterRange: NSRange(location: selectedRange().location, length: 0), actualCharacterRange: nil)
+            let rect = layoutManager.boundingRect(forGlyphRange: glyph, in: container)
+            location = NSPoint(x: rect.minX + textContainerOrigin.x, y: rect.maxY + textContainerOrigin.y + 4)
+        }
+        menu.popUp(positioning: nil, at: location, in: self)
+    }
+
+    @objc private func applyTextColor(_ sender: NSMenuItem) {
+        guard let name = sender.representedObject as? String else { return }
+        run { NoteMarkdown.setTextColor($0, name) }
+    }
+
+    @objc private func applyHighlight(_ sender: NSMenuItem) {
+        guard let name = sender.representedObject as? String else { return }
+        run { NoteMarkdown.setHighlight($0, name) }
+    }
+
+    @objc private func removeTextColor(_ sender: NSMenuItem) {
+        run { NoteMarkdown.setTextColor($0, nil) }
+    }
+
+    private func swatch(_ color: NSColor) -> NSImage {
+        let image = NSImage(size: NSSize(width: 12, height: 12), flipped: false) { rect in
+            color.setFill()
+            NSBezierPath(roundedRect: rect.insetBy(dx: 1, dy: 1), xRadius: 3, yRadius: 3).fill()
+            return true
+        }
+        image.isTemplate = false
+        return image
+    }
+
+    // MARK: Block caret
+
+    override func drawInsertionPoint(in rect: NSRect, color: NSColor, turnedOn flag: Bool) {
+        guard blockCaret else { return super.drawInsertionPoint(in: rect, color: color, turnedOn: flag) }
+        var block = rect
+        block.size.width = caretWidth
+        if flag {
+            color.withAlphaComponent(0.45).setFill()
+            block.fill()
+        } else {
+            setNeedsDisplay(block, avoidAdditionalLayout: true)
+        }
+    }
+
+    override func setNeedsDisplay(_ invalidRect: NSRect, avoidAdditionalLayout flag: Bool) {
+        var rect = invalidRect
+        if blockCaret { rect.size.width += caretWidth }
+        super.setNeedsDisplay(rect, avoidAdditionalLayout: flag)
+    }
+
+    /// The width of the character under the caret (a space at a line end).
+    private var caretWidth: CGFloat {
+        let font = (typingAttributes[.font] as? NSFont) ?? NSFont.systemFont(ofSize: NoteStyler.baseSize)
+        let ns = string as NSString
+        let location = selectedRange().location
+        var character = " "
+        if location < ns.length {
+            let next = ns.substring(with: NSRange(location: location, length: 1))
+            if next != "\n" { character = next }
+        }
+        return max(4, (character as NSString).size(withAttributes: [.font: font]).width)
+    }
+}
+
+/// Live styling of the Markdown in notes. Markers stay in the text, dimmed.
+enum NoteStyler {
+    static let baseSize: CGFloat = 14
+
+    static func textColor(_ name: String) -> NSColor {
+        TaskColor(rawValue: name).flatMap(Theme.checkbox).map { NSColor($0.ring) } ?? .labelColor
+    }
+
+    static func highlightColor(_ name: String) -> NSColor {
+        let base = TaskColor(rawValue: name).flatMap(Theme.pill).map { NSColor($0.background) } ?? .systemYellow
+        return base.withAlphaComponent(0.4)
+    }
+
+    private static func regex(_ pattern: String) -> NSRegularExpression {
+        try! NSRegularExpression(pattern: pattern, options: [.anchorsMatchLines])
+    }
+
+    private static let heading = regex(#"^(#{1,4}) (.*)$"#)
+    private static let todo = regex(#"^(- \[( |x|X)\] )(.*)$"#)
+    private static let bold = regex(#"(\*\*)(.+?)(\*\*)"#)
+    private static let italic = regex(#"(?<![\w_])(_)(?!_)(.+?)(_)(?![\w_])"#)
+    private static let underline = regex(#"(\+\+)(.+?)(\+\+)"#)
+    private static let strike = regex(#"(~~)(.+?)(~~)"#)
+    private static let highlight = regex(#"(==(?:\{([a-z]+)\})?)(.+?)(==)"#)
+    private static let color = regex(#"(\{([a-z]+)\})(.+?)(\{/\})"#)
+
+    static func apply(to textView: NSTextView) {
+        guard let storage = textView.textStorage else { return }
+        let text = storage.string
+        let full = NSRange(location: 0, length: (text as NSString).length)
+        let base = NSFont.systemFont(ofSize: baseSize)
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.lineSpacing = 3
+        let marker = NSColor.tertiaryLabelColor
+
+        storage.beginEditing()
+        storage.setAttributes([.font: base, .foregroundColor: NSColor.labelColor, .paragraphStyle: paragraph], range: full)
+
+        for match in heading.matches(in: text, range: full) {
+            let level = match.range(at: 1).length
+            let size: CGFloat = [24, 20, 17, 15][min(level, 4) - 1]
+            storage.addAttribute(.font, value: NSFont.systemFont(ofSize: size, weight: .bold), range: match.range)
+            storage.addAttribute(.foregroundColor, value: marker, range: NSRange(location: match.range.location, length: level + 1))
+        }
+        for match in todo.matches(in: text, range: full) {
+            let box = match.range(at: 1)
+            let done = (text as NSString).substring(with: match.range(at: 2)).lowercased() == "x"
+            storage.addAttribute(.foregroundColor, value: done ? NSColor.controlAccentColor : NSColor.secondaryLabelColor, range: box)
+            storage.addAttribute(.font, value: NSFont.monospacedSystemFont(ofSize: baseSize - 1, weight: .medium), range: box)
+            storage.addAttribute(.cursor, value: NSCursor.pointingHand, range: box)
+            if done {
+                storage.addAttributes([.strikethroughStyle: NSUnderlineStyle.single.rawValue,
+                                       .foregroundColor: NSColor.secondaryLabelColor], range: match.range(at: 3))
+            }
+        }
+        style(bold, in: storage, text: text, marker: marker) { range in
+            addTrait(.boldFontMask, to: storage, range: range)
+        }
+        style(italic, in: storage, text: text, marker: marker) { range in
+            addTrait(.italicFontMask, to: storage, range: range)
+        }
+        style(underline, in: storage, text: text, marker: marker) { range in
+            storage.addAttribute(.underlineStyle, value: NSUnderlineStyle.single.rawValue, range: range)
+        }
+        style(strike, in: storage, text: text, marker: marker) { range in
+            storage.addAttribute(.strikethroughStyle, value: NSUnderlineStyle.single.rawValue, range: range)
+        }
+        for match in highlight.matches(in: text, range: full) {
+            let name = match.range(at: 2).location == NSNotFound ? "yellow" : (text as NSString).substring(with: match.range(at: 2))
+            storage.addAttribute(.backgroundColor, value: highlightColor(name), range: match.range(at: 3))
+            storage.addAttribute(.foregroundColor, value: marker, range: match.range(at: 1))
+            storage.addAttribute(.foregroundColor, value: marker, range: match.range(at: 4))
+        }
+        for match in color.matches(in: text, range: full) {
+            let name = (text as NSString).substring(with: match.range(at: 2))
+            storage.addAttribute(.foregroundColor, value: textColor(name), range: match.range(at: 3))
+            storage.addAttribute(.foregroundColor, value: marker, range: match.range(at: 1))
+            storage.addAttribute(.foregroundColor, value: marker, range: match.range(at: 4))
+        }
+        storage.endEditing()
+        textView.typingAttributes = [.font: base, .foregroundColor: NSColor.labelColor, .paragraphStyle: paragraph]
+    }
+
+    /// Styles group 2 with `body` and dims the markers (groups 1 and 3).
+    private static func style(_ regex: NSRegularExpression, in storage: NSTextStorage, text: String, marker: NSColor, body: (NSRange) -> Void) {
+        for match in regex.matches(in: text, range: NSRange(location: 0, length: (text as NSString).length)) {
+            body(match.range(at: 2))
+            storage.addAttribute(.foregroundColor, value: marker, range: match.range(at: 1))
+            storage.addAttribute(.foregroundColor, value: marker, range: match.range(at: 3))
+        }
+    }
+
+    private static func addTrait(_ trait: NSFontTraitMask, to storage: NSTextStorage, range: NSRange) {
+        storage.enumerateAttribute(.font, in: range) { value, sub, _ in
+            let font = (value as? NSFont) ?? NSFont.systemFont(ofSize: baseSize)
+            storage.addAttribute(.font, value: NSFontManager.shared.convert(font, toHaveTrait: trait), range: sub)
+        }
+    }
+}

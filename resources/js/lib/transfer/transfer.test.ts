@@ -414,8 +414,8 @@ describe('parseImport', () => {
 
     it.each([
         [
-            { color: 'red' },
-            'Task 1: "color" must be one of none, pink, yellow, black, grey, cornflower, mango, green, lilac.',
+            { color: 'teal' },
+            'Task 1: "color" must be one of none, pink, yellow, black, grey, cornflower, mango, green, lilac, red, orange.',
         ],
         [{ text: undefined }, 'Task 1: "text" is missing.'],
         [{ done: 1 }, 'Task 1: "done" must be true or false.'],

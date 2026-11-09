@@ -1,8 +1,8 @@
 import Foundation
 
-/// The nine task colors, identical to the web app's `TASK_COLORS`.
+/// The eleven task colors, identical to the web app's `TASK_COLORS`.
 enum TaskColor: String, Codable, CaseIterable, Identifiable {
-    case none, pink, yellow, black, grey, cornflower, mango, green, lilac
+    case none, pink, yellow, black, grey, cornflower, mango, green, lilac, red, orange
 
     var id: String { rawValue }
 

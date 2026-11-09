@@ -47,7 +47,7 @@ enum Theme {
     /// Task rows; tighter than the web's 42px, since rows have no rules.
     static let rowHeight: CGFloat = 34
     static let cardRadius: CGFloat = 18
-    static let sidebarWidth: CGFloat = 300
+    static let sidebarWidth: CGFloat = 250
     static let rowRadius: CGFloat = 8
 
     /// The big header type.
@@ -71,12 +71,14 @@ enum Theme {
         case .mango: return pair(oklch(0.813, 0.164, 74.6), darkText, oklch(0.8, 0.16, 74.6), darkText)
         case .green: return pair(oklch(0.888, 0.193, 160.4), darkText, oklch(0.85, 0.18, 160.4), darkText)
         case .lilac: return pair(oklch(0.705, 0.235, 316.3), darkText, oklch(0.72, 0.21, 316.3), darkText)
+        case .red: return pair(oklch(0.577, 0.215, 27.3), lightText, oklch(0.637, 0.215, 27.3), lightText)
+        case .orange: return pair(oklch(0.72, 0.185, 48), darkText, oklch(0.75, 0.175, 48), darkText)
         }
     }
 
     /// The checkbox ring (and its fill when done) per task color, with the
     /// check drawn on top. The pill colors meant for backgrounds (yellow,
-    /// green, mango, grey, lilac) are too light for a thin ring on a white card,
+    /// green, mango, orange, grey, lilac) are too light for a thin ring on a white card,
     /// so light mode uses darker shades of the same hues; dark mode keeps the
     /// bright pill colors (grey a little lighter), which already stand out.
     static func checkbox(_ color: TaskColor) -> (ring: Color, check: Color)? {
@@ -93,6 +95,8 @@ enum Theme {
         case .mango: return pair(oklch(0.7, 0.16, 62), oklch(0.8, 0.16, 74.6))
         case .green: return pair(oklch(0.66, 0.16, 158), oklch(0.85, 0.18, 160.4))
         case .lilac: return pair(oklch(0.6, 0.23, 316.3), oklch(0.72, 0.21, 316.3))
+        case .red: return pair(oklch(0.577, 0.215, 27.3), oklch(0.637, 0.215, 27.3), darkCheck: lightText)
+        case .orange: return pair(oklch(0.66, 0.19, 46), oklch(0.75, 0.175, 48))
         }
     }
 }

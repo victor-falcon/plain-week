@@ -6,8 +6,8 @@ import Foundation
 /// - Date: `today`, `tomorrow` (`tmr`), `backlog` (or `someday`), a weekday (`fri`, `friday`:
 ///   the next one, today counts), `next week` (next Monday).
 /// - Time: `@11:30`, `@9`, `@9am`, `@5:15pm`.
-/// - Color: `#yellow`, `#pink`, … plus `#red`, `#blue`, `#orange`, `#purple`,
-///   `#gray` and `#none`.
+/// - Color: any color name (`#yellow`, `#red`, `#orange`, …) plus `#blue`,
+///   `#purple`, `#violet`, `#gray` and `#none`.
 /// - Repeat: `daily`, `weekly`, `monthly`, `weekdays`, `weekends`, `every day`,
 ///   `every 3 days`, `every week`, `every month`, `every weekday`,
 ///   `every mon`, `every mon, wed and fri`.
@@ -78,9 +78,7 @@ enum QuickAdd {
 
     static let colors: [String: TaskColor] = {
         var map = Dictionary(uniqueKeysWithValues: TaskColor.allCases.map { ($0.rawValue, $0) })
-        map["red"] = .pink
         map["blue"] = .cornflower
-        map["orange"] = .mango
         map["purple"] = .lilac
         map["violet"] = .lilac
         map["gray"] = .grey

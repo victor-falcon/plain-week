@@ -37,6 +37,26 @@ final class PlannerModel {
 
     /// Selects a day, or clears the selection when it is already selected.
     func select(_ day: String) { selectedDay = selectedDay == day ? nil : day }
+
+    /// Shows `day` in the strip (its week from Monday when a whole week fits,
+    /// otherwise starting at the day) and selects it. Used by the calendar.
+    func reveal(_ day: String) {
+        if !(day >= weekStart && day <= DateKey.addDays(weekStart, visibleCount - 1)) {
+            weekStart = visibleCount == Self.maxVisibleDays ? DateKey.startOfWeek(day) : day
+        }
+        selectedDay = day
+    }
+
+    /// Which sidebar sections are open (remembered across launches).
+    var backlogExpanded: Bool = UserDefaults.standard.object(forKey: "backlogExpanded") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(backlogExpanded, forKey: "backlogExpanded") }
+    }
+    var doneExpanded: Bool = UserDefaults.standard.object(forKey: "doneExpanded") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(doneExpanded, forKey: "doneExpanded") }
+    }
+    var calendarExpanded: Bool = UserDefaults.standard.object(forKey: "calendarExpanded") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(calendarExpanded, forKey: "calendarExpanded") }
+    }
     /// Focus mode: every day but today is blurred (remembered across launches).
     var focusMode: Bool = UserDefaults.standard.bool(forKey: PlannerModel.focusModeKey) {
         didSet { UserDefaults.standard.set(focusMode, forKey: Self.focusModeKey) }

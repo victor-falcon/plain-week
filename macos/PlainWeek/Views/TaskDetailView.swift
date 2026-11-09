@@ -17,6 +17,8 @@ struct TaskDetailView: View {
     @State private var picker: Picker?
     @State private var pendingScope: ScopeAction?
     @State private var pendingRule: PendingRule?
+    @State private var notesFocusTick = 0
+    @State private var notesFocused = false
     @FocusState private var focusedField: Field?
 
     private enum Picker { case date, time, repeating, color }
@@ -61,7 +63,7 @@ struct TaskDetailView: View {
                     .strikethrough(task.done)
                     .foregroundStyle(task.done ? Theme.mutedForeground : Theme.foreground)
                     .focused($focusedField, equals: .title)
-                    .onSubmit { focusedField = .notes }
+                    .onSubmit { notesFocusTick += 1 }
                     .onChange(of: title) { _, value in
                         let text = value.replacingOccurrences(of: "\n", with: " ")
                         guard loaded, !text.trimmingCharacters(in: .whitespaces).isEmpty, text != store.item(taskId)?.task.text else { return }
@@ -84,20 +86,28 @@ struct TaskDetailView: View {
             ZStack(alignment: .topLeading) {
                 if notes.isEmpty {
                     Text("Add some extra notes here…")
+                        .font(.system(size: 14))
                         .foregroundStyle(Theme.mutedForeground)
-                        .padding(.top, 1)
-                        .padding(.leading, 5)
+                        .padding(.top, 2)
+                        .padding(.leading, 4)
                         .allowsHitTesting(false)
                 }
-                TextEditor(text: $notes)
-                    .scrollContentBackground(.hidden)
-                    .font(.system(size: 14))
-                    .focused($focusedField, equals: .notes)
-                    .frame(minHeight: 70, maxHeight: 200)
-                    .onChange(of: notes) { _, value in
-                        guard loaded, value != store.item(taskId)?.task.notes else { return }
-                        follow(store.update(taskId, TaskPatch(notes: value)))
-                    }
+                NotesEditor(text: $notes, focusTick: notesFocusTick) { focused in
+                    withAnimation(.easeOut(duration: 0.15)) { notesFocused = focused }
+                }
+                .frame(minHeight: 90, maxHeight: 260)
+                .onChange(of: notes) { _, value in
+                    guard loaded, value != store.item(taskId)?.task.notes else { return }
+                    follow(store.update(taskId, TaskPatch(notes: value)))
+                }
+            }
+            if notesFocused {
+                Text("⌘B bold  ·  ⌘I italic  ·  ⌘U underline  ·  ⇧⌘X strike  ·  ⌘1–4 heading  ·  ⌘T todo  ·  ⌘E time  ·  ⇧⌘E date  ·  ⇧⌘C color  ·  ⌥⌘B block caret")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Theme.mutedForeground.opacity(0.8))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                    .transition(.opacity)
             }
 
             subtasks(task)
@@ -159,7 +169,7 @@ struct TaskDetailView: View {
                 }
             } label: { Image(systemName: "trash") }
                 .buttonStyle(ToolbarButtonStyle(active: false))
-                .help("Delete (⌘⌫)")
+                .help("Delete (⇧⌘⌫)")
 
             Button {
                 picker = .repeating
@@ -188,7 +198,7 @@ struct TaskDetailView: View {
             Menu {
                 Button("Tomorrow  ⌥⌘→") { follow(actions.tomorrow(item)) }
                 Button("Next Week  ⇧⌥⌘→") { follow(actions.nextWeek(item)) }
-                Button("Backlog  ⌥⌘B") { follow(actions.move(item, to: nil)) }
+                Button("Backlog  ⌥⌘L") { follow(actions.move(item, to: nil)) }
                     .disabled(task.date == nil)
                 Divider()
                 Button("Duplicate  ⌘D") { actions.duplicate(item) }
@@ -287,6 +297,9 @@ struct TaskDetailView: View {
         .padding(12)
     }
 
+    /// One key per color in picker order: 1–9, then 0 and -.
+    private static let colorKeys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-"]
+
     private func colorPicker(_ item: PlannerItem) -> some View {
         HStack(spacing: 8) {
             ForEach(Array(TaskColor.allCases.enumerated()), id: \.element) { index, color in
@@ -296,12 +309,12 @@ struct TaskDetailView: View {
                 } label: {
                     VStack(spacing: 4) {
                         ColorSwatch(color: color, selected: color == item.task.color, size: 22)
-                        Text("\(index + 1)").font(.system(size: 10, weight: .medium)).foregroundStyle(Theme.mutedForeground)
+                        Text(Self.colorKeys[index]).font(.system(size: 10, weight: .medium)).foregroundStyle(Theme.mutedForeground)
                     }
                 }
                     .buttonStyle(.plain)
-                    .keyboardShortcut(KeyEquivalent(Character("\(index + 1)")), modifiers: [])
-                    .help("\(color.label) (\(index + 1))")
+                    .keyboardShortcut(KeyEquivalent(Character(Self.colorKeys[index])), modifiers: [])
+                    .help("\(color.label) (\(Self.colorKeys[index]))")
             }
         }
         .padding(12)
@@ -335,13 +348,13 @@ struct TaskDetailView: View {
                     dismiss()
                 }
             }
-            .keyboardShortcut(.delete, modifiers: [.command])
+            .keyboardShortcut(.delete, modifiers: [.command, .shift])
             Button("Tomorrow") { follow(actions.tomorrow(item)) }
                 .keyboardShortcut(.rightArrow, modifiers: [.command, .option])
             Button("Next Week") { follow(actions.nextWeek(item)) }
                 .keyboardShortcut(.rightArrow, modifiers: [.command, .option, .shift])
             Button("Backlog") { follow(actions.move(item, to: nil)) }
-                .keyboardShortcut("b", modifiers: [.command, .option])
+                .keyboardShortcut("l", modifiers: [.command, .option])
                 .disabled(task.date == nil)
             Button("Duplicate") { actions.duplicate(item) }
                 .keyboardShortcut("d", modifiers: [.command])
@@ -353,7 +366,7 @@ struct TaskDetailView: View {
     }
 
     private var shortcutFooter: some View {
-        Text("⌥⌘D date  ·  ⌥⌘T time  ·  ⌥⌘R repeat  ·  ⌥⌘C color  ·  ⌘↩ done  ·  ⌘⌫ delete  ·  ⌥⌘→ tomorrow")
+        Text("⌥⌘D date  ·  ⌥⌘T time  ·  ⌥⌘R repeat  ·  ⌥⌘C color  ·  ⌘↩ done  ·  ⇧⌘⌫ delete  ·  ⌥⌘→ tomorrow")
             .font(.system(size: 11))
             .foregroundStyle(Theme.mutedForeground.opacity(0.8))
             .frame(maxWidth: .infinity, alignment: .leading)

@@ -439,86 +439,280 @@ struct DayColumn: View {
 }
 
 /// The sidebar: the Backlog (tasks without a date, the web app's Someday) and
-/// the Done list, which follows the selected day or, with none, shows every
-/// completed task, newest first, grouped by day.
+/// the Done list as accordion sections, each as tall as its content and
+/// scrolling together, over a foldable month calendar pinned at the bottom. Done follows the
+/// selected day or, with none, shows every completed task, grouped by day.
 struct PlannerSidebar: View {
     var focus: FocusState<String?>.Binding
     @Environment(TaskStore.self) private var store
     @Environment(PlannerModel.self) private var planner
 
     var body: some View {
+        @Bindable var planner = planner
         let backlog = store.someday(weekStart: DateKey.startOfWeek(planner.weekStart), today: planner.today)
         let done = store.doneTasks(on: planner.selectedDay)
-        VStack(alignment: .leading, spacing: 0) {
-            SidebarHeading(title: "Backlog", systemImage: "tray", count: backlog.filter { !$0.task.done }.count)
-            ScrollView(.vertical) {
-                TaskListView(listKey: DataTransfer.somedayKey, date: nil, items: backlog, minRows: 1, focus: focus)
-                    .padding(.horizontal, 4)
-            }
-            .frame(maxHeight: .infinity)
-            .focusBlur(planner.isBlurred(nil))
+        VStack(spacing: 0) {
+        ScrollView(.vertical) {
+            VStack(alignment: .leading, spacing: 18) {
+                AccordionSection(title: "Backlog", systemImage: "tray",
+                                 count: backlog.filter { !$0.task.done }.count, expanded: $planner.backlogExpanded) {
+                    TaskListView(listKey: DataTransfer.somedayKey, date: nil, items: backlog, minRows: 1, focus: focus)
+                        .focusBlur(planner.isBlurred(nil))
+                }
 
-            Divider().padding(.vertical, 10)
-
-            HStack(alignment: .firstTextBaseline) {
-                SidebarHeading(title: "Done", systemImage: "checkmark.circle", count: done.count)
-                Spacer()
-                if let day = planner.selectedDay {
-                    Button {
-                        withAnimation(.snappy(duration: 0.2)) { planner.selectedDay = nil }
-                    } label: {
-                        HStack(spacing: 4) {
-                            Text(DoneList.dayLabel(day, today: planner.today))
-                            Image(systemName: "xmark.circle.fill")
+                AccordionSection(title: "Done", systemImage: "checkmark.circle",
+                                 count: done.count, expanded: $planner.doneExpanded) {
+                    DoneList(items: done, grouped: planner.selectedDay == nil, day: planner.selectedDay)
+                } accessory: {
+                    if let day = planner.selectedDay {
+                        Button {
+                            withAnimation(.snappy(duration: 0.2)) { planner.selectedDay = nil }
+                        } label: {
+                            HStack(spacing: 4) {
+                                Text(DoneList.dayLabel(day, today: planner.today))
+                                Image(systemName: "xmark.circle.fill")
+                            }
+                            .font(.system(size: 11, weight: .semibold))
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(Capsule().fill(Theme.plannerAccent.opacity(0.12)))
+                            .foregroundStyle(Theme.plannerAccent)
                         }
-                        .font(.system(size: 11, weight: .semibold))
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
-                        .background(Capsule().fill(Theme.plannerAccent.opacity(0.12)))
-                        .foregroundStyle(Theme.plannerAccent)
+                        .buttonStyle(.plain)
+                        .help("Show every done task")
+                    } else {
+                        Text("All days")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(Theme.mutedForeground)
                     }
-                    .buttonStyle(.plain)
-                    .help("Show every done task")
-                } else {
-                    Text("All days")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(Theme.mutedForeground)
                 }
             }
-            ScrollView(.vertical) {
-                DoneList(items: done, grouped: planner.selectedDay == nil, day: planner.selectedDay)
-                    .padding(.horizontal, 4)
-            }
-            .frame(maxHeight: .infinity)
+            .padding(.horizontal, 10)
+            .padding(.top, 40)
+            .padding(.bottom, 16)
         }
-        .padding(.horizontal, 12)
-        .padding(.top, 44)
-        .padding(.bottom, 14)
+        .scrollIndicators(.automatic)
+
+            CalendarDrawer()
+        }
     }
 }
 
-/// A sidebar section title with an icon and a quiet count.
-struct SidebarHeading: View {
+/// The calendar at the bottom of the sidebar, under a divider with a grab
+/// handle; clicking the handle folds it away or brings it back (remembered).
+struct CalendarDrawer: View {
+    @Environment(PlannerModel.self) private var planner
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Button {
+                withAnimation(.snappy(duration: 0.25)) { planner.calendarExpanded.toggle() }
+            } label: {
+                ZStack {
+                    Rectangle().fill(Theme.border).frame(height: 1)
+                    Capsule()
+                        .fill(Theme.mutedForeground.opacity(0.35))
+                        .frame(width: 28, height: 4)
+                }
+                .frame(height: 14)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 14)
+            .help(planner.calendarExpanded ? "Hide the calendar" : "Show the calendar")
+            .accessibilityLabel(planner.calendarExpanded ? "Hide the calendar" : "Show the calendar")
+
+            if planner.calendarExpanded {
+                MiniCalendar()
+                    .padding(.horizontal, 10)
+                    .padding(.top, 10)
+                    .padding(.bottom, 14)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            } else {
+                Button {
+                    withAnimation(.snappy(duration: 0.25)) { planner.calendarExpanded = true }
+                } label: {
+                    Label(Format.monthYear(planner.headerDay), systemImage: "calendar")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Theme.mutedForeground)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .clipped()
+    }
+}
+
+/// A collapsible sidebar section: a large title with an icon, a quiet count,
+/// an optional accessory and a chevron; clicking the title folds it.
+struct AccordionSection<Content: View, Accessory: View>: View {
     var title: String
     var systemImage: String
     var count: Int
+    @Binding var expanded: Bool
+    @ViewBuilder var content: Content
+    @ViewBuilder var accessory: Accessory
+
+    init(title: String, systemImage: String, count: Int, expanded: Binding<Bool>,
+         @ViewBuilder content: () -> Content, @ViewBuilder accessory: () -> Accessory = { EmptyView() }) {
+        self.title = title
+        self.systemImage = systemImage
+        self.count = count
+        _expanded = expanded
+        self.content = content()
+        self.accessory = accessory()
+    }
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Image(systemName: systemImage)
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(Theme.mutedForeground)
-            Text(title)
-                .font(.system(size: 22, weight: .bold))
-                .tracking(-0.6)
-            if count > 0 {
-                Text("\(count)")
-                    .font(.system(size: 13, weight: .semibold).monospacedDigit())
-                    .foregroundStyle(Theme.mutedForeground)
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .firstTextBaseline) {
+                Button {
+                    withAnimation(.snappy(duration: 0.25)) { expanded.toggle() }
+                } label: {
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Image(systemName: systemImage)
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(Theme.mutedForeground)
+                        Text(title)
+                            .font(.system(size: 22, weight: .bold))
+                            .tracking(-0.6)
+                        if count > 0 {
+                            Text("\(count)")
+                                .font(.system(size: 13, weight: .semibold).monospacedDigit())
+                                .foregroundStyle(Theme.mutedForeground)
+                        }
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(Theme.mutedForeground)
+                            .rotationEffect(.degrees(expanded ? 90 : 0))
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help(expanded ? "Collapse \(title)" : "Expand \(title)")
+                .accessibilityAddTraits(.isHeader)
+                .accessibilityValue(expanded ? "Expanded" : "Collapsed")
+                Spacer()
+                if expanded { accessory }
+            }
+            .padding(.leading, 6)
+
+            if expanded {
+                content
+                    .padding(.horizontal, 4)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .padding(.leading, 6)
-        .padding(.bottom, 8)
+        .clipped()
+    }
+}
+
+/// A month calendar in Apple's style: the month centred between ‹ ›,
+/// weekday initials from Monday, weekends and other months' days in grey,
+/// today in a red circle and the selected day ringed. Clicking a date shows
+/// that day in the strip and selects it; clicking the month goes to today.
+struct MiniCalendar: View {
+    @Environment(PlannerModel.self) private var planner
+    /// The first day of the month on display.
+    @State private var month: String?
+
+    private static let columns = Array(repeating: GridItem(.flexible(), spacing: 0), count: 7)
+    static let todayRed = Color(nsColor: .systemRed)
+
+    var body: some View {
+        let shown = month ?? Self.firstOfMonth(planner.headerDay)
+        let start = DateKey.startOfWeek(shown)
+        let days = (0..<42).map { DateKey.addDays(start, $0) }
+        let monthNumber = DateKey.parts(shown).month
+
+        VStack(spacing: 8) {
+            HStack {
+                Button { move(-1, from: shown) } label: {
+                    Image(systemName: "chevron.left").frame(width: 24, height: 24).contentShape(Rectangle())
+                }
+                .help("Previous month")
+                Spacer()
+                Button {
+                    month = nil
+                    withAnimation(.smooth(duration: 0.35)) { planner.reveal(planner.today) }
+                } label: {
+                    Text(Format.monthYear(shown)).font(.system(size: 15, weight: .semibold))
+                }
+                .help("Go to today")
+                Spacer()
+                Button { move(1, from: shown) } label: {
+                    Image(systemName: "chevron.right").frame(width: 24, height: 24).contentShape(Rectangle())
+                }
+                .help("Next month")
+            }
+            .buttonStyle(.plain)
+            .font(.system(size: 14, weight: .regular))
+            .foregroundStyle(Theme.mutedForeground)
+            .focusEffectDisabled()
+
+            LazyVGrid(columns: Self.columns, spacing: 4) {
+                ForEach(1...7, id: \.self) { weekday in
+                    Text(Format.weekdayName(weekday).prefix(1))
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(Theme.mutedForeground)
+                        .frame(height: 20)
+                }
+                ForEach(days, id: \.self) { day in
+                    dayCell(day, inMonth: DateKey.parts(day).month == monthNumber)
+                }
+            }
+        }
+        // Follow the strip into another month, unless the user browsed away.
+        .onChange(of: Self.firstOfMonth(planner.headerDay)) { _, first in
+            withAnimation(.snappy(duration: 0.2)) { month = first }
+        }
+    }
+
+    private func dayCell(_ day: String, inMonth: Bool) -> some View {
+        let isToday = day == planner.today
+        let isSelected = day == planner.selectedDay
+        let isWeekend = DateKey.isoWeekday(day) >= 6
+        let color: Color = isToday ? .white
+            : !inMonth ? Theme.mutedForeground.opacity(0.45)
+            : isWeekend ? Theme.mutedForeground
+            : Theme.foreground.opacity(0.85)
+        return Button {
+            withAnimation(.smooth(duration: 0.35)) { planner.reveal(day) }
+        } label: {
+            Text("\(DateKey.dayOfMonth(day))")
+                .font(.system(size: 14, weight: isToday ? .bold : .medium).monospacedDigit())
+                .foregroundStyle(color)
+                .frame(width: 26, height: 26)
+                .background {
+                    if isToday {
+                        Circle().fill(Self.todayRed)
+                    } else if isSelected {
+                        Circle().strokeBorder(Theme.foreground.opacity(0.35), lineWidth: 1.5)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .focusEffectDisabled()
+        .help(Format.fullDate(day))
+        .accessibilityLabel(Format.fullDate(day))
+    }
+
+    private func move(_ months: Int, from first: String) {
+        let p = DateKey.parts(first)
+        var year = p.year, monthNumber = p.month + months
+        if monthNumber > 12 { monthNumber = 1; year += 1 }
+        if monthNumber < 1 { monthNumber = 12; year -= 1 }
+        withAnimation(.snappy(duration: 0.2)) { month = DateKey.make(year, monthNumber, 1) }
+    }
+
+    static func firstOfMonth(_ day: String) -> String {
+        let p = DateKey.parts(day)
+        return DateKey.make(p.year, p.month, 1)
     }
 }
 

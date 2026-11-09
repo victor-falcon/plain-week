@@ -54,12 +54,20 @@ A minimal, type-led style in Apple's idiom, rather than the web app's ruled pape
   instead of a colored background behind the text. The end of the row holds quiet markers and the time: a notes
   icon when the task has a description, a checklist with "done/total" when it has subtasks (accent once all are
   done), then the time. Empty space in a card adds a task, with a "New task" hint on hover.
-- **Sidebar:** a 300pt sidebar on the left (the header's sidebar button or View › Hide Backlog and Done, ⌃⌘S)
-  holds the **Backlog**, tasks without a date (the web app's Someday; the data is unchanged), and **Done**. Done shows
-  the completed tasks of the selected day, or with no day selected every completed task, newest first, grouped by
-  day (Today, Yesterday, Backlog, Fri 6 Nov, …). Click a day's header to select it (an accent ring marks it) and click
-  it again, or the day chip in Done, to go back to all days.
-- **Task sheet:** a large, bold, Notion-style title with no underline, then notes and subtasks.
+- **Sidebar:** 250pt on the left; the header's sidebar button (or View › Hide Backlog and Done, ⌃⌘S) closes and opens
+  it.
+    - **Backlog** (tasks without a date: the web app's Someday; the data is unchanged) and **Done**, as accordion
+      sections: click a title to fold it (remembered between launches). Each is as tall as its content, and they
+      scroll together.
+    - Done shows the completed tasks of the selected day, or with no day selected every completed task, newest first,
+      grouped by day (Today, Yesterday, Backlog, Fri 6 Nov, …). Click a day's header (or a calendar date) to select it,
+      and click the header again, or the day chip in Done, to go back to all days.
+    - A **month calendar** pinned at the bottom, in Apple's style: the month centred between ‹ ›, weekends and other
+      months' days in grey, today in a red circle, the selected day ringed. Clicking a date shows that day on the right
+      and selects it; clicking the month goes to today. It follows the strip into other months. The grab handle above
+      it folds it away (a month button brings it back), remembered between launches.
+- **Task sheet:** a large, bold, Notion-style title with no underline, then notes and subtasks. Notes are a small
+  Markdown editor (below).
 - **Focus mode:** the "Focus" pill in the header (or View › Focus on Today, ⇧⌘F) blurs and fades every day but
   today, and Backlog, so only today's list stands out. Hovering a blurred card brings it back while the pointer is
   on it. Turning it on jumps to the current week; the setting is remembered between launches.
@@ -105,10 +113,23 @@ Colors still come from the web app's tokens (`Theme.swift`), plus a card surface
     | ⌥⌘T        | Time: type `9`, `9:30`, `5pm` and Return (⌘⌫ clears it)                           |
     | ⌥⌘R        | Repeat: ⌘0 never, ⌘1 daily, ⌘2 weekly, ⌘3 monthly, Return applies                 |
     | ⌥⌘C        | Color: 1–9 picks one                                                              |
-    | ⌘↩ / ⌘⌫    | Complete / delete                                                                 |
+    | ⌘↩ / ⇧⌘⌫   | Complete / delete                                                                 |
     | ⌥⌘→ / ⇧⌥⌘→ | Move to tomorrow / next week                                                      |
-    | ⌥⌘B / ⌘D   | Move to Backlog / duplicate                                                       |
+    | ⌥⌘L / ⌘D   | Move to Backlog / duplicate                                                       |
     | Esc        | Close                                                                             |
+
+- **Notes** are plain text, as on the web, with light Markdown styled as you type (the markers stay, dimmed). Its keys
+  work while the notes have focus, and a hint line lists them:
+
+    | Key  | Writes                                                                      | Key | Writes                             |
+    | ---- | --------------------------------------------------------------------------- | --- | ---------------------------------- |
+    | ⌘1–4 | Heading `# ` … `#### `                                                      | ⌘B  | Bold `**text**`                    |
+    | ⌘T   | Todo line `- [ ] ` (click the box to tick it)                               | ⌘I  | Italic `_text_`                    |
+    | ⌘E   | The time (`14:05`)                                                          | ⌘U  | Underline `++text++`               |
+    | ⇧⌘E  | The date (`Mon 9 Nov 2026`)                                                 | ⇧⌘X | Strikethrough `~~text~~`           |
+    | ⇧⌘C  | Color menu: text `{red}text{/}` or highlight `==text==` / `=={green}text==` | ⌥⌘B | Block caret (Vim style) on and off |
+
+    Each key toggles: pressing it again on formatted text removes the formatting. The web app shows the raw text.
 
 - Right-click a task for colors, moves, duplicate and delete. Each row's checkbox completes it.
 - Drag a task onto another row (upper or lower half), onto a list's empty rows, or onto the ‹ › week buttons to move
@@ -124,10 +145,10 @@ macos/
 ├── project.yml                 XcodeGen spec (app + unit tests)
 ├── PlainWeek/
 │   ├── PlainWeekApp.swift      App, window, menu commands, export/import panels
-│   ├── Model/                  PlainTask (contract), DateKeys (+ Clock, UUID v7), FractionalIndex, QuickAdd,
+│   ├── Model/                  PlainTask (contract), DateKeys (+ Clock, UUID v7), FractionalIndex, QuickAdd, NoteMarkdown,
 │   │                           RecurrenceEngine, SmartInput (+ Format)
 │   ├── Store/                  TaskStore (local repository, undo, carry over, import/export), PlannerModel (UI state)
-│   ├── Views/                  PlannerView (sidebar with Backlog and Done, header, day strip), TaskListView (rows, new-task row, menu, drops), TaskDetailView,
+│   ├── Views/                  PlannerView (sidebar with Backlog and Done, header, day strip), TaskListView (rows, new-task row, menu, drops), TaskDetailView, NotesEditor,
 │   │                           RepeatPicker, SettingsView, Theme
 │   └── DebugSnapshot.swift     Debug-only headless render
 └── PlainWeekTests/             XCTest: fractional index, smart input, dates, recurrence, store behaviour

@@ -12,6 +12,8 @@ export const TASK_COLORS = [
     'mango',
     'green',
     'lilac',
+    'red',
+    'orange',
 ] as const;
 
 export type TaskColor = (typeof TASK_COLORS)[number];

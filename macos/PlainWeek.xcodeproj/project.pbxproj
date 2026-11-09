@@ -11,12 +11,14 @@
 		3C346202D6FEBE3C74951D58 /* DateKeys.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E47A13C9C3C27BC8717EE19 /* DateKeys.swift */; };
 		403E442A20AE46AA0CD90A2C /* PlannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 298E1BA5885E900139DABA3A /* PlannerView.swift */; };
 		45B4439DC91285C573C8325E /* QuickAdd.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64C4826FCE4386231546D627 /* QuickAdd.swift */; };
+		4DD14EE0D777C45EC6279E34 /* NotesEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3D92AD4F6E11EF63279E0AB /* NotesEditor.swift */; };
 		53D160917545F3029C814F39 /* TaskStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A220C28F9C0954BDFAC1EE55 /* TaskStore.swift */; };
 		549E23F7DDC5C05FD0EFC5BE /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D47E36CF3DA5878BE0132A78 /* SettingsView.swift */; };
 		5DC9062035F785AC53638881 /* PlainTask.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28D9E3752E7210826C6190D8 /* PlainTask.swift */; };
 		6AB732842F8D9CD62C153715 /* RecurrenceEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6865ECB28A0EFD886CAE5FD2 /* RecurrenceEngine.swift */; };
 		6F37093072A9D568FBDD4274 /* TaskDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84522E606A6F04225B55A261 /* TaskDetailView.swift */; };
 		A19E107C0376844A0182BF41 /* TaskListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F709876E0BDBE2808E9BE5D4 /* TaskListView.swift */; };
+		B6CF3DD472403B6C47B08B92 /* NoteMarkdown.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63AA630AC51337CC1E5CDED2 /* NoteMarkdown.swift */; };
 		BFF8DA9F1F273F76477026CA /* DebugSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83DC5A7D9500DE76DF89B034 /* DebugSnapshot.swift */; };
 		C4D19507BA9D12BC86DC3372 /* FractionalIndex.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00A8F9B8FE2CDA0EBAEAE537 /* FractionalIndex.swift */; };
 		CF4C565892E2E2E74A03D5E3 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FB14DCE8C020A3E76ADA688 /* Theme.swift */; };
@@ -47,6 +49,7 @@
 		2FB14DCE8C020A3E76ADA688 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		46E62123169CF8184AC93942 /* PlannerModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlannerModel.swift; sourceTree = "<group>"; };
 		4A53DABD8A0F881620B0F612 /* RepeatPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepeatPicker.swift; sourceTree = "<group>"; };
+		63AA630AC51337CC1E5CDED2 /* NoteMarkdown.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteMarkdown.swift; sourceTree = "<group>"; };
 		64C4826FCE4386231546D627 /* QuickAdd.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickAdd.swift; sourceTree = "<group>"; };
 		6865ECB28A0EFD886CAE5FD2 /* RecurrenceEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecurrenceEngine.swift; sourceTree = "<group>"; };
 		6966DFE995561C8C59AD42D5 /* PlainWeek.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PlainWeek.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -55,6 +58,7 @@
 		84522E606A6F04225B55A261 /* TaskDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskDetailView.swift; sourceTree = "<group>"; };
 		8F00D45CD514DD0F7A61EBD2 /* SmartInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartInput.swift; sourceTree = "<group>"; };
 		A220C28F9C0954BDFAC1EE55 /* TaskStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskStore.swift; sourceTree = "<group>"; };
+		B3D92AD4F6E11EF63279E0AB /* NotesEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotesEditor.swift; sourceTree = "<group>"; };
 		D47E36CF3DA5878BE0132A78 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		F709876E0BDBE2808E9BE5D4 /* TaskListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskListView.swift; sourceTree = "<group>"; };
 		F95EC84350E560BAD1A20C02 /* PlainWeekApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlainWeekApp.swift; sourceTree = "<group>"; };
@@ -73,6 +77,7 @@
 		4D9237E8D8E0DBAEF98D5D07 /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				B3D92AD4F6E11EF63279E0AB /* NotesEditor.swift */,
 				298E1BA5885E900139DABA3A /* PlannerView.swift */,
 				4A53DABD8A0F881620B0F612 /* RepeatPicker.swift */,
 				D47E36CF3DA5878BE0132A78 /* SettingsView.swift */,
@@ -127,6 +132,7 @@
 			children = (
 				6E47A13C9C3C27BC8717EE19 /* DateKeys.swift */,
 				00A8F9B8FE2CDA0EBAEAE537 /* FractionalIndex.swift */,
+				63AA630AC51337CC1E5CDED2 /* NoteMarkdown.swift */,
 				28D9E3752E7210826C6190D8 /* PlainTask.swift */,
 				64C4826FCE4386231546D627 /* QuickAdd.swift */,
 				6865ECB28A0EFD886CAE5FD2 /* RecurrenceEngine.swift */,
@@ -227,6 +233,8 @@
 				3C346202D6FEBE3C74951D58 /* DateKeys.swift in Sources */,
 				BFF8DA9F1F273F76477026CA /* DebugSnapshot.swift in Sources */,
 				C4D19507BA9D12BC86DC3372 /* FractionalIndex.swift in Sources */,
+				B6CF3DD472403B6C47B08B92 /* NoteMarkdown.swift in Sources */,
+				4DD14EE0D777C45EC6279E34 /* NotesEditor.swift in Sources */,
 				5DC9062035F785AC53638881 /* PlainTask.swift in Sources */,
 				256076330EAAF723A7A7CC25 /* PlainWeekApp.swift in Sources */,
 				CFA561E717B2B21E4571DF84 /* PlannerModel.swift in Sources */,
