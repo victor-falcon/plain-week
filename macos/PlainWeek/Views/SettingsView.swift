@@ -1,3 +1,4 @@
+import ServiceManagement
 import SwiftUI
 
 /// Settings: appearance, carry over and data (export / import), built from
@@ -19,6 +20,10 @@ struct SettingsView: View {
     @Environment(TaskStore.self) private var store
     @Environment(PlannerModel.self) private var planner
     @Environment(CalendarEvents.self) private var calendar
+    /// Read from the system each time Settings opens (the user can also
+    /// change it in System Settings › General › Login Items).
+    @State private var openAtLogin = SMAppService.mainApp.status == .enabled
+    @State private var loginItemNote: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 28) {
@@ -98,6 +103,11 @@ struct SettingsView: View {
             }
 
             section("Everywhere") {
+                Toggle(isOn: Binding(get: { openAtLogin }, set: setOpenAtLogin)) {
+                    Text("Open at login").font(.system(size: 14, weight: .medium))
+                }
+                .toggleStyle(MonoSwitchStyle())
+                if let loginItemNote { note(loginItemNote) }
                 Toggle(isOn: $quickCapture) {
                     Text("Quick add with ⌥Space from any app").font(.system(size: 14, weight: .medium))
                 }
@@ -115,6 +125,8 @@ struct SettingsView: View {
                      ? "Plain Week needs access to your calendars: allow it in System Settings › Privacy & Security › Calendars."
                      : "Events are read-only and stay on this Mac. Siri and the Shortcuts app can add tasks, list today and start the timer.")
             }
+
+            SyncSettings()
 
             section("Data") {
                 HStack(spacing: 8) {
@@ -145,20 +157,103 @@ struct SettingsView: View {
         .focusEffectDisabled()
     }
 
-    private func section<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(title.uppercased())
-                .font(.system(size: 11, weight: .semibold))
-                .tracking(0.8)
-                .foregroundStyle(Theme.mutedForeground)
-            content()
+
+    /// Adds or removes Plain Week from the login items. It opens with its
+    /// window as usual; with the menu bar on, today is a click away.
+    private func setOpenAtLogin(_ on: Bool) {
+        do {
+            if on { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() }
+            loginItemNote = SMAppService.mainApp.status == .requiresApproval
+                ? "Allow Plain Week in System Settings › General › Login Items." : nil
+        } catch {
+            loginItemNote = "Could not change the login item: \(error.localizedDescription)"
+        }
+        openAtLogin = SMAppService.mainApp.status == .enabled || SMAppService.mainApp.status == .requiresApproval
+    }
+}
+
+// Shared parts of the Settings sections.
+
+private func section<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+    VStack(alignment: .leading, spacing: 10) {
+        Text(title.uppercased())
+            .font(.system(size: 11, weight: .semibold))
+            .tracking(0.8)
+            .foregroundStyle(Theme.mutedForeground)
+        content()
+    }
+}
+
+private func note(_ text: String) -> some View {
+    Text(text)
+        .font(.system(size: 12))
+        .foregroundStyle(Theme.mutedForeground)
+        .fixedSize(horizontal: false, vertical: true)
+}
+
+/// Settings › Sync: a folder in iCloud Drive shared by your Macs, and the
+/// Reminders and Calendar mirrors that carry the week to iPhone and Watch.
+private struct SyncSettings: View {
+    private let folder = AppModel.shared.folderSync
+    private let mirror = AppModel.shared.remindersMirror
+    private let publisher = AppModel.shared.calendarPublisher
+
+    var body: some View {
+        section("Sync") {
+            HStack(spacing: 8) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Sync with your other Macs").font(.system(size: 14, weight: .medium))
+                    Text(folderStatus).font(.system(size: 12)).foregroundStyle(Theme.mutedForeground)
+                        .lineLimit(1).truncationMode(.middle)
+                }
+                Spacer()
+                if folder.isEnabled {
+                    Button("Sync Now") { folder.syncNow() }.buttonStyle(PillButtonStyle())
+                    Button("Stop") { folder.stop() }.buttonStyle(PillButtonStyle())
+                } else {
+                    Button("Choose Folder…", action: chooseFolder).buttonStyle(PillButtonStyle())
+                }
+            }
+            note("Pick a folder in iCloud Drive on each Mac. Every Mac keeps its own file there and takes in the others' changes; the latest edit wins.")
+
+            Toggle(isOn: Binding(get: { mirror.isEnabled }, set: { mirror.setEnabled($0) })) {
+                Text("Keep a Plain Week list in Reminders").font(.system(size: 14, weight: .medium))
+            }
+            .toggleStyle(MonoSwitchStyle())
+            Toggle(isOn: Binding(get: { publisher.isEnabled }, set: { publisher.setEnabled($0) })) {
+                Text("Put tasks with a time in a Plain Week calendar").font(.system(size: 14, weight: .medium))
+            }
+            .toggleStyle(MonoSwitchStyle())
+            note(accessNote)
         }
     }
 
-    private func note(_ text: String) -> some View {
-        Text(text)
-            .font(.system(size: 12))
-            .foregroundStyle(Theme.mutedForeground)
-            .fixedSize(horizontal: false, vertical: true)
+    private var folderStatus: String {
+        guard let path = folder.folderPath else { return "Off" }
+        let home = String(cString: getpwuid(getuid()).pointee.pw_dir)
+        var shown = path.replacingOccurrences(of: home + "/Library/Mobile Documents/com~apple~CloudDocs", with: "iCloud Drive")
+        shown = shown.replacingOccurrences(of: home, with: "~")
+        guard let last = folder.lastSync else { return shown }
+        return "\(shown) · synced \(last.formatted(date: .omitted, time: .shortened))"
+    }
+
+    private var accessNote: String {
+        if mirror.isEnabled && !mirror.authorized || publisher.isEnabled && !publisher.authorized {
+            return "Plain Week needs full access: allow it in System Settings › Privacy & Security › Reminders or Calendars."
+        }
+        return "Through iCloud, both reach your iPhone and Apple Watch. Reminders go both ways: edit or tick them there, or add new ones to the list. The calendar is one-way, 30-minute events for the month ahead; repeating tasks stay out of Reminders."
+    }
+
+    private func chooseFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.canCreateDirectories = true
+        panel.prompt = "Sync Here"
+        panel.message = "Choose a folder in iCloud Drive to share with your other Macs."
+        let home = String(cString: getpwuid(getuid()).pointee.pw_dir)
+        panel.directoryURL = URL(fileURLWithPath: home + "/Library/Mobile Documents/com~apple~CloudDocs")
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        try? folder.choose(url)
     }
 }

@@ -547,6 +547,27 @@ final class TaskStore {
         return behind.count
     }
 
+    // MARK: Sync
+
+    /// Merges rows from another device (the iCloud Drive folder) with
+    /// last-write-wins, as the web app's sync does: a row is taken when it is
+    /// new here or its `updated_at` is newer. Timestamps are kept as they are,
+    /// so merging is idempotent. Returns how many rows changed.
+    @discardableResult
+    func merge(_ incoming: [PlainTask]) -> Int {
+        var changed = 0
+        for row in incoming {
+            if let local = rows[row.id], local.updated_at >= row.updated_at { continue }
+            rows[row.id] = row
+            changed += 1
+        }
+        if changed > 0 { save() }
+        return changed
+    }
+
+    /// Every row, tombstones included (what a device writes for the others).
+    var allRows: [PlainTask] { rows.values.sorted { $0.id < $1.id } }
+
     // MARK: Import / export
 
     /// Every live row, and of each live series the winning exceptions, deleted

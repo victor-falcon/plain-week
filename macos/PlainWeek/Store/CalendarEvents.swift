@@ -78,7 +78,8 @@ final class CalendarEvents {
     private func load(from start: String, to end: String) {
         loadedRange = (start, end)
         guard enabled, authorized else { byDay = [:]; return }
-        let predicate = eventStore.predicateForEvents(withStart: DateKey.localDate(start), end: DateKey.localDate(DateKey.addDays(end, 1)), calendars: nil)
+        let predicate = eventStore.predicateForEvents(withStart: DateKey.localDate(start), end: DateKey.localDate(DateKey.addDays(end, 1)),
+                                                      calendars: eventStore.calendars(for: .event).filter { $0.title != CalendarPublisher.calendarName })
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_GB")
         formatter.dateFormat = "HH:mm"

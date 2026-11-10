@@ -27,8 +27,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   weekly, monthly, with "only this" or "this and all future"), carry over of unfinished tasks, undo, and JSON
   export/import in the web app's format. Beyond the window: quick add from any app (⌥Space), a menu bar panel, reminders for timed tasks, Calendar events
   in each day, time tracking and a Pomodoro mode (long breaks, session dots,
-  optional auto-start), a weekly review, a ⌘K command palette, Shortcuts and Siri, daily
-  backups and vim keys. It stores tasks locally and does not sync yet. See
+  optional auto-start), a weekly review, a ⌘K command palette, Shortcuts and Siri, open at login, daily
+  backups and vim keys. It stores tasks locally; Macs can sync through a folder in iCloud Drive, and optional mirrors
+  keep a "Plain Week" list in Reminders in step both ways and put timed tasks in a "Plain Week" calendar, so the
+  week reaches iPhone and Apple Watch. See
   [macos/README.md](./macos/README.md).
 
 ## [0.3.15] - 2026-11-08

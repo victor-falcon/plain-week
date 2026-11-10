@@ -14,12 +14,18 @@ final class AppModel {
     let timeLog: TimeLog
     let calendar = CalendarEvents()
     let reminders: Reminders
+    let folderSync: FolderSync
+    let remindersMirror: RemindersMirror
+    let calendarPublisher: CalendarPublisher
     private var launched = false
 
     private init() {
         store = TaskStore(fileURL: Self.dataFileURL)
         timeLog = TimeLog(fileURL: Self.dataFileURL.flatMap { $0.deletingLastPathComponent().appendingPathComponent("time.json") })
         reminders = Reminders(store: store)
+        folderSync = FolderSync(store: store)
+        remindersMirror = RemindersMirror(store: store)
+        calendarPublisher = CalendarPublisher(store: store)
     }
 
     /// Debug builds can point at another file with `PLAINWEEK_DATA_FILE` (a
@@ -51,7 +57,11 @@ final class AppModel {
         let store = store, planner = planner, timeLog = timeLog
         planner.onDayChange = { today in
             store.carryOverIfEnabled(today: today, planner: planner)
-            if !Self.isSnapshot { Backups.runIfNeeded(store: store, today: today) }
+            if !Self.isSnapshot {
+                Backups.runIfNeeded(store: store, today: today)
+                // The calendar's month ahead moves with the day.
+                AppModel.shared.calendarPublisher.scheduleSoon()
+            }
         }
         planner.startClock()
         store.carryOverIfEnabled(today: planner.today, planner: planner)
@@ -73,8 +83,28 @@ final class AppModel {
         Backups.runIfNeeded(store: store, today: planner.today)
         reminders.onComplete = { [weak self] id in self?.complete(id) }
         reminders.start()
-        store.onSave = { [weak self] in self?.reminders.scheduleSoon() }
+        store.onSave = { [weak self] in
+            guard let self else { return }
+            reminders.scheduleSoon()
+            folderSync.scheduleSoon()
+            remindersMirror.scheduleSoon()
+            calendarPublisher.scheduleSoon()
+        }
+        folderSync.start()
+        remindersMirror.start()
+        syncAll()
+        NotificationCenter.default.addObserver(forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main) { _ in
+            Task { @MainActor in AppModel.shared.syncAll() }
+        }
         QuickCapture.shared.registerHotKey()
+    }
+
+    /// Pulls and pushes every sync that is on: at launch, when the app comes
+    /// to the front, and (debounced) after each local change.
+    func syncAll() {
+        folderSync.syncNow()
+        remindersMirror.syncNow()
+        calendarPublisher.syncNow()
     }
 
     /// Marks a task done from outside the window (notification, menu bar).

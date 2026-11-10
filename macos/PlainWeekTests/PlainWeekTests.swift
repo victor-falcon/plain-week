@@ -670,3 +670,67 @@ final class TaskStoreTests: XCTestCase {
         XCTAssertThrowsError(try TaskStore.parseImport(Data("{\"format\":\"other\"}".utf8)))
     }
 }
+
+@MainActor
+final class SyncTests: XCTestCase {
+    func testMergeKeepsTheLatestWrite() {
+        let a = TaskStore(fileURL: nil), b = TaskStore(fileURL: nil)
+        let id = a.create(text: "Call Joao", date: "2026-11-10")
+        XCTAssertEqual(b.merge(a.allRows), 1)
+        b.update(id, TaskPatch(text: "Call Joao back"))
+        XCTAssertEqual(a.merge(b.allRows), 1)
+        XCTAssertEqual(a.rows[id]?.text, "Call Joao back")
+        // An older copy changes nothing.
+        XCTAssertEqual(b.merge(a.allRows), 0)
+    }
+
+    func testFolderSyncBetweenTwoMacs() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("pw-sync-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let mac1 = TaskStore(fileURL: nil), mac2 = TaskStore(fileURL: nil)
+        let id = mac1.create(text: "Plan the week", date: "2026-11-10")
+        FolderSync.sync(store: mac1, folder: folder, device: "one")
+        XCTAssertEqual(FolderSync.sync(store: mac2, folder: folder, device: "two"), 1)
+        XCTAssertEqual(mac2.rows[id]?.text, "Plan the week")
+
+        mac2.delete(id)
+        FolderSync.sync(store: mac2, folder: folder, device: "two")
+        FolderSync.sync(store: mac1, folder: folder, device: "one")
+        XCTAssertEqual(mac1.rows[id]?.isDeleted, true)
+        let files = try FileManager.default.contentsOfDirectory(atPath: folder.path).sorted()
+        XCTAssertEqual(files, ["plain-week-sync-one.json", "plain-week-sync-two.json"])
+    }
+
+    func testReminderFieldsRoundTrip() {
+        let timed = ReminderFields(title: "Gym", notes: "Legs", done: false, date: "2026-11-12", time: "07:30")
+        let due = timed.dueComponents
+        XCTAssertEqual(due?.hour, 7)
+        XCTAssertEqual(ReminderFields.from(due: due, title: "Gym", notes: "Legs", done: false), timed)
+        let backlog = ReminderFields(title: "Someday", notes: "", done: false, date: nil, time: "09:00")
+        XCTAssertNil(backlog.time)
+        XCTAssertNil(backlog.dueComponents)
+        XCTAssertEqual(ReminderFields.from(due: nil, title: "Someday", notes: nil, done: false), backlog)
+    }
+
+    func testTaskLink() {
+        XCTAssertEqual(TaskLink.taskId(TaskLink.url("abc-123")), "abc-123")
+        XCTAssertEqual(TaskLink.taskId(TaskLink.url("series:2026-11-10")), "series:2026-11-10")
+        XCTAssertNil(TaskLink.taskId(URL(string: "https://example.com/task/1")))
+        XCTAssertNil(TaskLink.taskId(nil))
+    }
+
+    func testCalendarPlanHasUnfinishedTimedTasksInRange() {
+        let store = TaskStore(fileURL: nil)
+        let today = "2026-11-10"
+        store.create(text: "Standup", date: today, time: "09:30")
+        store.create(text: "No time", date: today)
+        let done = store.create(text: "Done already", date: today, time: "10:00")
+        store.update(done, TaskPatch(done: true))
+        store.create(text: "Too far", date: DateKey.addDays(today, 60), time: "08:00")
+        let plan = CalendarPublisher.plan(store: store, today: today)
+        XCTAssertEqual(plan.map(\.title), ["Standup"])
+        XCTAssertEqual(Calendar.current.component(.hour, from: plan[0].start), 9)
+        XCTAssertEqual(Calendar.current.component(.minute, from: plan[0].start), 30)
+    }
+}
