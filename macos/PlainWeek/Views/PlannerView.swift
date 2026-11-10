@@ -143,11 +143,13 @@ struct PlannerHeader: View {
             }
             .padding(.bottom, 8)
             .animation(Motion.standard, value: planner.showsToday)
+            .animation(Motion.standard, value: planner.filter)
         }
     }
 
     private func controls(compact: Bool) -> some View {
         HStack(spacing: 8) {
+            FilterPill()
             TimerPill(compact: compact)
             FocusButton(compact: compact)
             if !planner.showsToday {
@@ -359,6 +361,7 @@ struct TitleBarIcons: View {
             planner.goToToday()
             planner.openDraft(store.create(text: "", date: planner.today))
         }
+        FilterButton()
         TitleBarButton(systemImage: "gearshape", help: "Settings (⌘,)") { openSettings() }
     }
 }
@@ -520,7 +523,7 @@ struct DayStrip: View {
     }
 
     private func card(_ day: String) -> some View {
-        DayColumn(date: day, items: store.days(from: day, to: day)[day] ?? [], focus: focus)
+        DayColumn(date: day, items: planner.filter.apply(store.days(from: day, to: day)[day] ?? []), focus: focus)
     }
 
     private var scrollingStrip: some View {
@@ -789,8 +792,8 @@ struct PlannerSidebar: View {
 
     var body: some View {
         @Bindable var planner = planner
-        let backlog = store.someday(weekStart: DateKey.startOfWeek(planner.weekStart), today: planner.today)
-        let done = store.doneTasks(on: planner.selectedDay)
+        let backlog = planner.filter.apply(store.someday(weekStart: DateKey.startOfWeek(planner.weekStart), today: planner.today))
+        let done = planner.filter.apply(store.doneTasks(on: planner.selectedDay))
         VStack(spacing: 0) {
         ScrollView(.vertical) {
             VStack(alignment: .leading, spacing: 18) {
@@ -923,10 +926,7 @@ struct AccordionSection<Content: View, Accessory: View>: View {
                                 .font(.system(size: 13, weight: .semibold).monospacedDigit())
                                 .foregroundStyle(Theme.mutedForeground)
                         }
-                        Image(systemName: "chevron.forward")
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundStyle(Theme.mutedForeground)
-                            .rotationEffect(.degrees(expanded ? 90 : 0))
+                        Spacer(minLength: 0)
                     }
                     .contentShape(Rectangle())
                 }
@@ -935,10 +935,24 @@ struct AccordionSection<Content: View, Accessory: View>: View {
                 .help(expanded ? "Collapse \(title)" : "Expand \(title)")
                 .accessibilityAddTraits(.isHeader)
                 .accessibilityValue(expanded ? "Expanded" : "Collapsed")
-                Spacer()
                 if expanded { accessory }
+                // The chevron sits at the right edge of every section, in line.
+                Button {
+                    withAnimation(Motion.standard) { expanded.toggle() }
+                } label: {
+                    Image(systemName: "chevron.forward")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(Theme.mutedForeground)
+                        .rotationEffect(.degrees(expanded ? 90 : 0))
+                        .frame(width: 18, height: 18)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.pressable)
+                .focusEffectDisabled()
+                .accessibilityHidden(true)
             }
             .padding(.leading, 6)
+            .padding(.trailing, 2)
 
             if expanded {
                 content

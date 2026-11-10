@@ -176,7 +176,7 @@ struct DayPanelView: View {
             .padding(.horizontal, 8)
             .frame(height: 32)
 
-            DayColumn(date: day, items: store.days(from: day, to: day)[day] ?? [], focus: $focus, standalone: true)
+            DayColumn(date: day, items: planner.filter.apply(store.days(from: day, to: day)[day] ?? []), focus: $focus, standalone: true)
                 .padding(.horizontal, 10)
                 .padding(.bottom, 10)
                 .id(day)

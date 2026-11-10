@@ -26,6 +26,10 @@ final class PlannerModel {
     private(set) var today: String
     var weekStart: String
     var openTask: OpenTask?
+    /// Which tasks the planner shows (tags, priority, flagged); not saved.
+    var filter = TaskFilter()
+    /// The filter popover (View › Filter…, ⇧⌘L).
+    var showFilter = false
     var toast: Toast?
     /// The list whose new-task row should take focus (⌘N, after an action).
     var focusRequest: String?

@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		18BEC3D3BEE4FAD2953DCB07 /* FilterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFBA6284A00FDD4E21E361E /* FilterView.swift */; };
 		1ADECA11502342628D4D8C60 /* PlainWeekIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DEB2D0EBA4A12A16F3A79DF /* PlainWeekIntents.swift */; };
 		256076330EAAF723A7A7CC25 /* PlainWeekApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F95EC84350E560BAD1A20C02 /* PlainWeekApp.swift */; };
 		2FA198D6A077D25F6C6CDEAF /* LockScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75E428B07D627D8888068836 /* LockScreen.swift */; };
@@ -30,6 +31,7 @@
 		709E9F12518867C1BF83AA8F /* Welcome.swift in Sources */ = {isa = PBXBuildFile; fileRef = 370416E00BD3996AE17158E8 /* Welcome.swift */; };
 		762AA6A3A699248728BC769F /* KeyboardCursor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0F9982DEA3B6AE20850EA4C /* KeyboardCursor.swift */; };
 		853AC164FDF5169D40E89AEF /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 3D097EAAA88EC9532B657914 /* Localizable.xcstrings */; };
+		88E31488A4F4D0BFD9B29170 /* TaskFilter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2E26DB3CBC050B06DB898AD /* TaskFilter.swift */; };
 		8CFDD240C9A0AACAD2BD75B0 /* CalendarEvents.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB739FED763444933FD1AFDD /* CalendarEvents.swift */; };
 		9054DB764256E07DA65ED2CD /* TagEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 331BA10C300D609A35C3558F /* TagEditor.swift */; };
 		9AA04BE1A43A023CA02A7453 /* LocationPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6469DD0DFDF79776DB0B7DFC /* LocationPicker.swift */; };
@@ -102,7 +104,9 @@
 		9E6200D492FED7BA1B4795F1 /* MiniTimer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniTimer.swift; sourceTree = "<group>"; };
 		A0F9982DEA3B6AE20850EA4C /* KeyboardCursor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardCursor.swift; sourceTree = "<group>"; };
 		A220C28F9C0954BDFAC1EE55 /* TaskStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskStore.swift; sourceTree = "<group>"; };
+		AAFBA6284A00FDD4E21E361E /* FilterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterView.swift; sourceTree = "<group>"; };
 		AB739FED763444933FD1AFDD /* CalendarEvents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarEvents.swift; sourceTree = "<group>"; };
+		B2E26DB3CBC050B06DB898AD /* TaskFilter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskFilter.swift; sourceTree = "<group>"; };
 		B35310780981BAEA5E9E8A54 /* TaskTiming.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskTiming.swift; sourceTree = "<group>"; };
 		B3D92AD4F6E11EF63279E0AB /* NotesEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotesEditor.swift; sourceTree = "<group>"; };
 		B7CDB742A5D15038A3FE083B /* TimeLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeLog.swift; sourceTree = "<group>"; };
@@ -113,7 +117,7 @@
 		E9DC4DD551ACF3226A5E4C39 /* FocusTimer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusTimer.swift; sourceTree = "<group>"; };
 		F709876E0BDBE2808E9BE5D4 /* TaskListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskListView.swift; sourceTree = "<group>"; };
 		F95EC84350E560BAD1A20C02 /* PlainWeekApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlainWeekApp.swift; sourceTree = "<group>"; };
-		"TEMP_52101DC6-782A-4B68-892B-7C2930EB5B47" /* Signing.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Signing.xcconfig; sourceTree = "<group>"; };
+		"TEMP_8F4230A8-237B-491F-83A5-EAE4ADE83368" /* Signing.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Signing.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -131,6 +135,7 @@
 			children = (
 				5DAAE44CE9D1C58EA7F1E2F8 /* CommandPalette.swift */,
 				C630A1E7B59645756A820638 /* DayPanel.swift */,
+				AAFBA6284A00FDD4E21E361E /* FilterView.swift */,
 				6469DD0DFDF79776DB0B7DFC /* LocationPicker.swift */,
 				75E428B07D627D8888068836 /* LockScreen.swift */,
 				3AA85A8F6A6535C803C6F896 /* MenuBar.swift */,
@@ -222,15 +227,16 @@
 				64C4826FCE4386231546D627 /* QuickAdd.swift */,
 				6865ECB28A0EFD886CAE5FD2 /* RecurrenceEngine.swift */,
 				8F00D45CD514DD0F7A61EBD2 /* SmartInput.swift */,
+				B2E26DB3CBC050B06DB898AD /* TaskFilter.swift */,
 				B35310780981BAEA5E9E8A54 /* TaskTiming.swift */,
 			);
 			path = Model;
 			sourceTree = "<group>";
 		};
-		"TEMP_945A7765-ECAD-4627-8D55-1DC53CB20F96" /* macos */ = {
+		"TEMP_80E44FC8-58FB-44E5-8584-B7E4E070F9BD" /* macos */ = {
 			isa = PBXGroup;
 			children = (
-				"TEMP_52101DC6-782A-4B68-892B-7C2930EB5B47" /* Signing.xcconfig */,
+				"TEMP_8F4230A8-237B-491F-83A5-EAE4ADE83368" /* Signing.xcconfig */,
 			);
 			path = macos;
 			sourceTree = "<group>";
@@ -340,6 +346,7 @@
 				3C346202D6FEBE3C74951D58 /* DateKeys.swift in Sources */,
 				40ECABAB8EA217C7EC34E2D9 /* DayPanel.swift in Sources */,
 				BFF8DA9F1F273F76477026CA /* DebugSnapshot.swift in Sources */,
+				18BEC3D3BEE4FAD2953DCB07 /* FilterView.swift in Sources */,
 				CAAD8BE1C04D58E7158E7318 /* FocusTimer.swift in Sources */,
 				45FBF03D229AA4FA71377EC8 /* FolderSync.swift in Sources */,
 				C4D19507BA9D12BC86DC3372 /* FractionalIndex.swift in Sources */,
@@ -364,6 +371,7 @@
 				EDF62B0EA0F654319BAE3378 /* SmartInput.swift in Sources */,
 				9054DB764256E07DA65ED2CD /* TagEditor.swift in Sources */,
 				6F37093072A9D568FBDD4274 /* TaskDetailView.swift in Sources */,
+				88E31488A4F4D0BFD9B29170 /* TaskFilter.swift in Sources */,
 				A19E107C0376844A0182BF41 /* TaskListView.swift in Sources */,
 				53D160917545F3029C814F39 /* TaskStore.swift in Sources */,
 				D3561BB2614E9CA08BA496C2 /* TaskTiming.swift in Sources */,
@@ -396,7 +404,7 @@
 /* Begin XCBuildConfiguration section */
 		1A612AA517A1FF1ECAB04537 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_52101DC6-782A-4B68-892B-7C2930EB5B47" /* Signing.xcconfig */;
+			baseConfigurationReference = "TEMP_8F4230A8-237B-491F-83A5-EAE4ADE83368" /* Signing.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = PlainWeek/PlainWeek.entitlements;
@@ -488,7 +496,7 @@
 		};
 		2D689A2B6E3EAAA4EA25DA0B /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_52101DC6-782A-4B68-892B-7C2930EB5B47" /* Signing.xcconfig */;
+			baseConfigurationReference = "TEMP_8F4230A8-237B-491F-83A5-EAE4ADE83368" /* Signing.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = PlainWeek/PlainWeek.entitlements;
@@ -518,7 +526,7 @@
 		};
 		5FD1DFA4B0F8AE143E5ADF7F /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_52101DC6-782A-4B68-892B-7C2930EB5B47" /* Signing.xcconfig */;
+			baseConfigurationReference = "TEMP_8F4230A8-237B-491F-83A5-EAE4ADE83368" /* Signing.xcconfig */;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				COMBINE_HIDPI_IMAGES = YES;
@@ -605,7 +613,7 @@
 		};
 		E3FD1833ACBC1B7845FF9DBF /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_52101DC6-782A-4B68-892B-7C2930EB5B47" /* Signing.xcconfig */;
+			baseConfigurationReference = "TEMP_8F4230A8-237B-491F-83A5-EAE4ADE83368" /* Signing.xcconfig */;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				COMBINE_HIDPI_IMAGES = YES;

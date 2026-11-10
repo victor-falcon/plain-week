@@ -1079,3 +1079,43 @@ final class OrganizationKeyTests: XCTestCase {
         XCTAssertEqual(planner.openTask?.focusTags, true)
     }
 }
+
+@MainActor
+final class FilterTests: XCTestCase {
+    func testFilterCombinesFlagPriorityAndTags() {
+        func task(_ text: String, tags: [String] = [], flagged: Bool = false, priority: TaskPriority = .none) -> PlainTask {
+            PlainTask(id: text, text: text, date: "2026-11-10", someday_column: nil, position: "a0",
+                      tags: tags, flagged: flagged, priority: priority, created_at: "t", updated_at: "t")
+        }
+        let work = task("work", tags: ["work"], priority: .high)
+        let home = task("home", tags: ["home"], flagged: true)
+        let plain = task("plain")
+        var filter = TaskFilter()
+        XCTAssertFalse(filter.isActive)
+        XCTAssertTrue(filter.matches(plain))
+
+        filter.tags = ["work", "home"]
+        XCTAssertTrue(filter.matches(work) && filter.matches(home))
+        XCTAssertFalse(filter.matches(plain))
+
+        filter.flaggedOnly = true
+        XCTAssertFalse(filter.matches(work))
+        XCTAssertTrue(filter.matches(home))
+
+        filter = TaskFilter(priorities: [.high, .medium])
+        XCTAssertTrue(filter.matches(work))
+        XCTAssertFalse(filter.matches(home))
+        XCTAssertEqual(TaskFilter(tags: ["work"], priorities: [.high], flaggedOnly: true).summary, "Flagged · !!! · #work")
+    }
+
+    func testKeyboardCursorFollowsTheFilter() {
+        let store = TaskStore(fileURL: nil)
+        let planner = PlannerModel()
+        store.create(text: "hidden", date: planner.today)
+        let shown = store.create(text: "shown", date: planner.today, flagged: true)
+        planner.filter.flaggedOnly = true
+        planner.cursor = Cursor(day: planner.today, index: 0)
+        KeyboardNav.handle("\r", store: store, planner: planner, timer: FocusTimer(), undoManager: nil)
+        XCTAssertEqual(planner.openTask?.id, shown)
+    }
+}

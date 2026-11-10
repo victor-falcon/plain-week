@@ -32,6 +32,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   keep a "Plain Week" list in Reminders in step both ways and put timed tasks in a "Plain Week" calendar, so the
   week reaches iPhone and Apple Watch. See
   [macos/README.md](./macos/README.md).
+- **Filter by tag, priority and flag on macOS.** A title bar button (⇧⌘L) with a header pill to clear it. Sidebar
+  section chevrons now line up at the right edge.
 - **Cleaner notes and a larger task window on macOS.** Markdown markers (`**`, `_`, `++`, `~~`, `#`, `==`) hide
   except on the line being edited, and a toolbar button (⌥⌘E) makes the task window wider and taller for long notes. The toolbar is icons only;
   what is set (date, time, repeat, place, priority, flag) shows as chips above the title instead of squeezing it.

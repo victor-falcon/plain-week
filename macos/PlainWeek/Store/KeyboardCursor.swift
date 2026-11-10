@@ -29,7 +29,7 @@ enum KeyboardNav {
 
         var cursor = planner.cursor ?? Cursor(day: planner.showsToday ? planner.today : planner.weekStart, index: 0)
         let starting = planner.cursor == nil
-        let items = { (day: String) in store.days(from: day, to: day)[day] ?? [] }
+        let items = { (day: String) in planner.filter.apply(store.days(from: day, to: day)[day] ?? []) }
 
         switch key {
         case "j", KeyCode.down:

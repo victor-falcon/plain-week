@@ -147,6 +147,10 @@ struct PlannerCommands: Commands {
                 .keyboardShortcut("s", modifiers: [.command, .control])
             Button(planner.focusMode ? "Turn Off Focus Mode" : "Turn On Focus Mode") { planner.toggleFocusMode() }
                 .keyboardShortcut("f", modifiers: [.command, .shift])
+            Button("Filter…") { planner.showFilter.toggle() }
+                .keyboardShortcut("l", modifiers: [.command, .shift])
+            Button("Show All Tasks") { planner.filter = TaskFilter() }
+                .disabled(!planner.filter.isActive)
             Button(DayPanel.shared.isOpen ? "Close Day Panel" : "Show Day Panel") { DayPanel.shared.toggle() }
                 .keyboardShortcut("d", modifiers: [.command, .shift])
             Divider()
