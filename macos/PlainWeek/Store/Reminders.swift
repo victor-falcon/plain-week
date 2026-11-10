@@ -37,15 +37,16 @@ final class Reminders: NSObject, UNUserNotificationCenterDelegate {
     }
 
     /// Which reminders to schedule: timed, unfinished tasks from `now` over
-    /// the next `days`, at most `limit` (macOS keeps 64 per app).
-    static func plan(store: TaskStore, now: Date, lead: Int, days: Int = 7, limit: Int = 60,
+    /// the next `days`, at most `limit` (macOS keeps 64 per app). `lead` is
+    /// the Settings default (nil: off); a task's own `remind` wins (-1: off).
+    static func plan(store: TaskStore, now: Date, lead: Int?, days: Int = 7, limit: Int = 60,
                      calendar: Calendar = .current) -> [Planned] {
         let today = DateKey.local(now, calendar: calendar)
         let end = DateKey.addDays(today, days)
         var result: [Planned] = []
         for (day, items) in store.days(from: today, to: end) {
             for item in items where !item.task.done {
-                guard let time = item.task.time else { continue }
+                guard let time = item.task.time, let lead = item.task.remind ?? lead, lead >= 0 else { continue }
                 let parts = time.split(separator: ":").compactMap { Int($0) }
                 guard parts.count == 2,
                       let at = calendar.date(bySettingHour: parts[0], minute: parts[1], second: 0, of: DateKey.localDate(day, calendar: calendar))
@@ -89,8 +90,7 @@ final class Reminders: NSObject, UNUserNotificationCenterDelegate {
             let ours = requests.map(\.identifier).filter { $0.hasPrefix(Self.prefix) }
             Task { @MainActor in
                 center.removePendingNotificationRequests(withIdentifiers: ours)
-                guard let lead = Self.leadMinutes else { return }
-                for planned in Self.plan(store: self.store, now: Date(), lead: lead) {
+                for planned in Self.plan(store: self.store, now: Date(), lead: Self.leadMinutes) {
                     self.add(planned)
                 }
             }

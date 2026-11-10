@@ -61,6 +61,11 @@ struct PlainTask: Codable, Hashable, Identifiable {
     var color: TaskColor
     /// 'HH:mm'.
     var time: String?
+    /// Planned minutes, for a task with a time (its Calendar event's length
+    /// and the day's planned total). nil: not set.
+    var duration: Int?
+    /// Minutes before the time to remind; nil follows Settings, -1 is off.
+    var remind: Int?
     var notes: String
     var subtasks: [Subtask]
     var recurrence: Recurrence?
@@ -71,14 +76,14 @@ struct PlainTask: Codable, Hashable, Identifiable {
     var deleted_at: String?
 
     enum CodingKeys: String, CodingKey {
-        case id, text, date, someday_column, position, done, done_at, color, time, notes, subtasks,
+        case id, text, date, someday_column, position, done, done_at, color, time, duration, remind, notes, subtasks,
              recurrence, series_id, occurrence_date, created_at, updated_at, deleted_at
     }
 
     init(
         id: String, text: String, date: String?, someday_column: Int?, position: String,
         done: Bool = false, done_at: String? = nil, color: TaskColor = .none, time: String? = nil,
-        notes: String = "", subtasks: [Subtask] = [], recurrence: Recurrence? = nil,
+        duration: Int? = nil, remind: Int? = nil, notes: String = "", subtasks: [Subtask] = [], recurrence: Recurrence? = nil,
         series_id: String? = nil, occurrence_date: String? = nil,
         created_at: String, updated_at: String, deleted_at: String? = nil
     ) {
@@ -91,6 +96,8 @@ struct PlainTask: Codable, Hashable, Identifiable {
         self.done_at = done_at
         self.color = color
         self.time = time
+        self.duration = duration
+        self.remind = remind
         self.notes = notes
         self.subtasks = subtasks
         self.recurrence = recurrence
@@ -112,6 +119,8 @@ struct PlainTask: Codable, Hashable, Identifiable {
         done_at = try c.decodeIfPresent(String.self, forKey: .done_at)
         color = (try? c.decodeIfPresent(TaskColor.self, forKey: .color)) ?? TaskColor.none
         time = try c.decodeIfPresent(String.self, forKey: .time)
+        duration = try c.decodeIfPresent(Int.self, forKey: .duration)
+        remind = try c.decodeIfPresent(Int.self, forKey: .remind)
         notes = try c.decodeIfPresent(String.self, forKey: .notes) ?? ""
         subtasks = try c.decodeIfPresent([Subtask].self, forKey: .subtasks) ?? []
         recurrence = try c.decodeIfPresent(Recurrence.self, forKey: .recurrence)
@@ -134,6 +143,8 @@ struct PlainTask: Codable, Hashable, Identifiable {
         try c.encode(done_at, forKey: .done_at)
         try c.encode(color, forKey: .color)
         try c.encode(time, forKey: .time)
+        try c.encode(duration, forKey: .duration)
+        try c.encode(remind, forKey: .remind)
         try c.encode(notes, forKey: .notes)
         try c.encode(subtasks, forKey: .subtasks)
         try c.encode(recurrence, forKey: .recurrence)

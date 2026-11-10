@@ -190,6 +190,38 @@ final class FocusTimerTests: XCTestCase {
         XCTAssertEqual(timer.elapsed(), 0)
     }
 
+    func testSwitchingTaskLogsTimeAndRestartsTheStopwatch() {
+        var clock = Date(timeIntervalSince1970: 1000)
+        var logs: [(String, TimeInterval)] = []
+        let timer = FocusTimer()
+        timer.now = { clock }
+        timer.onLog = { id, seconds, _, _ in logs.append((id, seconds)) }
+        timer.start("a", day: "2026-11-09", mode: .stopwatch)
+        clock += 90
+        timer.switchTask(to: "b")
+        XCTAssertEqual(timer.taskId, "b")
+        XCTAssertEqual(timer.elapsed(), 0)
+        XCTAssertTrue(timer.isRunning)
+        clock += 30
+        timer.stop()
+        XCTAssertEqual(logs.map(\.0), ["a", "b"])
+        XCTAssertEqual(logs.map(\.1), [90, 30])
+    }
+
+    func testSwitchingTaskKeepsThePomodoroPhase() {
+        var clock = Date(timeIntervalSince1970: 1000)
+        let timer = FocusTimer()
+        timer.now = { clock }
+        timer.settingsOverride = FocusTimer.Settings()
+        timer.start("a", day: nil, mode: .pomodoro)
+        clock += 600
+        timer.pause()
+        timer.switchTask(to: "b")
+        XCTAssertEqual(timer.taskId, "b")
+        XCTAssertEqual(timer.remaining(), 15 * 60)
+        XCTAssertFalse(timer.isRunning)
+    }
+
     func testFormat() {
         XCTAssertEqual(FocusTimer.format(5), "00:05")
         XCTAssertEqual(FocusTimer.format(754), "12:34")
@@ -647,7 +679,7 @@ final class TaskStoreTests: XCTestCase {
         planner.focusDay("2026-11-11")
         XCTAssertFalse(planner.isBlurred("2026-11-11"))
         XCTAssertTrue(planner.isBlurred("2026-11-09"))
-        XCTAssertTrue(planner.isBlurred(nil))
+        XCTAssertFalse(planner.isBlurred(nil))
         // Clicking its header again clears the selection: back to today.
         planner.select("2026-11-11")
         XCTAssertFalse(planner.isBlurred("2026-11-09"))
@@ -732,5 +764,182 @@ final class SyncTests: XCTestCase {
         XCTAssertEqual(plan.map(\.title), ["Standup"])
         XCTAssertEqual(Calendar.current.component(.hour, from: plan[0].start), 9)
         XCTAssertEqual(Calendar.current.component(.minute, from: plan[0].start), 30)
+    }
+}
+
+@MainActor
+final class AppLockTests: XCTestCase {
+    func makeLock() -> AppLock {
+        let lock = AppLock(fileURL: nil)
+        lock.setUp(password: "tulip", question: "First teacher?", answer: "  Mrs   Gonçalves ", rounds: 10)
+        return lock
+    }
+
+    func testStartsUnlockedWithoutPasswordAndLocksOnlyWhenSetUp() {
+        let lock = AppLock(fileURL: nil)
+        lock.lock()
+        XCTAssertFalse(lock.isLocked)
+        let set = makeLock()
+        set.lock()
+        XCTAssertTrue(set.isLocked)
+        XCTAssertEqual(set.unlock(password: "nope"), .wrong)
+        XCTAssertEqual(set.unlock(password: "tulip"), .unlocked)
+        XCTAssertFalse(set.isLocked)
+    }
+
+    func testPersistsOnlyHashes() throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("lock-\(UUID().uuidString).json")
+        defer { try? FileManager.default.removeItem(at: url) }
+        let lock = AppLock(fileURL: url)
+        lock.setUp(password: "tulip", question: "First teacher?", answer: "Smith", rounds: 10)
+        let text = try String(contentsOf: url, encoding: .utf8)
+        XCTAssertFalse(text.contains("tulip"))
+        XCTAssertFalse(text.lowercased().contains("smith"))
+        let reopened = AppLock(fileURL: url)
+        XCTAssertTrue(reopened.isLocked, "locked at launch")
+        XCTAssertEqual(reopened.unlock(password: "tulip"), .unlocked)
+    }
+
+    func testLocksAfterIdleMinutes() {
+        let lock = makeLock()
+        _ = lock.unlock(password: "tulip")
+        var clock = Date()
+        lock.now = { clock }
+        lock.noteActivity()
+        clock += 4 * 60
+        lock.checkIdle()
+        XCTAssertFalse(lock.isLocked)
+        clock += 61
+        lock.checkIdle()
+        XCTAssertTrue(lock.isLocked)
+    }
+
+    func testWrongPasswordsMakeYouWait() {
+        let lock = makeLock()
+        var clock = Date()
+        lock.now = { clock }
+        lock.lock()
+        for _ in 0..<AppLock.freeAttempts { XCTAssertEqual(lock.unlock(password: "x"), .wrong) }
+        XCTAssertEqual(lock.unlock(password: "tulip"), .wait(30))
+        clock += 31
+        XCTAssertEqual(lock.unlock(password: "tulip"), .unlocked)
+    }
+
+    func testRecoveryNeedsAnswerThenOwnerCheck() {
+        let lock = makeLock()
+        lock.lock()
+        XCTAssertFalse(lock.resetPassword("rose1"), "no reset without recovery")
+        lock.startRecovery()
+        XCTAssertEqual(lock.answer("Mrs Smith"), .wrong)
+        XCTAssertEqual(lock.answer("mrs goncalves"), .unlocked, "case, accents and spaces aside")
+        XCTAssertEqual(lock.recovery, .confirming)
+        XCTAssertFalse(lock.resetPassword("rose1"), "Touch ID or the Mac password comes first")
+        lock.recoveryConfirmed()
+        XCTAssertTrue(lock.resetPassword("rose1"))
+        XCTAssertFalse(lock.isLocked)
+        XCTAssertTrue(lock.checkPassword("rose1"))
+        XCTAssertFalse(lock.checkPassword("tulip"))
+    }
+
+    func testSettingsChangesNeedTheCurrentPassword() {
+        let lock = makeLock()
+        XCTAssertFalse(lock.changePassword(current: "x", new: "rose1"))
+        XCTAssertTrue(lock.changePassword(current: "tulip", new: "rose1"))
+        XCTAssertFalse(lock.turnOff(password: "tulip"))
+        XCTAssertTrue(lock.turnOff(password: "rose1"))
+        XCTAssertFalse(lock.isEnabled)
+    }
+}
+
+@MainActor
+final class GapFeatureTests: XCTestCase {
+    func testDurationAndRemindRoundTripAndOldFilesStillLoad() throws {
+        let task = PlainTask(id: "a", text: "Gym", date: "2026-11-10", someday_column: nil, position: "a0",
+                             time: "07:30", duration: 45, remind: 10, created_at: "t", updated_at: "t")
+        let back = try JSONDecoder().decode(PlainTask.self, from: JSONEncoder().encode(task))
+        XCTAssertEqual(back.duration, 45)
+        XCTAssertEqual(back.remind, 10)
+        let old = #"{"id":"b","text":"Old","date":null,"position":"a0","created_at":"t","updated_at":"t"}"#
+        let decoded = try JSONDecoder().decode(PlainTask.self, from: Data(old.utf8))
+        XCTAssertNil(decoded.duration)
+        XCTAssertNil(decoded.remind)
+    }
+
+    func testQuickAddReadsDurations() {
+        XCTAssertEqual(QuickAdd.parse("gym @7 for 45m", today: "2026-11-10").duration, 45)
+        XCTAssertEqual(QuickAdd.parse("deep work ~1h30", today: "2026-11-10").duration, 90)
+        XCTAssertEqual(QuickAdd.parse("write for 2h", today: "2026-11-10").text, "write")
+        let plain = QuickAdd.parse("cook for friends", today: "2026-11-10")
+        XCTAssertNil(plain.duration)
+        XCTAssertEqual(plain.text, "cook for friends")
+        XCTAssertNil(QuickAdd.parseDuration("45"), "a bare number is not a length")
+    }
+
+    func testEachTaskCanChooseItsReminder() {
+        let store = TaskStore(fileURL: nil)
+        let early = store.create(text: "Flight", date: "2026-11-10", time: "14:00")
+        store.update(early, TaskPatch(remind: .some(60)))
+        let off = store.create(text: "Quiet", date: "2026-11-10", time: "15:00")
+        store.update(off, TaskPatch(remind: .some(-1)))
+        store.create(text: "Default", date: "2026-11-10", time: "16:00")
+        let now = DateKey.localDate("2026-11-10").addingTimeInterval(8 * 3600)
+        let plan = Reminders.plan(store: store, now: now, lead: 5)
+        XCTAssertEqual(plan.map(\.title), ["Flight", "Default"])
+        XCTAssertEqual(plan[0].fireDate, DateKey.localDate("2026-11-10").addingTimeInterval(13 * 3600))
+        // Settings off: only tasks with their own reminder.
+        XCTAssertEqual(Reminders.plan(store: store, now: now, lead: nil).map(\.title), ["Flight"])
+    }
+
+    func testPlannedMinutesAndCalendarLength() {
+        let store = TaskStore(fileURL: nil)
+        store.create(text: "Write", date: "2026-11-10", time: "09:00", duration: 90)
+        store.create(text: "Call", date: "2026-11-10", time: "11:00")
+        let done = store.create(text: "Done", date: "2026-11-10", time: "12:00", duration: 60)
+        store.toggleDone(done)
+        XCTAssertEqual(store.plannedMinutes(on: "2026-11-10"), 90)
+        let plan = CalendarPublisher.plan(store: store, today: "2026-11-10")
+        XCTAssertEqual(plan.map(\.minutes), [90, 30], "no duration: 30 minutes")
+        XCTAssertEqual(TaskTiming.short(90), "1h 30m")
+    }
+
+    func testRemindersListHasEachDayOfARepeat() throws {
+        let store = TaskStore(fileURL: nil)
+        let plain = store.create(text: "Plain", date: "2026-11-10")
+        let gone = store.create(text: "Gone", date: "2026-11-10")
+        store.delete(gone)
+        let series = store.create(text: "Stretch", date: "2026-11-10")
+        try store.setRecurrence(series, .daily(every: 1))
+        let entries = RemindersMirror.entries(store: store, today: "2026-11-10")
+        XCTAssertTrue(entries.contains { $0.key == plain && !$0.repeating })
+        XCTAssertTrue(entries.contains { $0.key == gone && $0.deleted })
+        let days = entries.filter(\.repeating)
+        XCTAssertEqual(days.count, RemindersMirror.repeatDays, "from the series start over two weeks")
+        XCTAssertTrue(days.contains { $0.key == "\(series):2026-11-11" })
+    }
+
+    func testCleanupKeepsRepeatsAndRecentTasks() throws {
+        let store = TaskStore(fileURL: nil)
+        let old = store.create(text: "Old", date: "2026-08-01")
+        store.toggleDone(old)
+        let recent = store.create(text: "Recent", date: "2026-11-01")
+        store.toggleDone(recent)
+        store.create(text: "Open old", date: "2026-08-02")
+        let series = store.create(text: "Daily", date: "2026-08-01")
+        try store.setRecurrence(series, .daily(every: 1))
+        let day = store.toggleDone("\(series):2026-08-03")
+        XCTAssertNotNil(day)
+        XCTAssertEqual(Cleanup.run(store: store, today: "2026-11-10", keepDays: 30), 1)
+        XCTAssertEqual(store.rows[old]?.isDeleted, true)
+        XCTAssertEqual(store.rows[recent]?.isDeleted, false)
+        XCTAssertEqual(Cleanup.run(store: store, today: "2026-11-10", keepDays: 0), 0, "forever keeps all")
+    }
+
+    func testWelcomeTasksAndWeekPDF() throws {
+        let store = TaskStore(fileURL: nil)
+        Welcome.add(to: store, today: "2026-11-10")
+        XCTAssertEqual(store.days(from: "2026-11-10", to: "2026-11-10")["2026-11-10"]?.count, 4)
+        XCTAssertEqual(store.allRows.filter { $0.date == nil }.count, 1)
+        let pdf = try XCTUnwrap(WeekPrint.pdf(store: store, monday: "2026-11-09"))
+        XCTAssertEqual(String(decoding: pdf.prefix(4), as: UTF8.self), "%PDF")
     }
 }

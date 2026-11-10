@@ -26,6 +26,10 @@ struct NotesEditor: NSViewRepresentable {
         // Monochrome: a black caret and a grey selection, not the system accent.
         textView.insertionPointColor = .labelColor
         textView.selectedTextAttributes = [.backgroundColor: NSColor.labelColor.withAlphaComponent(0.14)]
+        textView.linkTextAttributes = [.foregroundColor: NSColor.labelColor,
+                                       .underlineStyle: NSUnderlineStyle.single.rawValue,
+                                       .underlineColor: NSColor.tertiaryLabelColor,
+                                       .cursor: NSCursor.pointingHand]
         textView.isAutomaticQuoteSubstitutionEnabled = false
         textView.isAutomaticDashSubstitutionEnabled = false
         textView.isAutomaticTextReplacementEnabled = false
@@ -277,6 +281,7 @@ enum NoteStyler {
     private static let italic = regex(#"(?<![\w_])(_)(?!_)(.+?)(_)(?![\w_])"#)
     private static let underline = regex(#"(\+\+)(.+?)(\+\+)"#)
     private static let strike = regex(#"(~~)(.+?)(~~)"#)
+    private static let links = try! NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
     private static let highlight = regex(#"(==(?:\{([a-z]+)\})?)(.+?)(==)"#)
     private static let color = regex(#"(\{([a-z]+)\})(.+?)(\{/\})"#)
 
@@ -291,6 +296,13 @@ enum NoteStyler {
 
         storage.beginEditing()
         storage.setAttributes([.font: base, .foregroundColor: NSColor.labelColor, .paragraphStyle: paragraph], range: full)
+
+        // Web addresses and email links open with a click (underlined, in the
+        // text's own color: no blue in a monochrome app).
+        for match in links.matches(in: text, range: full) {
+            guard let url = match.url else { continue }
+            storage.addAttribute(.link, value: url, range: match.range)
+        }
 
         for match in heading.matches(in: text, range: full) {
             let level = match.range(at: 1).length

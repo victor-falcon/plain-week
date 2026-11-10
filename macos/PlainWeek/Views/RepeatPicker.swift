@@ -263,6 +263,7 @@ struct NumberStepper: View {
         .buttonStyle(.pressable)
         .foregroundStyle(Theme.foreground)
         .disabled(delta < 0 ? value <= range.lowerBound : value >= range.upperBound)
+        .accessibilityLabel(delta < 0 ? "Decrease" : "Increase")
     }
 }
 

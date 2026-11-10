@@ -20,14 +20,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   checkbox in the task's color and ends with the time and markers for notes and subtasks. New tasks read natural
   words ("tomorrow call Joao @11:30 #yellow daily") with a live preview, and the task sheet works from the keyboard
   alone (⌥⌘D date, ⌥⌘T time, ⌥⌘R repeat, ⌥⌘C color). Each day shows a progress bar and a ▶ that starts a timer on
-  its next task in a floating mini window (title, checkbox, play / pause). A focus mode (⇧⌘F) blurs every day but
+  its next task in a floating mini window (title, checkbox, play / pause; scroll over it to move between the day's tasks, like a widget stack). A focus mode (⇧⌘F) blurs every day but
   the one you click (today by default). The interface follows a small design system (type scale, motion, radii,
   one button family), answers every press at once and honours Reduce Motion and Reduce Transparency. It has the eleven
   task colors in light and dark, drag and drop, a task sheet with notes, subtasks, time and repeat rules (daily,
   weekly, monthly, with "only this" or "this and all future"), carry over of unfinished tasks, undo, and JSON
   export/import in the web app's format. Beyond the window: quick add from any app (⌥Space), a menu bar panel, reminders for timed tasks, Calendar events
   in each day, time tracking and a Pomodoro mode (long breaks, session dots,
-  optional auto-start), a weekly review, a ⌘K command palette, Shortcuts and Siri, open at login, daily
+  optional auto-start), a weekly review, a ⌘K command palette, Shortcuts and Siri, open at login, a day panel (one day in a 350pt full-height window docked left or right), task durations (with a planned total per day and Calendar events of that length), a reminder time per task, clickable links in notes, a Move to menu, repeating tasks in the Reminders list, a done-task clean-up, the week as a PDF or printed, welcome tasks on first launch, VoiceOver labels, a String Catalog and right-to-left arrows, a Settings window with a sidebar of panes and grouped rows, an app lock (password, auto-lock after 5 minutes, recovery by secret question plus Touch ID or the Mac password), daily
   backups and vim keys. It stores tasks locally; Macs can sync through a folder in iCloud Drive, and optional mirrors
   keep a "Plain Week" list in Reminders in step both ways and put timed tasks in a "Plain Week" calendar, so the
   week reaches iPhone and Apple Watch. See

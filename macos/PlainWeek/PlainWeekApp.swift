@@ -4,13 +4,14 @@ import UniformTypeIdentifiers
 
 @main
 struct PlainWeekApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     private let model = AppModel.shared
     @AppStorage("appearance") private var appearance = Appearance.system.rawValue
     @AppStorage(MenuBarSettings.key) private var showMenuBar = true
 
     var body: some Scene {
         Window("Plain Week", id: "planner") {
-            PlannerView()
+            LockGate(lock: model.lock) { PlannerView() }
                 .environment(model.store)
                 .environment(model.planner)
                 .environment(model.timer)
@@ -39,7 +40,7 @@ struct PlainWeekApp: App {
         }
         .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 1360, height: 900)
-        .commands { PlannerCommands(store: model.store, planner: model.planner) }
+        .commands { PlannerCommands(store: model.store, planner: model.planner, lock: model.lock) }
 
         MenuBarExtra(isInserted: $showMenuBar) {
             MenuBarView()
@@ -64,6 +65,14 @@ struct PlainWeekApp: App {
     }
 }
 
+/// Keeps Plain Week running while the day panel stands in for the planner
+/// window (SwiftUI would otherwise quit once its one window is hidden).
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        MainActor.assumeIsolated { !DayPanel.shared.isOpen }
+    }
+}
+
 enum MenuBarSettings {
     static let key = "showMenuBar"
 }
@@ -84,28 +93,50 @@ enum Appearance: String, CaseIterable, Identifiable {
 struct PlannerCommands: Commands {
     var store: TaskStore
     var planner: PlannerModel
+    var lock: AppLock
 
     var body: some Commands {
+        // While locked, nothing that shows or exports tasks.
+        let locked = lock.isLocked
+        CommandGroup(after: .appSettings) {
+            Button("Lock Plain Week") { lock.lock() }
+                .keyboardShortcut("l", modifiers: [.command, .control])
+                .disabled(!lock.isEnabled || locked)
+        }
         CommandGroup(replacing: .newItem) {
             Button("New Task Today") {
                 planner.goToToday()
                 planner.focusRequest = planner.today
             }
             .keyboardShortcut("n")
+            .disabled(locked)
             Button("New Backlog Task") { planner.focusRequest = DataTransfer.somedayKey }
                 .keyboardShortcut("n", modifiers: [.command, .shift])
+                .disabled(locked)
         }
         CommandGroup(replacing: .importExport) {
             Button("Export Tasks…") { DataTransfer.export(store, planner: planner) }
                 .keyboardShortcut("e", modifiers: [.command, .shift])
+                .disabled(locked)
             Button("Import Tasks…") { DataTransfer.import(into: store, planner: planner) }
                 .keyboardShortcut("i", modifiers: [.command, .shift])
+                .disabled(locked)
+            Divider()
+            Button("Export Week as PDF…") { WeekPrint.export(store: store, planner: planner) }
+                .disabled(locked)
+        }
+        CommandGroup(replacing: .printItem) {
+            Button("Print Week…") { WeekPrint.print(store: store, planner: planner) }
+                .keyboardShortcut("p")
+                .disabled(locked)
         }
         CommandGroup(after: .toolbar) {
             Button(planner.showSidebar ? "Hide Sidebar" : "Show Sidebar") { planner.showSidebar.toggle() }
                 .keyboardShortcut("s", modifiers: [.command, .control])
             Button(planner.focusMode ? "Turn Off Focus Mode" : "Turn On Focus Mode") { planner.toggleFocusMode() }
                 .keyboardShortcut("f", modifiers: [.command, .shift])
+            Button(DayPanel.shared.isOpen ? "Close Day Panel" : "Show Day Panel") { DayPanel.shared.toggle() }
+                .keyboardShortcut("d", modifiers: [.command, .shift])
             Divider()
         }
         CommandGroup(after: .newItem) {
@@ -114,8 +145,10 @@ struct PlannerCommands: Commands {
         CommandMenu("Go") {
             Button("Search and Commands…") { planner.showPalette = true }
                 .keyboardShortcut("k")
+                .disabled(locked)
             Button("Weekly Review") { planner.showReview = true }
                 .keyboardShortcut("r", modifiers: [.command, .shift])
+                .disabled(locked)
             Divider()
             Button("Today") { planner.goToToday() }
                 .keyboardShortcut("t")

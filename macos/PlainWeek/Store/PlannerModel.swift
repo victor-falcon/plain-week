@@ -39,7 +39,29 @@ final class PlannerModel {
     var showPalette = false
     /// The Backlog and Done sidebar (remembered across launches).
     var showSidebar: Bool = UserDefaults.standard.object(forKey: "showSidebar") as? Bool ?? true {
-        didSet { UserDefaults.standard.set(showSidebar, forKey: "showSidebar") }
+        // A narrow window closing it is not the user's choice, so it is not remembered.
+        didSet { if !adaptingSidebar { UserDefaults.standard.set(showSidebar, forKey: "showSidebar") } }
+    }
+
+    /// Below this window width the sidebar closes on its own.
+    static let sidebarMinWindowWidth: CGFloat = 960
+    /// The sidebar was closed by a narrow window, and comes back when it widens.
+    @ObservationIgnored private(set) var sidebarAutoHidden = false
+    @ObservationIgnored private var adaptingSidebar = false
+
+    /// The window became narrow or wide again: closes the sidebar in a narrow
+    /// window and brings it back once there is room, if the window closed it.
+    /// Opening it by hand in a narrow window still works.
+    func adaptSidebar(narrow: Bool) {
+        adaptingSidebar = true
+        defer { adaptingSidebar = false }
+        if narrow, showSidebar {
+            sidebarAutoHidden = true
+            showSidebar = false
+        } else if !narrow, sidebarAutoHidden {
+            sidebarAutoHidden = false
+            showSidebar = true
+        }
     }
 
     /// Selects a day, or clears the selection when it is already selected.
@@ -87,9 +109,10 @@ final class PlannerModel {
     /// The day focus mode keeps sharp: the selected day, else today.
     var focusedDay: String { selectedDay ?? today }
 
-    /// Whether a day (or the Backlog, `nil`) is blurred by focus mode: every
-    /// day but the focused one, today included when another day is selected.
-    func isBlurred(_ date: String?) -> Bool { focusMode && date != focusedDay }
+    /// Whether a day is blurred by focus mode: every day but the focused one,
+    /// today included when another day is selected. The sidebar (the Backlog,
+    /// `nil`, and Done) is never blurred.
+    func isBlurred(_ date: String?) -> Bool { focusMode && date != nil && date != focusedDay }
 
     /// In focus mode, a click in a blurred day focuses it.
     func focusDay(_ day: String) {

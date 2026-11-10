@@ -12,8 +12,8 @@ enum Palette {
         var icon: String {
             switch self {
             case .today: "sun.max"
-            case .previousWeek: "chevron.left"
-            case .nextWeek: "chevron.right"
+            case .previousWeek: "chevron.backward"
+            case .nextWeek: "chevron.forward"
             case .newTask, .quickAdd: "plus"
             case .review: "chart.bar"
             case .focus: "scope"

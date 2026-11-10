@@ -60,9 +60,9 @@ enum TaskLink {
 }
 
 /// Mirrors tasks to a "Plain Week" list in Reminders, both ways, so the week
-/// is on iPhone and Apple Watch through iCloud Reminders. Plain tasks and
-/// changed occurrences (exception rows) mirror; recurring series do not,
-/// since Reminders repeats differently. Last write wins: a reminder edited
+/// is on iPhone and Apple Watch through iCloud Reminders. Plain tasks
+/// mirror whole; a repeating task shows as one reminder per day over the next
+/// two weeks (ticking one there ticks that day here). Last write wins: a reminder edited
 /// after the task updates the task, and the other way round.
 @MainActor
 @Observable
@@ -134,19 +134,44 @@ final class RemindersMirror {
         }
     }
 
-    /// Which tasks mirror: live plain tasks and exception rows, done ones too.
-    private var mirrored: [PlainTask] {
-        store.allRows.filter { $0.recurrence == nil && ($0.series_id == nil || $0.isException) }
+    /// One task as the list should show it.
+    struct Entry: Equatable {
+        /// The reminder's link: the row id, or `series:date` for a repeat.
+        var key: String
+        /// The id to change it through (an occurrence's own id).
+        var itemId: String
+        var task: PlainTask
+        var repeating: Bool
+        var deleted: Bool
+    }
+
+    /// Days of repeating tasks kept in the list (from yesterday).
+    static let repeatDays = 14
+
+    /// What the list should hold: every plain task (deleted ones, so their
+    /// reminders go), and each day of a repeating task from yesterday over the
+    /// next two weeks, one reminder per day.
+    static func entries(store: TaskStore, today: String) -> [Entry] {
+        var result = store.allRows
+            .filter { $0.recurrence == nil && $0.series_id == nil }
+            .map { Entry(key: $0.id, itemId: $0.id, task: $0, repeating: false, deleted: $0.isDeleted) }
+        let from = DateKey.addDays(today, -1), to = DateKey.addDays(today, repeatDays - 1)
+        for (_, items) in store.days(from: from, to: to) {
+            for item in items where item.seriesId != nil {
+                result.append(Entry(key: item.rowKey, itemId: item.id, task: item.task, repeating: true, deleted: false))
+            }
+        }
+        return result
     }
 
     private func reconcile(_ reminders: [EKReminder], list: EKCalendar) {
-        var byTask: [String: EKReminder] = [:]
+        var byKey: [String: EKReminder] = [:]
         var unlinked: [EKReminder] = []
         var dirty = false
         for reminder in reminders {
-            guard let id = TaskLink.taskId(reminder.url) else { unlinked.append(reminder); continue }
+            guard let key = TaskLink.taskId(reminder.url) else { unlinked.append(reminder); continue }
             // Two Macs that added the same task at once: keep one reminder.
-            if byTask[id] != nil { try? eventStore.remove(reminder, commit: false); dirty = true } else { byTask[id] = reminder }
+            if byKey[key] != nil { try? eventStore.remove(reminder, commit: false); dirty = true } else { byKey[key] = reminder }
         }
 
         // New reminders made on another device become tasks.
@@ -159,32 +184,37 @@ final class RemindersMirror {
             dirty = true
         }
 
-        for task in mirrored {
-            let reminder = byTask.removeValue(forKey: task.id)
-            if task.isDeleted {
+        for entry in Self.entries(store: store, today: DateKey.local()) {
+            let reminder = byKey.removeValue(forKey: entry.key)
+            if entry.deleted {
                 if let reminder { try? eventStore.remove(reminder, commit: false); dirty = true }
                 continue
             }
+            let ours = ReminderFields(task: entry.task)
             guard let reminder else {
-                write(ReminderFields(task: task), to: EKReminder(eventStore: eventStore), id: task.id, list: list)
+                write(ours, to: EKReminder(eventStore: eventStore), id: entry.key, list: list)
                 dirty = true
                 continue
             }
             let theirs = ReminderFields.from(due: reminder.dueDateComponents, title: reminder.title ?? "", notes: reminder.notes, done: reminder.isCompleted)
-            let ours = ReminderFields(task: task)
             guard theirs != ours else { continue }
-            let taskTime = Clock.parse(task.updated_at) ?? .distantPast
+            let taskTime = Clock.parse(entry.task.updated_at) ?? .distantPast
             let reminderTime = reminder.lastModifiedDate ?? .distantPast
-            if reminderTime > taskTime {
-                apply(theirs, to: task)
+            if reminderTime > taskTime && !entry.repeating {
+                apply(theirs, to: entry.task)
+            } else if reminderTime > taskTime && theirs.done != ours.done {
+                // A repeat's day ticked (or unticked) on the iPhone; its other
+                // fields come from the series.
+                store.update(entry.itemId, TaskPatch(done: theirs.done), scope: .this)
             } else {
-                write(ours, to: reminder, id: task.id, list: list)
+                write(ours, to: reminder, id: entry.key, list: list)
                 dirty = true
             }
         }
 
-        // Reminders whose task is gone here (deleted) go too.
-        for (id, reminder) in byTask where store.rows[id] == nil || store.rows[id]?.isDeleted == true {
+        // Anything else in the list: deleted tasks, days of a repeat that
+        // have passed, or links from before.
+        for reminder in byKey.values {
             try? eventStore.remove(reminder, commit: false)
             dirty = true
         }
@@ -215,8 +245,8 @@ final class RemindersMirror {
     }
 }
 
-/// Puts tasks with a time into a "Plain Week" calendar in Calendar (30-minute
-/// events from a day ago to a month ahead), so they sit beside meetings and
+/// Puts tasks with a time into a "Plain Week" calendar in Calendar (events as
+/// long as the task's duration, 30 minutes when it has none from a day ago to a month ahead), so they sit beside meetings and
 /// reach the iPhone through iCloud Calendar. One-way: Plain Week is the source.
 @MainActor
 @Observable
@@ -229,6 +259,7 @@ final class CalendarPublisher {
         var key: String
         var title: String
         var start: Date
+        var minutes: Int
         var notes: String
     }
 
@@ -262,7 +293,7 @@ final class CalendarPublisher {
                 guard let time = item.task.time else { continue }
                 let t = time.split(separator: ":").compactMap { Int($0) }
                 guard t.count == 2, let at = calendar.date(bySettingHour: t[0], minute: t[1], second: 0, of: DateKey.localDate(day, calendar: calendar)) else { continue }
-                result.append(Planned(key: item.rowKey, title: item.task.text, start: at, notes: item.task.notes))
+                result.append(Planned(key: item.rowKey, title: item.task.text, start: at, minutes: item.task.duration ?? minutes, notes: item.task.notes))
             }
         }
         return result.sorted { $0.start < $1.start }
@@ -299,7 +330,7 @@ final class CalendarPublisher {
         }
         for item in planned {
             let event = byKey.removeValue(forKey: item.key) ?? EKEvent(eventStore: eventStore)
-            let end = item.start.addingTimeInterval(TimeInterval(Self.minutes * 60))
+            let end = item.start.addingTimeInterval(TimeInterval(item.minutes * 60))
             if event.title == item.title, event.startDate == item.start, event.endDate == end, (event.notes ?? "") == item.notes, event.calendar == cal { continue }
             event.calendar = cal
             event.title = item.title

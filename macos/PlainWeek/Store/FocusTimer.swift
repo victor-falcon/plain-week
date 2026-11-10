@@ -154,6 +154,21 @@ final class FocusTimer {
 
     func toggle() { isRunning ? pause() : resume() }
 
+    /// Moves the clock to another task (the mini window's stack). The time so
+    /// far is recorded on the task it was spent on. A Pomodoro phase carries
+    /// on; a stopwatch starts again from zero. Running or paused stays as it was.
+    func switchTask(to id: String) {
+        guard let taskId, taskId != id else { return }
+        flush()
+        self.taskId = id
+        if mode == .stopwatch {
+            accumulated = 0
+            logged = 0
+            runningSince = isRunning ? now() : nil
+        }
+        refreshClock()
+    }
+
     /// Follows the task to a new id without touching the clock.
     func follow(_ id: String) { taskId = id }
 

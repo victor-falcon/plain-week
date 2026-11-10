@@ -20,7 +20,7 @@ struct AddTaskIntent: AppIntent {
         guard !quick.text.isEmpty else { return .result(dialog: "There was nothing to add.") }
         let target = quick.targetDate(listDate: today, today: today)
         model.store.perform("New Task", undoManager: nil) {
-            let id = model.store.create(text: quick.text, date: target, time: quick.time, color: quick.color ?? .none)
+            let id = model.store.create(text: quick.text, date: target, time: quick.time, duration: quick.duration, color: quick.color ?? .none)
             if let spec = quick.repeatSpec, let anchor = target { _ = try? model.store.setRecurrence(id, spec.rule(anchor: anchor)) }
         }
         let place = target.map { DoneList.dayLabel($0, today: today).lowercased() } ?? "the backlog"
@@ -35,6 +35,7 @@ struct TodayTasksIntent: AppIntent {
     @MainActor
     func perform() async throws -> some IntentResult & ReturnsValue<[String]> & ProvidesDialog {
         let model = AppModel.shared
+        if model.lock.isLocked { return .result(value: [], dialog: "Plain Week is locked.") }
         let open = model.store.openTasks(on: model.planner.today)
         let lines = open.map { ($0.task.time.map { "\($0) " } ?? "") + $0.task.text }
         let dialog: IntentDialog = lines.isEmpty ? "Nothing left for today." : "\(lines.count) left today: \(lines.joined(separator: ", "))."
@@ -52,6 +53,10 @@ struct StartTimerIntent: AppIntent {
         let model = AppModel.shared
         let today = model.planner.today
         guard let next = model.store.openTasks(on: today).first else { return .result(dialog: "Nothing left for today.") }
+        if model.lock.isLocked {
+            TimerActions.start(next.id, day: today, store: model.store, planner: model.planner, timer: model.timer)
+            return .result(dialog: "Timer started.")
+        }
         TimerActions.start(next.id, day: today, store: model.store, planner: model.planner, timer: model.timer)
         return .result(dialog: "Timer started on “\(next.task.text)”.")
     }

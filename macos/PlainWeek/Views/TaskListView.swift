@@ -52,6 +52,10 @@ struct TaskListView: View {
         case let .task(index):
             TaskRow(item: items[index], listDate: date, onDrop: { id, below in drop(id, at: below ? index + 1 : index) },
                     isCursor: date.map { planner.cursor == Cursor(day: $0, index: index) } ?? false)
+                // A hairline between tasks (not above the first).
+                .overlay(alignment: .top) {
+                    if index > 0 { Rectangle().fill(Theme.border).frame(height: 1).padding(.horizontal, 6).allowsHitTesting(false) }
+                }
         case .new:
             NewTaskRow(listKey: listKey, date: date, focus: focus, afterId: items.last?.id)
                 .dropDestination(for: String.self) { ids, _ in
@@ -168,7 +172,7 @@ struct NewTaskRow: View {
         var newId: String?
         var rule: Recurrence?
         store.perform("New Task", undoManager: undoManager) {
-            let id = store.create(text: quick.text, date: target, time: quick.time, color: quick.color ?? .none)
+            let id = store.create(text: quick.text, date: target, time: quick.time, duration: quick.duration, color: quick.color ?? .none)
             newId = id
             if let spec = quick.repeatSpec, let anchor = target {
                 rule = spec.rule(anchor: anchor)
@@ -205,6 +209,7 @@ struct QuickPreview: View {
             case .list: EmptyView()
             }
             if let time = quick.time { chip(time, "clock") }
+            if let duration = quick.duration { chip(TaskTiming.short(duration), "hourglass") }
             if let spec = quick.repeatSpec { chip(spec.label, "repeat") }
             if let color = quick.color { TaskCheckbox(color: color, done: false, size: 12).help(color.label) }
         }
@@ -260,6 +265,11 @@ struct TaskRow: View {
             }
             .buttonStyle(.pressable)
             .help(task.done ? "Mark as not done" : "Mark as done")
+            // VoiceOver: a checkbox named after the task.
+            .accessibilityLabel(task.text)
+            .accessibilityValue(task.done ? "Done" : "Not done")
+            .accessibilityAddTraits(.isToggle)
+            .accessibilityHint(task.done ? "Marks it as not done" : "Marks it as done")
 
             if item.isRecurring, let series = store.series(of: item), let rule = series.recurrence {
                 Image(systemName: "repeat")
@@ -267,6 +277,7 @@ struct TaskRow: View {
                     .foregroundStyle(Theme.mutedForeground)
                     .padding(.top, 3)
                     .help(RecurrenceEngine.summary(rule))
+                    .accessibilityLabel("Repeats \(RecurrenceEngine.summary(rule))")
             }
             TaskLabel(text: task.text, color: task.color, done: task.done, lines: 2, pill: false)
             Spacer(minLength: 4)
@@ -285,6 +296,7 @@ struct TaskRow: View {
                 }
                 .buttonStyle(.pressable)
                 .help("Start the timer")
+                .accessibilityLabel("Start the timer on \(task.text)")
                 .transition(.opacity)
             }
             TaskMarkers(task: task)
@@ -504,8 +516,20 @@ struct TaskMenu: View {
             }
         }
         Divider()
+        if item.task.date != planner.today {
+            Button("Today") { actions.move(item, to: planner.today) }
+        }
         Button("Tomorrow") { actions.tomorrow(item) }
         Button("Next Week") { actions.nextWeek(item) }
+        // Any day in the coming two weeks, by name.
+        Menu("Move to") {
+            ForEach(0..<14, id: \.self) { offset in
+                let day = DateKey.addDays(planner.today, offset)
+                if day != item.task.date {
+                    Button(offset == 0 ? "Today" : offset == 1 ? "Tomorrow" : Format.weekdayDate(day)) { actions.move(item, to: day) }
+                }
+            }
+        }
         if item.task.date != nil {
             Button("Backlog") { actions.move(item, to: nil) }
         }

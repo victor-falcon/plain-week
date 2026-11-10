@@ -319,6 +319,38 @@ struct TaskDetailView: View {
             .disabled(task.time == nil)
             .keyboardShortcut(.delete, modifiers: [.command])
             }
+            if task.time != nil {
+                Divider()
+                // How long it takes (its Calendar event and the day's total)
+                // and when to be reminded, for this task only.
+                Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 8) {
+                    GridRow {
+                        Text("Takes").foregroundStyle(Theme.mutedForeground)
+                        SwiftUI.Picker("Takes", selection: Binding(get: { task.duration ?? 0 }, set: { minutes in
+                            follow(store.perform("Set Duration", undoManager: undoManager) {
+                                store.update(taskId, TaskPatch(duration: .some(minutes == 0 ? nil : minutes)))
+                            })
+                        })) {
+                            ForEach(TaskTiming.durations, id: \.self) { Text(TaskTiming.durationLabel($0)).tag($0) }
+                        }
+                        .labelsHidden()
+                        .fixedSize()
+                    }
+                    GridRow {
+                        Text("Remind").foregroundStyle(Theme.mutedForeground)
+                        SwiftUI.Picker("Remind", selection: Binding(get: { task.remind ?? TaskTiming.followSettings }, set: { minutes in
+                            follow(store.perform("Set Reminder", undoManager: undoManager) {
+                                store.update(taskId, TaskPatch(remind: .some(minutes == TaskTiming.followSettings ? nil : minutes)))
+                            })
+                        })) {
+                            ForEach(TaskTiming.reminders, id: \.self) { Text(TaskTiming.reminderLabel($0)).tag($0) }
+                        }
+                        .labelsHidden()
+                        .fixedSize()
+                    }
+                }
+                .font(.system(size: 13))
+            }
         }
         .padding(12)
     }

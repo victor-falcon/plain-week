@@ -17,6 +17,7 @@ final class AppModel {
     let folderSync: FolderSync
     let remindersMirror: RemindersMirror
     let calendarPublisher: CalendarPublisher
+    let lock: AppLock
     private var launched = false
 
     private init() {
@@ -26,6 +27,7 @@ final class AppModel {
         folderSync = FolderSync(store: store)
         remindersMirror = RemindersMirror(store: store)
         calendarPublisher = CalendarPublisher(store: store)
+        lock = AppLock(fileURL: Self.dataFileURL.flatMap { $0.deletingLastPathComponent().appendingPathComponent("lock.json") })
     }
 
     /// Debug builds can point at another file with `PLAINWEEK_DATA_FILE` (a
@@ -59,11 +61,21 @@ final class AppModel {
             store.carryOverIfEnabled(today: today, planner: planner)
             if !Self.isSnapshot {
                 Backups.runIfNeeded(store: store, today: today)
+                Cleanup.run(store: store, today: today, keepDays: Cleanup.keepDays)
                 // The calendar's month ahead moves with the day.
                 AppModel.shared.calendarPublisher.scheduleSoon()
             }
         }
         planner.startClock()
+        // Locking closes every sheet that shows tasks (they are windows of
+        // their own, above the lock screen).
+        lock.onLock = {
+            planner.openTask = nil
+            planner.showReview = false
+            planner.showPalette = false
+            NSApp.keyWindow?.makeFirstResponder(nil)
+        }
+        lock.start()
         store.carryOverIfEnabled(today: planner.today, planner: planner)
 
         timer.onLog = { taskId, seconds, start, finished in timeLog.add(taskId, seconds: seconds, start: start, pomodoro: finished) }
@@ -80,7 +92,9 @@ final class AppModel {
         }
 
         guard !Self.isSnapshot else { return }
+        Welcome.runIfNeeded(store: store, today: planner.today)
         Backups.runIfNeeded(store: store, today: planner.today)
+        Cleanup.run(store: store, today: planner.today, keepDays: Cleanup.keepDays)
         reminders.onComplete = { [weak self] id in self?.complete(id) }
         reminders.start()
         store.onSave = { [weak self] in
@@ -97,6 +111,10 @@ final class AppModel {
             Task { @MainActor in AppModel.shared.syncAll() }
         }
         QuickCapture.shared.registerHotKey()
+        // Back as it was: the day panel reopens if it was open at quit.
+        if UserDefaults.standard.bool(forKey: DayPanel.openKey) {
+            DispatchQueue.main.async { DayPanel.shared.show() }
+        }
     }
 
     /// Pulls and pushes every sync that is on: at launch, when the app comes

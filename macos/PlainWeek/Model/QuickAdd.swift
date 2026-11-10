@@ -25,6 +25,8 @@ struct QuickTask: Equatable {
     var text: String
     var date: DateChoice = .list
     var time: String?
+    /// Minutes, from "for 45m" or "~1h30".
+    var duration: Int?
     var color: TaskColor?
     /// A rule without its anchor; `rule(anchor:)` completes it.
     var repeatSpec: RepeatSpec?
@@ -66,7 +68,7 @@ struct QuickTask: Equatable {
     }
 
     /// Whether anything besides the text was recognised.
-    var hasExtras: Bool { date != .list || time != nil || color != nil || repeatSpec != nil }
+    var hasExtras: Bool { date != .list || time != nil || duration != nil || color != nil || repeatSpec != nil }
 }
 
 enum QuickAdd {
@@ -110,6 +112,11 @@ enum QuickAdd {
                 result.color = color
             } else if raw.hasPrefix("@"), let parsed = parseTime(raw) {
                 result.time = parsed
+            } else if raw.hasPrefix("~"), let minutes = parseDuration(String(w.dropFirst())) {
+                result.duration = minutes
+            } else if w == "for", let next = word(i + 1), let minutes = parseDuration(next) {
+                result.duration = minutes
+                i += 1
             } else if w == "today" {
                 result.date = .day(today)
             } else if w == "tomorrow" || w == "tmr" || w == "tmrw" {
@@ -152,6 +159,22 @@ enum QuickAdd {
     /// Lowercased, without trailing punctuation ("fri," → "fri").
     private static func normalized(_ word: String) -> String {
         word.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: ",.;"))
+    }
+
+    private static let durationPattern = try! NSRegularExpression(
+        pattern: #"^(?:(\d{1,2})h)?(?:(\d{1,3})(?:m|min|mins)?)?$"#, options: [.caseInsensitive])
+
+    /// "45m", "90min", "1h", "1h30", "2h15m" → minutes (1 to 720).
+    static func parseDuration(_ word: String) -> Int? {
+        guard !word.isEmpty, word.contains(where: \.isLetter) || word.contains("h") else { return nil }
+        let range = NSRange(word.startIndex..., in: word)
+        guard let match = durationPattern.firstMatch(in: word, range: range) else { return nil }
+        func group(_ i: Int) -> Int? {
+            guard let r = Range(match.range(at: i), in: word) else { return nil }
+            return Int(word[r])
+        }
+        let total = (group(1) ?? 0) * 60 + (group(2) ?? 0)
+        return (1...720).contains(total) ? total : nil
     }
 
     /// "@11:30", "@9", "@9am", "@5:15pm" → "HH:mm".

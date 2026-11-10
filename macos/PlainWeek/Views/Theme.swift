@@ -1,9 +1,17 @@
 import AppKit
 import SwiftUI
 
-/// The web app's design tokens (resources/css/app.css), converted from OKLCH,
-/// light and dark. Views use these, never raw colors.
+/// The app's design tokens, light and dark. Surfaces, text and borders are a
+/// warm neutral palette (white page over an off-white sidebar; #191919 page
+/// over a #202020 sidebar in dark). Task colors are the web app's tokens
+/// (resources/css/app.css), converted from OKLCH. Views use these, never raw colors.
 enum Theme {
+    /// An sRGB color from 0xRRGGBB.
+    static func hex(_ value: UInt32, alpha: Double = 1) -> NSColor {
+        NSColor(srgbRed: CGFloat((value >> 16) & 0xFF) / 255, green: CGFloat((value >> 8) & 0xFF) / 255,
+                blue: CGFloat(value & 0xFF) / 255, alpha: alpha)
+    }
+
     /// OKLCH → sRGB (Björn Ottosson's matrices), clamped.
     static func oklch(_ l: Double, _ c: Double, _ h: Double, alpha: Double = 1) -> NSColor {
         let hr = h * .pi / 180
@@ -28,12 +36,15 @@ enum Theme {
         })
     }
 
-    static let background = dynamic(light: oklch(1, 0, 0), dark: oklch(0.147, 0.004, 49.25))
-    static let foreground = dynamic(light: oklch(0.147, 0.004, 49.25), dark: oklch(0.985, 0.001, 106.423))
-    static let secondary = dynamic(light: oklch(0.967, 0.001, 286.375), dark: oklch(0.274, 0.006, 286.033))
-    static let muted = dynamic(light: oklch(0.97, 0.001, 106.424), dark: oklch(0.268, 0.007, 34.298))
-    static let mutedForeground = dynamic(light: oklch(0.553, 0.013, 58.071), dark: oklch(0.709, 0.01, 56.259))
-    static let border = dynamic(light: oklch(0.923, 0.003, 48.717), dark: oklch(1, 0, 0, alpha: 0.1))
+    /// The page: white, or #191919 in dark.
+    static let background = dynamic(light: hex(0xFFFFFF), dark: hex(0x191919))
+    /// The sidebar, one step off the page: warm off-white, or #202020 in dark.
+    static let sidebar = dynamic(light: hex(0xF9F8F7), dark: hex(0x202020))
+    static let foreground = dynamic(light: hex(0x2C2C2B), dark: hex(0xF0EFED))
+    static let secondary = dynamic(light: hex(0xF1F1EF), dark: hex(0x2A2A2A))
+    static let muted = dynamic(light: hex(0xF6F5F4), dark: hex(0x252525))
+    static let mutedForeground = dynamic(light: hex(0x73726E), dark: hex(0x9B9B9B))
+    static let border = dynamic(light: hex(0xEEEEEC), dark: hex(0xFFFFFF, alpha: 0.094))
     static let primary = dynamic(light: oklch(0.488, 0.243, 264.376), dark: oklch(0.424, 0.199, 265.638))
     /// The interface is monochrome, like Calendar on the Mac: black, white
     /// and greys. Task colors are the only color, so the accent (today, the
@@ -43,16 +54,15 @@ enum Theme {
     /// Today's card: white like the weekdays, marked by its black day number.
     static let todayTint = background
 
-    /// Day cards and Someday: a warm off-white (stone 50) / raised dark surface.
-    static let card = dynamic(light: oklch(0.985, 0.001, 106.423), dark: oklch(0.205, 0.004, 49.25))
+    /// Day cards and Someday: the sidebar's warm off-white / raised dark surface.
+    static let card = sidebar
     /// Day cards: weekdays white (the page), weekends a light grey, as in Calendar.
     static let weekdayCard = background
-    static let weekendCard = dynamic(light: oklch(0.967, 0.001, 286.375), dark: oklch(0.19, 0.004, 49.25))
+    static let weekendCard = dynamic(light: hex(0xF6F5F4), dark: hex(0x1E1E1E))
     /// The border of the selected day card: #F0F0F0 in light mode, #424242 in dark.
-    static let selectedDayBorder = dynamic(light: NSColor(srgbRed: 0xF0 / 255, green: 0xF0 / 255, blue: 0xF0 / 255, alpha: 1),
-                                           dark: NSColor(srgbRed: 0x42 / 255, green: 0x42 / 255, blue: 0x42 / 255, alpha: 1))
+    static let selectedDayBorder = dynamic(light: hex(0xF0F0F0), dark: hex(0x424242))
     /// Row hover and pressed states.
-    static let hover = dynamic(light: oklch(0.147, 0.004, 49.25, alpha: 0.05), dark: oklch(1, 0, 0, alpha: 0.07))
+    static let hover = dynamic(light: hex(0x37352F, alpha: 0.06), dark: hex(0xFFFFFF, alpha: 0.055))
 
     /// Task rows (and empty rows), 50pt; a title that wraps grows its row.
     static let rowHeight: CGFloat = 50
@@ -79,8 +89,8 @@ enum Theme {
     static let title = Font.system(size: 32, weight: .bold)
     static let heading = Font.system(size: 24, weight: .bold)
 
-    private static let darkText = oklch(0.147, 0.004, 49.25)
-    private static let lightText = oklch(0.985, 0.001, 106.423)
+    private static let darkText = hex(0x2C2C2B)
+    private static let lightText = hex(0xF0EFED)
 
     /// Pill background and text per task color (docs/style.md, "Task colors").
     static func pill(_ color: TaskColor) -> (background: Color, text: Color)? {
@@ -169,28 +179,11 @@ extension ButtonStyle where Self == PressableButtonStyle {
     static var pressable: PressableButtonStyle { PressableButtonStyle() }
 }
 
-// MARK: Materials
-
-/// A macOS material (the sidebar's). With Reduce Transparency it is solid.
-struct VisualEffect: NSViewRepresentable {
-    var material: NSVisualEffectView.Material = .sidebar
-
-    func makeNSView(context: Context) -> NSVisualEffectView {
-        let view = NSVisualEffectView()
-        view.material = material
-        view.blendingMode = .behindWindow
-        view.state = .followsWindowActiveState
-        return view
-    }
-
-    func updateNSView(_ view: NSVisualEffectView, context: Context) { view.material = material }
-}
+// MARK: Surfaces
 
 extension View {
-    /// The translucent sidebar material, or the solid card color with Reduce Transparency.
-    @ViewBuilder func sidebarMaterial() -> some View {
-        if Motion.reduceTransparency { background(Theme.card) } else { background(VisualEffect(material: .sidebar)) }
-    }
+    /// The sidebar's solid surface, one step off the page.
+    func sidebarSurface() -> some View { background(Theme.sidebar) }
 
     /// A floating surface's material (toast, mini timer), solid with Reduce Transparency.
     @ViewBuilder func floatingMaterial<S: Shape>(in shape: S) -> some View {

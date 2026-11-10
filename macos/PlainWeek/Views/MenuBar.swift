@@ -25,6 +25,22 @@ struct MenuBarView: View {
     @State private var text = ""
 
     var body: some View {
+        if AppModel.shared.lock.isLocked {
+            VStack(alignment: .leading, spacing: 12) {
+                LockedNotice()
+                Button("Unlock Plain Week…") { openPlanner() }
+                    .buttonStyle(.pressable)
+                    .font(.system(size: 12, weight: .semibold))
+            }
+            .padding(14)
+            .frame(width: 320, alignment: .leading)
+            .tint(Theme.foreground)
+        } else {
+            panel
+        }
+    }
+
+    @ViewBuilder private var panel: some View {
         let today = planner.today
         let items = store.days(from: today, to: today)[today] ?? []
         let progress = store.progress(on: today)
@@ -149,7 +165,7 @@ struct MenuBarView: View {
         guard !quick.text.isEmpty else { return }
         let target = quick.targetDate(listDate: planner.today, today: planner.today)
         store.perform("New Task", undoManager: TimerActions.mainWindow?.undoManager) {
-            let id = store.create(text: quick.text, date: target, time: quick.time, color: quick.color ?? .none)
+            let id = store.create(text: quick.text, date: target, time: quick.time, duration: quick.duration, color: quick.color ?? .none)
             if let spec = quick.repeatSpec, let anchor = target { _ = try? store.setRecurrence(id, spec.rule(anchor: anchor)) }
         }
         text = ""

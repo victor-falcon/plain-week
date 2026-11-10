@@ -11,29 +11,36 @@ struct PlannerView: View {
     @Environment(\.undoManager) private var undoManager
     @FocusState private var focusedList: String?
 
+    private var dialogOpen: Bool { planner.openTask != nil || planner.showReview || planner.showPalette }
+
     var body: some View {
         @Bindable var planner = planner
         HStack(spacing: 0) {
             if planner.showSidebar {
                 PlannerSidebar(focus: $focusedList)
                     .frame(width: Theme.sidebarWidth)
-                    .sidebarMaterial()
+                    .sidebarSurface()
                     .transition(Motion.slide(.leading))
                 Rectangle().fill(Theme.border).frame(width: 1)
             }
             PlannerMain(focus: $focusedList)
                 .background(Theme.background)
         }
-        // The sidebar button sits level with the window's traffic lights: in
-        // the sidebar's top-right corner, or just right of the lights when the
-        // sidebar is hidden.
-        .overlay(alignment: .topLeading) {
-            SidebarToggle()
-                .offset(x: planner.showSidebar ? Theme.sidebarWidth - 38 : 78, y: 7)
-        }
+        // Title bar icons, level with the traffic lights, as in Mail or Notes:
+        // the sidebar button just right of the lights; Backlog and New Task at
+        // the sidebar's right edge, or (sidebar hidden) in the same row,
+        // followed by the week arrows.
+        .overlay(alignment: .topLeading) { TitleBarIcons() }
         .animation(Motion.structural, value: planner.showSidebar)
         .ignoresSafeArea(.container, edges: .top)
         .overlay(alignment: .bottom) { ToastView() }
+        // A narrow window closes the sidebar; widening it brings the sidebar back.
+        .onGeometryChange(for: Bool.self) { $0.size.width < PlannerModel.sidebarMinWindowWidth } action: { narrow in
+            withAnimation(Motion.structural) { planner.adaptSidebar(narrow: narrow) }
+        }
+        // An open dialog (task, review, palette) blurs the planner behind it.
+        .blur(radius: dialogOpen && !Motion.reduceTransparency ? 8 : 0)
+        .animation(Motion.standard, value: dialogOpen)
         .sheet(item: $planner.openTask) { open in
             TaskDetailView(taskId: open.id)
         }
@@ -100,31 +107,47 @@ struct PlannerHeader: View {
                     .tracking(-1.8)
                     .foregroundStyle(planner.showsToday ? Theme.foreground : Theme.mutedForeground)
                     .contentTransition(.numericText())
+                    // A narrow window shrinks the month rather than the controls.
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
                 Text("\(Format.year(thursday))  ·  Week \(DateKey.isoWeekNumber(thursday))")
                     .font(.system(size: 15, weight: .medium))
                     .foregroundStyle(Theme.mutedForeground)
+                    .lineLimit(1)
             }
-            Spacer()
-            HStack(spacing: 8) {
-                TimerPill()
-                FocusButton()
-                if !planner.showsToday {
-                    Button("Today", action: planner.goToToday)
-                        .buttonStyle(PillButtonStyle())
-                        .help("Current week (⌘T)")
-                        .transition(.opacity.combined(with: .scale(scale: 0.9)))
-                }
-                HStack(spacing: 0) {
-                    WeekButton(systemImage: "chevron.left", help: "Previous week (⌘[)", offset: -7, action: planner.previousWeek)
-                    Divider().frame(height: 16)
-                    WeekButton(systemImage: "chevron.right", help: "Next week (⌘])", offset: 7, action: planner.nextWeek)
-                }
-                .background(Capsule().fill(Theme.card))
-                .overlay(Capsule().strokeBorder(Theme.border))
+            .layoutPriority(1)
+            Spacer(minLength: 0)
+            // The full controls when they fit beside the month; in a narrow
+            // window the compact ones: the timer without its task title and
+            // Focus as an icon. Neither ever wraps or squeezes its labels.
+            ViewThatFits(in: .horizontal) {
+                controls(compact: false)
+                controls(compact: true)
             }
             .padding(.bottom, 8)
             .animation(Motion.standard, value: planner.showsToday)
         }
+    }
+
+    private func controls(compact: Bool) -> some View {
+        HStack(spacing: 8) {
+            TimerPill(compact: compact)
+            FocusButton(compact: compact)
+            if !planner.showsToday {
+                Button("Today", action: planner.goToToday)
+                    .buttonStyle(PillButtonStyle())
+                    .help("Current week (⌘T)")
+                    .transition(.opacity.combined(with: .scale(scale: 0.9)))
+            }
+            HStack(spacing: 0) {
+                WeekButton(systemImage: "chevron.backward", help: "Previous week (⌘[)", offset: -7, action: planner.previousWeek)
+                Divider().frame(height: 16)
+                WeekButton(systemImage: "chevron.forward", help: "Next week (⌘])", offset: 7, action: planner.nextWeek)
+            }
+            .background(Capsule().fill(Theme.card))
+            .overlay(Capsule().strokeBorder(Theme.border))
+        }
+        .fixedSize()
     }
 }
 
@@ -206,12 +229,51 @@ struct DayPlayButton: View {
         .focusEffectDisabled()
         .disabled(next == nil)
         .help(next.map { "Start the timer on “\($0.task.text)”" } ?? "Nothing left to do on this day")
+        .accessibilityLabel(next.map { "Start the timer on \($0.task.text)" } ?? "Nothing left to do on \(Format.weekdayDate(date))")
     }
 }
 
-/// While a timer runs: the task and clock in the header; a click shows the
-/// mini window again.
+/// "▶ Start <task>" at the bottom of a day card, shown while the pointer is
+/// over the day or the day is selected: starts the timer on its next
+/// unfinished task. A day with nothing left shows no button.
+struct DayStartButton: View {
+    var date: String
+    @Environment(TaskStore.self) private var store
+    @Environment(PlannerModel.self) private var planner
+    @Environment(FocusTimer.self) private var timer
+
+    var body: some View {
+        if let next = store.openTasks(on: date).first {
+            Button {
+                TimerActions.startDay(date, store: store, planner: planner, timer: timer)
+            } label: {
+                HStack(spacing: 7) {
+                    Image(systemName: "play.fill")
+                        .font(.system(size: 10, weight: .bold))
+                    Text("Start")
+                    Text(next.task.text)
+                        .fontWeight(.regular)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .opacity(0.7)
+                }
+                .frame(maxWidth: 240)
+                .fixedSize(horizontal: true, vertical: false)
+            }
+            .buttonStyle(MonoPrimaryButtonStyle())
+            .shadow(color: .black.opacity(0.18), radius: 10, y: 4)
+            .focusEffectDisabled()
+            .help("Start the timer on “\(next.task.text)”")
+            .accessibilityLabel("Start the timer on \(next.task.text)")
+        }
+    }
+}
+
+/// While a timer runs: the task and clock in the header; a click minimizes
+/// the planner back to the mini window (only one of the two shows at a time).
 struct TimerPill: View {
+    /// Without the task's title, for a narrow window.
+    var compact = false
     @Environment(TaskStore.self) private var store
     @Environment(PlannerModel.self) private var planner
     @Environment(FocusTimer.self) private var timer
@@ -219,57 +281,107 @@ struct TimerPill: View {
     var body: some View {
         if timer.isActive, let item = timer.taskId.flatMap({ store.item($0) }) {
             Button {
-                MiniTimerPanel.shared.show(store: store, planner: planner, timer: timer)
+                TimerActions.showMiniTimer(store: store, planner: planner, timer: timer)
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: timer.isRunning ? "timer" : "pause.fill")
-                    Text(item.task.text).lineLimit(1).frame(maxWidth: 160)
+                    if !compact { Text(item.task.text).lineLimit(1).frame(maxWidth: 160) }
                     TimelineView(.periodic(from: .now, by: 1)) { context in
                         Text(FocusTimer.format(timer.display(at: context.date))).monospacedDigit()
                     }
                 }
             }
             .buttonStyle(PillButtonStyle(active: false))
-            .help("Show the timer")
+            .help(compact ? "Minimize to the mini timer: \(item.task.text)" : "Minimize to the mini timer")
         }
     }
 }
 
 /// Shows or hides the sidebar (also ⌃⌘S): a quiet icon, like Mail's and Notes'.
-struct SidebarToggle: View {
+/// The icons in the window's title bar row.
+struct TitleBarIcons: View {
     @Environment(PlannerModel.self) private var planner
+
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            HStack(spacing: 6) {
+                TitleBarButton(systemImage: "sidebar.left",
+                               help: planner.showSidebar ? "Hide Sidebar (⌃⌘S)" : "Show Sidebar (⌃⌘S)") {
+                    withAnimation(Motion.structural) { planner.showSidebar.toggle() }
+                }
+                if !planner.showSidebar {
+                    taskButtons
+                    TitleBarButton(systemImage: "chevron.backward", help: "Previous Week (⌘[)", action: planner.previousWeek)
+                    TitleBarButton(systemImage: "chevron.forward", help: "Next Week (⌘])", action: planner.nextWeek)
+                }
+            }
+            .padding(.leading, 78)
+            if planner.showSidebar {
+                HStack(spacing: 6) { taskButtons }
+                    .frame(width: Theme.sidebarWidth - 12, alignment: .trailing)
+                    .transition(.opacity)
+            }
+        }
+        .padding(.top, 6)
+        .animation(Motion.structural, value: planner.showSidebar)
+    }
+
+    @ViewBuilder private var taskButtons: some View {
+        TitleBarButton(systemImage: "tray", help: "Show the Backlog") {
+            withAnimation(Motion.structural) {
+                planner.showSidebar = true
+                planner.backlogExpanded = true
+            }
+        }
+        TitleBarButton(systemImage: "square.and.pencil", help: "New Task Today (⌘N)") {
+            planner.goToToday()
+            planner.focusRequest = planner.today
+        }
+    }
+}
+
+/// A plain title bar icon: grey, darker with a soft square on hover.
+struct TitleBarButton: View {
+    var systemImage: String
+    var help: String
+    var action: () -> Void
     @State private var hovering = false
 
     var body: some View {
-        Button {
-            withAnimation(Motion.structural) { planner.showSidebar.toggle() }
-        } label: {
-            Image(systemName: "sidebar.left")
-                .font(.system(size: 14, weight: .regular))
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(.system(size: 15, weight: .regular))
                 .foregroundStyle(hovering ? Theme.foreground : Theme.mutedForeground)
-                .frame(width: 28, height: 24)
-                .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(hovering ? Theme.hover : .clear))
+                .frame(width: 30, height: 26)
+                .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(hovering ? Theme.hover : .clear))
                 .contentShape(Rectangle())
         }
         .buttonStyle(.pressable)
         .focusEffectDisabled()
         .onHover { hovering = $0 }
         .animation(Motion.quick, value: hovering)
-        .help(planner.showSidebar ? "Hide Sidebar (⌃⌘S)" : "Show Sidebar (⌃⌘S)")
-        .accessibilityLabel(planner.showSidebar ? "Hide Sidebar" : "Show Sidebar")
+        .help(help)
+        .accessibilityLabel(help)
     }
 }
 
 /// Turns focus mode on and off: everything but today is blurred.
 struct FocusButton: View {
+    /// The icon alone, for a narrow window.
+    var compact = false
     @Environment(PlannerModel.self) private var planner
 
     var body: some View {
         Button {
             withAnimation(Motion.structural) { planner.toggleFocusMode() }
         } label: {
-            Label("Focus", systemImage: planner.focusMode ? "scope" : "circle.dashed")
-                .labelStyle(.titleAndIcon)
+            Group {
+                if compact {
+                    Label("Focus", systemImage: planner.focusMode ? "scope" : "circle.dashed").labelStyle(.iconOnly)
+                } else {
+                    Label("Focus", systemImage: planner.focusMode ? "scope" : "circle.dashed").labelStyle(.titleAndIcon)
+                }
+            }
                 .foregroundStyle(planner.focusMode ? Theme.background : Theme.foreground)
         }
         .buttonStyle(PillButtonStyle(active: planner.focusMode))
@@ -307,6 +419,7 @@ struct PillButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: 13, weight: .semibold))
+            .lineLimit(1)
             .padding(.horizontal, 14)
             .frame(height: 34)
             .background(Capsule().fill(active ? Theme.foreground : configuration.isPressed ? Theme.hover : Theme.card))
@@ -531,15 +644,19 @@ struct DayColumn: View {
     var date: String
     var items: [PlannerItem]
     var focus: FocusState<String?>.Binding
+    /// On its own in the day panel: the planner's focus mode never blurs it.
+    var standalone = false
     @Environment(PlannerModel.self) private var planner
     @Environment(\.staticDayStrip) private var staticStrip
     /// Rows that fit the card's height, so its empty space is all clickable.
     @State private var fillRows = 9
+    @State private var hovering = false
 
     var body: some View {
         let isToday = date == planner.today
         let isWeekend = DateKey.isoWeekday(date) >= 6
         let isSelected = planner.selectedDay == date
+        let blurred = !standalone && planner.isBlurred(date)
         VStack(alignment: .leading, spacing: 8) {
             DayProgressBar(date: date)
                 .padding(.horizontal, 6)
@@ -548,13 +665,15 @@ struct DayColumn: View {
                     .font(Theme.heading)
                     .tracking(-0.6)
                     .monospacedDigit()
-                    .foregroundStyle(isToday ? Theme.background : isWeekend ? Theme.mutedForeground : Theme.foreground)
-                    .frame(minWidth: 40, minHeight: 40)
-                    .background { if isToday { Circle().fill(Theme.plannerAccent) } }
+                    // No disc behind today: it reads by its full-strength
+                    // number and weekday (other days' weekdays are grey).
+                    .foregroundStyle(isWeekend && !isToday ? Theme.mutedForeground : Theme.foreground)
+                    .frame(minHeight: 40)
                 Text(Format.weekday(date).uppercased())
                     .font(.system(size: 11, weight: .semibold))
                     .tracking(0.8)
                     .foregroundStyle(isToday ? Theme.plannerAccent : Theme.mutedForeground)
+                PlannedTotal(date: date)
                 Spacer(minLength: 0)
                 if isSelected {
                     Image(systemName: "checkmark.circle")
@@ -597,12 +716,41 @@ struct DayColumn: View {
                 .strokeBorder(isSelected ? Theme.selectedDayBorder : isToday ? Theme.plannerAccent.opacity(0.3) : Theme.border,
                               lineWidth: isSelected ? 2 : 1)
         )
+        // The start button, over the bottom of the card, for the day under
+        // the pointer and the selected day.
+        .overlay(alignment: .bottom) {
+            if (hovering || isSelected) && !blurred {
+                DayStartButton(date: date)
+                    .padding(.bottom, 16)
+                    .transition(Motion.slide(.bottom))
+            }
+        }
+        .onHover { hovering = $0 }
+        .animation(Motion.standard, value: hovering || isSelected)
         .frame(maxWidth: .infinity)
-        .focusBlur(planner.isBlurred(date))
+        .focusBlur(blurred)
         // In focus mode, a click anywhere in a blurred day focuses it.
         .simultaneousGesture(TapGesture().onEnded {
-            withAnimation(Motion.structural) { planner.focusDay(date) }
+            if blurred { withAnimation(Motion.structural) { planner.focusDay(date) } }
         })
+    }
+}
+
+/// The time a day's unfinished tasks are planned to take (their durations),
+/// shown beside its weekday when any task has one.
+struct PlannedTotal: View {
+    var date: String
+    @Environment(TaskStore.self) private var store
+
+    var body: some View {
+        let minutes = store.plannedMinutes(on: date)
+        if minutes > 0 {
+            Text(TaskTiming.short(minutes))
+                .font(.system(size: 12, weight: .medium).monospacedDigit())
+                .foregroundStyle(minutes > 8 * 60 ? Theme.foreground : Theme.mutedForeground)
+                .help(minutes > 8 * 60 ? "Planned: \(TaskTiming.short(minutes)), more than a working day" : "Planned: \(TaskTiming.short(minutes))")
+                .accessibilityLabel("Planned \(TaskTiming.short(minutes))")
+        }
     }
 }
 
@@ -625,7 +773,6 @@ struct PlannerSidebar: View {
                 AccordionSection(title: "Backlog", systemImage: "tray",
                                  count: backlog.filter { !$0.task.done }.count, expanded: $planner.backlogExpanded) {
                     TaskListView(listKey: DataTransfer.somedayKey, date: nil, items: backlog, minRows: 1, focus: focus)
-                        .focusBlur(planner.isBlurred(nil))
                 }
 
                 AccordionSection(title: "Done", systemImage: "checkmark.circle",
@@ -752,7 +899,7 @@ struct AccordionSection<Content: View, Accessory: View>: View {
                                 .font(.system(size: 13, weight: .semibold).monospacedDigit())
                                 .foregroundStyle(Theme.mutedForeground)
                         }
-                        Image(systemName: "chevron.right")
+                        Image(systemName: "chevron.forward")
                             .font(.system(size: 11, weight: .bold))
                             .foregroundStyle(Theme.mutedForeground)
                             .rotationEffect(.degrees(expanded ? 90 : 0))
@@ -800,7 +947,7 @@ struct MiniCalendar: View {
         VStack(spacing: 8) {
             HStack {
                 Button { move(-1, from: shown) } label: {
-                    Image(systemName: "chevron.left").frame(width: 24, height: 24).contentShape(Rectangle())
+                    Image(systemName: "chevron.backward").frame(width: 24, height: 24).contentShape(Rectangle())
                 }
                 .help("Previous month")
                 Spacer()
@@ -813,7 +960,7 @@ struct MiniCalendar: View {
                 .help("Go to today")
                 Spacer()
                 Button { move(1, from: shown) } label: {
-                    Image(systemName: "chevron.right").frame(width: 24, height: 24).contentShape(Rectangle())
+                    Image(systemName: "chevron.forward").frame(width: 24, height: 24).contentShape(Rectangle())
                 }
                 .help("Next month")
             }

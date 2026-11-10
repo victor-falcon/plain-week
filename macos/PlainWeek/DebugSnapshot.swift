@@ -38,6 +38,26 @@ enum DebugSnapshot {
             case "quick": QuickCapture.shared.show()
             default: break
             }
+            // PLAINWEEK_SNAPSHOT_LOCK=1|recover shows the lock screen (a throwaway
+            // lock in the temporary directory, removed after the capture).
+            if let mode = env["PLAINWEEK_SNAPSHOT_LOCK"] {
+                let lock = AppModel.shared.lock
+                lock.setUp(password: "debug", question: "Name of your first teacher?", answer: "x", rounds: 1)
+                lock.lock()
+                if mode == "recover" { lock.startRecovery() }
+            }
+            // PLAINWEEK_SNAPSHOT_DAYPANEL=left|right shows the day panel on that side
+            // (the user's saved side is put back after the capture).
+            if let side = env["PLAINWEEK_SNAPSHOT_DAYPANEL"] {
+                let saved = UserDefaults.standard.string(forKey: DayPanel.sideKey)
+                UserDefaults.standard.set(side, forKey: DayPanel.sideKey)
+                DayPanel.shared.show()
+                UserDefaults.standard.set(saved, forKey: DayPanel.sideKey)
+            }
+            // PLAINWEEK_SNAPSHOT_SETTINGS=<pane> opens Settings on that pane.
+            if env["PLAINWEEK_SNAPSHOT_SETTINGS"] != nil {
+                NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+            }
             // PLAINWEEK_SNAPSHOT_TIMER=<day> starts its timer and captures the mini window.
             if let day = env["PLAINWEEK_SNAPSHOT_TIMER"] {
                 TimerActions.startDay(day, store: store, planner: planner, timer: timer)
@@ -47,7 +67,10 @@ enum DebugSnapshot {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                 let popover = env["PLAINWEEK_SNAPSHOT_PICKER"] != nil
                     ? NSApp.windows.first(where: { $0.isVisible && String(describing: type(of: $0)).contains("Popover") }) : nil
-                let main = popover != nil ? popover : (env["PLAINWEEK_SNAPSHOT_TIMER"] != nil || env["PLAINWEEK_SNAPSHOT_SHEET"] == "quick") ? NSApp.windows.first(where: { $0 is NSPanel && $0.isVisible })
+                let settings = env["PLAINWEEK_SNAPSHOT_SETTINGS"] != nil
+                    ? NSApp.windows.first(where: { $0.isVisible && $0.title != "Plain Week" && !($0 is NSPanel) && $0.frame.width > 600 }) : nil
+                let dayPanel = env["PLAINWEEK_SNAPSHOT_DAYPANEL"] != nil ? NSApp.windows.first(where: { $0.isVisible && $0.title == "Day" }) : nil
+                let main = dayPanel != nil ? dayPanel : settings != nil ? settings : popover != nil ? popover : (env["PLAINWEEK_SNAPSHOT_TIMER"] != nil || env["PLAINWEEK_SNAPSHOT_SHEET"] == "quick") ? NSApp.windows.first(where: { $0 is NSPanel && $0.isVisible })
                     : NSApp.windows.first(where: { $0.isVisible && $0.title == "Plain Week" }) ?? NSApp.windows.first(where: \.isVisible)
                 guard let window = main?.attachedSheet ?? main,
                       let image = CGWindowListCreateImage(.null, .optionIncludingWindow, CGWindowID(window.windowNumber), [.boundsIgnoreFraming, .bestResolution])
@@ -58,6 +81,7 @@ enum DebugSnapshot {
                 let url = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(name)
                 try? NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:])?.write(to: url)
                 NSLog("first visible day %@, %d days visible", planner.weekStart, planner.visibleCount)
+                try? FileManager.default.removeItem(at: URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("lock.json"))
                 // terminate(_:) waits while a sheet is open; a capture run just ends.
                 exit(0)
             }
