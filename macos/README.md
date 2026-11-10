@@ -224,6 +224,12 @@ public API for apps; pair Pomodoro with a Shortcuts automation that turns on a F
 
     Each key toggles: pressing it again on formatted text removes the formatting. The web app shows the raw text.
 
+    **Images:** paste (⌘V) or drop an image into the notes and it shows in place, fitted to the width; click it to
+    open it in Preview. The image is saved as a file in `attachments/` next to `tasks.json` (wider than 2400 pixels
+    is scaled down) and the note keeps a line `![](attachments/<id>.png)`, which shows only while the caret is on it,
+    so it can be deleted like text. Folder sync copies the images too; JSON export and the web app carry only that
+    line.
+
 - The **repeat** popover (⌥⌘R) picks Never, Daily, Weekly or Monthly (⌘0–3), then the details: every N days, the
   weekdays (the task's own day always included) or the day of the month, and an optional end date. A line under it
   says what will happen ("Every Mon, Wed, Fri, from Mon 9 Nov"), and Return applies.

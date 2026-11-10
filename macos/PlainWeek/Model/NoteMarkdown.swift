@@ -13,6 +13,7 @@ import Foundation
 /// | Strikethrough  | `~~text~~`            | ⇧⌘X  |
 /// | Highlight      | `==text==`, `=={green}text==` | ⇧⌘C |
 /// | Text color     | `{red}text{/}`        | ⇧⌘C  |
+/// | Image          | `![](attachments/…)`  | ⌘V   |
 ///
 /// The editor shows these styled as you type; the web app shows the raw text.
 /// Every command is a pure function from (text, selection) to (text, selection)

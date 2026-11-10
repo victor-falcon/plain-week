@@ -30,6 +30,7 @@
 		5A551CB0A25F149A5F97C61A /* Zistemo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D6CC327FB84C1A3F0358A9C /* Zistemo.swift */; };
 		5DBDC78262B754DA65F556E1 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 238A3D6E1C36D0FF46357126 /* AppModel.swift */; };
 		5DC9062035F785AC53638881 /* PlainTask.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28D9E3752E7210826C6190D8 /* PlainTask.swift */; };
+		63635BB1B94B42AF818CBF8F /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 3CEEE047C57597EE13B65B75 /* PrivacyInfo.xcprivacy */; };
 		645AEA5F7B45537E71C301B0 /* Reminders.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AEA0F16D496A7F2C58E36D4 /* Reminders.swift */; };
 		646EF93BB05683CF6FDCBE03 /* CommandPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DAAE44CE9D1C58EA7F1E2F8 /* CommandPalette.swift */; };
 		6AB732842F8D9CD62C153715 /* RecurrenceEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6865ECB28A0EFD886CAE5FD2 /* RecurrenceEngine.swift */; };
@@ -54,6 +55,7 @@
 		CAAD8BE1C04D58E7158E7318 /* FocusTimer.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9DC4DD551ACF3226A5E4C39 /* FocusTimer.swift */; };
 		CF4C565892E2E2E74A03D5E3 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FB14DCE8C020A3E76ADA688 /* Theme.swift */; };
 		CFA561E717B2B21E4571DF84 /* PlannerModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46E62123169CF8184AC93942 /* PlannerModel.swift */; };
+		D14206F534208F9AB11D36D3 /* NoteImagesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88F4E95BC2912B171A098A80 /* NoteImagesTests.swift */; };
 		D2E05FA72FD7F6429ACD1038 /* ZistemoTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57BBB1EAAF9A826B8BF95C2E /* ZistemoTests.swift */; };
 		D3561BB2614E9CA08BA496C2 /* TaskTiming.swift in Sources */ = {isa = PBXBuildFile; fileRef = B35310780981BAEA5E9E8A54 /* TaskTiming.swift */; };
 		D48D1FCEDB884CEC59512552 /* Projects.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE598C48B3079D152835D421 /* Projects.swift */; };
@@ -64,6 +66,7 @@
 		EC8FF19B00230E97979959BF /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1F5A6A0A59524C3A69BEAA1C /* Assets.xcassets */; };
 		EDF62B0EA0F654319BAE3378 /* SmartInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F00D45CD514DD0F7A61EBD2 /* SmartInput.swift */; };
 		FF8D178D14BF182E00EC075E /* TimeLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7CDB742A5D15038A3FE083B /* TimeLog.swift */; };
+		FFB3E700FAACD79DB43FD69F /* NoteImages.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1115BAE2EF743ADB1EBEBD3F /* NoteImages.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -82,6 +85,7 @@
 		0A0BD59E98B0828E2E795D11 /* ZistemoSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZistemoSync.swift; sourceTree = "<group>"; };
 		0AEA0F16D496A7F2C58E36D4 /* Reminders.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Reminders.swift; sourceTree = "<group>"; };
 		0D9AE379CA902A87BB440968 /* PlainWeekTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PlainWeekTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		1115BAE2EF743ADB1EBEBD3F /* NoteImages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteImages.swift; sourceTree = "<group>"; };
 		17040773B650E8C56077FBBE /* OutsideClick.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutsideClick.swift; sourceTree = "<group>"; };
 		1F5A6A0A59524C3A69BEAA1C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		223B2FFDD6C6174522886DA1 /* Shortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Shortcuts.swift; sourceTree = "<group>"; };
@@ -97,6 +101,7 @@
 		370416E00BD3996AE17158E8 /* Welcome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Welcome.swift; sourceTree = "<group>"; };
 		3AA85A8F6A6535C803C6F896 /* MenuBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBar.swift; sourceTree = "<group>"; };
 		3B0C0008F90C2BE563E4AE4F /* BulkCheckTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BulkCheckTests.swift; sourceTree = "<group>"; };
+		3CEEE047C57597EE13B65B75 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		3D097EAAA88EC9532B657914 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		3D6CC327FB84C1A3F0358A9C /* Zistemo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Zistemo.swift; sourceTree = "<group>"; };
 		46E62123169CF8184AC93942 /* PlannerModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlannerModel.swift; sourceTree = "<group>"; };
@@ -115,6 +120,7 @@
 		79CDB96DA5D523B8308A6A62 /* WeeklyReview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyReview.swift; sourceTree = "<group>"; };
 		83DC5A7D9500DE76DF89B034 /* DebugSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugSnapshot.swift; sourceTree = "<group>"; };
 		84522E606A6F04225B55A261 /* TaskDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskDetailView.swift; sourceTree = "<group>"; };
+		88F4E95BC2912B171A098A80 /* NoteImagesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteImagesTests.swift; sourceTree = "<group>"; };
 		8F00D45CD514DD0F7A61EBD2 /* SmartInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartInput.swift; sourceTree = "<group>"; };
 		919F11440EBBC19C5AC88BEA /* AppLock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLock.swift; sourceTree = "<group>"; };
 		954980C27ED714F4218F3F4F /* Backups.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Backups.swift; sourceTree = "<group>"; };
@@ -137,7 +143,7 @@
 		F95EC84350E560BAD1A20C02 /* PlainWeekApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlainWeekApp.swift; sourceTree = "<group>"; };
 		FDA2515A3664FD2749B9C61F /* ProjectsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectsTests.swift; sourceTree = "<group>"; };
 		FE598C48B3079D152835D421 /* Projects.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Projects.swift; sourceTree = "<group>"; };
-		"TEMP_1311CCDA-9360-499D-A747-FBCCC54C4F1F" /* Signing.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Signing.xcconfig; sourceTree = "<group>"; };
+		"TEMP_E53F2737-A89E-437B-B67D-84C92CE42B4A" /* Signing.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Signing.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -186,6 +192,7 @@
 				3D097EAAA88EC9532B657914 /* Localizable.xcstrings */,
 				23331361398CA9A087F732AA /* PlainWeek.entitlements */,
 				F95EC84350E560BAD1A20C02 /* PlainWeekApp.swift */,
+				3CEEE047C57597EE13B65B75 /* PrivacyInfo.xcprivacy */,
 				811AF3A8A5373508ED6A5F45 /* Intents */,
 				8BB43654A7698CD0C92D19AF /* Model */,
 				6805C7952FF4E36DEA25822E /* Store */,
@@ -206,6 +213,7 @@
 				E9DC4DD551ACF3226A5E4C39 /* FocusTimer.swift */,
 				27EEABA67456FA75368C3BD4 /* FolderSync.swift */,
 				A0F9982DEA3B6AE20850EA4C /* KeyboardCursor.swift */,
+				1115BAE2EF743ADB1EBEBD3F /* NoteImages.swift */,
 				46E62123169CF8184AC93942 /* PlannerModel.swift */,
 				FE598C48B3079D152835D421 /* Projects.swift */,
 				0AEA0F16D496A7F2C58E36D4 /* Reminders.swift */,
@@ -223,6 +231,7 @@
 			isa = PBXGroup;
 			children = (
 				3B0C0008F90C2BE563E4AE4F /* BulkCheckTests.swift */,
+				88F4E95BC2912B171A098A80 /* NoteImagesTests.swift */,
 				26C0E1AC36B2C24A5828C751 /* PlainWeekTests.swift */,
 				FDA2515A3664FD2749B9C61F /* ProjectsTests.swift */,
 				57BBB1EAAF9A826B8BF95C2E /* ZistemoTests.swift */,
@@ -263,10 +272,10 @@
 			path = Model;
 			sourceTree = "<group>";
 		};
-		"TEMP_531D8F94-94AB-48AA-ABDA-3D6478FE4A93" /* macos */ = {
+		"TEMP_9E66B7E1-94A4-4A8F-83BF-7508A3F0CF78" /* macos */ = {
 			isa = PBXGroup;
 			children = (
-				"TEMP_1311CCDA-9360-499D-A747-FBCCC54C4F1F" /* Signing.xcconfig */,
+				"TEMP_E53F2737-A89E-437B-B67D-84C92CE42B4A" /* Signing.xcconfig */,
 			);
 			path = macos;
 			sourceTree = "<group>";
@@ -356,6 +365,7 @@
 			files = (
 				EC8FF19B00230E97979959BF /* Assets.xcassets in Resources */,
 				853AC164FDF5169D40E89AEF /* Localizable.xcstrings in Resources */,
+				63635BB1B94B42AF818CBF8F /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -385,6 +395,7 @@
 				2FA198D6A077D25F6C6CDEAF /* LockScreen.swift in Sources */,
 				CA5496C608C159CEC1FF30E5 /* MenuBar.swift in Sources */,
 				54700322946ACD53F07F6683 /* MiniTimer.swift in Sources */,
+				FFB3E700FAACD79DB43FD69F /* NoteImages.swift in Sources */,
 				B6CF3DD472403B6C47B08B92 /* NoteMarkdown.swift in Sources */,
 				4DD14EE0D777C45EC6279E34 /* NotesEditor.swift in Sources */,
 				133FA0007F8942F4CCC26B9C /* OutsideClick.swift in Sources */,
@@ -425,6 +436,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				300CB6F017DD3817786A98A5 /* BulkCheckTests.swift in Sources */,
+				D14206F534208F9AB11D36D3 /* NoteImagesTests.swift in Sources */,
 				E11639B088EB7FA49C41D875 /* PlainWeekTests.swift in Sources */,
 				0B017AD7E77EA3532D638B6D /* ProjectsTests.swift in Sources */,
 				D2E05FA72FD7F6429ACD1038 /* ZistemoTests.swift in Sources */,
@@ -444,7 +456,7 @@
 /* Begin XCBuildConfiguration section */
 		1A612AA517A1FF1ECAB04537 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_1311CCDA-9360-499D-A747-FBCCC54C4F1F" /* Signing.xcconfig */;
+			baseConfigurationReference = "TEMP_E53F2737-A89E-437B-B67D-84C92CE42B4A" /* Signing.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = PlainWeek/PlainWeek.entitlements;
@@ -455,11 +467,12 @@
 				ENABLE_USER_SELECTED_FILES = readwrite;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Plain Week";
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				INFOPLIST_KEY_LSUIElement = NO;
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Plain Week shows your calendar events in each day and, if you turn it on, puts tasks with a time in a Plain Week calendar.";
 				INFOPLIST_KEY_NSCalendarsUsageDescription = "Plain Week shows your calendar events in each day and, if you turn it on, puts tasks with a time in a Plain Week calendar.";
-				INFOPLIST_KEY_NSHumanReadableCopyright = "MIT License";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "© 2026 Agacom. MIT License.";
 				INFOPLIST_KEY_NSRemindersFullAccessUsageDescription = "Plain Week keeps a Plain Week list in Reminders in step with your tasks, so they reach your iPhone and Apple Watch.";
 				INFOPLIST_KEY_NSRemindersUsageDescription = "Plain Week keeps a Plain Week list in Reminders in step with your tasks, so they reach your iPhone and Apple Watch.";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -536,7 +549,7 @@
 		};
 		2D689A2B6E3EAAA4EA25DA0B /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_1311CCDA-9360-499D-A747-FBCCC54C4F1F" /* Signing.xcconfig */;
+			baseConfigurationReference = "TEMP_E53F2737-A89E-437B-B67D-84C92CE42B4A" /* Signing.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = PlainWeek/PlainWeek.entitlements;
@@ -547,11 +560,12 @@
 				ENABLE_USER_SELECTED_FILES = readwrite;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Plain Week";
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				INFOPLIST_KEY_LSUIElement = NO;
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Plain Week shows your calendar events in each day and, if you turn it on, puts tasks with a time in a Plain Week calendar.";
 				INFOPLIST_KEY_NSCalendarsUsageDescription = "Plain Week shows your calendar events in each day and, if you turn it on, puts tasks with a time in a Plain Week calendar.";
-				INFOPLIST_KEY_NSHumanReadableCopyright = "MIT License";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "© 2026 Agacom. MIT License.";
 				INFOPLIST_KEY_NSRemindersFullAccessUsageDescription = "Plain Week keeps a Plain Week list in Reminders in step with your tasks, so they reach your iPhone and Apple Watch.";
 				INFOPLIST_KEY_NSRemindersUsageDescription = "Plain Week keeps a Plain Week list in Reminders in step with your tasks, so they reach your iPhone and Apple Watch.";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -566,7 +580,7 @@
 		};
 		5FD1DFA4B0F8AE143E5ADF7F /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_1311CCDA-9360-499D-A747-FBCCC54C4F1F" /* Signing.xcconfig */;
+			baseConfigurationReference = "TEMP_E53F2737-A89E-437B-B67D-84C92CE42B4A" /* Signing.xcconfig */;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				COMBINE_HIDPI_IMAGES = YES;
@@ -653,7 +667,7 @@
 		};
 		E3FD1833ACBC1B7845FF9DBF /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_1311CCDA-9360-499D-A747-FBCCC54C4F1F" /* Signing.xcconfig */;
+			baseConfigurationReference = "TEMP_E53F2737-A89E-437B-B67D-84C92CE42B4A" /* Signing.xcconfig */;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				COMBINE_HIDPI_IMAGES = YES;

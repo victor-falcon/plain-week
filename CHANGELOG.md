@@ -21,6 +21,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   #zistemo tasks, keeps their done state in step both ways, and ▶ on one runs zistemo's live timer (a timer
   started in zistemo runs here too). It works offline
   (the time then goes to your timesheet later) and catches up at the next sync.
+- **Ready for Mac App Store review.** The macOS app ships a privacy manifest (no tracking, no data collected),
+  declares that it uses only exempt encryption, asks for notification permission the first time there is something
+  to notify rather than at launch, and its copyright reads "© 2026 Agacom".
 - **Red and orange task colors.** Two new colors in the pickers and the right-click menu, on the web and in the macOS
   app, in light and dark. Sync and JSON import accept them.
 - **Native macOS app** (`macos/`). A SwiftUI version of the planner for macOS 14 and later, in a minimal,
@@ -36,7 +39,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   its next task in a floating mini window (title, checkbox, play / pause; scroll over it to move between the day's tasks, like a widget stack). A focus mode (⇧⌘F) blurs every day but
   the one you click (today by default). The interface follows a small design system (type scale, motion, radii,
   one button family), answers every press at once and honours Reduce Motion and Reduce Transparency. It has the eleven
-  task colors in light and dark, drag and drop, a task sheet with notes, subtasks, time and repeat rules (daily,
+  task colors in light and dark, drag and drop, a task sheet with notes (pasted or dropped images show inline,
+  stored as files next to the tasks), subtasks, time and repeat rules (daily,
   weekly, monthly, with "only this" or "this and all future"), carry over of unfinished tasks, undo, and JSON
   export/import in the web app's format. Beyond the window: quick add from any app (⌥Space), a menu bar panel, reminders for timed tasks, Calendar events
   in each day, time tracking and a Pomodoro mode (long breaks, session dots,

@@ -67,9 +67,24 @@ final class Reminders: NSObject, UNUserNotificationCenterDelegate {
         let done = UNNotificationAction(identifier: "done", title: "Mark as Done")
         let snooze = UNNotificationAction(identifier: "snooze", title: "Snooze 10 min")
         center.setNotificationCategories([UNNotificationCategory(identifier: Self.category, actions: [done, snooze], intentIdentifiers: [])])
-        // Ask at launch: without it macOS drops every notification, the
-        // timer's included. Only the first launch shows the prompt.
-        requestPermission()
+        // No prompt at launch: macOS asks the first time there is something
+        // to notify (a timed task to remind, a timer phase ending).
+        reschedule()
+    }
+
+    /// Runs `body` once notifications may be posted: asks first if the user
+    /// has never been asked (macOS drops notifications until then).
+    static func whenAllowed(_ body: @escaping @MainActor () -> Void) {
+        let center = UNUserNotificationCenter.current()
+        center.getNotificationSettings { settings in
+            guard settings.authorizationStatus == .notDetermined else {
+                Task { @MainActor in body() }
+                return
+            }
+            center.requestAuthorization(options: [.alert, .sound]) { _, _ in
+                Task { @MainActor in body() }
+            }
+        }
     }
 
     /// What macOS allows Plain Week, for Settings.
@@ -92,7 +107,7 @@ final class Reminders: NSObject, UNUserNotificationCenterDelegate {
         }
     }
 
-    /// Asks for permission (at launch, and when reminders are turned on).
+    /// Asks for permission (when reminders are turned on in Settings).
     func requestPermission() {
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in
             Task { @MainActor in self.reschedule() }
@@ -113,9 +128,9 @@ final class Reminders: NSObject, UNUserNotificationCenterDelegate {
             let ours = requests.map(\.identifier).filter { $0.hasPrefix(Self.prefix) }
             Task { @MainActor in
                 center.removePendingNotificationRequests(withIdentifiers: ours)
-                for planned in Self.plan(store: self.store, now: Date(), lead: Self.leadMinutes) {
-                    self.add(planned)
-                }
+                let planned = Self.plan(store: self.store, now: Date(), lead: Self.leadMinutes)
+                guard !planned.isEmpty else { return }
+                Self.whenAllowed { planned.forEach { self.add($0) } }
             }
         }
     }
@@ -138,7 +153,8 @@ final class Reminders: NSObject, UNUserNotificationCenterDelegate {
         content.title = title
         content.body = body
         content.sound = .default
-        UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil))
+        let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
+        whenAllowed { UNUserNotificationCenter.current().add(request) }
     }
 
     // MARK: UNUserNotificationCenterDelegate

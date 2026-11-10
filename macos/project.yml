@@ -42,7 +42,9 @@ targets:
                 GENERATE_INFOPLIST_FILE: YES
                 INFOPLIST_KEY_CFBundleDisplayName: Plain Week
                 INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.productivity
-                INFOPLIST_KEY_NSHumanReadableCopyright: 'MIT License'
+                INFOPLIST_KEY_NSHumanReadableCopyright: '© 2026 Agacom. MIT License.'
+                # Only exempt encryption (HTTPS from macOS, PBKDF2 for the lock).
+                INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
                 ENABLE_APP_SANDBOX: YES
                 ENABLE_USER_SELECTED_FILES: readwrite
                 ENABLE_RESOURCE_ACCESS_CALENDARS: YES

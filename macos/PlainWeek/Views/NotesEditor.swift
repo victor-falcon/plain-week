@@ -7,7 +7,9 @@ import SwiftUI
 ///
 /// ⌘1–4 heading · ⌘T todo line · ⌘E time · ⇧⌘E date · ⇧⌘X strikethrough ·
 /// ⌘B bold · ⌘I italic · ⌘U underline · ⇧⌘C text and highlight color ·
-/// ⌥⌘B block caret (Vim style). A click on a todo box ticks it.
+/// ⌥⌘B block caret (Vim style). A click on a todo box ticks it. Pasting or
+/// dropping an image saves it to `attachments/` and shows it in the note
+/// (`NoteImages`); a click on it opens it in Preview.
 struct NotesEditor: NSViewRepresentable {
     @Binding var text: String
     /// Bump to give the editor keyboard focus.
@@ -17,7 +19,8 @@ struct NotesEditor: NSViewRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
     func makeNSView(context: Context) -> NSScrollView {
-        let textView = NoteTextView(frame: .zero)
+        // TextKit 1: images are drawn from the layout manager's line rects.
+        let textView = NoteTextView(usingTextLayoutManager: false)
         textView.delegate = context.coordinator
         textView.onFocusChange = { focused in context.coordinator.parent.onFocusChange(focused) }
         textView.isRichText = false
@@ -143,11 +146,11 @@ final class NoteTextView: NSTextView {
     }
 
     /// Applies a command as one undoable edit.
-    private func run(_ command: (NoteMarkdown.Edit) -> NoteMarkdown.Edit) {
+    private func run(_ command: (NoteMarkdown.Edit) -> NoteMarkdown.Edit, actionName: String = "Format") {
         let before = NoteMarkdown.Edit(text: string, selection: selectedRange())
         let after = command(before)
         guard after != before else { return }
-        replaceAll(with: after.text, actionName: "Format")
+        replaceAll(with: after.text, actionName: actionName)
         setSelectedRange(after.selection)
     }
 
@@ -159,10 +162,86 @@ final class NoteTextView: NSTextView {
         undoManager?.setActionName(actionName)
     }
 
+    // MARK: Images
+
+    override func paste(_ sender: Any?) {
+        let names = NoteImages.saveImages(from: .general)
+        if names.isEmpty { super.paste(sender) } else { insertImages(names) }
+    }
+
+    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        let files = NoteImages.imageFileURLs(sender.draggingPasteboard)
+        guard !files.isEmpty else { return super.performDragOperation(sender) }
+        let names = files.compactMap { url in
+            (try? Data(contentsOf: url)).flatMap { NoteImages.save($0, extension: url.pathExtension) }
+        }
+        guard !names.isEmpty else { return false }
+        let index = characterIndexForInsertion(at: convert(sender.draggingLocation, from: nil))
+        setSelectedRange(NSRange(location: min(index, (string as NSString).length), length: 0))
+        window?.makeFirstResponder(self)
+        insertImages(names)
+        return true
+    }
+
+    private func insertImages(_ names: [String]) {
+        run({ NoteImages.insert($0, names: names) }, actionName: names.count == 1 ? "Paste Image" : "Paste Images")
+    }
+
+    /// Where each image line's picture is drawn, in view coordinates.
+    func imageRects() -> [(rect: NSRect, name: String)] {
+        guard let layoutManager, let textContainer, let storage = textStorage else { return [] }
+        var result: [(NSRect, String)] = []
+        storage.enumerateAttribute(NoteStyler.imageKey, in: NSRange(location: 0, length: storage.length)) { value, range, _ in
+            guard let name = value as? String else { return }
+            let glyph = layoutManager.glyphIndexForCharacter(at: range.location)
+            let fragment = layoutManager.lineFragmentRect(forGlyphAt: glyph, effectiveRange: nil)
+            let size = NoteImages.displaySize(name, width: NoteStyler.imageWidth(textContainer))
+            let origin = NSPoint(x: fragment.minX + textContainer.lineFragmentPadding + textContainerOrigin.x,
+                                 y: fragment.minY + NoteStyler.imageGap + textContainerOrigin.y)
+            result.append((NSRect(origin: origin, size: size), name))
+        }
+        return result
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+        for (rect, name) in imageRects() where rect.intersects(dirtyRect) {
+            let path = NSBezierPath(roundedRect: rect, xRadius: 6, yRadius: 6)
+            if let image = NoteImages.image(name) {
+                NSGraphicsContext.saveGraphicsState()
+                path.addClip()
+                image.draw(in: rect, from: .zero, operation: .sourceOver, fraction: 1, respectFlipped: true, hints: [.interpolation: NSImageInterpolation.high])
+                NSGraphicsContext.restoreGraphicsState()
+                NSColor.separatorColor.setStroke()
+                path.lineWidth = 0.5
+                path.stroke()
+            } else {
+                NSColor.quaternaryLabelColor.setFill()
+                path.fill()
+                let label = "Image not found" as NSString
+                let attributes: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: 12), .foregroundColor: NSColor.secondaryLabelColor]
+                let size = label.size(withAttributes: attributes)
+                label.draw(at: NSPoint(x: rect.midX - size.width / 2, y: rect.midY - size.height / 2), withAttributes: attributes)
+            }
+        }
+    }
+
+    override func setFrameSize(_ newSize: NSSize) {
+        let widthChanged = newSize.width != frame.width
+        super.setFrameSize(newSize)
+        // Images fit the width, so their room changes with it.
+        if widthChanged, textStorage?.length ?? 0 > 0 { NoteStyler.apply(to: self) }
+    }
+
     // MARK: Todo boxes
 
     override func mouseDown(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
+        if let hit = imageRects().first(where: { $0.rect.contains(point) }), let url = NoteImages.url(hit.name),
+           FileManager.default.fileExists(atPath: url.path) {
+            NSWorkspace.shared.open(url)
+            return
+        }
         let index = characterIndexForInsertion(at: point)
         let ns = string as NSString
         if index <= ns.length {
@@ -274,6 +353,15 @@ final class NoteTextView: NSTextView {
 /// Live styling of the Markdown in notes. Markers stay in the text, dimmed.
 enum NoteStyler {
     static let baseSize: CGFloat = 14
+    /// Marks an image line's text with its file name, for drawing and clicks.
+    static let imageKey = NSAttributedString.Key("plainWeekNoteImage")
+    /// Room above and below a drawn image.
+    static let imageGap: CGFloat = 4
+
+    /// The width images may take in `container`.
+    static func imageWidth(_ container: NSTextContainer) -> CGFloat {
+        max(40, container.size.width - container.lineFragmentPadding * 2)
+    }
 
     static func textColor(_ name: String) -> NSColor {
         TaskColor(rawValue: name).flatMap(Theme.checkbox).map { NSColor($0.ring) } ?? .labelColor
@@ -375,6 +463,23 @@ enum NoteStyler {
         }
         // Off the caret's line, markers take no room and no color.
         let hidden: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: 0.01), .foregroundColor: NSColor.clear]
+
+        // Image lines: the picture is drawn in room made above the line
+        // (`NoteTextView.draw`); the Markdown shows, small, only on the
+        // caret's line, so it can be edited or deleted.
+        let width = textView.textContainer.map(imageWidth) ?? 300
+        for image in NoteImages.lines(in: text) {
+            let size = NoteImages.displaySize(image.name, width: width)
+            let style = NSMutableParagraphStyle()
+            style.paragraphSpacingBefore = size.height + imageGap * 2
+            storage.addAttributes([.paragraphStyle: style, imageKey: image.name], range: image.range)
+            storage.removeAttribute(.link, range: image.range)
+            if let caretLine, NSIntersectionRange(caretLine, image.range).length > 0 || NSLocationInRange(image.range.location, caretLine) {
+                storage.addAttributes([.font: NSFont.systemFont(ofSize: 11), .foregroundColor: marker], range: image.range)
+            } else {
+                storage.addAttributes(hidden, range: image.range)
+            }
+        }
         for range in markers where range.location != NSNotFound && range.length > 0 {
             if let caretLine, NSIntersectionRange(caretLine, range).length > 0 || NSLocationInRange(range.location, caretLine) { continue }
             storage.addAttributes(hidden, range: range)

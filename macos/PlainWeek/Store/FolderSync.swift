@@ -90,6 +90,10 @@ final class FolderSync {
         defer { if scoped { folder.stopAccessingSecurityScopedResource() } }
         Self.sync(store: store, folder: folder, device: Self.deviceId)
         if let projects { Self.syncProjects(projects, folder: folder, device: Self.deviceId) }
+        // Images in notes travel as files in the folder's attachments/.
+        if let local = NoteImages.folder() {
+            NoteImages.sync(local: local, shared: folder.appendingPathComponent(NoteImages.folderName, isDirectory: true))
+        }
         lastSync = Date()
     }
 
