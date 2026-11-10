@@ -84,6 +84,10 @@ struct TaskDetailView: View {
                 .help(task.done ? "Mark as not done" : "Mark as done")
             }
 
+            TagEditor(tags: task.tags, suggestions: Tags.all(in: store)) { tags in
+                follow(store.perform("Change Tags", undoManager: undoManager) { store.update(taskId, TaskPatch(tags: tags)) })
+            }
+
             ZStack(alignment: .topLeading) {
                 if notes.isEmpty {
                     Text("Add some extra notes here…")
@@ -206,6 +210,34 @@ struct TaskDetailView: View {
             }
             .help(task.location.map { "Location: \($0)" } ?? "Location (⌥⌘P)")
 
+            Menu {
+                ForEach(TaskPriority.allCases) { priority in
+                    Toggle(isOn: Binding(get: { task.priority == priority }, set: { _ in setPriority(priority) })) {
+                        Text(priority == .none ? priority.label : "\(priority.label)  \(priority.marks)")
+                    }
+                }
+            } label: {
+                if task.priority == .none {
+                    Image(systemName: "exclamationmark")
+                } else {
+                    Text(task.priority.marks).fontWeight(.bold)
+                }
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .frame(minWidth: 28, minHeight: 28)
+            .background(Circle().fill(task.priority == .none ? .clear : Theme.hover))
+            .help("Priority: \(task.priority.label) (⌥⌘0–3)")
+            .accessibilityLabel("Priority: \(task.priority.label)")
+
+            Button { setFlag(!task.flagged) } label: {
+                Image(systemName: task.flagged ? "flag.fill" : "flag")
+                    .contentTransition(.symbolEffect(.replace))
+            }
+            .buttonStyle(ToolbarButtonStyle(active: task.flagged))
+            .help(task.flagged ? "Unflag (⌥⌘F)" : "Flag (⌥⌘F)")
+
             Spacer()
 
             Button {
@@ -260,6 +292,15 @@ struct TaskDetailView: View {
                 .padding(.leading, 6)
         }
         .font(.system(size: 13))
+    }
+
+    private func setPriority(_ priority: TaskPriority) {
+        guard store.item(taskId)?.task.priority != priority else { return }
+        follow(store.perform("Set Priority", undoManager: undoManager) { store.update(taskId, TaskPatch(priority: priority)) })
+    }
+
+    private func setFlag(_ on: Bool) {
+        follow(store.perform(on ? "Flag" : "Unflag", undoManager: undoManager) { store.update(taskId, TaskPatch(flagged: on)) })
     }
 
     private func pickerBinding(_ which: Picker) -> Binding<Bool> {
@@ -414,6 +455,12 @@ struct TaskDetailView: View {
                 .keyboardShortcut("t", modifiers: [.command, .option])
             Button("Location") { picker = .location }
                 .keyboardShortcut("p", modifiers: [.command, .option])
+            Button("Flag") { setFlag(!task.flagged) }
+                .keyboardShortcut("f", modifiers: [.command, .option])
+            ForEach(TaskPriority.allCases) { priority in
+                Button(priority.label) { setPriority(priority) }
+                    .keyboardShortcut(KeyEquivalent(Character(String(priority.rawValue))), modifiers: [.command, .option])
+            }
             Button("Repeat") { picker = .repeating }
                 .keyboardShortcut("r", modifiers: [.command, .option])
                 .disabled(task.date == nil)
@@ -447,7 +494,7 @@ struct TaskDetailView: View {
     }
 
     private var shortcutFooter: some View {
-        Text("⌥⌘D date  ·  ⌥⌘T time  ·  ⌥⌘P place  ·  ⌥⌘R repeat  ·  ⌥⌘C color  ·  ⌘↩ done  ·  ⌫ delete  ·  ⌥⌘→ tomorrow")
+        Text("⌥⌘D date  ·  ⌥⌘T time  ·  ⌥⌘P place  ·  ⌥⌘F flag  ·  ⌥⌘0–3 priority  ·  ⌥⌘R repeat  ·  ⌥⌘C color  ·  ⌘↩ done  ·  ⌫ delete  ·  ⌥⌘→ tomorrow")
             .font(.system(size: 11))
             .foregroundStyle(Theme.mutedForeground.opacity(0.8))
             .frame(maxWidth: .infinity, alignment: .leading)

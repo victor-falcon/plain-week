@@ -172,7 +172,7 @@ struct NewTaskRow: View {
         var newId: String?
         var rule: Recurrence?
         store.perform("New Task", undoManager: undoManager) {
-            let id = store.create(text: quick.text, date: target, time: quick.time, duration: quick.duration, location: quick.location, color: quick.color ?? .none)
+            let id = store.create(text: quick.text, date: target, time: quick.time, duration: quick.duration, location: quick.location, tags: quick.tags, priority: quick.priority, color: quick.color ?? .none)
             newId = id
             if let spec = quick.repeatSpec, let anchor = target {
                 rule = spec.rule(anchor: anchor)
@@ -211,6 +211,8 @@ struct QuickPreview: View {
             if let time = quick.time { chip(time, "clock") }
             if let duration = quick.duration { chip(TaskTiming.short(duration), "hourglass") }
             if let spec = quick.repeatSpec { chip(spec.label, "repeat") }
+            if quick.priority != .none { chip(quick.priority.label, "exclamationmark") }
+            ForEach(quick.tags, id: \.self) { chip("#" + $0, "number") }
             if let place = quick.location { chip(place.count > 22 ? String(place.prefix(21)) + "…" : place, "mappin") }
             if let color = quick.color { TaskCheckbox(color: color, done: false, size: 12).help(color.label) }
         }
@@ -280,7 +282,25 @@ struct TaskRow: View {
                     .help(RecurrenceEngine.summary(rule))
                     .accessibilityLabel("Repeats \(RecurrenceEngine.summary(rule))")
             }
-            TaskLabel(text: task.text, color: task.color, done: task.done, lines: 2, pill: false)
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    // Priority as in Reminders: !, !! or !!! before the text.
+                    if task.priority != .none {
+                        Text(task.priority.marks)
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundStyle(task.done ? Theme.mutedForeground : Theme.foreground)
+                            .accessibilityLabel("\(task.priority.label) priority")
+                    }
+                    TaskLabel(text: task.text, color: task.color, done: task.done, lines: 2, pill: false)
+                }
+                if !task.tags.isEmpty {
+                    Text(task.tags.map { "#" + $0 }.joined(separator: " "))
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(Theme.mutedForeground)
+                        .lineLimit(1)
+                        .accessibilityLabel("Tags: " + task.tags.joined(separator: ", "))
+                }
+            }
             Spacer(minLength: 4)
             if hovering, !task.done {
                 Button {
@@ -392,8 +412,14 @@ struct TaskMarkers: View {
         let hasNotes = !task.notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         let total = task.subtasks.count
         let finished = task.subtasks.filter(\.done).count
-        if hasNotes || total > 0 || task.location != nil {
+        if hasNotes || total > 0 || task.location != nil || task.flagged {
             HStack(spacing: 6) {
+                if task.flagged {
+                    Image(systemName: "flag.fill")
+                        .foregroundStyle(Theme.foreground)
+                        .help("Flagged")
+                        .accessibilityLabel("Flagged")
+                }
                 if let place = task.location {
                     // Opens the place in Maps; the row itself opens the task.
                     Button { Place.open(place) } label: {
@@ -500,6 +526,16 @@ struct TaskActions {
         store.perform("Change Color", undoManager: undoManager) { store.update(item.id, TaskPatch(color: color), scope: scope) }
     }
 
+    @discardableResult
+    func priority(_ item: PlannerItem, _ priority: TaskPriority) -> String? {
+        store.perform("Set Priority", undoManager: undoManager) { store.update(item.id, TaskPatch(priority: priority)) }
+    }
+
+    @discardableResult
+    func flag(_ item: PlannerItem, _ on: Bool) -> String? {
+        store.perform(on ? "Flag" : "Unflag", undoManager: undoManager) { store.update(item.id, TaskPatch(flagged: on)) }
+    }
+
     func delete(_ item: PlannerItem, scope: ChangeScope = .this) {
         store.perform("Delete Task", undoManager: undoManager) { store.delete(item.id, scope: scope) }
         planner.show("Task deleted.", canUndo: true)
@@ -525,6 +561,14 @@ struct TaskMenu: View {
                 }
             }
         }
+        Menu("Priority") {
+            ForEach(TaskPriority.allCases) { priority in
+                Toggle(isOn: Binding(get: { item.task.priority == priority }, set: { _ in actions.priority(item, priority) })) {
+                    Text(priority == .none ? priority.label : "\(priority.label)  \(priority.marks)")
+                }
+            }
+        }
+        Button(item.task.flagged ? "Unflag" : "Flag") { actions.flag(item, !item.task.flagged) }
         Divider()
         if item.task.date != planner.today {
             Button("Today") { actions.move(item, to: planner.today) }

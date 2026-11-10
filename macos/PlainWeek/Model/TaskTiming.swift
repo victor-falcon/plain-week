@@ -35,3 +35,28 @@ extension TaskStore {
         (days(from: day, to: day)[day] ?? []).filter { !$0.task.done }.compactMap(\.task.duration).reduce(0, +)
     }
 }
+
+/// Task tags: lowercase words, no "#", no repeats.
+enum Tags {
+    static func clean(_ tags: [String]) -> [String] {
+        var seen = Set<String>()
+        var result: [String] = []
+        for raw in tags {
+            let tag = raw.trimmingCharacters(in: CharacterSet(charactersIn: "#").union(.whitespacesAndNewlines))
+                .lowercased()
+                .split(whereSeparator: \.isWhitespace).joined(separator: "-")
+            guard !tag.isEmpty, tag.count <= 40, seen.insert(tag).inserted else { continue }
+            result.append(tag)
+        }
+        return result
+    }
+
+    /// Every tag in use, most used first, for suggestions.
+    static func all(in store: TaskStore) -> [String] {
+        var counts: [String: Int] = [:]
+        for row in store.allRows where !row.isDeleted {
+            for tag in row.tags { counts[tag, default: 0] += 1 }
+        }
+        return counts.sorted { ($0.value, $1.key) > ($1.value, $0.key) }.map(\.key)
+    }
+}

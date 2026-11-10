@@ -14,6 +14,24 @@ enum TaskColor: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+/// How much a task matters, as in Reminders: shown as !, !! or !!! before
+/// its text.
+enum TaskPriority: Int, Codable, CaseIterable, Identifiable {
+    case none = 0, low = 1, medium = 2, high = 3
+
+    var id: Int { rawValue }
+    var label: String {
+        switch self {
+        case .none: "None"
+        case .low: "Low"
+        case .medium: "Medium"
+        case .high: "High"
+        }
+    }
+    /// "!", "!!", "!!!" (empty for none).
+    var marks: String { String(repeating: "!", count: rawValue) }
+}
+
 struct Subtask: Codable, Hashable, Identifiable {
     var id: String
     var text: String
@@ -69,6 +87,10 @@ struct PlainTask: Codable, Hashable, Identifiable {
     /// Where it happens ("12 rue de la Gare, Luxembourg"), as typed or picked
     /// from Maps. nil: no place.
     var location: String?
+    /// Lowercase words without "#", in the order added.
+    var tags: [String]
+    var flagged: Bool
+    var priority: TaskPriority
     var notes: String
     var subtasks: [Subtask]
     var recurrence: Recurrence?
@@ -79,14 +101,14 @@ struct PlainTask: Codable, Hashable, Identifiable {
     var deleted_at: String?
 
     enum CodingKeys: String, CodingKey {
-        case id, text, date, someday_column, position, done, done_at, color, time, duration, remind, location, notes, subtasks,
+        case id, text, date, someday_column, position, done, done_at, color, time, duration, remind, location, tags, flagged, priority, notes, subtasks,
              recurrence, series_id, occurrence_date, created_at, updated_at, deleted_at
     }
 
     init(
         id: String, text: String, date: String?, someday_column: Int?, position: String,
         done: Bool = false, done_at: String? = nil, color: TaskColor = .none, time: String? = nil,
-        duration: Int? = nil, remind: Int? = nil, location: String? = nil, notes: String = "", subtasks: [Subtask] = [], recurrence: Recurrence? = nil,
+        duration: Int? = nil, remind: Int? = nil, location: String? = nil, tags: [String] = [], flagged: Bool = false, priority: TaskPriority = .none, notes: String = "", subtasks: [Subtask] = [], recurrence: Recurrence? = nil,
         series_id: String? = nil, occurrence_date: String? = nil,
         created_at: String, updated_at: String, deleted_at: String? = nil
     ) {
@@ -102,6 +124,9 @@ struct PlainTask: Codable, Hashable, Identifiable {
         self.duration = duration
         self.remind = remind
         self.location = location
+        self.tags = tags
+        self.flagged = flagged
+        self.priority = priority
         self.notes = notes
         self.subtasks = subtasks
         self.recurrence = recurrence
@@ -126,6 +151,9 @@ struct PlainTask: Codable, Hashable, Identifiable {
         duration = try c.decodeIfPresent(Int.self, forKey: .duration)
         remind = try c.decodeIfPresent(Int.self, forKey: .remind)
         location = try c.decodeIfPresent(String.self, forKey: .location)
+        tags = (try? c.decodeIfPresent([String].self, forKey: .tags)) ?? []
+        flagged = (try? c.decodeIfPresent(Bool.self, forKey: .flagged)) ?? false
+        priority = (try? c.decodeIfPresent(TaskPriority.self, forKey: .priority)) ?? TaskPriority.none
         notes = try c.decodeIfPresent(String.self, forKey: .notes) ?? ""
         subtasks = try c.decodeIfPresent([Subtask].self, forKey: .subtasks) ?? []
         recurrence = try c.decodeIfPresent(Recurrence.self, forKey: .recurrence)
@@ -151,6 +179,9 @@ struct PlainTask: Codable, Hashable, Identifiable {
         try c.encode(duration, forKey: .duration)
         try c.encode(remind, forKey: .remind)
         try c.encode(location, forKey: .location)
+        try c.encode(tags, forKey: .tags)
+        try c.encode(flagged, forKey: .flagged)
+        try c.encode(priority, forKey: .priority)
         try c.encode(notes, forKey: .notes)
         try c.encode(subtasks, forKey: .subtasks)
         try c.encode(recurrence, forKey: .recurrence)

@@ -32,6 +32,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   keep a "Plain Week" list in Reminders in step both ways and put timed tasks in a "Plain Week" calendar, so the
   week reaches iPhone and Apple Watch. See
   [macos/README.md](./macos/README.md).
+- **Tags, flags and priority on macOS.** In the task sheet, quick add (`!`–`!!!`, `#tag`), the rows and the right-click
+  menu; priority syncs with the Reminders list.
 - **Task locations on macOS.** A place per task with Apple Maps suggestions, a pin on the row that opens Maps,
   "@ address" in quick add, and the place on Calendar events and mirrored reminders. Street addresses in notes open
   in Maps. The title bar's New Task button opens the new task's dialog, and a Settings button sits beside it.

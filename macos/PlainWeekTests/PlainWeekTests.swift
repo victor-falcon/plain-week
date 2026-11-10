@@ -1008,3 +1008,51 @@ final class CalendarImportTests: XCTestCase {
         XCTAssertEqual(CalendarPublisher.minutes(from: start, to: start.addingTimeInterval(3 * 86400)), 720)
     }
 }
+
+@MainActor
+final class OrganizationTests: XCTestCase {
+    func testTagsFlagAndPriorityRoundTripAndOldFilesLoad() throws {
+        let task = PlainTask(id: "a", text: "Report", date: "2026-11-12", someday_column: nil, position: "a0",
+                             tags: ["work"], flagged: true, priority: .high, created_at: "t", updated_at: "t")
+        let back = try JSONDecoder().decode(PlainTask.self, from: JSONEncoder().encode(task))
+        XCTAssertEqual(back.tags, ["work"])
+        XCTAssertTrue(back.flagged)
+        XCTAssertEqual(back.priority, .high)
+        let old = #"{"id":"b","text":"Old","date":null,"position":"a0","created_at":"t","updated_at":"t"}"#
+        let decoded = try JSONDecoder().decode(PlainTask.self, from: Data(old.utf8))
+        XCTAssertEqual(decoded.tags, [])
+        XCTAssertFalse(decoded.flagged)
+        XCTAssertEqual(decoded.priority, TaskPriority.none)
+    }
+
+    func testQuickAddReadsPriorityAndTagsButKeepsColors() {
+        let quick = QuickAdd.parse("Send report !!! #work #Q4 #red", today: "2026-11-10")
+        XCTAssertEqual(quick.text, "Send report")
+        XCTAssertEqual(quick.priority, .high)
+        XCTAssertEqual(quick.tags, ["work", "q4"])
+        XCTAssertEqual(quick.color, .red)
+        XCTAssertEqual(QuickAdd.parse("Wow! great", today: "2026-11-10").text, "Wow! great")
+    }
+
+    func testTagsAreCleanedAndCounted() {
+        XCTAssertEqual(Tags.clean(["#Work", "work", " home office ", ""]), ["work", "home-office"])
+        let store = TaskStore(fileURL: nil)
+        store.create(text: "a", date: nil, tags: ["home"])
+        store.create(text: "b", date: nil, tags: ["work", "home"])
+        XCTAssertEqual(Tags.all(in: store), ["home", "work"])
+        let id = store.create(text: "c", date: nil)
+        store.update(id, TaskPatch(tags: ["#Errands"], flagged: true, priority: .low))
+        XCTAssertEqual(store.item(id)?.task.tags, ["errands"])
+        XCTAssertEqual(store.item(id)?.task.flagged, true)
+        XCTAssertEqual(store.item(id)?.task.priority, .low)
+    }
+
+    func testPriorityMapsToReminders() {
+        XCTAssertEqual(ReminderFields.reminderPriority(.high), 1)
+        XCTAssertEqual(ReminderFields.priority(fromReminder: 5), .medium)
+        XCTAssertEqual(ReminderFields.priority(fromReminder: 9), .low)
+        XCTAssertEqual(ReminderFields.priority(fromReminder: 0), TaskPriority.none)
+        let task = PlainTask(id: "a", text: "x", date: nil, someday_column: nil, position: "a0", priority: .medium, created_at: "t", updated_at: "t")
+        XCTAssertEqual(ReminderFields(task: task).priority, .medium)
+    }
+}

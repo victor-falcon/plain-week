@@ -165,7 +165,7 @@ struct MenuBarView: View {
         guard !quick.text.isEmpty else { return }
         let target = quick.targetDate(listDate: planner.today, today: planner.today)
         store.perform("New Task", undoManager: TimerActions.mainWindow?.undoManager) {
-            let id = store.create(text: quick.text, date: target, time: quick.time, duration: quick.duration, location: quick.location, color: quick.color ?? .none)
+            let id = store.create(text: quick.text, date: target, time: quick.time, duration: quick.duration, location: quick.location, tags: quick.tags, priority: quick.priority, color: quick.color ?? .none)
             if let spec = quick.repeatSpec, let anchor = target { _ = try? store.setRecurrence(id, spec.rule(anchor: anchor)) }
         }
         text = ""

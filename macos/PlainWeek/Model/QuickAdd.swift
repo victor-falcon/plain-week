@@ -6,6 +6,8 @@ import Foundation
 /// - Date: `today`, `tomorrow` (`tmr`), `backlog` (or `someday`), a weekday (`fri`, `friday`:
 ///   the next one, today counts), `next week` (next Monday).
 /// - Time: `@11:30`, `@9`, `@9am`, `@5:15pm`.
+/// - Priority: `!` low, `!!` medium, `!!!` high.
+/// - Tags: `#word` for any word that is not a color (`#work`, `#home`).
 /// - Place: a lone `@` followed by the address, at the end
 ///   (`Dentist @14:00 @ 12 rue de la Gare`); everything after it is the place.
 /// - Color: any color name (`#yellow`, `#red`, `#orange`, …) plus `#blue`,
@@ -32,6 +34,8 @@ struct QuickTask: Equatable {
     /// From a lone "@" and what follows it.
     var location: String?
     var color: TaskColor?
+    var tags: [String] = []
+    var priority: TaskPriority = .none
     /// A rule without its anchor; `rule(anchor:)` completes it.
     var repeatSpec: RepeatSpec?
 
@@ -72,7 +76,7 @@ struct QuickTask: Equatable {
     }
 
     /// Whether anything besides the text was recognised.
-    var hasExtras: Bool { date != .list || time != nil || duration != nil || location != nil || color != nil || repeatSpec != nil }
+    var hasExtras: Bool { date != .list || time != nil || duration != nil || location != nil || color != nil || !tags.isEmpty || priority != .none || repeatSpec != nil }
 }
 
 enum QuickAdd {
@@ -117,6 +121,12 @@ enum QuickAdd {
                 break
             } else if raw.hasPrefix("#"), let color = colors[String(w.dropFirst())] {
                 result.color = color
+            } else if raw.hasPrefix("#"), w.count > 1, w.dropFirst().contains(where: \.isLetter),
+                      w.dropFirst().allSatisfy({ $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" }) {
+                // "#123" (an issue number) stays text: a tag needs a letter.
+                result.tags = Tags.clean(result.tags + [String(w.dropFirst())])
+            } else if ["!", "!!", "!!!"].contains(raw) {
+                result.priority = TaskPriority(rawValue: raw.count) ?? .none
             } else if raw.hasPrefix("@"), let parsed = parseTime(raw) {
                 result.time = parsed
             } else if raw.hasPrefix("~"), let minutes = parseDuration(String(w.dropFirst())) {

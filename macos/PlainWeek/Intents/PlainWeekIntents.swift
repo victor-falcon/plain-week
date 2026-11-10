@@ -20,7 +20,7 @@ struct AddTaskIntent: AppIntent {
         guard !quick.text.isEmpty else { return .result(dialog: "There was nothing to add.") }
         let target = quick.targetDate(listDate: today, today: today)
         model.store.perform("New Task", undoManager: nil) {
-            let id = model.store.create(text: quick.text, date: target, time: quick.time, duration: quick.duration, location: quick.location, color: quick.color ?? .none)
+            let id = model.store.create(text: quick.text, date: target, time: quick.time, duration: quick.duration, location: quick.location, tags: quick.tags, priority: quick.priority, color: quick.color ?? .none)
             if let spec = quick.repeatSpec, let anchor = target { _ = try? model.store.setRecurrence(id, spec.rule(anchor: anchor)) }
         }
         let place = target.map { DoneList.dayLabel($0, today: today).lowercased() } ?? "the backlog"
