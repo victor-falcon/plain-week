@@ -81,7 +81,7 @@ blurring them. Click targets are at least 28pt (the row checkbox and ▶ keep th
   and moves the timer to the day's next unfinished task, from zero; after the last one it stops and the planner comes
   back. While a timer runs, a pill in the header shows the task and clock and brings the window back. The timer is not
   saved: it lives while the app runs.
-- **Sidebar:** 250pt on the left; the header's sidebar button (or View › Hide Sidebar, ⌃⌘S) closes and opens
+- **Sidebar:** 250pt on the left; the sidebar button in its top-right corner, level with the window controls (or View › Hide Sidebar, ⌃⌘S; when hidden, the button sits next to the window controls) closes and opens
   it.
     - **Backlog** (tasks without a date: the web app's Someday; the data is unchanged) and **Done**, as accordion
       sections: click a title to fold it (remembered between launches). Each is as tall as its content, and they

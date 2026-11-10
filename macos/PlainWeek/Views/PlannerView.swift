@@ -24,6 +24,13 @@ struct PlannerView: View {
             PlannerMain(focus: $focusedList)
                 .background(Theme.background)
         }
+        // The sidebar button sits level with the window's traffic lights: in
+        // the sidebar's top-right corner, or just right of the lights when the
+        // sidebar is hidden.
+        .overlay(alignment: .topLeading) {
+            SidebarToggle()
+                .offset(x: planner.showSidebar ? Theme.sidebarWidth - 38 : 78, y: 7)
+        }
         .animation(Motion.structural, value: planner.showSidebar)
         .ignoresSafeArea(.container, edges: .top)
         .overlay(alignment: .bottom) { ToastView() }
@@ -100,13 +107,6 @@ struct PlannerHeader: View {
             Spacer()
             HStack(spacing: 8) {
                 TimerPill()
-                Button {
-                    withAnimation(Motion.structural) { planner.showSidebar.toggle() }
-                } label: {
-                    Image(systemName: "sidebar.left")
-                }
-                .buttonStyle(PillButtonStyle(active: false))
-                .help(planner.showSidebar ? "Hide Sidebar (⌃⌘S)" : "Show Sidebar (⌃⌘S)")
                 FocusButton()
                 if !planner.showsToday {
                     Button("Today", action: planner.goToToday)
@@ -232,6 +232,31 @@ struct TimerPill: View {
             .buttonStyle(PillButtonStyle(active: false))
             .help("Show the timer")
         }
+    }
+}
+
+/// Shows or hides the sidebar (also ⌃⌘S): a quiet icon, like Mail's and Notes'.
+struct SidebarToggle: View {
+    @Environment(PlannerModel.self) private var planner
+    @State private var hovering = false
+
+    var body: some View {
+        Button {
+            withAnimation(Motion.structural) { planner.showSidebar.toggle() }
+        } label: {
+            Image(systemName: "sidebar.left")
+                .font(.system(size: 14, weight: .regular))
+                .foregroundStyle(hovering ? Theme.foreground : Theme.mutedForeground)
+                .frame(width: 28, height: 24)
+                .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(hovering ? Theme.hover : .clear))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.pressable)
+        .focusEffectDisabled()
+        .onHover { hovering = $0 }
+        .animation(Motion.quick, value: hovering)
+        .help(planner.showSidebar ? "Hide Sidebar (⌃⌘S)" : "Show Sidebar (⌃⌘S)")
+        .accessibilityLabel(planner.showSidebar ? "Hide Sidebar" : "Show Sidebar")
     }
 }
 
