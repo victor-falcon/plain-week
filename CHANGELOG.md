@@ -32,6 +32,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   keep a "Plain Week" list in Reminders in step both ways and put timed tasks in a "Plain Week" calendar, so the
   week reaches iPhone and Apple Watch. See
   [macos/README.md](./macos/README.md).
+- **Task locations on macOS.** A place per task with Apple Maps suggestions, a pin on the row that opens Maps,
+  "@ address" in quick add, and the place on Calendar events and mirrored reminders. Street addresses in notes open
+  in Maps. The title bar's New Task button opens the new task's dialog, and a Settings button sits beside it.
+
+### Fixed
+
+- **Events added to the macOS "Plain Week" calendar were deleted.** Calendar publishing removed any event in that
+  calendar it had not made. Such events now become tasks instead.
+- **macOS Calendar events stop showing after an update.** When macOS forgot the app's Calendar or Reminders access
+  (a rebuilt or reinstalled app) while the settings stayed on, nothing showed or synced. The app now asks again at
+  launch.
+- **macOS notifications are silent or missing.** The app only asked macOS for permission when the reminder setting
+  changed, so timer alerts and reminders were dropped. It now asks at launch, and Settings › Notifications says when
+  notifications or their sound are off, with a button to System Settings.
 
 ## [0.3.15] - 2026-11-08
 

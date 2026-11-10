@@ -14,6 +14,8 @@ struct TaskPatch {
     /// `.some(nil)` clears it.
     var duration: Int??
     var remind: Int??
+    /// `.some(nil)` clears the place.
+    var location: String??
     var notes: String?
     var subtasks: [Subtask]?
 }
@@ -292,12 +294,12 @@ final class TaskStore {
     // MARK: Mutations
 
     @discardableResult
-    func create(text: String, date: String?, time: String? = nil, duration: Int? = nil, color: TaskColor = .none,
+    func create(text: String, date: String?, time: String? = nil, duration: Int? = nil, location: String? = nil, color: TaskColor = .none,
                 afterId: String? = nil, beforeId: String? = nil, notes: String = "", subtasks: [Subtask] = []) -> String {
         let place = placement(date: date, afterId: afterId, beforeId: beforeId, excluding: nil)
         let now = Clock.nextTimestamp()
         let task = PlainTask(id: Clock.uuidV7(), text: text, date: date, someday_column: place.column,
-                             position: place.position, color: color, time: time, duration: duration, notes: notes,
+                             position: place.position, color: color, time: time, duration: duration, location: location, notes: notes,
                              subtasks: subtasks, created_at: now, updated_at: now)
         write(task)
         return task.id
@@ -318,6 +320,7 @@ final class TaskStore {
         if let time = patch.time { task.time = time }
         if let duration = patch.duration { task.duration = duration }
         if let remind = patch.remind { task.remind = remind }
+        if let location = patch.location { task.location = location.flatMap { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0.trimmingCharacters(in: .whitespacesAndNewlines) } }
         if let notes = patch.notes { task.notes = notes }
         if let subtasks = patch.subtasks { task.subtasks = subtasks }
         if allowDone, let done = patch.done, done != task.done {

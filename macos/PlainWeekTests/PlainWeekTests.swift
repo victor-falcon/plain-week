@@ -943,3 +943,68 @@ final class GapFeatureTests: XCTestCase {
         XCTAssertEqual(String(decoding: pdf.prefix(4), as: UTF8.self), "%PDF")
     }
 }
+
+@MainActor
+final class LocationTests: XCTestCase {
+    func testLocationRoundTripsAndOldFilesLoad() throws {
+        let task = PlainTask(id: "a", text: "Dentist", date: "2026-11-12", someday_column: nil, position: "a0",
+                             time: "14:00", location: "12 rue de la Gare, Luxembourg", created_at: "t", updated_at: "t")
+        let data = try JSONEncoder().encode(task)
+        XCTAssertEqual(try JSONDecoder().decode(PlainTask.self, from: data).location, "12 rue de la Gare, Luxembourg")
+        let old = #"{"id":"b","text":"Old","date":null,"position":"a0","created_at":"t","updated_at":"t"}"#
+        XCTAssertNil(try JSONDecoder().decode(PlainTask.self, from: Data(old.utf8)).location)
+    }
+
+    func testQuickAddTakesThePlaceAfterALoneAt() {
+        let quick = QuickAdd.parse("Dentist @14:00 @ 12 rue de la Gare", today: "2026-11-10")
+        XCTAssertEqual(quick.text, "Dentist")
+        XCTAssertEqual(quick.time, "14:00")
+        XCTAssertEqual(quick.location, "12 rue de la Gare")
+        XCTAssertNil(QuickAdd.parse("email bob@example.com", today: "2026-11-10").location)
+        XCTAssertNil(QuickAdd.parse("call @9", today: "2026-11-10").location)
+    }
+
+    func testPatchSetsTrimsAndClearsThePlace() {
+        let store = TaskStore(fileURL: nil)
+        let id = store.create(text: "Lunch", date: "2026-11-10")
+        store.update(id, TaskPatch(location: .some("  Café Lux  ")))
+        XCTAssertEqual(store.item(id)?.task.location, "Café Lux")
+        store.update(id, TaskPatch(location: .some("   ")))
+        XCTAssertNil(store.item(id)?.task.location)
+        store.update(id, TaskPatch(location: .some("Park")))
+        store.update(id, TaskPatch(location: .some(nil)))
+        XCTAssertNil(store.item(id)?.task.location)
+    }
+
+    func testPlaceReachesCalendarAndReminders() {
+        let store = TaskStore(fileURL: nil)
+        let id = store.create(text: "Dentist", date: "2026-11-12", time: "14:00", location: "12 rue de la Gare")
+        XCTAssertEqual(CalendarPublisher.plan(store: store, today: "2026-11-10").first?.location, "12 rue de la Gare")
+        XCTAssertEqual(ReminderFields(task: store.item(id)!.task).location, "12 rue de la Gare")
+        XCTAssertNil(ReminderFields(title: "x", notes: "", done: false, date: nil, time: nil, location: " ").location)
+    }
+
+    func testUntitledDraftsStayOutOfReminders() {
+        let store = TaskStore(fileURL: nil)
+        store.create(text: "", date: "2026-11-10")
+        store.create(text: "Named", date: "2026-11-10")
+        XCTAssertEqual(RemindersMirror.entries(store: store, today: "2026-11-10").map(\.task.text), ["Named"])
+    }
+
+    func testMapsLinksEncodeThePlace() {
+        XCTAssertEqual(Place.mapsURL("12 rue de la Gare")?.absoluteString, "https://maps.apple.com/?q=12%20rue%20de%20la%20Gare")
+        XCTAssertEqual(Place.directionsURL("Café")?.absoluteString, "https://maps.apple.com/?daddr=Caf%C3%A9")
+        XCTAssertEqual(Place.short("A very long place name indeed here", max: 10), "A very lo…")
+    }
+}
+
+@MainActor
+final class CalendarImportTests: XCTestCase {
+    func testEventTimesBecomeTaskFields() {
+        let start = DateKey.localDate("2026-11-12").addingTimeInterval(14 * 3600 + 30 * 60)
+        XCTAssertEqual(CalendarPublisher.time(start), "14:30")
+        XCTAssertEqual(CalendarPublisher.minutes(from: start, to: start.addingTimeInterval(45 * 60)), 45)
+        XCTAssertNil(CalendarPublisher.minutes(from: start, to: start))
+        XCTAssertEqual(CalendarPublisher.minutes(from: start, to: start.addingTimeInterval(3 * 86400)), 720)
+    }
+}

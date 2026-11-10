@@ -22,7 +22,7 @@ struct TaskDetailView: View {
     @State private var notesFocused = false
     @FocusState private var focusedField: Field?
 
-    private enum Picker { case date, time, repeating, color }
+    private enum Picker { case date, time, location, repeating, color }
     private enum Field: Hashable { case title, notes, newSubtask, subtask(String) }
 
     private struct PendingRule: Identifiable {
@@ -134,6 +134,8 @@ struct TaskDetailView: View {
         .onAppear {
             title = task.text
             notes = task.notes
+            // A new task from the title bar starts with its name.
+            if task.text.isEmpty { DispatchQueue.main.async { focusedField = .title } }
             #if DEBUG
             // Debug captures: PLAINWEEK_SNAPSHOT_PICKER=repeat|color|date|time opens that popover.
             switch ProcessInfo.processInfo.environment["PLAINWEEK_SNAPSHOT_PICKER"] {
@@ -141,6 +143,7 @@ struct TaskDetailView: View {
             case "color": DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { picker = .color }
             case "date": DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { picker = .date }
             case "time": DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { picker = .time }
+            case "location": DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { picker = .location }
             default: break
             }
             #endif
@@ -184,6 +187,24 @@ struct TaskDetailView: View {
             .buttonStyle(ToolbarButtonStyle(active: picker == .time))
             .popover(isPresented: pickerBinding(.time), arrowEdge: .bottom) { timePicker(task) }
             .help("Time (⌥⌘T)")
+
+            Button {
+                picker = .location
+            } label: {
+                Label(task.location.map { Place.short($0, max: 24) } ?? "Location", systemImage: "mappin.and.ellipse")
+                    .labelStyle(task.location == nil ? AnyLabelStyle(.iconOnly) : AnyLabelStyle(.titleAndIcon))
+            }
+            .buttonStyle(ToolbarButtonStyle(active: picker == .location))
+            .popover(isPresented: pickerBinding(.location), arrowEdge: .bottom) {
+                LocationPicker(current: task.location) { place in
+                    picker = nil
+                    guard place != task.location else { return }
+                    follow(store.perform(place == nil ? "Clear Location" : "Set Location", undoManager: undoManager) {
+                        store.update(taskId, TaskPatch(location: .some(place)))
+                    })
+                }
+            }
+            .help(task.location.map { "Location: \($0)" } ?? "Location (⌥⌘P)")
 
             Spacer()
 
@@ -391,6 +412,8 @@ struct TaskDetailView: View {
                 .disabled(item.kind == .series)
             Button("Time") { picker = .time }
                 .keyboardShortcut("t", modifiers: [.command, .option])
+            Button("Location") { picker = .location }
+                .keyboardShortcut("p", modifiers: [.command, .option])
             Button("Repeat") { picker = .repeating }
                 .keyboardShortcut("r", modifiers: [.command, .option])
                 .disabled(task.date == nil)
@@ -424,7 +447,7 @@ struct TaskDetailView: View {
     }
 
     private var shortcutFooter: some View {
-        Text("⌥⌘D date  ·  ⌥⌘T time  ·  ⌥⌘R repeat  ·  ⌥⌘C color  ·  ⌘↩ done  ·  ⌫ delete  ·  ⌥⌘→ tomorrow")
+        Text("⌥⌘D date  ·  ⌥⌘T time  ·  ⌥⌘P place  ·  ⌥⌘R repeat  ·  ⌥⌘C color  ·  ⌘↩ done  ·  ⌫ delete  ·  ⌥⌘→ tomorrow")
             .font(.system(size: 11))
             .foregroundStyle(Theme.mutedForeground.opacity(0.8))
             .frame(maxWidth: .infinity, alignment: .leading)

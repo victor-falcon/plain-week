@@ -13,6 +13,19 @@ struct PlannerView: View {
 
     private var dialogOpen: Bool { planner.openTask != nil || planner.showReview || planner.showPalette }
 
+    /// A New Task dialog closed without a title leaves nothing behind.
+    private func dropEmptyDraft() {
+        guard let id = planner.draftId else { return }
+        planner.draftId = nil
+        guard let task = store.item(id)?.task,
+              task.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        if task.notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, task.subtasks.isEmpty {
+            store.delete(id)
+        } else {
+            store.update(id, TaskPatch(text: "Untitled"))
+        }
+    }
+
     var body: some View {
         @Bindable var planner = planner
         HStack(spacing: 0) {
@@ -41,7 +54,7 @@ struct PlannerView: View {
         // An open dialog (task, review, palette) blurs the planner behind it.
         .blur(radius: dialogOpen && !Motion.reduceTransparency ? 8 : 0)
         .animation(Motion.standard, value: dialogOpen)
-        .sheet(item: $planner.openTask) { open in
+        .sheet(item: $planner.openTask, onDismiss: dropEmptyDraft) { open in
             TaskDetailView(taskId: open.id)
         }
         .sheet(isPresented: $planner.showReview) { WeeklyReview(timeLog: timeLog) }
@@ -326,6 +339,9 @@ struct TitleBarIcons: View {
         .animation(Motion.structural, value: planner.showSidebar)
     }
 
+    @Environment(TaskStore.self) private var store
+    @Environment(\.openSettings) private var openSettings
+
     @ViewBuilder private var taskButtons: some View {
         TitleBarButton(systemImage: "tray", help: "Show the Backlog") {
             withAnimation(Motion.structural) {
@@ -333,10 +349,13 @@ struct TitleBarIcons: View {
                 planner.backlogExpanded = true
             }
         }
-        TitleBarButton(systemImage: "square.and.pencil", help: "New Task Today (⌘N)") {
+        // A new task for today, straight into its dialog (title, notes, time,
+        // place…). ⌘N still adds one inline in today's list.
+        TitleBarButton(systemImage: "square.and.pencil", help: "New Task") {
             planner.goToToday()
-            planner.focusRequest = planner.today
+            planner.openDraft(store.create(text: "", date: planner.today))
         }
+        TitleBarButton(systemImage: "gearshape", help: "Settings (⌘,)") { openSettings() }
     }
 }
 

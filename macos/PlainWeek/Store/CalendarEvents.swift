@@ -1,6 +1,7 @@
 import EventKit
 import Foundation
 import Observation
+import os
 
 /// Events from the Mac's Calendar, read-only, shown in each day card so tasks
 /// can be planned around meetings. Off until turned on in Settings, which
@@ -84,7 +85,10 @@ final class CalendarEvents {
         formatter.locale = Locale(identifier: "en_GB")
         formatter.dateFormat = "HH:mm"
         var map: [String: [Event]] = [:]
-        for event in eventStore.events(matching: predicate) {
+        let found = eventStore.events(matching: predicate)
+        Logger(subsystem: "app.plainweek.mac", category: "calendar").debug(
+            "events \(start, privacy: .public)…\(end, privacy: .public): \(found.count, privacy: .public) in \(self.eventStore.calendars(for: .event).map(\.title).joined(separator: ", "), privacy: .public)")
+        for event in found {
             let day = DateKey.local(event.startDate)
             map[day, default: []].append(Event(id: event.eventIdentifier ?? UUID().uuidString, title: event.title ?? "Event",
                                                time: event.isAllDay ? nil : formatter.string(from: event.startDate), start: event.startDate))

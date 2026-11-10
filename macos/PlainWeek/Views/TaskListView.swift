@@ -172,7 +172,7 @@ struct NewTaskRow: View {
         var newId: String?
         var rule: Recurrence?
         store.perform("New Task", undoManager: undoManager) {
-            let id = store.create(text: quick.text, date: target, time: quick.time, duration: quick.duration, color: quick.color ?? .none)
+            let id = store.create(text: quick.text, date: target, time: quick.time, duration: quick.duration, location: quick.location, color: quick.color ?? .none)
             newId = id
             if let spec = quick.repeatSpec, let anchor = target {
                 rule = spec.rule(anchor: anchor)
@@ -211,6 +211,7 @@ struct QuickPreview: View {
             if let time = quick.time { chip(time, "clock") }
             if let duration = quick.duration { chip(TaskTiming.short(duration), "hourglass") }
             if let spec = quick.repeatSpec { chip(spec.label, "repeat") }
+            if let place = quick.location { chip(place.count > 22 ? String(place.prefix(21)) + "…" : place, "mappin") }
             if let color = quick.color { TaskCheckbox(color: color, done: false, size: 12).help(color.label) }
         }
         .fixedSize()
@@ -391,8 +392,17 @@ struct TaskMarkers: View {
         let hasNotes = !task.notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         let total = task.subtasks.count
         let finished = task.subtasks.filter(\.done).count
-        if hasNotes || total > 0 {
+        if hasNotes || total > 0 || task.location != nil {
             HStack(spacing: 6) {
+                if let place = task.location {
+                    // Opens the place in Maps; the row itself opens the task.
+                    Button { Place.open(place) } label: {
+                        Image(systemName: "mappin.and.ellipse").contentShape(Rectangle())
+                    }
+                    .buttonStyle(.pressable)
+                    .help("\(place) (click to open in Maps)")
+                    .accessibilityLabel("Open \(place) in Maps")
+                }
                 if hasNotes {
                     Image(systemName: "text.alignleft")
                         .help("Has notes")

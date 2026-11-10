@@ -407,9 +407,23 @@ private struct TimerPane: View {
 
 private struct NotificationsPane: View {
     @AppStorage(Reminders.leadKey) private var reminderLead = 5
+    @State private var permission: Reminders.Permission = .allowed
 
     var body: some View {
         SettingsGroup(footer: "Notifications use the sound you chose in System Settings › Sound.") {
+            if permission != .allowed {
+                SettingsRow(title: permissionTitle, detail: permissionDetail) {
+                    Button(permission == .unknown ? "Allow" : "Open System Settings") {
+                        if permission == .unknown {
+                            AppModel.shared.reminders.requestPermission()
+                            Task { try? await Task.sleep(for: .seconds(1)); await refresh() }
+                        } else {
+                            Reminders.openSystemSettings()
+                        }
+                    }
+                    .buttonStyle(PillButtonStyle())
+                }
+            }
             SettingsRow(title: "Remind me of timed tasks", detail: "With Mark as Done and Snooze buttons, for the next week.") {
                 Picker("", selection: $reminderLead) {
                     ForEach(Reminders.leadChoices, id: \.self) { minutes in
@@ -423,6 +437,28 @@ private struct NotificationsPane: View {
         }
         .onChange(of: reminderLead) { _, minutes in
             if minutes >= 0 { AppModel.shared.reminders.requestPermission() } else { AppModel.shared.reminders.reschedule() }
+        }
+        .task { await refresh() }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            Task { await refresh() }
+        }
+    }
+
+    private func refresh() async { permission = await Reminders.permission() }
+
+    private var permissionTitle: String {
+        switch permission {
+        case .denied: "Notifications are off"
+        case .silent: "Notification sound is off"
+        default: "Allow notifications"
+        }
+    }
+
+    private var permissionDetail: String {
+        switch permission {
+        case .denied: "Reminders and the timer cannot alert you. Turn on Allow Notifications for Plain Week."
+        case .silent: "Turn on Play sound for notifications for Plain Week."
+        default: "Reminders and the timer need it to alert you."
         }
     }
 }
@@ -453,7 +489,7 @@ private struct SyncPane: View {
                         detail: "A Plain Week list kept in step both ways: tick or edit there, or add new tasks. Repeating tasks stay out.") {
                 RowSwitch(isOn: Binding(get: { mirror.isEnabled }, set: { mirror.setEnabled($0) }))
             }
-            SettingsRow(title: "Calendar", detail: "Tasks with a time as 30-minute events in a Plain Week calendar, for the month ahead. One-way.") {
+            SettingsRow(title: "Calendar", detail: "Tasks with a time as events in a Plain Week calendar, for the month ahead. Events you add to that calendar become tasks.") {
                 RowSwitch(isOn: Binding(get: { publisher.isEnabled }, set: { publisher.setEnabled($0) }))
             }
         }

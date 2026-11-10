@@ -29,6 +29,8 @@ targets:
                 com.apple.security.files.bookmarks.app-scope: true
                 com.apple.security.personal-information.calendars: true
                 com.apple.security.print: true
+                # Maps' address suggestions for a task's location.
+                com.apple.security.network.client: true
         settings:
             base:
                 PRODUCT_BUNDLE_IDENTIFIER: app.plainweek.mac

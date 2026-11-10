@@ -281,7 +281,7 @@ enum NoteStyler {
     private static let italic = regex(#"(?<![\w_])(_)(?!_)(.+?)(_)(?![\w_])"#)
     private static let underline = regex(#"(\+\+)(.+?)(\+\+)"#)
     private static let strike = regex(#"(~~)(.+?)(~~)"#)
-    private static let links = try! NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
+    private static let links = try! NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue | NSTextCheckingResult.CheckingType.address.rawValue)
     private static let highlight = regex(#"(==(?:\{([a-z]+)\})?)(.+?)(==)"#)
     private static let color = regex(#"(\{([a-z]+)\})(.+?)(\{/\})"#)
 
@@ -297,10 +297,14 @@ enum NoteStyler {
         storage.beginEditing()
         storage.setAttributes([.font: base, .foregroundColor: NSColor.labelColor, .paragraphStyle: paragraph], range: full)
 
-        // Web addresses and email links open with a click (underlined, in the
-        // text's own color: no blue in a monochrome app).
+        // Web addresses, email links and street addresses (in Maps) open
+        // with a click (underlined, in the text's own color: no blue in a
+        // monochrome app).
         for match in links.matches(in: text, range: full) {
-            guard let url = match.url else { continue }
+            let url = match.resultType == .address
+                ? Place.mapsURL((text as NSString).substring(with: match.range))
+                : match.url
+            guard let url else { continue }
             storage.addAttribute(.link, value: url, range: match.range)
         }
 

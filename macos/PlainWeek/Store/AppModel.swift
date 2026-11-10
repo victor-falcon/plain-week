@@ -1,4 +1,5 @@
 import AppKit
+import EventKit
 import Foundation
 
 /// The objects every part of the app shares: the planner window, the menu bar,
@@ -106,6 +107,7 @@ final class AppModel {
         }
         folderSync.start()
         remindersMirror.start()
+        askAgainIfAccessWasLost()
         syncAll()
         NotificationCenter.default.addObserver(forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main) { _ in
             Task { @MainActor in AppModel.shared.syncAll() }
@@ -114,6 +116,19 @@ final class AppModel {
         // Back as it was: the day panel reopens if it was open at quit.
         if UserDefaults.standard.bool(forKey: DayPanel.openKey) {
             DispatchQueue.main.async { DayPanel.shared.show() }
+        }
+    }
+
+    /// A reinstalled or rebuilt app can lose its Calendar and Reminders access
+    /// while its settings stay on, and then quietly shows and syncs nothing:
+    /// ask macOS again.
+    private func askAgainIfAccessWasLost() {
+        if EKEventStore.authorizationStatus(for: .event) == .notDetermined {
+            if calendar.enabled { calendar.setEnabled(true) }
+            if calendarPublisher.isEnabled { calendarPublisher.setEnabled(true) }
+        }
+        if EKEventStore.authorizationStatus(for: .reminder) == .notDetermined, remindersMirror.isEnabled {
+            remindersMirror.setEnabled(true)
         }
     }
 

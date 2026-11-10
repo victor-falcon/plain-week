@@ -1,6 +1,7 @@
 import EventKit
 import Foundation
 import Observation
+import os
 
 /// What a task looks like in Reminders, and back: the parts that sync.
 struct ReminderFields: Equatable {
@@ -11,17 +12,21 @@ struct ReminderFields: Equatable {
     var date: String?
     /// 'HH:mm', nil for a whole-day reminder.
     var time: String?
+    /// The task's place, shown in the reminder.
+    var location: String?
 
-    init(title: String, notes: String, done: Bool, date: String?, time: String?) {
+    init(title: String, notes: String, done: Bool, date: String?, time: String?, location: String? = nil) {
         self.title = title
         self.notes = notes
         self.done = done
         self.date = date
         self.time = date == nil ? nil : time
+        let place = location?.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.location = place?.isEmpty == false ? place : nil
     }
 
     init(task: PlainTask) {
-        self.init(title: task.text, notes: task.notes, done: task.done, date: task.date, time: task.time)
+        self.init(title: task.text, notes: task.notes, done: task.done, date: task.date, time: task.time, location: task.location)
     }
 
     /// Due date parts for EventKit (a time only when the task has one).
@@ -36,14 +41,14 @@ struct ReminderFields: Equatable {
         return c
     }
 
-    static func from(due: DateComponents?, title: String, notes: String?, done: Bool) -> ReminderFields {
+    static func from(due: DateComponents?, title: String, notes: String?, done: Bool, location: String? = nil) -> ReminderFields {
         var date: String?
         var time: String?
         if let due, let y = due.year, let m = due.month, let d = due.day {
             date = DateKey.make(y, m, d)
             if let h = due.hour, let min = due.minute { time = String(format: "%02d:%02d", h, min) }
         }
-        return ReminderFields(title: title, notes: notes ?? "", done: done, date: date, time: time)
+        return ReminderFields(title: title, notes: notes ?? "", done: done, date: date, time: time, location: location)
     }
 }
 
@@ -153,7 +158,8 @@ final class RemindersMirror {
     /// next two weeks, one reminder per day.
     static func entries(store: TaskStore, today: String) -> [Entry] {
         var result = store.allRows
-            .filter { $0.recurrence == nil && $0.series_id == nil }
+            // A task still being named in its sheet waits until it has a title.
+            .filter { $0.recurrence == nil && $0.series_id == nil && !$0.text.isEmpty }
             .map { Entry(key: $0.id, itemId: $0.id, task: $0, repeating: false, deleted: $0.isDeleted) }
         let from = DateKey.addDays(today, -1), to = DateKey.addDays(today, repeatDays - 1)
         for (_, items) in store.days(from: from, to: to) {
@@ -176,9 +182,9 @@ final class RemindersMirror {
 
         // New reminders made on another device become tasks.
         for reminder in unlinked where !reminder.isCompleted {
-            let fields = ReminderFields.from(due: reminder.dueDateComponents, title: reminder.title ?? "", notes: reminder.notes, done: false)
+            let fields = ReminderFields.from(due: reminder.dueDateComponents, title: reminder.title ?? "", notes: reminder.notes, done: false, location: reminder.location)
             guard !fields.title.isEmpty else { continue }
-            let id = store.create(text: fields.title, date: fields.date, time: fields.time, notes: fields.notes)
+            let id = store.create(text: fields.title, date: fields.date, time: fields.time, location: fields.location, notes: fields.notes)
             reminder.url = TaskLink.url(id)
             try? eventStore.save(reminder, commit: false)
             dirty = true
@@ -196,7 +202,7 @@ final class RemindersMirror {
                 dirty = true
                 continue
             }
-            let theirs = ReminderFields.from(due: reminder.dueDateComponents, title: reminder.title ?? "", notes: reminder.notes, done: reminder.isCompleted)
+            let theirs = ReminderFields.from(due: reminder.dueDateComponents, title: reminder.title ?? "", notes: reminder.notes, done: reminder.isCompleted, location: reminder.location)
             guard theirs != ours else { continue }
             let taskTime = Clock.parse(entry.task.updated_at) ?? .distantPast
             let reminderTime = reminder.lastModifiedDate ?? .distantPast
@@ -227,6 +233,7 @@ final class RemindersMirror {
         reminder.calendar = list
         reminder.title = fields.title
         reminder.notes = fields.notes.isEmpty ? nil : fields.notes
+        reminder.location = fields.location
         reminder.isCompleted = fields.done
         reminder.dueDateComponents = fields.dueComponents
         reminder.url = TaskLink.url(id)
@@ -240,6 +247,7 @@ final class RemindersMirror {
         let patch = TaskPatch(text: fields.title.isEmpty ? nil : fields.title,
                               done: fields.done != task.done ? fields.done : nil,
                               time: fields.time != task.time ? .some(fields.time) : nil,
+                              location: fields.location != task.location ? .some(fields.location) : nil,
                               notes: fields.notes != task.notes ? fields.notes : nil)
         store.update(id, patch)
     }
@@ -247,7 +255,9 @@ final class RemindersMirror {
 
 /// Puts tasks with a time into a "Plain Week" calendar in Calendar (events as
 /// long as the task's duration, 30 minutes when it has none from a day ago to a month ahead), so they sit beside meetings and
-/// reach the iPhone through iCloud Calendar. One-way: Plain Week is the source.
+/// reach the iPhone through iCloud Calendar. Plain Week is the source; an
+/// event added to that calendar elsewhere becomes a task (an all-day one, a
+/// task without a time, and its event goes).
 @MainActor
 @Observable
 final class CalendarPublisher {
@@ -261,6 +271,7 @@ final class CalendarPublisher {
         var start: Date
         var minutes: Int
         var notes: String
+        var location: String? = nil
     }
 
     @ObservationIgnored private let store: TaskStore
@@ -293,7 +304,7 @@ final class CalendarPublisher {
                 guard let time = item.task.time else { continue }
                 let t = time.split(separator: ":").compactMap { Int($0) }
                 guard t.count == 2, let at = calendar.date(bySettingHour: t[0], minute: t[1], second: 0, of: DateKey.localDate(day, calendar: calendar)) else { continue }
-                result.append(Planned(key: item.rowKey, title: item.task.text, start: at, minutes: item.task.duration ?? minutes, notes: item.task.notes))
+                result.append(Planned(key: item.rowKey, title: item.task.text, start: at, minutes: item.task.duration ?? minutes, notes: item.task.notes, location: item.task.location))
             }
         }
         return result.sorted { $0.start < $1.start }
@@ -318,25 +329,48 @@ final class CalendarPublisher {
     }
 
     func syncNow() {
+        Logger(subsystem: "app.plainweek.mac", category: "calendar").debug(
+            "publish start: enabled \(self.isEnabled, privacy: .public), status \(EKEventStore.authorizationStatus(for: .event).rawValue, privacy: .public)")
         guard isEnabled, EKEventStore.authorizationStatus(for: .event) == .fullAccess, let cal = calendar(create: true) else { return }
         let today = DateKey.local()
-        let planned = Self.plan(store: store, today: today)
         let from = DateKey.localDate(DateKey.addDays(today, -2)), to = DateKey.localDate(DateKey.addDays(today, 33))
         let existing = eventStore.events(matching: eventStore.predicateForEvents(withStart: from, end: to, calendars: [cal]))
+        Logger(subsystem: "app.plainweek.mac", category: "calendar").debug(
+            "publish: \(existing.count, privacy: .public) events in \(cal.title, privacy: .public), \(existing.filter { TaskLink.taskId($0.url) == nil }.count, privacy: .public) unlinked")
         var byKey: [String: EKEvent] = [:]
         var dirty = false
         for event in existing {
-            if let key = TaskLink.taskId(event.url), byKey[key] == nil { byKey[key] = event } else { try? eventStore.remove(event, span: .thisEvent, commit: false); dirty = true }
+            guard let key = TaskLink.taskId(event.url) else {
+                // Added in Calendar (on this Mac or the iPhone): it becomes a
+                // task, and the event stays as that task's.
+                let id = store.create(text: (event.title ?? "").isEmpty ? "Event" : event.title!, date: DateKey.local(event.startDate),
+                                      time: event.isAllDay ? nil : Self.time(event.startDate),
+                                      duration: event.isAllDay ? nil : Self.minutes(from: event.startDate, to: event.endDate),
+                                      location: event.location, notes: event.notes ?? "")
+                if event.isAllDay {
+                    // A task without a time has no event here.
+                    try? eventStore.remove(event, span: .thisEvent, commit: false)
+                } else {
+                    event.url = TaskLink.url(id)
+                    try? eventStore.save(event, span: .thisEvent, commit: false)
+                    byKey[id] = event
+                }
+                dirty = true
+                continue
+            }
+            if byKey[key] == nil { byKey[key] = event } else { try? eventStore.remove(event, span: .thisEvent, commit: false); dirty = true }
         }
+        let planned = Self.plan(store: store, today: today)
         for item in planned {
             let event = byKey.removeValue(forKey: item.key) ?? EKEvent(eventStore: eventStore)
             let end = item.start.addingTimeInterval(TimeInterval(item.minutes * 60))
-            if event.title == item.title, event.startDate == item.start, event.endDate == end, (event.notes ?? "") == item.notes, event.calendar == cal { continue }
+            if event.title == item.title, event.startDate == item.start, event.endDate == end, (event.notes ?? "") == item.notes, event.location == item.location, event.calendar == cal { continue }
             event.calendar = cal
             event.title = item.title
             event.startDate = item.start
             event.endDate = end
             event.notes = item.notes.isEmpty ? nil : item.notes
+            event.location = item.location
             event.url = TaskLink.url(item.key)
             try? eventStore.save(event, span: .thisEvent, commit: false)
             dirty = true
@@ -344,6 +378,17 @@ final class CalendarPublisher {
         // Done, moved away or deleted: no event any more.
         for event in byKey.values { try? eventStore.remove(event, span: .thisEvent, commit: false); dirty = true }
         if dirty { try? eventStore.commit() }
+    }
+
+    static func time(_ date: Date, calendar: Calendar = .current) -> String {
+        let c = calendar.dateComponents([.hour, .minute], from: date)
+        return String(format: "%02d:%02d", c.hour ?? 0, c.minute ?? 0)
+    }
+
+    /// An event's length as a task duration (1 minute to 12 hours).
+    static func minutes(from start: Date, to end: Date) -> Int? {
+        let minutes = Int(end.timeIntervalSince(start) / 60)
+        return minutes > 0 ? min(minutes, 720) : nil
     }
 
     private func removeAll() {

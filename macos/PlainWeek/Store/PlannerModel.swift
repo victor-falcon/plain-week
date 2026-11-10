@@ -159,6 +159,15 @@ final class PlannerModel {
 
     func open(_ id: String) { openTask = OpenTask(id: id) }
 
+    /// A task made by the title bar's New Task button, open in its sheet; it
+    /// is removed again if the sheet closes before it gets a title.
+    var draftId: String?
+
+    func openDraft(_ id: String) {
+        draftId = id
+        open(id)
+    }
+
     func show(_ message: String, canUndo: Bool = false) {
         toast = Toast(message: message, canUndo: canUndo)
         toastTask?.cancel()

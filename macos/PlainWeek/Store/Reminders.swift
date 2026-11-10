@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import UserNotifications
 
@@ -66,10 +67,32 @@ final class Reminders: NSObject, UNUserNotificationCenterDelegate {
         let done = UNNotificationAction(identifier: "done", title: "Mark as Done")
         let snooze = UNNotificationAction(identifier: "snooze", title: "Snooze 10 min")
         center.setNotificationCategories([UNNotificationCategory(identifier: Self.category, actions: [done, snooze], intentIdentifiers: [])])
-        reschedule()
+        // Ask at launch: without it macOS drops every notification, the
+        // timer's included. Only the first launch shows the prompt.
+        requestPermission()
     }
 
-    /// Asks for permission (from Settings, when reminders are turned on).
+    /// What macOS allows Plain Week, for Settings.
+    enum Permission: Equatable { case unknown, allowed, silent, denied }
+
+    static func permission() async -> Permission {
+        let settings = await UNUserNotificationCenter.current().notificationSettings()
+        switch settings.authorizationStatus {
+        case .notDetermined: return .unknown
+        case .denied: return .denied
+        default: return settings.soundSetting == .enabled ? .allowed : .silent
+        }
+    }
+
+    /// System Settings › Notifications › Plain Week.
+    static func openSystemSettings() {
+        let id = Bundle.main.bundleIdentifier ?? "app.plainweek.mac"
+        if let url = URL(string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension?id=\(id)") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
+    /// Asks for permission (at launch, and when reminders are turned on).
     func requestPermission() {
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in
             Task { @MainActor in self.reschedule() }

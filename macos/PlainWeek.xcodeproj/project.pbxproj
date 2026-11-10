@@ -31,6 +31,7 @@
 		762AA6A3A699248728BC769F /* KeyboardCursor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0F9982DEA3B6AE20850EA4C /* KeyboardCursor.swift */; };
 		853AC164FDF5169D40E89AEF /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 3D097EAAA88EC9532B657914 /* Localizable.xcstrings */; };
 		8CFDD240C9A0AACAD2BD75B0 /* CalendarEvents.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB739FED763444933FD1AFDD /* CalendarEvents.swift */; };
+		9AA04BE1A43A023CA02A7453 /* LocationPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6469DD0DFDF79776DB0B7DFC /* LocationPicker.swift */; };
 		A19E107C0376844A0182BF41 /* TaskListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F709876E0BDBE2808E9BE5D4 /* TaskListView.swift */; };
 		AC52C0C064419BC203F44072 /* Backups.swift in Sources */ = {isa = PBXBuildFile; fileRef = 954980C27ED714F4218F3F4F /* Backups.swift */; };
 		B58AE50A9C14E62A2DF34074 /* Cleanup.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6F97C2724806AF40294570E /* Cleanup.swift */; };
@@ -84,6 +85,7 @@
 		4DEB2D0EBA4A12A16F3A79DF /* PlainWeekIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlainWeekIntents.swift; sourceTree = "<group>"; };
 		5DAAE44CE9D1C58EA7F1E2F8 /* CommandPalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPalette.swift; sourceTree = "<group>"; };
 		63AA630AC51337CC1E5CDED2 /* NoteMarkdown.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteMarkdown.swift; sourceTree = "<group>"; };
+		6469DD0DFDF79776DB0B7DFC /* LocationPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationPicker.swift; sourceTree = "<group>"; };
 		64C4826FCE4386231546D627 /* QuickAdd.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickAdd.swift; sourceTree = "<group>"; };
 		6865ECB28A0EFD886CAE5FD2 /* RecurrenceEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecurrenceEngine.swift; sourceTree = "<group>"; };
 		6966DFE995561C8C59AD42D5 /* PlainWeek.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PlainWeek.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -126,6 +128,7 @@
 			children = (
 				5DAAE44CE9D1C58EA7F1E2F8 /* CommandPalette.swift */,
 				C630A1E7B59645756A820638 /* DayPanel.swift */,
+				6469DD0DFDF79776DB0B7DFC /* LocationPicker.swift */,
 				75E428B07D627D8888068836 /* LockScreen.swift */,
 				3AA85A8F6A6535C803C6F896 /* MenuBar.swift */,
 				9E6200D492FED7BA1B4795F1 /* MiniTimer.swift */,
@@ -324,6 +327,7 @@
 				45FBF03D229AA4FA71377EC8 /* FolderSync.swift in Sources */,
 				C4D19507BA9D12BC86DC3372 /* FractionalIndex.swift in Sources */,
 				762AA6A3A699248728BC769F /* KeyboardCursor.swift in Sources */,
+				9AA04BE1A43A023CA02A7453 /* LocationPicker.swift in Sources */,
 				2FA198D6A077D25F6C6CDEAF /* LockScreen.swift in Sources */,
 				CA5496C608C159CEC1FF30E5 /* MenuBar.swift in Sources */,
 				54700322946ACD53F07F6683 /* MiniTimer.swift in Sources */,

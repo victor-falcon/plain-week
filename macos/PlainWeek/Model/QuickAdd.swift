@@ -6,6 +6,8 @@ import Foundation
 /// - Date: `today`, `tomorrow` (`tmr`), `backlog` (or `someday`), a weekday (`fri`, `friday`:
 ///   the next one, today counts), `next week` (next Monday).
 /// - Time: `@11:30`, `@9`, `@9am`, `@5:15pm`.
+/// - Place: a lone `@` followed by the address, at the end
+///   (`Dentist @14:00 @ 12 rue de la Gare`); everything after it is the place.
 /// - Color: any color name (`#yellow`, `#red`, `#orange`, …) plus `#blue`,
 ///   `#purple`, `#violet`, `#gray` and `#none`.
 /// - Repeat: `daily`, `weekly`, `monthly`, `weekdays`, `weekends`, `every day`,
@@ -27,6 +29,8 @@ struct QuickTask: Equatable {
     var time: String?
     /// Minutes, from "for 45m" or "~1h30".
     var duration: Int?
+    /// From a lone "@" and what follows it.
+    var location: String?
     var color: TaskColor?
     /// A rule without its anchor; `rule(anchor:)` completes it.
     var repeatSpec: RepeatSpec?
@@ -68,7 +72,7 @@ struct QuickTask: Equatable {
     }
 
     /// Whether anything besides the text was recognised.
-    var hasExtras: Bool { date != .list || time != nil || duration != nil || color != nil || repeatSpec != nil }
+    var hasExtras: Bool { date != .list || time != nil || duration != nil || location != nil || color != nil || repeatSpec != nil }
 }
 
 enum QuickAdd {
@@ -108,7 +112,10 @@ enum QuickAdd {
             let raw = words[i]
             let w = normalized(raw)
 
-            if raw.hasPrefix("#"), let color = colors[String(w.dropFirst())] {
+            if raw == "@", i + 1 < words.count {
+                result.location = words[(i + 1)...].joined(separator: " ")
+                break
+            } else if raw.hasPrefix("#"), let color = colors[String(w.dropFirst())] {
                 result.color = color
             } else if raw.hasPrefix("@"), let parsed = parseTime(raw) {
                 result.time = parsed
