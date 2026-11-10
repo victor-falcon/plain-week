@@ -48,6 +48,9 @@ enum Theme {
     /// Day cards: weekdays white (the page), weekends a light grey, as in Calendar.
     static let weekdayCard = background
     static let weekendCard = dynamic(light: oklch(0.967, 0.001, 286.375), dark: oklch(0.19, 0.004, 49.25))
+    /// The border of the selected day card: #F0F0F0 in light mode, #424242 in dark.
+    static let selectedDayBorder = dynamic(light: NSColor(srgbRed: 0xF0 / 255, green: 0xF0 / 255, blue: 0xF0 / 255, alpha: 1),
+                                           dark: NSColor(srgbRed: 0x42 / 255, green: 0x42 / 255, blue: 0x42 / 255, alpha: 1))
     /// Row hover and pressed states.
     static let hover = dynamic(light: oklch(0.147, 0.004, 49.25, alpha: 0.05), dark: oklch(1, 0, 0, alpha: 0.07))
 

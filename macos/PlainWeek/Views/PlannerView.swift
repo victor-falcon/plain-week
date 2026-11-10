@@ -569,7 +569,7 @@ struct DayColumn: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous)
-                .strokeBorder(isSelected ? Theme.plannerAccent : isToday ? Theme.plannerAccent.opacity(0.3) : Theme.border,
+                .strokeBorder(isSelected ? Theme.selectedDayBorder : isToday ? Theme.plannerAccent.opacity(0.3) : Theme.border,
                               lineWidth: isSelected ? 2 : 1)
         )
         .frame(maxWidth: .infinity)
