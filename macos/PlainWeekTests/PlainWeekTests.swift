@@ -1056,3 +1056,23 @@ final class OrganizationTests: XCTestCase {
         XCTAssertEqual(ReminderFields(task: task).priority, .medium)
     }
 }
+
+@MainActor
+final class OrganizationKeyTests: XCTestCase {
+    func testRowKeysFlagSetPriorityAndOpenTags() {
+        let store = TaskStore(fileURL: nil)
+        let planner = PlannerModel()
+        let id = store.create(text: "Report", date: planner.today)
+        planner.cursor = Cursor(day: planner.today, index: 0)
+        let timer = FocusTimer()
+        KeyboardNav.handle("f", store: store, planner: planner, timer: timer, undoManager: nil)
+        XCTAssertEqual(store.item(id)?.task.flagged, true)
+        KeyboardNav.handle("2", store: store, planner: planner, timer: timer, undoManager: nil)
+        XCTAssertEqual(store.item(id)?.task.priority, .medium)
+        KeyboardNav.handle("0", store: store, planner: planner, timer: timer, undoManager: nil)
+        XCTAssertEqual(store.item(id)?.task.priority, TaskPriority.none)
+        KeyboardNav.handle("#", store: store, planner: planner, timer: timer, undoManager: nil)
+        XCTAssertEqual(planner.openTask?.id, id)
+        XCTAssertEqual(planner.openTask?.focusTags, true)
+    }
+}

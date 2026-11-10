@@ -33,7 +33,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   week reaches iPhone and Apple Watch. See
   [macos/README.md](./macos/README.md).
 - **Tags, flags and priority on macOS.** In the task sheet, quick add (`!`–`!!!`, `#tag`), the rows and the right-click
-  menu; priority syncs with the Reminders list.
+  menu; priority syncs with the Reminders list. Keys: ⌥⌘F, ⌥⌘0–3 and ⌥⌘G in the sheet; f, 0–3 and # on the selected
+  row.
 - **Task locations on macOS.** A place per task with Apple Maps suggestions, a pin on the row that opens Maps,
   "@ address" in quick add, and the place on Calendar events and mirrored reminders. Street addresses in notes open
   in Maps. The title bar's New Task button opens the new task's dialog, and a Settings button sits beside it.

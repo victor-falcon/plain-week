@@ -9,7 +9,8 @@ struct Cursor: Equatable {
 
 /// What the planner keys do, as one function over the models so it can be
 /// tested: j k ↓ ↑ tasks, h l ← → days, H L weeks, t today, ↩ o open,
-/// x Space mark as done, d d delete, a i n add, p timer, / palette, Esc hide.
+/// x Space mark as done, d d delete, a i n add, p timer, f flag, 0–3
+/// priority, # tags (opens the task at its tags), / palette, Esc hide.
 @MainActor
 enum KeyboardNav {
     /// Returns whether the key was used.
@@ -59,6 +60,17 @@ enum KeyboardNav {
             }
         case "a", "i", "n":
             planner.focusRequest = cursor.day
+        case "f":
+            if let item = items(cursor.day)[safe: cursor.index] {
+                let on = !item.task.flagged
+                store.perform(on ? "Flag" : "Unflag", undoManager: undoManager) { store.update(item.id, TaskPatch(flagged: on)) }
+            }
+        case "0", "1", "2", "3":
+            if let item = items(cursor.day)[safe: cursor.index], let priority = TaskPriority(rawValue: Int(key)!), priority != item.task.priority {
+                store.perform("Set Priority", undoManager: undoManager) { store.update(item.id, TaskPatch(priority: priority)) }
+            }
+        case "#":
+            if let item = items(cursor.day)[safe: cursor.index] { planner.openTask = OpenTask(id: item.id, focusTags: true) }
         case "p":
             if let item = items(cursor.day)[safe: cursor.index], !item.task.done {
                 TimerActions.start(item.id, day: cursor.day, store: store, planner: planner, timer: timer)

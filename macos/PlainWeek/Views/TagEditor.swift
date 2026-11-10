@@ -5,6 +5,8 @@ import SwiftUI
 struct TagEditor: View {
     var tags: [String]
     var suggestions: [String]
+    /// Bumped to put the cursor in the field (⌥⌘G, the planner's "#").
+    var focusTick = 0
     var save: ([String]) -> Void
     @State private var draft = ""
     @FocusState private var focused: Bool
@@ -59,6 +61,7 @@ struct TagEditor: View {
             }
         }
         .animation(Motion.quick, value: tags)
+        .onChange(of: focusTick) { focused = true }
     }
 
     private func add(_ text: String) {

@@ -55,7 +55,7 @@ struct PlannerView: View {
         .blur(radius: dialogOpen && !Motion.reduceTransparency ? 8 : 0)
         .animation(Motion.standard, value: dialogOpen)
         .sheet(item: $planner.openTask, onDismiss: dropEmptyDraft) { open in
-            TaskDetailView(taskId: open.id)
+            TaskDetailView(taskId: open.id, focusTags: open.focusTags)
         }
         .sheet(isPresented: $planner.showReview) { WeeklyReview(timeLog: timeLog) }
         .sheet(isPresented: $planner.showPalette) { CommandPaletteView() }
@@ -92,7 +92,9 @@ struct PlannerMain: View {
         .focused($keyboardFocus)
         .focusEffectDisabled()
         .onKeyPress(phases: .down) { press in
-            guard press.modifiers.isDisjoint(with: [.command, .control, .option]) else { return .ignored }
+            // "#" needs ⌥ on some keyboards (French, Swiss, …).
+            guard press.modifiers.isDisjoint(with: [.command, .control, .option])
+                  || (press.characters == "#" && press.modifiers.isDisjoint(with: [.command, .control])) else { return .ignored }
             let key = press.key == .escape ? "\u{1B}" : press.key == .return ? "\r" : press.characters
             return withAnimation(Motion.standard) {
                 KeyboardNav.handle(key, store: store, planner: planner, timer: timer, undoManager: undoManager)

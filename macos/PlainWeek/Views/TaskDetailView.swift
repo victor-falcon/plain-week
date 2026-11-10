@@ -30,7 +30,14 @@ struct TaskDetailView: View {
         var rule: Recurrence?
     }
 
-    init(taskId: String) { _taskId = State(initialValue: taskId) }
+    /// Starts with the cursor in the tags field.
+    var focusTags = false
+    @State private var tagsFocusTick = 0
+
+    init(taskId: String, focusTags: Bool = false) {
+        _taskId = State(initialValue: taskId)
+        self.focusTags = focusTags
+    }
 
     var body: some View {
         Group {
@@ -84,7 +91,7 @@ struct TaskDetailView: View {
                 .help(task.done ? "Mark as not done" : "Mark as done")
             }
 
-            TagEditor(tags: task.tags, suggestions: Tags.all(in: store)) { tags in
+            TagEditor(tags: task.tags, suggestions: Tags.all(in: store), focusTick: tagsFocusTick) { tags in
                 follow(store.perform("Change Tags", undoManager: undoManager) { store.update(taskId, TaskPatch(tags: tags)) })
             }
 
@@ -140,6 +147,7 @@ struct TaskDetailView: View {
             notes = task.notes
             // A new task from the title bar starts with its name.
             if task.text.isEmpty { DispatchQueue.main.async { focusedField = .title } }
+            if focusTags { DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { tagsFocusTick += 1 } }
             #if DEBUG
             // Debug captures: PLAINWEEK_SNAPSHOT_PICKER=repeat|color|date|time opens that popover.
             switch ProcessInfo.processInfo.environment["PLAINWEEK_SNAPSHOT_PICKER"] {
@@ -455,6 +463,8 @@ struct TaskDetailView: View {
                 .keyboardShortcut("t", modifiers: [.command, .option])
             Button("Location") { picker = .location }
                 .keyboardShortcut("p", modifiers: [.command, .option])
+            Button("Tags") { tagsFocusTick += 1 }
+                .keyboardShortcut("g", modifiers: [.command, .option])
             Button("Flag") { setFlag(!task.flagged) }
                 .keyboardShortcut("f", modifiers: [.command, .option])
             ForEach(TaskPriority.allCases) { priority in
@@ -494,7 +504,7 @@ struct TaskDetailView: View {
     }
 
     private var shortcutFooter: some View {
-        Text("⌥⌘D date  ·  ⌥⌘T time  ·  ⌥⌘P place  ·  ⌥⌘F flag  ·  ⌥⌘0–3 priority  ·  ⌥⌘R repeat  ·  ⌥⌘C color  ·  ⌘↩ done  ·  ⌫ delete  ·  ⌥⌘→ tomorrow")
+        Text("⌥⌘D date  ·  ⌥⌘T time  ·  ⌥⌘P place  ·  ⌥⌘F flag  ·  ⌥⌘0–3 priority  ·  ⌥⌘G tags  ·  ⌥⌘R repeat  ·  ⌥⌘C color  ·  ⌘↩ done  ·  ⌫ delete  ·  ⌥⌘→ tomorrow")
             .font(.system(size: 11))
             .foregroundStyle(Theme.mutedForeground.opacity(0.8))
             .frame(maxWidth: .infinity, alignment: .leading)

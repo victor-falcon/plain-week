@@ -14,6 +14,8 @@ struct Toast: Identifiable, Equatable {
 struct OpenTask: Identifiable, Equatable {
     let sheetId = UUID()
     var id: String
+    /// Opens with the cursor in the tags field (the "#" key).
+    var focusTags = false
 }
 
 /// UI state of the planner window: today, the shown week, the open task, the
