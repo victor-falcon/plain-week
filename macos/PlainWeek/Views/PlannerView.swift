@@ -92,6 +92,8 @@ struct PlannerMain: View {
         .focused($keyboardFocus)
         .focusEffectDisabled()
         .onKeyPress(phases: .down) { press in
+            // Typing in a field (a new task, a rename) is never a planner key.
+            if NSApp.keyWindow?.firstResponder is NSText { return .ignored }
             // "#" needs ⌥ on some keyboards (French, Swiss, …).
             guard press.modifiers.isDisjoint(with: [.command, .control, .option])
                   || (press.characters == "#" && press.modifiers.isDisjoint(with: [.command, .control])) else { return .ignored }
@@ -738,16 +740,17 @@ struct DayColumn: View {
                               lineWidth: isSelected ? 2 : 1)
         )
         // The start button, over the bottom of the card, for the day under
-        // the pointer and the selected day.
+        // the pointer and the selected day; never while typing a new task in
+        // this day, where it would cover the text.
         .overlay(alignment: .bottom) {
-            if (hovering || isSelected) && !blurred {
+            if (hovering || isSelected) && !blurred && focus.wrappedValue != date {
                 DayStartButton(date: date)
                     .padding(.bottom, 16)
                     .transition(Motion.slide(.bottom))
             }
         }
         .onHover { hovering = $0 }
-        .animation(Motion.standard, value: hovering || isSelected)
+        .animation(Motion.standard, value: (hovering || isSelected) && focus.wrappedValue != date)
         .frame(maxWidth: .infinity)
         .focusBlur(blurred)
         // In focus mode, a click anywhere in a blurred day focuses it.

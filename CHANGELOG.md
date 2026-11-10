@@ -32,11 +32,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   keep a "Plain Week" list in Reminders in step both ways and put timed tasks in a "Plain Week" calendar, so the
   week reaches iPhone and Apple Watch. See
   [macos/README.md](./macos/README.md).
+- **Cleaner notes and a larger task window on macOS.** Markdown markers (`**`, `_`, `++`, `~~`, `#`, `==`) hide
+  except on the line being edited, and a toolbar button (⌥⌘E) makes the task window wider and taller for long notes. The toolbar is icons only;
+  what is set (date, time, repeat, place, priority, flag) shows as chips above the title instead of squeezing it.
 - **Tags, flags and priority on macOS.** In the task sheet, quick add (`!`–`!!!`, `#tag`), the rows and the right-click
   menu; priority syncs with the Reminders list. Keys: ⌥⌘F, ⌥⌘0–3 and ⌥⌘G in the sheet; f, 0–3 and # on the selected
   row.
 - **Task locations on macOS.** A place per task with Apple Maps suggestions, a pin on the row that opens Maps,
-  "@ address" in quick add, and the place on Calendar events and mirrored reminders. Street addresses in notes open
+  "@ address" in quick add, and the place on Calendar events (Reminders keeps no text location, so the Reminders list
+  leaves it out; reading back its blank used to clear the task's place). Street addresses in notes open
   in Maps. The title bar's New Task button opens the new task's dialog, and a Settings button sits beside it.
 
 ### Fixed
@@ -46,6 +50,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **macOS Calendar events stop showing after an update.** When macOS forgot the app's Calendar or Reminders access
   (a rebuilt or reinstalled app) while the settings stayed on, nothing showed or synced. The app now asks again at
   launch.
+- **Typing "n" (and other planner keys) in a new-task field on macOS.** The planner's single-letter keys took the
+  letters while a text field had the cursor, and the day's "▶ Start" button covered the text being typed; it now
+  hides while you type in that day.
+- **macOS permissions asked again after every build.** An optional `macos/Local.xcconfig` now signs development
+  builds with your own certificate, so macOS keeps the Calendar, Reminders and notification permissions.
 - **macOS notifications are silent or missing.** The app only asked macOS for permission when the reminder setting
   changed, so timer alerts and reminders were dropped. It now asks at launch, and Settings › Notifications says when
   notifications or their sound are off, with a button to System Settings.

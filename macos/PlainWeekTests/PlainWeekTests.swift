@@ -980,8 +980,11 @@ final class LocationTests: XCTestCase {
         let store = TaskStore(fileURL: nil)
         let id = store.create(text: "Dentist", date: "2026-11-12", time: "14:00", location: "12 rue de la Gare")
         XCTAssertEqual(CalendarPublisher.plan(store: store, today: "2026-11-10").first?.location, "12 rue de la Gare")
-        XCTAssertEqual(ReminderFields(task: store.item(id)!.task).location, "12 rue de la Gare")
-        XCTAssertNil(ReminderFields(title: "x", notes: "", done: false, date: nil, time: nil, location: " ").location)
+        // Reminders drops a text location, so the mirror leaves the place out:
+        // a reminder read back without one must not look like an edit.
+        let task = store.item(id)!.task
+        let readBack = ReminderFields.from(due: ReminderFields(task: task).dueComponents, title: task.text, notes: task.notes, done: false)
+        XCTAssertEqual(readBack, ReminderFields(task: task))
     }
 
     func testUntitledDraftsStayOutOfReminders() {

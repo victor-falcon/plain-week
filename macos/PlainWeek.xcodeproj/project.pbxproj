@@ -113,6 +113,7 @@
 		E9DC4DD551ACF3226A5E4C39 /* FocusTimer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusTimer.swift; sourceTree = "<group>"; };
 		F709876E0BDBE2808E9BE5D4 /* TaskListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskListView.swift; sourceTree = "<group>"; };
 		F95EC84350E560BAD1A20C02 /* PlainWeekApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlainWeekApp.swift; sourceTree = "<group>"; };
+		"TEMP_52101DC6-782A-4B68-892B-7C2930EB5B47" /* Signing.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Signing.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -226,6 +227,14 @@
 			path = Model;
 			sourceTree = "<group>";
 		};
+		"TEMP_945A7765-ECAD-4627-8D55-1DC53CB20F96" /* macos */ = {
+			isa = PBXGroup;
+			children = (
+				"TEMP_52101DC6-782A-4B68-892B-7C2930EB5B47" /* Signing.xcconfig */,
+			);
+			path = macos;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -275,7 +284,12 @@
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
 					06D1A62AC2FE4F521795BFC7 = {
-						ProvisioningStyle = Automatic;
+						DevelopmentTeam = "";
+						ProvisioningStyle = Manual;
+					};
+					A9048FF0B33FE02FD6B08A31 = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Manual;
 					};
 				};
 			};
@@ -382,11 +396,10 @@
 /* Begin XCBuildConfiguration section */
 		1A612AA517A1FF1ECAB04537 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = "TEMP_52101DC6-782A-4B68-892B-7C2930EB5B47" /* Signing.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = PlainWeek/PlainWeek.entitlements;
-				CODE_SIGN_IDENTITY = "-";
-				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -475,11 +488,10 @@
 		};
 		2D689A2B6E3EAAA4EA25DA0B /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = "TEMP_52101DC6-782A-4B68-892B-7C2930EB5B47" /* Signing.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = PlainWeek/PlainWeek.entitlements;
-				CODE_SIGN_IDENTITY = "-";
-				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -506,6 +518,7 @@
 		};
 		5FD1DFA4B0F8AE143E5ADF7F /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = "TEMP_52101DC6-782A-4B68-892B-7C2930EB5B47" /* Signing.xcconfig */;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				COMBINE_HIDPI_IMAGES = YES;
@@ -592,6 +605,7 @@
 		};
 		E3FD1833ACBC1B7845FF9DBF /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = "TEMP_52101DC6-782A-4B68-892B-7C2930EB5B47" /* Signing.xcconfig */;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				COMBINE_HIDPI_IMAGES = YES;

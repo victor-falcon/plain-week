@@ -76,6 +76,16 @@ struct NotesEditor: NSViewRepresentable {
             NoteStyler.apply(to: textView)
             if parent.text != textView.string { parent.text = textView.string }
         }
+
+        /// Markers show only on the line being edited.
+        func textViewDidChangeSelection(_ notification: Notification) {
+            guard let textView = notification.object as? NSTextView, !textView.hasMarkedText() else { return }
+            let line = (textView.string as NSString).lineRange(for: NSRange(location: min(textView.selectedRange().location, (textView.string as NSString).length), length: 0))
+            guard line != lastLine else { return }
+            lastLine = line
+            NoteStyler.apply(to: textView)
+        }
+        private var lastLine: NSRange?
     }
 }
 
@@ -91,13 +101,13 @@ final class NoteTextView: NSTextView {
 
     override func becomeFirstResponder() -> Bool {
         let ok = super.becomeFirstResponder()
-        if ok { onFocusChange?(true) }
+        if ok { onFocusChange?(true); NoteStyler.apply(to: self, editing: true) }
         return ok
     }
 
     override func resignFirstResponder() -> Bool {
         let ok = super.resignFirstResponder()
-        if ok { onFocusChange?(false) }
+        if ok { onFocusChange?(false); NoteStyler.apply(to: self, editing: false) }
         return ok
     }
 
@@ -285,10 +295,18 @@ enum NoteStyler {
     private static let highlight = regex(#"(==(?:\{([a-z]+)\})?)(.+?)(==)"#)
     private static let color = regex(#"(\{([a-z]+)\})(.+?)(\{/\})"#)
 
-    static func apply(to textView: NSTextView) {
+    /// Styles the Markdown in place. Its markers (`**`, `_`, `++`, `~~`, `#`,
+    /// `==`, `{red}`) are hidden except on the line with the caret, where
+    /// they can be edited; while the notes are not being edited, all hide.
+    static func apply(to textView: NSTextView, editing: Bool? = nil) {
         guard let storage = textView.textStorage else { return }
         let text = storage.string
         let full = NSRange(location: 0, length: (text as NSString).length)
+        let isEditing = editing ?? (textView.window?.firstResponder === textView)
+        let caretLine = isEditing
+            ? (text as NSString).lineRange(for: NSRange(location: min(textView.selectedRange().location, full.length), length: 0))
+            : nil
+        var markers: [NSRange] = []
         let base = NSFont.systemFont(ofSize: baseSize)
         let paragraph = NSMutableParagraphStyle()
         paragraph.lineSpacing = 3
@@ -313,6 +331,7 @@ enum NoteStyler {
             let size: CGFloat = [24, 20, 17, 15][min(level, 4) - 1]
             storage.addAttribute(.font, value: NSFont.systemFont(ofSize: size, weight: .bold), range: match.range)
             storage.addAttribute(.foregroundColor, value: marker, range: NSRange(location: match.range.location, length: level + 1))
+            markers.append(NSRange(location: match.range.location, length: level + 1))
         }
         for match in todo.matches(in: text, range: full) {
             let box = match.range(at: 1)
@@ -325,16 +344,16 @@ enum NoteStyler {
                                        .foregroundColor: NSColor.secondaryLabelColor], range: match.range(at: 3))
             }
         }
-        style(bold, in: storage, text: text, marker: marker) { range in
+        style(bold, in: storage, text: text, marker: marker, markers: &markers) { range in
             addTrait(.boldFontMask, to: storage, range: range)
         }
-        style(italic, in: storage, text: text, marker: marker) { range in
+        style(italic, in: storage, text: text, marker: marker, markers: &markers) { range in
             addTrait(.italicFontMask, to: storage, range: range)
         }
-        style(underline, in: storage, text: text, marker: marker) { range in
+        style(underline, in: storage, text: text, marker: marker, markers: &markers) { range in
             storage.addAttribute(.underlineStyle, value: NSUnderlineStyle.single.rawValue, range: range)
         }
-        style(strike, in: storage, text: text, marker: marker) { range in
+        style(strike, in: storage, text: text, marker: marker, markers: &markers) { range in
             storage.addAttribute(.strikethroughStyle, value: NSUnderlineStyle.single.rawValue, range: range)
         }
         for match in highlight.matches(in: text, range: full) {
@@ -342,23 +361,33 @@ enum NoteStyler {
             storage.addAttribute(.backgroundColor, value: highlightColor(name), range: match.range(at: 3))
             storage.addAttribute(.foregroundColor, value: marker, range: match.range(at: 1))
             storage.addAttribute(.foregroundColor, value: marker, range: match.range(at: 4))
+            markers += [match.range(at: 1), match.range(at: 4)]
         }
         for match in color.matches(in: text, range: full) {
             let name = (text as NSString).substring(with: match.range(at: 2))
             storage.addAttribute(.foregroundColor, value: textColor(name), range: match.range(at: 3))
             storage.addAttribute(.foregroundColor, value: marker, range: match.range(at: 1))
             storage.addAttribute(.foregroundColor, value: marker, range: match.range(at: 4))
+            markers += [match.range(at: 1), match.range(at: 4)]
+        }
+        // Off the caret's line, markers take no room and no color.
+        let hidden: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: 0.01), .foregroundColor: NSColor.clear]
+        for range in markers where range.location != NSNotFound && range.length > 0 {
+            if let caretLine, NSIntersectionRange(caretLine, range).length > 0 || NSLocationInRange(range.location, caretLine) { continue }
+            storage.addAttributes(hidden, range: range)
         }
         storage.endEditing()
         textView.typingAttributes = [.font: base, .foregroundColor: NSColor.labelColor, .paragraphStyle: paragraph]
     }
 
     /// Styles group 2 with `body` and dims the markers (groups 1 and 3).
-    private static func style(_ regex: NSRegularExpression, in storage: NSTextStorage, text: String, marker: NSColor, body: (NSRange) -> Void) {
+    private static func style(_ regex: NSRegularExpression, in storage: NSTextStorage, text: String, marker: NSColor,
+                              markers: inout [NSRange], body: (NSRange) -> Void) {
         for match in regex.matches(in: text, range: NSRange(location: 0, length: (text as NSString).length)) {
             body(match.range(at: 2))
             storage.addAttribute(.foregroundColor, value: marker, range: match.range(at: 1))
             storage.addAttribute(.foregroundColor, value: marker, range: match.range(at: 3))
+            markers += [match.range(at: 1), match.range(at: 3)]
         }
     }
 

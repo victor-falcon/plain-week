@@ -71,6 +71,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         MainActor.assumeIsolated { !DayPanel.shared.isOpen }
     }
+
+    /// Quitting with a task sheet (or any sheet) open: every edit is already
+    /// saved, so close the sheets and quit instead of refusing.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        MainActor.assumeIsolated {
+            AppModel.shared.planner.openTask = nil
+            for window in NSApp.windows {
+                if let sheet = window.attachedSheet { window.endSheet(sheet) }
+            }
+        }
+        return .terminateNow
+    }
 }
 
 enum MenuBarSettings {

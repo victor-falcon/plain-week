@@ -12,23 +12,21 @@ struct ReminderFields: Equatable {
     var date: String?
     /// 'HH:mm', nil for a whole-day reminder.
     var time: String?
-    /// The task's place, shown in the reminder.
-    var location: String?
     var priority: TaskPriority = .none
 
-    init(title: String, notes: String, done: Bool, date: String?, time: String?, location: String? = nil, priority: TaskPriority = .none) {
+    // No place: Reminders drops a plain-text location (it only keeps
+    // location alarms), and reading back that blank would clear the task's.
+    init(title: String, notes: String, done: Bool, date: String?, time: String?, priority: TaskPriority = .none) {
         self.priority = priority
         self.title = title
         self.notes = notes
         self.done = done
         self.date = date
         self.time = date == nil ? nil : time
-        let place = location?.trimmingCharacters(in: .whitespacesAndNewlines)
-        self.location = place?.isEmpty == false ? place : nil
     }
 
     init(task: PlainTask) {
-        self.init(title: task.text, notes: task.notes, done: task.done, date: task.date, time: task.time, location: task.location, priority: task.priority)
+        self.init(title: task.text, notes: task.notes, done: task.done, date: task.date, time: task.time, priority: task.priority)
     }
 
     /// Due date parts for EventKit (a time only when the task has one).
@@ -62,14 +60,14 @@ struct ReminderFields: Equatable {
         }
     }
 
-    static func from(due: DateComponents?, title: String, notes: String?, done: Bool, location: String? = nil, priority: Int = 0) -> ReminderFields {
+    static func from(due: DateComponents?, title: String, notes: String?, done: Bool, priority: Int = 0) -> ReminderFields {
         var date: String?
         var time: String?
         if let due, let y = due.year, let m = due.month, let d = due.day {
             date = DateKey.make(y, m, d)
             if let h = due.hour, let min = due.minute { time = String(format: "%02d:%02d", h, min) }
         }
-        return ReminderFields(title: title, notes: notes ?? "", done: done, date: date, time: time, location: location,
+        return ReminderFields(title: title, notes: notes ?? "", done: done, date: date, time: time,
                               priority: Self.priority(fromReminder: priority))
     }
 }
@@ -204,9 +202,9 @@ final class RemindersMirror {
 
         // New reminders made on another device become tasks.
         for reminder in unlinked where !reminder.isCompleted {
-            let fields = ReminderFields.from(due: reminder.dueDateComponents, title: reminder.title ?? "", notes: reminder.notes, done: false, location: reminder.location, priority: reminder.priority)
+            let fields = ReminderFields.from(due: reminder.dueDateComponents, title: reminder.title ?? "", notes: reminder.notes, done: false, priority: reminder.priority)
             guard !fields.title.isEmpty else { continue }
-            let id = store.create(text: fields.title, date: fields.date, time: fields.time, location: fields.location, priority: fields.priority, notes: fields.notes)
+            let id = store.create(text: fields.title, date: fields.date, time: fields.time, priority: fields.priority, notes: fields.notes)
             reminder.url = TaskLink.url(id)
             try? eventStore.save(reminder, commit: false)
             dirty = true
@@ -224,7 +222,7 @@ final class RemindersMirror {
                 dirty = true
                 continue
             }
-            let theirs = ReminderFields.from(due: reminder.dueDateComponents, title: reminder.title ?? "", notes: reminder.notes, done: reminder.isCompleted, location: reminder.location, priority: reminder.priority)
+            let theirs = ReminderFields.from(due: reminder.dueDateComponents, title: reminder.title ?? "", notes: reminder.notes, done: reminder.isCompleted, priority: reminder.priority)
             guard theirs != ours else { continue }
             let taskTime = Clock.parse(entry.task.updated_at) ?? .distantPast
             let reminderTime = reminder.lastModifiedDate ?? .distantPast
@@ -255,7 +253,6 @@ final class RemindersMirror {
         reminder.calendar = list
         reminder.title = fields.title
         reminder.notes = fields.notes.isEmpty ? nil : fields.notes
-        reminder.location = fields.location
         reminder.priority = ReminderFields.reminderPriority(fields.priority)
         reminder.isCompleted = fields.done
         reminder.dueDateComponents = fields.dueComponents
@@ -270,7 +267,6 @@ final class RemindersMirror {
         let patch = TaskPatch(text: fields.title.isEmpty ? nil : fields.title,
                               done: fields.done != task.done ? fields.done : nil,
                               time: fields.time != task.time ? .some(fields.time) : nil,
-                              location: fields.location != task.location ? .some(fields.location) : nil,
                               priority: fields.priority != task.priority ? fields.priority : nil,
                               notes: fields.notes != task.notes ? fields.notes : nil)
         store.update(id, patch)
