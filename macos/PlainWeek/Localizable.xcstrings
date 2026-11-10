@@ -1,0 +1,625 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "" : {
+
+    },
+    "%@  ·  Week %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@  ·  Week %2$lld"
+          }
+        }
+      }
+    },
+    "%@ (%@)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ (%2$@)"
+          }
+        }
+      }
+    },
+    "%@ focused on this task" : {
+
+    },
+    "%@, %lld of %lld sessions done" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@, %2$lld of %3$lld sessions done"
+          }
+        }
+      }
+    },
+    "%@: %lld of %lld done, %@ focused, %lld Pomodoro sessions" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@: %2$lld of %3$lld done, %4$@ focused, %5$lld Pomodoro sessions"
+          }
+        }
+      }
+    },
+    "%lld" : {
+
+    },
+    "%lld left today: %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld left today: %2$@."
+          }
+        }
+      }
+    },
+    "%lld min before" : {
+
+    },
+    "%lld minutes" : {
+
+    },
+    "%lld of %lld done" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld of %2$lld done"
+          }
+        }
+      }
+    },
+    "%lld of %lld subtasks done" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld of %2$lld subtasks done"
+          }
+        }
+      }
+    },
+    "%lld/%lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld/%2$lld"
+          }
+        }
+      }
+    },
+    "+%lld more" : {
+
+    },
+    "⌘0–3 type  ·  ↩ apply" : {
+
+    },
+    "⌘B bold  ·  ⌘I italic  ·  ⌘U underline  ·  ⇧⌘X strike  ·  ⌘1–4 heading  ·  ⌘T todo  ·  ⌘E time  ·  ⇧⌘E date  ·  ⇧⌘C color  ·  ⌥⌘B block caret" : {
+
+    },
+    "⌥⌘D date  ·  ⌥⌘T time  ·  ⌥⌘R repeat  ·  ⌥⌘C color  ·  ⌘↩ done  ·  ⌫ delete  ·  ⌥⌘→ tomorrow" : {
+
+    },
+    "1 minute" : {
+
+    },
+    "Add ${text} to Plain Week" : {
+
+    },
+    "Add some extra notes here…" : {
+
+    },
+    "Add subtask…" : {
+
+    },
+    "Add Task" : {
+
+    },
+    "Add to today…  (or ⌥Space anywhere)" : {
+
+    },
+    "Added “%@” to %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Added “%1$@” to %2$@."
+          }
+        }
+      }
+    },
+    "Adds a task to Plain Week. Words like “tomorrow”, “@9:30”, “#red” or “daily” set its day, time, color and repeat." : {
+
+    },
+    "All days" : {
+
+    },
+    "Apply" : {
+
+    },
+    "At the time" : {
+
+    },
+    "Back" : {
+
+    },
+    "Back to today" : {
+
+    },
+    "Back Up Now" : {
+
+    },
+    "Backlog" : {
+
+    },
+    "Backlog  ⌥⌘L" : {
+
+    },
+    "Cancel" : {
+
+    },
+    "Change repeat" : {
+
+    },
+    "Change…" : {
+
+    },
+    "Choose Folder…" : {
+
+    },
+    "Clean Up" : {
+
+    },
+    "Clear" : {
+
+    },
+    "Click to show every done task" : {
+
+    },
+    "Click to show this day's done tasks" : {
+
+    },
+    "Close Day Panel" : {
+
+    },
+    "Collapse %@" : {
+
+    },
+    "Collapsed" : {
+
+    },
+    "Color" : {
+
+    },
+    "Color (⌥⌘C)" : {
+
+    },
+    "Continue" : {
+
+    },
+    "Current week (⌘T)" : {
+
+    },
+    "Date" : {
+
+    },
+    "Date (⌥⌘D)" : {
+
+    },
+    "day" : {
+
+    },
+    "days" : {
+
+    },
+    "Delete" : {
+
+    },
+    "Delete (⌫, or ⇧⌘⌫ while typing)" : {
+
+    },
+    "Delete subtask" : {
+
+    },
+    "Done" : {
+
+    },
+    "Duplicate" : {
+
+    },
+    "Duplicate  ⌘D" : {
+
+    },
+    "Ends" : {
+
+    },
+    "Everything this week is done." : {
+
+    },
+    "Expand %@" : {
+
+    },
+    "Expanded" : {
+
+    },
+    "Export Tasks…" : {
+
+    },
+    "Export Week as PDF…" : {
+
+    },
+    "Export…" : {
+
+    },
+    "Focus" : {
+
+    },
+    "Focus on one day: the selected one, else today (⇧⌘F)" : {
+
+    },
+    "Forgot password?" : {
+
+    },
+    "Go" : {
+
+    },
+    "Go to today" : {
+
+    },
+    "Has notes" : {
+
+    },
+    "Hidden by focus mode" : {
+
+    },
+    "Hide Sidebar" : {
+
+    },
+    "Hide the calendar" : {
+
+    },
+    "Import Tasks…" : {
+
+    },
+    "Import…" : {
+
+    },
+    "Lists today’s unfinished tasks in Plain Week." : {
+
+    },
+    "Lock" : {
+
+    },
+    "Lock Plain Week" : {
+
+    },
+    "Mark as done" : {
+
+    },
+    "Mark as Done" : {
+
+    },
+    "Mark as done and go to the next task" : {
+
+    },
+    "Mark as not done" : {
+
+    },
+    "Minimize to the mini timer" : {
+
+    },
+    "Minimize to the mini timer: %@" : {
+
+    },
+    "More" : {
+
+    },
+    "Move All to Next Week" : {
+
+    },
+    "Move to" : {
+
+    },
+    "New Backlog Task" : {
+
+    },
+    "New task · tomorrow call Joao @11:30 #yellow daily" : {
+
+    },
+    "New Task Today" : {
+
+    },
+    "Next month" : {
+
+    },
+    "Next Task" : {
+
+    },
+    "Next Week" : {
+
+    },
+    "Next Week  ⇧⌥⌘→" : {
+
+    },
+    "No tasks" : {
+
+    },
+    "Not done" : {
+
+    },
+    "Not understood" : {
+
+    },
+    "NOTES" : {
+
+    },
+    "Nothing done %@ yet." : {
+
+    },
+    "Nothing done yet." : {
+
+    },
+    "Nothing left for today." : {
+
+    },
+    "Nothing left to do on this day" : {
+
+    },
+    "Nothing matches “%@”." : {
+
+    },
+    "Nothing planned today." : {
+
+    },
+    "of each month" : {
+
+    },
+    "Off" : {
+
+    },
+    "On" : {
+
+    },
+    "Only This Task" : {
+
+    },
+    "Open Plain Week" : {
+
+    },
+    "Pause (Space)" : {
+
+    },
+    "Plain Week" : {
+
+    },
+    "Plain Week %@" : {
+
+    },
+    "Plain Week is locked." : {
+
+    },
+    "Planned %@" : {
+
+    },
+    "Planned: %@" : {
+
+    },
+    "Planned: %@, more than a working day" : {
+
+    },
+    "Previous month" : {
+
+    },
+    "Previous Task" : {
+
+    },
+    "Previous Week" : {
+
+    },
+    "Print Week…" : {
+
+    },
+    "Print…" : {
+
+    },
+    "Progress" : {
+
+    },
+    "Quick Add…  ⌥Space" : {
+
+    },
+    "Remind" : {
+
+    },
+    "Repeat" : {
+
+    },
+    "Resume (Space)" : {
+
+    },
+    "Save" : {
+
+    },
+    "Scroll or use the up and down arrows to switch tasks" : {
+
+    },
+    "Search and Commands…" : {
+
+    },
+    "Search tasks, days and commands" : {
+
+    },
+    "Selected: Done shows this day" : {
+
+    },
+    "Set Password and Unlock" : {
+
+    },
+    "Set Up…" : {
+
+    },
+    "Show" : {
+
+    },
+    "Show Day Panel" : {
+
+    },
+    "Show every done task" : {
+
+    },
+    "Show Plain Week" : {
+
+    },
+    "Show Sidebar" : {
+
+    },
+    "Show the calendar" : {
+
+    },
+    "Show Today’s Tasks" : {
+
+    },
+    "Skip the break" : {
+
+    },
+    "Skip to the break (the session will not count)" : {
+
+    },
+    "Start" : {
+
+    },
+    "Start the timer" : {
+
+    },
+    "Start the timer on “%@”" : {
+
+    },
+    "Start the timer on %@" : {
+
+    },
+    "Start Timer" : {
+
+    },
+    "Start Timer on Next Task" : {
+
+    },
+    "Starts the Plain Week timer on today’s next unfinished task." : {
+
+    },
+    "Still open" : {
+
+    },
+    "Stop" : {
+
+    },
+    "Stop repeating" : {
+
+    },
+    "Stop the timer" : {
+
+    },
+    "Sync Now" : {
+
+    },
+    "Takes" : {
+
+    },
+    "Task" : {
+
+    },
+    "There was nothing to add." : {
+
+    },
+    "This and All Future" : {
+
+    },
+    "This task no longer exists." : {
+
+    },
+    "Time" : {
+
+    },
+    "Time (⌥⌘T)" : {
+
+    },
+    "TIMER" : {
+
+    },
+    "Timer started on “%@”." : {
+
+    },
+    "Timer started." : {
+
+    },
+    "Today" : {
+
+    },
+    "Today’s Tasks" : {
+
+    },
+    "Tomorrow" : {
+
+    },
+    "Tomorrow  ⌥⌘→" : {
+
+    },
+    "Turn Off" : {
+
+    },
+    "Turn Off Focus Mode" : {
+
+    },
+    "Turn off focus mode (⇧⌘F)" : {
+
+    },
+    "Turn Off…" : {
+
+    },
+    "Turn On" : {
+
+    },
+    "Turn On Focus Mode" : {
+
+    },
+    "Undo" : {
+
+    },
+    "Unlock" : {
+
+    },
+    "Unlock Plain Week…" : {
+
+    },
+    "Untitled" : {
+
+    },
+    "Week %lld" : {
+
+    },
+    "Week %lld  ·  %@ – %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Week %1$lld  ·  %2$@ – %3$@"
+          }
+        }
+      }
+    },
+    "Weekly Review" : {
+
+    },
+    "What should I add?" : {
+
+    }
+  },
+  "version" : "1.0"
+}

@@ -75,6 +75,10 @@
     --task-green-foreground: oklch(0.147 0.004 49.25);
     --task-lilac: oklch(0.705 0.235 316.3);
     --task-lilac-foreground: oklch(0.147 0.004 49.25);
+    --task-red: oklch(0.577 0.215 27.3);
+    --task-red-foreground: oklch(0.985 0.001 106.423);
+    --task-orange: oklch(0.72 0.185 48);
+    --task-orange-foreground: oklch(0.147 0.004 49.25);
 }
 
 .dark {
@@ -137,6 +141,10 @@
     --task-green-foreground: oklch(0.147 0.004 49.25);
     --task-lilac: oklch(0.72 0.21 316.3);
     --task-lilac-foreground: oklch(0.147 0.004 49.25);
+    --task-red: oklch(0.637 0.215 27.3);
+    --task-red-foreground: oklch(0.985 0.001 106.423);
+    --task-orange: oklch(0.75 0.175 48);
+    --task-orange-foreground: oklch(0.147 0.004 49.25);
 }
 
 @layer base {
@@ -223,6 +231,10 @@
     --color-task-green-foreground: var(--task-green-foreground);
     --color-task-lilac: var(--task-lilac);
     --color-task-lilac-foreground: var(--task-lilac-foreground);
+    --color-task-red: var(--task-red);
+    --color-task-red-foreground: var(--task-red-foreground);
+    --color-task-orange: var(--task-orange);
+    --color-task-orange-foreground: var(--task-orange-foreground);
     --spacing-row: 2.625rem;
     --radius-sm: calc(var(--radius) * 0.6);
     --radius-md: calc(var(--radius) * 0.8);

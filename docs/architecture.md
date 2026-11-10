@@ -28,7 +28,7 @@ Same shape on the client and on the wire. Keys are `snake_case` both on the wire
 | `position`        | string                                                                                                                                                 | Fractional index key (npm `fractional-indexing`); order within a day or Someday column |
 | `done`            | boolean                                                                                                                                                |                                                                                        |
 | `done_at`         | ISO-8601 string \| `null`                                                                                                                              |                                                                                        |
-| `color`           | `'none'` \| `'pink'` \| `'yellow'` \| `'black'` \| `'grey'` \| `'cornflower'` \| `'mango'` \| `'green'` \| `'lilac'`                                   | Default `'none'`                                                                       |
+| `color`           | `'none'` \| `'pink'` \| `'yellow'` \| `'black'` \| `'grey'` \| `'cornflower'` \| `'mango'` \| `'green'` \| `'lilac'` \| `'red'` \| `'orange'`          | Default `'none'`                                                                       |
 | `time`            | `'HH:mm'` \| `null`                                                                                                                                    |                                                                                        |
 | `notes`           | string                                                                                                                                                 | Plain text; the UI makes its web links clickable                                       |
 | `subtasks`        | array of `{ id: string, text: string, done: boolean }`                                                                                                 | Stored as JSON                                                                         |
@@ -1038,7 +1038,7 @@ instead of failing.
 
 Validation (`App\Http\Requests\Sync\PushRequest`) rejects the whole batch with `422` if any record is invalid:
 `tasks` must be a list of at most 500 records; every field of the contract must be present; `id` a UUID; `date`
-`YYYY-MM-DD` or `null`; `someday_column` `0`–`2` and required when `date` is `null`; `color` one of the nine values;
+`YYYY-MM-DD` or `null`; `someday_column` `0`–`2` and required when `date` is `null`; `color` one of the eleven values;
 `time` `HH:mm` or `null`; `done` and subtask `done` real booleans; `subtasks` a list of `{ id, text, done }` (subtask
 `id` a string of at most 255 characters);
 timestamps exactly `YYYY-MM-DDTHH:mm:ss.sssZ` (what `Date.prototype.toISOString()` produces); `id` must be lowercase

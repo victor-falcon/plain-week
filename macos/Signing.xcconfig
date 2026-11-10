@@ -1,0 +1,22 @@
+// How the macOS app is signed.
+//
+// By default it is signed ad hoc ("Sign to Run Locally"): it builds and runs
+// without an Apple account. macOS then knows the app only by the hash of
+// this exact build, so every rebuild loses the Calendar, Reminders and
+// notification permissions and asks again.
+//
+// To keep them across builds, sign with your own Apple Development
+// certificate: create Local.xcconfig next to this file (it is ignored by git)
+// with, for example:
+//
+//   CODE_SIGN_IDENTITY = Apple Development
+//   DEVELOPMENT_TEAM = ABCDE12345
+//
+// (`security find-identity -v -p codesigning` lists your certificates; the
+// team is the OU in the certificate.)
+
+CODE_SIGN_STYLE = Manual
+CODE_SIGN_IDENTITY = -
+DEVELOPMENT_TEAM =
+
+#include? "Local.xcconfig"

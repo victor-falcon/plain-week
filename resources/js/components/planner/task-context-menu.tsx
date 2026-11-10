@@ -106,7 +106,7 @@ function MenuShortcut({ action }: { action: ShortcutId }) {
 /**
  * The context menu of a task row: right click on desktop, Shift+F10 or the
  * context menu key on a focused row, and a still long press on touch screens
- * (opened by `PlannerDnd`, see planner-dnd.tsx). The nine color swatches in
+ * (opened by `PlannerDnd`, see planner-dnd.tsx). The eleven color swatches in
  * two rows (five and four, like the dialog's color picker), the quick moves,
  * Duplicate and Delete. The actions are props so callers decide what each one
  * does.
@@ -165,7 +165,7 @@ export function TaskContextMenu({
                             onColorChange(value);
                         }
                     }}
-                    className="grid grid-cols-5 justify-items-center gap-1 px-1 pb-1"
+                    className="grid grid-cols-6 justify-items-center gap-1 px-1 pb-1"
                 >
                     {TASK_COLORS.map((color) => (
                         <ContextMenuRadioItem

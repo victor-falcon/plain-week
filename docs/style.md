@@ -1,7 +1,7 @@
 # Visual style
 
 Plain Week's look comes entirely from the shadcn preset `b3E9gactBi`. From Tweek we copy layout, measurements,
-behaviour and the nine task colors, never its palette, fonts, logo or copy.
+behaviour and the task colors, never its palette, fonts, logo or copy.
 
 ## The preset
 
@@ -393,7 +393,7 @@ a click outside closes it.
 | Time     | `Popover` + `Input type="time"` + `Button`        | Clock icon, plus the time once set ('HH:mm', 24-hour in storage); "Clear" (or emptying the field) removes it                                                                                                                                                                                      |
 | Delete   | `Button` + `Tooltip`, Sonner toast                | Deletes at once and closes; the toast's "Undo" puts back everything the delete changed (an `UndoLog`). No confirmation; a recurring task asks the scope first                                                                                                                                     |
 | Repeat   | `Popover` + `ToggleGroup` + `Select` + `Calendar` | Between Delete and Color, like Tweek. See [Recurring tasks](#recurring-tasks)                                                                                                                                                                                                                     |
-| Color    | `Popover` + `ToggleGroup` + `Tooltip`             | The icon is a dot of the current color; the nine swatches come from `TASK_COLOR_STYLES`, the current one checked                                                                                                                                                                                  |
+| Color    | `Popover` + `ToggleGroup` + `Tooltip`             | The icon is a dot of the current color; the eleven swatches (two rows of six and five) come from `TASK_COLOR_STYLES`, the current one checked                                                                                                                                                     |
 | More     | `DropdownMenu` + `Tooltip`                        | Tomorrow (day after the task's date), Next week (+7 days), Someday (end of the list; disabled for a Someday task), Duplicate. For a Someday task, Tomorrow and Next week count from today. Moves show a "Moved to …" toast with Undo                                                              |
 | Title    | `Textarea` (`field-sizing-content`)               | `text-2xl`, grows with the text, 1px `border-foreground/30` underline; Enter moves to the notes and pasted line breaks become spaces; an emptied title is put back on blur. Its web links are clickable like the notes'. The check at the end completes the task (done: muted and `line-through`) |
 | Notes    | `Textarea` (`LinkedTextField`)                    | Plain text, "Add some extra notes here…". While not edited, text with web links (`http(s)://`, `www.`) shows them underlined and clickable (new tab); a click elsewhere, Enter or `n` edits it again                                                                                              |
@@ -417,13 +417,13 @@ row, in the days and in Someday. The actions come in as props (`onColorChange`, 
 `onMoveToNextWeek`, `onMoveToSomeday`, `onDuplicate`, `onDelete`); `TaskRow` wires them to the shared task actions in
 `lib/planner/task-actions.ts`, which the task dialog uses too.
 
-| Part   | Behaviour                                                                                                                                                                                                                                                   |
-| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Colors | The nine swatches in two rows of five and four (`TaskColorSwatch`, as in the dialog's color picker), `menuitemradio` items with the current color checked; the swatch grid sets the menu's width; arrow keys move through it in order, like the other items |
-| Moves  | Tomorrow, Next week and Someday, as in the dialog's More menu, with a "Moved to …" toast and Undo; Someday is hidden for a Someday task                                                                                                                     |
-| Copy   | Duplicate (toast "Task duplicated."); the copy of a recurring task is a one-off task                                                                                                                                                                        |
-| Delete | After a separator, `variant="destructive"` (the translucent preset menu shows it in the accent color); deletes at once with an "Undo" toast                                                                                                                 |
-| Keys   | Each action shows its planner key (`>`, `w`, `s`, `y`, `d d`) for mouse users; pressing it while the menu is open picks the item                                                                                                                            |
+| Part   | Behaviour                                                                                                                                                                                                                                                    |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Colors | The eleven swatches in two rows of six and five (`TaskColorSwatch`, as in the dialog's color picker), `menuitemradio` items with the current color checked; the swatch grid sets the menu's width; arrow keys move through it in order, like the other items |
+| Moves  | Tomorrow, Next week and Someday, as in the dialog's More menu, with a "Moved to …" toast and Undo; Someday is hidden for a Someday task                                                                                                                      |
+| Copy   | Duplicate (toast "Task duplicated."); the copy of a recurring task is a one-off task                                                                                                                                                                         |
+| Delete | After a separator, `variant="destructive"` (the translucent preset menu shows it in the accent color); deletes at once with an "Undo" toast                                                                                                                  |
+| Keys   | Each action shows its planner key (`>`, `w`, `s`, `y`, `d d`) for mouse users; pressing it while the menu is open picks the item                                                                                                                             |
 
 On a recurring task, a color change and Delete ask the scope first (moves never do: they move only that task).
 
@@ -597,9 +597,10 @@ so the header text and row rules stay exactly where the other days have them. On
 
 ## Task colors
 
-Tasks can carry one of nine colors: `none`, `pink`, `yellow`, `black`, `grey`, `cornflower`, `mango`, `green`, `lilac`
-(see [architecture.md](./architecture.md)). They are the only colors not taken from the shadcn preset: they are copied
-from Tweek so tasks keep their meaning, and expressed as tokens like everything else.
+Tasks can carry one of eleven colors: `none`, `pink`, `yellow`, `black`, `grey`, `cornflower`, `mango`, `green`, `lilac`,
+`red`, `orange` (see [architecture.md](./architecture.md)). They are the only colors not taken from the shadcn preset: the
+first nine are copied from Tweek so tasks keep their meaning, red and orange were added on top, and all are expressed as
+tokens like everything else.
 
 Each color has a pill background `--task-<color>` and a text color `--task-<color>-foreground`, defined for light
 (`:root`) and dark (`.dark`) in `resources/css/app.css` and exposed to Tailwind as `bg-task-<color>` /
@@ -616,6 +617,8 @@ Each color has a pill background `--task-<color>` and a text color `--task-<colo
 | `mango`      | `oklch(0.813 0.164 74.6)`  | dark       | `oklch(0.8 0.16 74.6)`      | dark       | `#FFAF23`         |
 | `green`      | `oklch(0.888 0.193 160.4)` | dark       | `oklch(0.85 0.18 160.4)`    | dark       | `#21FFA1`         |
 | `lilac`      | `oklch(0.705 0.235 316.3)` | dark       | `oklch(0.72 0.21 316.3)`    | dark       | `#D95CFE`         |
+| `red`        | `oklch(0.577 0.215 27.3)`  | light      | `oklch(0.637 0.215 27.3)`   | light      | —                 |
+| `orange`     | `oklch(0.72 0.185 48)`     | dark       | `oklch(0.75 0.175 48)`      | dark       | —                 |
 
 "Dark" text is `oklch(0.147 0.004 49.25)` and "light" text `oklch(0.985 0.001 106.423)` (the preset's foreground and
 background), so the pill text is readable on either theme.

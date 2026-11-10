@@ -201,7 +201,7 @@ test('push rejects invalid records with 422', function (array $overrides, string
 
     expect(Task::count())->toBe(0);
 })->with([
-    'unknown color' => [['color' => 'red'], 'color'],
+    'unknown color' => [['color' => 'teal'], 'color'],
     'bad date' => [['date' => '15/10/2026'], 'date'],
     'someday without column' => [['date' => null, 'someday_column' => null], 'someday_column'],
     'someday column out of range' => [['date' => null, 'someday_column' => 3], 'someday_column'],

@@ -7,6 +7,77 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **Shift-click to tick a range on macOS.** Click one task's checkbox, then Shift-click another in the same day or
+  Backlog: every task in between gets the same state, as one undoable change.
+- **Click outside to close on macOS.** Clicking the planner behind an open task, weekly review or command palette
+  closes it; edits are already saved.
+- **Projects on macOS.** A Projects list in the sidebar: each project has a name and a color, and clicking one shows
+  its own week, Backlog and Done, where new tasks go into it. Tasks move between projects from their sheet or the
+  right-click menu, and zistemo tickets go into the project named after their zistemo project. Projects sync between
+  Macs and go into backups.
+- **zistemo sync on macOS (prototype).** Settings › Sync › zistemo brings your open zistemo time tickets in as
+  #zistemo tasks, keeps their done state in step both ways, and ▶ on one runs zistemo's live timer (a timer
+  started in zistemo runs here too). It works offline
+  (the time then goes to your timesheet later) and catches up at the next sync.
+- **Ready for Mac App Store review.** The macOS app ships a privacy manifest (no tracking, no data collected),
+  declares that it uses only exempt encryption, asks for notification permission the first time there is something
+  to notify rather than at launch, and its copyright reads "© 2026 Agacom".
+- **Red and orange task colors.** Two new colors in the pickers and the right-click menu, on the web and in the macOS
+  app, in light and dark. Sync and JSON import accept them.
+- **Native macOS app** (`macos/`). A SwiftUI version of the planner for macOS 14 and later, in a minimal,
+  type-led, monochrome style like Calendar on the Mac (task colors are the only color): a large month title, a strip of full-height rounded day cards (at least 400pt wide, up to seven
+  visible, scrolling sideways through past and future days by trackpad, mouse wheel or drag), and a closable sidebar
+  with the Backlog (the web app's Someday) and a Done list for the selected day, or every day, as folding sections,
+  over a foldable month calendar (click a date to show it). Notes are a small Markdown editor with writing keys (⌘B bold, ⌘1–4 headings,
+  ⌘T todo lines, ⌘E time, ⇧⌘C colors, ⌥⌘B block caret). Each row starts with a round
+  checkbox in the task's color and ends with the time and markers for notes and subtasks. Ticking a task plays a short burst (a ring and
+  flying dots, black or white with the theme) before it moves to the Archive, or a plain fade with Reduce Motion. New tasks read natural
+  words ("tomorrow call Joao @11:30 #yellow daily") with a live preview, and the task sheet works from the keyboard
+  alone (⌥⌘D date, ⌥⌘T time, ⌥⌘R repeat, ⌥⌘C color); completed tasks move to a folding Archive at the bottom of their day; a keyboard button in the task sheet's corner lists every shortcut in a panel that slides out of the sheet, and Settings › Shortcuts changes them. Each day shows a progress bar and a ▶ that starts a timer on
+  its next task in a floating mini window (title, checkbox, play / pause; scroll over it to move between the day's tasks, like a widget stack). A focus mode (⇧⌘F) blurs every day but
+  the one you click (today by default). The interface follows a small design system (type scale, motion, radii,
+  one button family), answers every press at once and honours Reduce Motion and Reduce Transparency. It has the eleven
+  task colors in light and dark, drag and drop, a task sheet with notes (pasted or dropped images show inline,
+  stored as files next to the tasks), subtasks, time and repeat rules (daily,
+  weekly, monthly, with "only this" or "this and all future"), carry over of unfinished tasks, undo, and JSON
+  export/import in the web app's format. Beyond the window: quick add from any app (⌥Space), a menu bar panel, reminders for timed tasks, Calendar events
+  in each day, time tracking and a Pomodoro mode (long breaks, session dots,
+  optional auto-start), a weekly review, a ⌘K command palette, Shortcuts and Siri, open at login, a day panel (one day in a 350pt full-height window docked left or right), task durations (with a planned total per day and Calendar events of that length), a reminder time per task, clickable links in notes, a Move to menu, repeating tasks in the Reminders list, a done-task clean-up, the week as a PDF or printed, welcome tasks on first launch, VoiceOver labels, a String Catalog and right-to-left arrows, a Settings window with a sidebar of panes and grouped rows, an app lock (password, auto-lock after 5 minutes, recovery by secret question plus Touch ID or the Mac password), daily
+  backups and vim keys. It stores tasks locally; Macs can sync through a folder in iCloud Drive, and optional mirrors
+  keep a "Plain Week" list in Reminders in step both ways and put timed tasks in a "Plain Week" calendar, so the
+  week reaches iPhone and Apple Watch. See
+  [macos/README.md](./macos/README.md).
+- **Filter by tag, priority and flag on macOS.** A Filter section at the top of the sidebar and a title bar button (⇧⌘L), with a header pill to clear it. Sidebar
+  section chevrons now line up at the right edge.
+- **Cleaner notes and a larger task window on macOS.** Markdown markers (`**`, `_`, `++`, `~~`, `#`, `==`) hide
+  except on the line being edited, and a toolbar button (⌥⌘E) makes the task window wider and taller for long notes. The toolbar is icons only;
+  what is set (date, time, repeat, place, priority, flag) shows as chips above the title instead of squeezing it.
+- **Tags, flags and priority on macOS.** In the task sheet, quick add (`!`–`!!!`, `#tag`), the rows and the right-click
+  menu; priority syncs with the Reminders list. Keys: ⌥⌘F, ⌥⌘0–3 and ⌥⌘G in the sheet; f, 0–3 and # on the selected
+  row.
+- **Task locations on macOS.** A place per task with Apple Maps suggestions, a pin on the row that opens Maps,
+  "@ address" in quick add, and the place on Calendar events (Reminders keeps no text location, so the Reminders list
+  leaves it out; reading back its blank used to clear the task's place). Street addresses in notes open
+  in Maps. The title bar's New Task button opens the new task's dialog, and a Settings button sits beside it.
+
+### Fixed
+
+- **Events added to the macOS "Plain Week" calendar were deleted.** Calendar publishing removed any event in that
+  calendar it had not made. Such events now become tasks instead.
+- **macOS Calendar events stop showing after an update.** When macOS forgot the app's Calendar or Reminders access
+  (a rebuilt or reinstalled app) while the settings stayed on, nothing showed or synced. The app now asks again at
+  launch.
+- **Typing "n" (and other planner keys) in a new-task field on macOS.** The planner's single-letter keys took the
+  letters while a text field had the cursor, and the day's "▶ Start" button covered the text being typed; it now
+  hides while you type in that day.
+- **macOS permissions asked again after every build.** An optional `macos/Local.xcconfig` now signs development
+  builds with your own certificate, so macOS keeps the Calendar, Reminders and notification permissions.
+- **macOS notifications are silent or missing.** The app only asked macOS for permission when the reminder setting
+  changed, so timer alerts and reminders were dropped. It now asks at launch, and Settings › Notifications says when
+  notifications or their sound are off, with a button to System Settings.
+
 ## [0.3.15] - 2026-11-08
 
 ### Added

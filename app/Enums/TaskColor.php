@@ -13,4 +13,6 @@ enum TaskColor: string
     case Mango = 'mango';
     case Green = 'green';
     case Lilac = 'lilac';
+    case Red = 'red';
+    case Orange = 'orange';
 }

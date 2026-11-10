@@ -107,6 +107,8 @@ describe('TaskContextMenu', () => {
             'Mango',
             'Green',
             'Lilac',
+            'Red',
+            'Orange',
         ]);
         expect(
             screen

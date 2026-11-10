@@ -61,6 +61,16 @@ export const TASK_COLOR_STYLES: Record<TaskColor, TaskColorStyle> = {
         pill: 'bg-task-lilac text-task-lilac-foreground',
         swatch: 'bg-task-lilac',
     },
+    red: {
+        label: 'Red',
+        pill: 'bg-task-red text-task-red-foreground',
+        swatch: 'bg-task-red',
+    },
+    orange: {
+        label: 'Orange',
+        pill: 'bg-task-orange text-task-orange-foreground',
+        swatch: 'bg-task-orange',
+    },
 };
 
 export function isTaskColor(value: string): value is TaskColor {
