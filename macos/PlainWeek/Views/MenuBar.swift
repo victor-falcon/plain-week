@@ -95,14 +95,13 @@ struct MenuBarView: View {
         .padding(14)
         .frame(width: 320)
         .tint(Theme.foreground)
-        .focusEffectDisabled()
     }
 
     private func row(_ item: PlannerItem, day: String) -> some View {
         HStack(spacing: 8) {
             Button { AppModel.shared.complete(item.id) } label: {
                 TaskCheckbox(color: item.task.color, done: item.task.done, size: 15)
-                    .frame(width: 24, height: 24).contentShape(Rectangle())
+                    .frame(width: 28, height: 28).contentShape(Rectangle()).padding(-2)
             }
             .help(item.task.done ? "Mark as not done" : "Mark as done")
             Text(item.task.text)
@@ -121,7 +120,7 @@ struct MenuBarView: View {
                     Image(systemName: "play.fill").font(.system(size: 8, weight: .bold))
                         .foregroundStyle(Theme.background)
                         .frame(width: 18, height: 18).background(Circle().fill(Theme.foreground))
-                        .frame(width: 24, height: 24).contentShape(Rectangle())
+                        .frame(width: 28, height: 28).contentShape(Rectangle()).padding(-2)
                 }
                 .help("Start the timer")
             }
@@ -152,7 +151,7 @@ struct MenuBarView: View {
             }
             Button { TimerActions.stop(timer: timer) } label: {
                 Image(systemName: "xmark").font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.mutedForeground)
-                    .frame(width: 24, height: 24).contentShape(Rectangle())
+                    .frame(width: 28, height: 28).contentShape(Rectangle()).padding(-2)
             }
         }
         .buttonStyle(.pressable)
@@ -165,7 +164,7 @@ struct MenuBarView: View {
         guard !quick.text.isEmpty else { return }
         let target = quick.targetDate(listDate: planner.today, today: planner.today)
         store.perform("New Task", undoManager: TimerActions.mainWindow?.undoManager) {
-            let id = store.create(text: quick.text, date: target, time: quick.time, duration: quick.duration, location: quick.location, tags: quick.tags, priority: quick.priority, color: quick.color ?? .none)
+            let id = store.create(text: quick.text, date: target, time: quick.time, duration: quick.duration, location: quick.location, tags: quick.tags, priority: quick.priority, color: quick.color ?? .none, project: planner.projectId)
             if let spec = quick.repeatSpec, let anchor = target { _ = try? store.setRecurrence(id, spec.rule(anchor: anchor)) }
         }
         text = ""

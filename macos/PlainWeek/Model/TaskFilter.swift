@@ -8,10 +8,14 @@ struct TaskFilter: Equatable {
     var tags: Set<String> = []
     var priorities: Set<TaskPriority> = []
     var flaggedOnly = false
+    /// The project being shown (the sidebar's Projects); nil: every task.
+    /// Not part of `isActive`: the filter pill and Clear leave it alone.
+    var project: String?
 
     var isActive: Bool { !tags.isEmpty || !priorities.isEmpty || flaggedOnly }
 
     func matches(_ task: PlainTask) -> Bool {
+        if let project, task.project_id != project { return false }
         if flaggedOnly, !task.flagged { return false }
         if !priorities.isEmpty, !priorities.contains(task.priority) { return false }
         if !tags.isEmpty, tags.isDisjoint(with: task.tags) { return false }
@@ -19,7 +23,7 @@ struct TaskFilter: Equatable {
     }
 
     func apply(_ items: [PlannerItem]) -> [PlannerItem] {
-        isActive ? items.filter { matches($0.task) } : items
+        isActive || project != nil ? items.filter { matches($0.task) } : items
     }
 
     /// "Flagged · !!! · #work", for the header pill.

@@ -14,14 +14,19 @@ final class FolderSync {
     static let prefix = "plain-week-sync-"
 
     @ObservationIgnored private let store: TaskStore
+    @ObservationIgnored private let projects: ProjectStore?
     @ObservationIgnored private var pending: DispatchWorkItem?
     @ObservationIgnored private var timer: Timer?
     private(set) var lastSync: Date?
     /// The folder's path, for Settings (nil when sync is off).
     private(set) var folderPath: String?
 
-    init(store: TaskStore) {
+    /// Projects travel in their own files, `plain-week-projects-<device>.json`.
+    static let projectsPrefix = "plain-week-projects-"
+
+    init(store: TaskStore, projects: ProjectStore? = nil) {
         self.store = store
+        self.projects = projects
         folderPath = folderURL?.path
     }
 
@@ -84,7 +89,34 @@ final class FolderSync {
         let scoped = folder.startAccessingSecurityScopedResource()
         defer { if scoped { folder.stopAccessingSecurityScopedResource() } }
         Self.sync(store: store, folder: folder, device: Self.deviceId)
+        if let projects { Self.syncProjects(projects, folder: folder, device: Self.deviceId) }
         lastSync = Date()
+    }
+
+    /// The same for projects: merge the other Macs' project files, then write
+    /// this one's. Returns how many projects changed here.
+    @discardableResult
+    static func syncProjects(_ projects: ProjectStore, folder: URL, device: String) -> Int {
+        let fm = FileManager.default
+        let own = projectsPrefix + device + ".json"
+        var changed = 0
+        for name in (try? fm.contentsOfDirectory(atPath: folder.path)) ?? [] {
+            if name.hasPrefix("." + projectsPrefix), name.hasSuffix(".icloud") {
+                let real = String(name.dropFirst().dropLast(".icloud".count))
+                try? fm.startDownloadingUbiquitousItem(at: folder.appendingPathComponent(real))
+                continue
+            }
+            guard name.hasPrefix(projectsPrefix), name.hasSuffix(".json"), name != own,
+                  let data = try? Data(contentsOf: folder.appendingPathComponent(name)),
+                  let rows = try? JSONDecoder().decode([Project].self, from: data) else { continue }
+            changed += projects.merge(rows)
+        }
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        if let data = try? encoder.encode(projects.allRows) {
+            try? data.write(to: folder.appendingPathComponent(own), options: .atomic)
+        }
+        return changed
     }
 
     /// Merges the other devices' files into `store`, then writes this device's.

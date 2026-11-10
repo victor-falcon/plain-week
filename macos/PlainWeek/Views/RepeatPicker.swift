@@ -33,6 +33,8 @@ struct RepeatPicker: View {
                         Button(value.rawValue) { withAnimation(Motion.standard) { kind = value } }
                             .keyboardShortcut(KeyEquivalent(Character("\(index)")), modifiers: [.command])
                     }
+                    // Keys only: Tab never lands on these invisible buttons.
+                    .focusable(false)
                     .opacity(0)
                     .allowsHitTesting(false)
                 }
@@ -102,7 +104,6 @@ struct RepeatPicker: View {
         }
         .padding(18)
         .frame(width: 340)
-        .focusEffectDisabled()
         .animation(Motion.standard, value: kind)
         .onAppear(perform: load)
     }
@@ -292,13 +293,15 @@ struct MonoPrimaryButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var isEnabled
 
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 13, weight: .semibold))
-            .foregroundStyle(isEnabled ? Theme.background : Theme.mutedForeground)
-            .padding(.horizontal, 18)
-            .frame(height: 30)
-            .background(Capsule().fill(isEnabled ? Theme.foreground : Theme.border))
-            .opacity(configuration.isPressed ? 0.8 : 1)
-            .contentShape(Capsule())
+        Hovering { hovering in
+            configuration.label
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(isEnabled ? Theme.background : Theme.mutedForeground)
+                .padding(.horizontal, 18)
+                .frame(height: 30)
+                .background(Capsule().fill(isEnabled ? Theme.foreground : Theme.border))
+                .opacity(configuration.isPressed ? 0.75 : hovering ? 0.88 : 1)
+                .contentShape(Capsule())
+        }
     }
 }

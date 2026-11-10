@@ -222,6 +222,38 @@ final class FocusTimerTests: XCTestCase {
         XCTAssertFalse(timer.isRunning)
     }
 
+    func testRowTitleLeavesOutItsProject() {
+        XCTAssertEqual(TaskRow.displayTitle("Audit · Northwind Module", project: "Northwind Module"), "Audit")
+        XCTAssertEqual(TaskRow.displayTitle("Audit · northwind module", project: "Northwind Module"), "Audit")
+        XCTAssertEqual(TaskRow.displayTitle("Audit · Other", project: "Northwind Module"), "Audit · Other")
+        XCTAssertEqual(TaskRow.displayTitle("Audit", project: nil), "Audit")
+        XCTAssertEqual(TaskRow.displayTitle(" · Northwind Module", project: "Northwind Module"), " · Northwind Module")
+    }
+
+    @MainActor
+    func testStackSwipeFollowsStepsAndStretchesAtTheEdge() {
+        let stepper = ScrollStepper()
+        // Towards a task: the travel is reported, then one step, then nothing more.
+        XCTAssertEqual(stepper.track(delta: -10, began: true, ended: false) { _ in true }, .drag(-10))
+        XCTAssertEqual(stepper.track(delta: -20, began: false, ended: false) { _ in true }, .step(1))
+        XCTAssertNil(stepper.track(delta: -20, began: false, ended: false) { _ in true })
+        XCTAssertEqual(stepper.track(delta: 0, began: false, ended: true) { _ in true }, .end)
+        // Against the edge: never a step, only travel.
+        XCTAssertEqual(stepper.track(delta: 40, began: true, ended: false) { _ in false }, .drag(40))
+        XCTAssertEqual(stepper.track(delta: 40, began: false, ended: false) { _ in false }, .drag(80))
+        // The stretch grows ever more slowly and stays under its limit.
+        XCTAssertLessThan(ScrollStepper.rubberBand(40), 40)
+        XCTAssertLessThan(ScrollStepper.rubberBand(400), 28)
+        XCTAssertGreaterThan(ScrollStepper.rubberBand(400), ScrollStepper.rubberBand(40))
+        XCTAssertEqual(ScrollStepper.rubberBand(-40), -ScrollStepper.rubberBand(40))
+    }
+
+    func testCalendarDaySummary() {
+        XCTAssertEqual(MiniCalendar.summary(open: 2, done: 1, events: 3), "2 to do, 1 done, 3 events")
+        XCTAssertEqual(MiniCalendar.summary(open: 0, done: 0, events: 1), "1 event")
+        XCTAssertEqual(MiniCalendar.summary(open: 0, done: 0, events: 0), "")
+    }
+
     func testFormat() {
         XCTAssertEqual(FocusTimer.format(5), "00:05")
         XCTAssertEqual(FocusTimer.format(754), "12:34")
@@ -934,6 +966,25 @@ final class GapFeatureTests: XCTestCase {
         XCTAssertEqual(Cleanup.run(store: store, today: "2026-11-10", keepDays: 0), 0, "forever keeps all")
     }
 
+    @MainActor
+    func testDoneTasksGoToTheDaysArchive() throws {
+        let store = TaskStore(fileURL: nil)
+        let day = "2026-11-09"
+        let a = store.create(text: "A", date: day)
+        let b = store.create(text: "B", date: day, time: "08:00")
+        let c = store.create(text: "C", date: day)
+        _ = store.toggleDone(b)
+        _ = store.toggleDone(a)
+        let items = try XCTUnwrap(store.days(from: day, to: day)[day])
+        // The open task first, then the done ones (timed before untimed).
+        XCTAssertEqual(items.map(\.task.text), ["C", "B", "A"])
+        XCTAssertEqual(items.first?.id, c)
+        let planner = PlannerModel(today: day)
+        XCTAssertEqual(planner.visibleItems(items, on: day).map(\.task.text), ["C"])
+        planner.toggleArchive(day)
+        XCTAssertEqual(planner.visibleItems(items, on: day).count, 3)
+    }
+
     func testWelcomeTasksAndWeekPDF() throws {
         let store = TaskStore(fileURL: nil)
         Welcome.add(to: store, today: "2026-11-10")
@@ -1117,5 +1168,64 @@ final class FilterTests: XCTestCase {
         planner.cursor = Cursor(day: planner.today, index: 0)
         KeyboardNav.handle("\r", store: store, planner: planner, timer: FocusTimer(), undoManager: nil)
         XCTAssertEqual(planner.openTask?.id, shown)
+    }
+}
+
+@MainActor
+final class ShortcutsTests: XCTestCase {
+    private func makeShortcuts() -> (Shortcuts, UserDefaults) {
+        let name = "shortcuts-tests-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: name)!
+        addTeardownBlock { defaults.removePersistentDomain(forName: name) }
+        return (Shortcuts(defaults: defaults), defaults)
+    }
+
+    func testDisplay() {
+        XCTAssertEqual(KeyCombo("d", command: true, option: true).display, "⌥⌘D")
+        XCTAssertEqual(KeyCombo("right", command: true, option: true, shift: true).display, "⌥⇧⌘→")
+        XCTAssertEqual(KeyCombo("return", command: true).display, "⌘↩")
+        XCTAssertEqual(KeyCombo("s", command: true, control: true).display, "⌃⌘S")
+    }
+
+    func testDefaultsDoNotCollide() {
+        let combos = ShortcutAction.allCases.map(\.defaultCombo)
+        XCTAssertEqual(Set(combos).count, combos.count)
+        let (shortcuts, _) = makeShortcuts()
+        for action in ShortcutAction.allCases {
+            XCTAssertNil(shortcuts.problem(with: action.defaultCombo, for: action), action.rawValue)
+        }
+    }
+
+    func testChangeIsRememberedAndFound() {
+        let (shortcuts, defaults) = makeShortcuts()
+        let combo = KeyCombo("j", command: true, control: true)
+        XCTAssertNil(shortcuts.set(combo, for: .date))
+        XCTAssertEqual(shortcuts.label(.date), "⌃⌘J")
+        XCTAssertTrue(shortcuts.isCustom(.date))
+        XCTAssertEqual(shortcuts.action(for: combo, in: .task), .date)
+        XCTAssertNil(shortcuts.action(for: ShortcutAction.date.defaultCombo, in: .task))
+        XCTAssertEqual(Shortcuts(defaults: defaults).combo(.date), combo)
+    }
+
+    func testRefusesBadCombos() {
+        let (shortcuts, _) = makeShortcuts()
+        XCTAssertEqual(shortcuts.set(KeyCombo("j", option: true), for: .date), .needsCommand)
+        XCTAssertEqual(shortcuts.set(KeyCombo("c", command: true), for: .date), .reserved)
+        XCTAssertEqual(shortcuts.set(KeyCombo("2", command: true), for: .bold), .reserved)
+        XCTAssertEqual(shortcuts.set(KeyCombo("b", command: true), for: .date), .taken("Bold"))
+        XCTAssertFalse(shortcuts.isCustom(.date))
+    }
+
+    func testResetGivesTheDefaultBack() {
+        let (shortcuts, _) = makeShortcuts()
+        // Date moves away, Time takes Date's old keys, then Date is reset.
+        XCTAssertNil(shortcuts.set(KeyCombo("j", command: true, control: true), for: .date))
+        XCTAssertNil(shortcuts.set(ShortcutAction.date.defaultCombo, for: .time))
+        shortcuts.reset(.date)
+        XCTAssertEqual(shortcuts.combo(.date), ShortcutAction.date.defaultCombo)
+        XCTAssertEqual(shortcuts.combo(.time), ShortcutAction.time.defaultCombo)
+        XCTAssertNil(shortcuts.set(KeyCombo("k", command: true, control: true), for: .flag))
+        shortcuts.resetAll()
+        XCTAssertFalse(shortcuts.hasChanges)
     }
 }

@@ -30,9 +30,16 @@ enum Theme {
         return NSColor(srgbRed: gamma(r), green: gamma(g), blue: gamma(bl), alpha: alpha)
     }
 
-    static func dynamic(light: NSColor, dark: NSColor) -> Color {
+    /// `lightContrast` / `darkContrast` replace the colors while Increase
+    /// Contrast is on (System Settings › Accessibility › Display).
+    static func dynamic(light: NSColor, dark: NSColor, lightContrast: NSColor? = nil, darkContrast: NSColor? = nil) -> Color {
         Color(nsColor: NSColor(name: nil) { appearance in
-            appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? dark : light
+            let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            // The app's own Light / Dark setting fixes the appearance, which
+            // drops the system's high-contrast variant: ask the system too.
+            let highContrast = NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast
+            if highContrast, let stronger = isDark ? darkContrast : lightContrast { return stronger }
+            return isDark ? dark : light
         })
     }
 
@@ -43,8 +50,14 @@ enum Theme {
     static let foreground = dynamic(light: hex(0x2C2C2B), dark: hex(0xF0EFED))
     static let secondary = dynamic(light: hex(0xF1F1EF), dark: hex(0x2A2A2A))
     static let muted = dynamic(light: hex(0xF6F5F4), dark: hex(0x252525))
-    static let mutedForeground = dynamic(light: hex(0x73726E), dark: hex(0x9B9B9B))
-    static let border = dynamic(light: hex(0xEEEEEC), dark: hex(0xFFFFFF, alpha: 0.094))
+    /// Grey text and hairlines get stronger with Increase Contrast.
+    static let mutedForeground = dynamic(light: hex(0x73726E), dark: hex(0x9B9B9B),
+                                         lightContrast: hex(0x4A4946), darkContrast: hex(0xC8C8C8))
+    static let border = dynamic(light: hex(0xEEEEEC), dark: hex(0xFFFFFF, alpha: 0.094),
+                                lightContrast: hex(0x9E9D99), darkContrast: hex(0xFFFFFF, alpha: 0.4))
+    /// Errors and warnings.
+    static let danger = dynamic(light: hex(0xC4302B), dark: hex(0xFF6B63),
+                                lightContrast: hex(0x9C1B17), darkContrast: hex(0xFF8A84))
     static let primary = dynamic(light: oklch(0.488, 0.243, 264.376), dark: oklch(0.424, 0.199, 265.638))
     /// The interface is monochrome, like Calendar on the Mac: black, white
     /// and greys. Task colors are the only color, so the accent (today, the
@@ -61,8 +74,9 @@ enum Theme {
     static let weekendCard = dynamic(light: hex(0xF6F5F4), dark: hex(0x1E1E1E))
     /// The border of the selected day card: #F0F0F0 in light mode, #424242 in dark.
     static let selectedDayBorder = dynamic(light: hex(0xF0F0F0), dark: hex(0x424242))
-    /// Row hover and pressed states.
+    /// Row hover, and (stronger) a row under a pressed mouse button.
     static let hover = dynamic(light: hex(0x37352F, alpha: 0.06), dark: hex(0xFFFFFF, alpha: 0.055))
+    static let pressed = dynamic(light: hex(0x37352F, alpha: 0.12), dark: hex(0xFFFFFF, alpha: 0.11))
 
     /// Task rows (and empty rows), 50pt; a title that wraps grows its row.
     static let rowHeight: CGFloat = 50
@@ -172,6 +186,53 @@ struct PressableButtonStyle: ButtonStyle {
             .scaleEffect(configuration.isPressed && !Motion.reduceMotion ? 0.92 : 1)
             .opacity(configuration.isPressed ? 0.7 : 1)
             .animation(Motion.quick, value: configuration.isPressed)
+    }
+}
+
+/// Press feedback for views that act on a tap gesture rather than a button
+/// (rows, headers): `pressed` is true from mouse-down until the button lifts
+/// or the pointer drags away, and resets itself if a drag takes over.
+struct PressState: ViewModifier {
+    @GestureState private var pressed = false
+    var onChange: (Bool) -> Void
+
+    func body(content: Content) -> some View {
+        content
+            .simultaneousGesture(LongPressGesture(minimumDuration: 60).updating($pressed) { value, state, _ in state = value })
+            .onChange(of: pressed) { _, value in onChange(value) }
+    }
+}
+
+extension View {
+    /// Reports mouse-down and release on a tap-gesture view, without taking the tap.
+    func onPressChange(_ action: @escaping (Bool) -> Void) -> some View { modifier(PressState(onChange: action)) }
+
+    /// Dims while pressed, like the app's buttons.
+    func pressDim() -> some View { modifier(PressDim()) }
+}
+
+private struct PressDim: ViewModifier {
+    @State private var pressed = false
+    func body(content: Content) -> some View {
+        content
+            .opacity(pressed ? 0.6 : 1)
+            .animation(Motion.quick, value: pressed)
+            .onPressChange { pressed = $0 }
+    }
+}
+
+/// Tells its content whether the pointer is over it. Button styles cannot
+/// hold state themselves, so the shared styles read hover through this.
+struct Hovering<Content: View>: View {
+    @ViewBuilder var content: (Bool) -> Content
+    @State private var hovering = false
+    @Environment(\.isEnabled) private var isEnabled
+
+    var body: some View {
+        // A disabled control does not answer the pointer.
+        content(hovering && isEnabled)
+            .onHover { hovering = $0 }
+            .animation(Motion.quick, value: hovering)
     }
 }
 

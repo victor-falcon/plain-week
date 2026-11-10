@@ -24,7 +24,7 @@ enum Backups {
         guard force || enabled, let folder else { return nil }
         let url = folder.appendingPathComponent(fileName(today))
         guard force || !FileManager.default.fileExists(atPath: url.path) else { return nil }
-        let file = store.exportFile(appVersion: appVersion)
+        let file = store.exportFile(appVersion: appVersion, projects: AppModel.shared.projects.projects)
         guard !file.tasks.isEmpty else { return nil }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]

@@ -26,8 +26,21 @@ final class PlannerModel {
     private(set) var today: String
     var weekStart: String
     var openTask: OpenTask?
-    /// Which tasks the planner shows (tags, priority, flagged); not saved.
-    var filter = TaskFilter()
+    /// Which tasks the planner shows: the chosen project, then tags,
+    /// priority and flagged (`filterParts`, not saved). Setting it (the
+    /// filter controls, Clear) never changes the project.
+    var filter: TaskFilter {
+        get { var f = filterParts; f.project = projectId; return f }
+        set { filterParts = newValue; filterParts.project = nil }
+    }
+    private var filterParts = TaskFilter()
+    /// The project whose week the planner shows; nil: every task (remembered).
+    var projectId: String? = PlannerModel.underTest ? nil : UserDefaults.standard.string(forKey: "selectedProject") {
+        didSet { if !Self.underTest { UserDefaults.standard.set(projectId, forKey: "selectedProject") } }
+    }
+    /// Unit tests run inside the app and share its preferences: they start on
+    /// "All tasks" whatever project is chosen in the app, and never change it.
+    private static let underTest = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
     /// The filter popover (View › Filter…, ⇧⌘L).
     var showFilter = false
     var toast: Toast?
@@ -36,6 +49,8 @@ final class PlannerModel {
     /// The day picked by clicking its header; the Done section shows its
     /// completed tasks, or every completed task when nil.
     var selectedDay: String?
+    /// The last checkbox clicked, for Shift-click ranges (not observed).
+    @ObservationIgnored var checkAnchor: CheckAnchor?
     /// The keyboard cursor (vim keys); nil while hidden.
     var cursor: Cursor?
     /// The first "d" of "d d" (delete), waiting a second for the second one.
@@ -70,6 +85,21 @@ final class PlannerModel {
         }
     }
 
+    /// Days whose Archive (the completed tasks at the bottom of the card) is open.
+    var expandedArchives: Set<String> = []
+
+    func archiveExpanded(_ day: String) -> Bool { expandedArchives.contains(day) }
+
+    func toggleArchive(_ day: String) {
+        if expandedArchives.contains(day) { expandedArchives.remove(day) } else { expandedArchives.insert(day) }
+    }
+
+    /// The tasks of a day that show as rows: the completed ones only while
+    /// its Archive is open.
+    func visibleItems(_ items: [PlannerItem], on day: String) -> [PlannerItem] {
+        archiveExpanded(day) ? items : items.filter { !$0.task.done }
+    }
+
     /// Selects a day, or clears the selection when it is already selected.
     func select(_ day: String) { selectedDay = selectedDay == day ? nil : day }
 
@@ -83,6 +113,13 @@ final class PlannerModel {
     }
 
     /// Which sidebar sections are open (remembered across launches).
+    /// The sidebar's Filter section, above the Backlog (closed at first).
+    var projectsExpanded: Bool = UserDefaults.standard.object(forKey: "projectsExpanded") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(projectsExpanded, forKey: "projectsExpanded") }
+    }
+    var filterExpanded: Bool = UserDefaults.standard.bool(forKey: "filterExpanded") {
+        didSet { UserDefaults.standard.set(filterExpanded, forKey: "filterExpanded") }
+    }
     var backlogExpanded: Bool = UserDefaults.standard.object(forKey: "backlogExpanded") as? Bool ?? true {
         didSet { UserDefaults.standard.set(backlogExpanded, forKey: "backlogExpanded") }
     }
@@ -218,5 +255,34 @@ extension TaskStore {
         if moved > 0 {
             planner.show("Moved \(moved) unfinished \(moved == 1 ? "task" : "tasks") to today")
         }
+    }
+}
+
+/// A checkbox click to extend with Shift-click: the list it was in and that
+/// list's order at the time (a checked task moves to the day's Archive, so
+/// the order is kept from before it moved).
+struct CheckAnchor {
+    var listKey: String
+    var id: String
+    var order: [String]
+
+    /// The ids from the anchor to `id`, both included, in list order; nil
+    /// when `id` was not in the anchor's list.
+    func range(to id: String) -> [String]? {
+        guard let a = order.firstIndex(of: self.id), let b = order.firstIndex(of: id) else { return nil }
+        return Array(order[min(a, b)...max(a, b)])
+    }
+}
+
+extension TaskStore {
+    /// Marks every task of `ids` done (or not); returns how many changed.
+    @discardableResult
+    func setDone(_ ids: [String], _ done: Bool) -> Int {
+        var changed = 0
+        for id in ids where item(id).map({ $0.task.done != done && $0.kind != .series }) == true {
+            update(id, TaskPatch(done: done), scope: .this)
+            changed += 1
+        }
+        return changed
     }
 }

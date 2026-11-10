@@ -17,11 +17,8 @@ struct FilterButton: View {
 
 struct FilterPopover: View {
     @Environment(PlannerModel.self) private var planner
-    @Environment(TaskStore.self) private var store
 
     var body: some View {
-        @Bindable var planner = planner
-        let tags = Tags.all(in: store)
         VStack(alignment: .leading, spacing: 14) {
             HStack {
                 Text("Show").font(.system(size: 13, weight: .semibold))
@@ -30,7 +27,22 @@ struct FilterPopover: View {
                     .buttonStyle(PillButtonStyle())
                     .disabled(!planner.filter.isActive)
             }
+            FilterControls()
+        }
+        .padding(14)
+        .frame(width: 300)
+    }
+}
 
+/// The filter's choices, in the popover and in the sidebar's Filter section.
+struct FilterControls: View {
+    @Environment(PlannerModel.self) private var planner
+    @Environment(TaskStore.self) private var store
+
+    var body: some View {
+        @Bindable var planner = planner
+        let tags = Tags.all(in: store)
+        VStack(alignment: .leading, spacing: 14) {
             Toggle(isOn: $planner.filter.flaggedOnly.animation(Motion.standard)) {
                 Label("Flagged only", systemImage: "flag.fill")
             }
@@ -38,7 +50,7 @@ struct FilterPopover: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 Text("Priority").font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.mutedForeground)
-                HStack(spacing: 6) {
+                FlowLayout(spacing: 6) {
                     ForEach([TaskPriority.high, .medium, .low, .none]) { priority in
                         chip(priority == .none ? "None" : "\(priority.marks) \(priority.label)",
                              on: planner.filter.priorities.contains(priority)) {
@@ -66,8 +78,6 @@ struct FilterPopover: View {
                 }
             }
         }
-        .padding(14)
-        .frame(width: 300)
     }
 
     private func chip(_ text: String, on: Bool, action: @escaping () -> Void) -> some View {

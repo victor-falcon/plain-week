@@ -10,6 +10,7 @@ final class AppModel {
     static let shared = AppModel()
 
     let store: TaskStore
+    let projects: ProjectStore
     let planner = PlannerModel()
     let timer = FocusTimer()
     let timeLog: TimeLog
@@ -18,16 +19,19 @@ final class AppModel {
     let folderSync: FolderSync
     let remindersMirror: RemindersMirror
     let calendarPublisher: CalendarPublisher
+    let zistemo: ZistemoSync
     let lock: AppLock
     private var launched = false
 
     private init() {
         store = TaskStore(fileURL: Self.dataFileURL)
+        projects = ProjectStore(fileURL: Self.dataFileURL.flatMap { $0.deletingLastPathComponent().appendingPathComponent("projects.json") })
         timeLog = TimeLog(fileURL: Self.dataFileURL.flatMap { $0.deletingLastPathComponent().appendingPathComponent("time.json") })
         reminders = Reminders(store: store)
-        folderSync = FolderSync(store: store)
+        folderSync = FolderSync(store: store, projects: projects)
         remindersMirror = RemindersMirror(store: store)
         calendarPublisher = CalendarPublisher(store: store)
+        zistemo = ZistemoSync(store: store, projects: projects, fileURL: Self.dataFileURL.flatMap { $0.deletingLastPathComponent().appendingPathComponent("zistemo.json") })
         lock = AppLock(fileURL: Self.dataFileURL.flatMap { $0.deletingLastPathComponent().appendingPathComponent("lock.json") })
     }
 
@@ -79,7 +83,15 @@ final class AppModel {
         lock.start()
         store.carryOverIfEnabled(today: planner.today, planner: planner)
 
-        timer.onLog = { taskId, seconds, start, finished in timeLog.add(taskId, seconds: seconds, start: start, pomodoro: finished) }
+        let zistemo = zistemo
+        timer.onLog = { taskId, seconds, start, finished in
+            timeLog.add(taskId, seconds: seconds, start: start, pomodoro: finished)
+            if !Self.isSnapshot { zistemo.logTime(taskId, seconds: seconds, start: start) }
+        }
+        zistemo.timer = timer
+        timer.onChange = { [timer] in
+            if !Self.isSnapshot { zistemo.timerChanged(taskId: timer.taskId, working: timer.isWorking) }
+        }
         timer.onPhaseEnd = { [timer] ended in
             let next = timer.autoStart ? "" : " Press play when you are ready."
             switch ended {
@@ -104,9 +116,12 @@ final class AppModel {
             folderSync.scheduleSoon()
             remindersMirror.scheduleSoon()
             calendarPublisher.scheduleSoon()
+            zistemo.scheduleSoon()
         }
+        projects.onSave = { [weak self] in self?.folderSync.scheduleSoon() }
         folderSync.start()
         remindersMirror.start()
+        zistemo.startPolling()
         askAgainIfAccessWasLost()
         syncAll()
         NotificationCenter.default.addObserver(forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main) { _ in
@@ -138,6 +153,8 @@ final class AppModel {
         folderSync.syncNow()
         remindersMirror.syncNow()
         calendarPublisher.syncNow()
+        zistemo.syncNow()
+        Task { await zistemo.pollTimer() }
     }
 
     /// Marks a task done from outside the window (notification, menu bar).

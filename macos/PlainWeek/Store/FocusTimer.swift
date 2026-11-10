@@ -48,6 +48,12 @@ final class FocusTimer {
     @ObservationIgnored var onLog: ((String, TimeInterval, Date, Bool) -> Void)?
     /// Called when a Pomodoro phase ends, with the phase that ended.
     @ObservationIgnored var onPhaseEnd: ((Phase) -> Void)?
+    /// Called after the task, running state or phase changes (after any
+    /// `onLog` for the time before it).
+    @ObservationIgnored var onChange: (() -> Void)?
+
+    /// Work time is being counted: running, and not in a break.
+    var isWorking: Bool { isRunning && phase == .work }
     @ObservationIgnored private var logged: TimeInterval = 0
     @ObservationIgnored private var segmentStart: Date?
     @ObservationIgnored private var ticker: Timer?
@@ -119,8 +125,9 @@ final class FocusTimer {
     /// What the clock shows: time spent (stopwatch) or time left (Pomodoro).
     func display(at date: Date? = nil) -> TimeInterval { mode == .pomodoro ? remaining(at: date) : elapsed(at: date) }
 
-    /// Starts timing `taskId` from zero, in the mode chosen in Settings.
-    func start(_ taskId: String, day: String?, mode: Mode? = nil) {
+    /// Starts timing `taskId` from zero (or from `since`, for a timer that
+    /// started elsewhere), in the mode chosen in Settings.
+    func start(_ taskId: String, day: String?, mode: Mode? = nil, since: Date? = nil) {
         flush()
         self.taskId = taskId
         self.day = day
@@ -129,10 +136,11 @@ final class FocusTimer {
         completedSessions = 0
         accumulated = 0
         logged = 0
-        runningSince = now()
+        runningSince = min(since ?? now(), now())
         segmentStart = runningSince
         isRunning = true
         startTicker()
+        onChange?()
     }
 
     func pause() {
@@ -142,6 +150,7 @@ final class FocusTimer {
         runningSince = nil
         isRunning = false
         refreshClock()
+        onChange?()
     }
 
     func resume() {
@@ -150,6 +159,7 @@ final class FocusTimer {
         segmentStart = runningSince
         isRunning = true
         startTicker()
+        onChange?()
     }
 
     func toggle() { isRunning ? pause() : resume() }
@@ -167,6 +177,7 @@ final class FocusTimer {
             runningSince = isRunning ? now() : nil
         }
         refreshClock()
+        onChange?()
     }
 
     /// Follows the task to a new id without touching the clock.
@@ -185,6 +196,7 @@ final class FocusTimer {
         runningSince = nil
         isRunning = false
         refreshClock()
+        onChange?()
     }
 
     /// Checks the Pomodoro clock: at the end of a phase, records the focus
@@ -213,6 +225,7 @@ final class FocusTimer {
             isRunning = false
         }
         onPhaseEnd?(ended)
+        onChange?()
     }
 
     /// Skips the rest of the current phase (a break you do not need, or a
@@ -227,6 +240,7 @@ final class FocusTimer {
         segmentStart = runningSince
         isRunning = true
         startTicker()
+        onChange?()
     }
 
     /// Hands the focus time not yet recorded to `onLog` (breaks are not work).
@@ -259,14 +273,15 @@ final class FocusTimer {
 }
 
 extension TaskStore {
-    /// The day's unfinished tasks in display order (timed first).
-    func openTasks(on day: String) -> [PlannerItem] {
-        (days(from: day, to: day)[day] ?? []).filter { !$0.task.done }
+    /// The day's unfinished tasks in display order (timed first), within
+    /// what `filter` shows (the planner's project and filter).
+    func openTasks(on day: String, filter: TaskFilter = TaskFilter()) -> [PlannerItem] {
+        filter.apply(days(from: day, to: day)[day] ?? []).filter { !$0.task.done }
     }
 
     /// Done and total tasks of a day, for its progress bar.
-    func progress(on day: String) -> (done: Int, total: Int) {
-        let items = days(from: day, to: day)[day] ?? []
+    func progress(on day: String, filter: TaskFilter = TaskFilter()) -> (done: Int, total: Int) {
+        let items = filter.apply(days(from: day, to: day)[day] ?? [])
         return (items.filter(\.task.done).count, items.count)
     }
 }

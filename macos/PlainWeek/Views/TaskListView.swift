@@ -3,7 +3,9 @@ import SwiftUI
 
 /// One list (a day or Someday): its tasks, the new-task row right after them
 /// and empty ruled rows up to `minRows`. Someday flows through `columns`
-/// columns, top to bottom, then left to right.
+/// columns, top to bottom, then left to right. A day keeps its completed
+/// tasks below the new-task row, in an Archive section that folds (closed
+/// until asked for).
 struct TaskListView: View {
     var listKey: String
     /// nil for Someday.
@@ -17,19 +19,43 @@ struct TaskListView: View {
     @Environment(\.undoManager) private var undoManager
 
     private enum Slot: Hashable {
-        case task(Int), new, empty(Int)
+        case task(Int), new, archive, empty(Int)
     }
+
+    /// A slot with a lasting identity: a task row is its task, not its place
+    /// in the list, so a row that changes place (ticked into the Archive,
+    /// moved, re-sorted) travels there instead of swapping its contents.
+    private struct Entry: Identifiable {
+        var id: String
+        var slot: Slot
+    }
+
+    private func entries(_ slots: some Sequence<Slot>) -> [Entry] {
+        slots.map { slot in
+            switch slot {
+            case let .task(index): Entry(id: "task-" + items[index].id, slot: slot)
+            case .new: Entry(id: "new", slot: slot)
+            case .archive: Entry(id: "archive", slot: slot)
+            case let .empty(index): Entry(id: "empty-\(index)", slot: slot)
+            }
+        }
+    }
+
+    /// A day's completed tasks go to its Archive; the Backlog shows its own in place.
+    private func archived(_ item: PlannerItem) -> Bool { date != nil && item.task.done }
+    private var archiveCount: Int { items.filter(archived).count }
+    private var archiveOpen: Bool { date.map(planner.archiveExpanded) ?? false }
 
     var body: some View {
         let slots = makeSlots()
         if columns == 1 {
-            VStack(spacing: 0) { ForEach(slots, id: \.self, content: slotView) }
+            VStack(spacing: 0) { ForEach(entries(slots)) { slotView($0.slot) } }
         } else {
             let perColumn = Int((Double(slots.count) / Double(columns)).rounded(.up))
             HStack(alignment: .top, spacing: 16) {
                 ForEach(0..<columns, id: \.self) { column in
                     VStack(spacing: 0) {
-                        ForEach(Array(slots.dropFirst(column * perColumn).prefix(perColumn)), id: \.self, content: slotView)
+                        ForEach(entries(slots.dropFirst(column * perColumn).prefix(perColumn))) { slotView($0.slot) }
                     }
                     .frame(maxWidth: .infinity, alignment: .top)
                 }
@@ -37,9 +63,18 @@ struct TaskListView: View {
         }
     }
 
+    /// The tasks as shown: open ones, then the day's Archive.
+    private var visualOrder: [String] {
+        items.filter { !archived($0) }.map(\.id) + items.filter(archived).map(\.id)
+    }
+
     private func makeSlots() -> [Slot] {
-        var slots: [Slot] = items.indices.map { .task($0) }
+        var slots: [Slot] = items.indices.filter { !archived(items[$0]) }.map { .task($0) }
         slots.append(.new)
+        if archiveCount > 0 {
+            slots.append(.archive)
+            if archiveOpen { slots += items.indices.filter { archived(items[$0]) }.map { .task($0) } }
+        }
         let total = max(slots.count, minRows * columns)
         let rounded = columns == 1 ? total : Int((Double(total) / Double(columns)).rounded(.up)) * columns
         for i in slots.count..<rounded { slots.append(.empty(i)) }
@@ -51,18 +86,23 @@ struct TaskListView: View {
         switch slot {
         case let .task(index):
             TaskRow(item: items[index], listDate: date, onDrop: { id, below in drop(id, at: below ? index + 1 : index) },
-                    isCursor: date.map { planner.cursor == Cursor(day: $0, index: index) } ?? false)
+                    isCursor: date.map { planner.cursor == Cursor(day: $0, index: index) } ?? false,
+                    listKey: listKey, listOrder: visualOrder)
                 // A hairline between tasks (not above the first).
                 .overlay(alignment: .top) {
-                    if index > 0 { Rectangle().fill(Theme.border).frame(height: 1).padding(.horizontal, 6).allowsHitTesting(false) }
+                    if index != items.firstIndex(where: { !archived($0) }) { Rectangle().fill(Theme.border).frame(height: 1).padding(.horizontal, 6).allowsHitTesting(false) }
                 }
         case .new:
-            NewTaskRow(listKey: listKey, date: date, focus: focus, afterId: items.last?.id)
+            NewTaskRow(listKey: listKey, date: date, focus: focus, afterId: items.last { !archived($0) }?.id)
                 .dropDestination(for: String.self) { ids, _ in
                     guard let id = ids.first else { return false }
                     drop(id, at: items.count)
                     return true
                 }
+        case .archive:
+            if let date { ArchiveHeader(count: archiveCount, expanded: archiveOpen) {
+                withAnimation(Motion.standard) { planner.toggleArchive(date) }
+            } }
         case .empty:
             RuledRow()
                 .contentShape(Rectangle())
@@ -87,6 +127,41 @@ struct TaskListView: View {
         store.perform("Move Task", undoManager: undoManager) {
             _ = store.move(id, to: date, afterId: after, beforeId: before)
         }
+    }
+}
+
+/// "Archive 3 ›" under a day's tasks: folds the completed ones in and out.
+struct ArchiveHeader: View {
+    var count: Int
+    var expanded: Bool
+    var toggle: () -> Void
+
+    var body: some View {
+        Button(action: toggle) {
+            HStack(spacing: 6) {
+                Image(systemName: "archivebox")
+                    .font(.system(size: 11, weight: .semibold))
+                Text("Archive")
+                    .font(.system(size: 12, weight: .semibold))
+                Text("\(count)")
+                    .font(.system(size: 12, weight: .medium).monospacedDigit())
+                    .opacity(0.7)
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.forward")
+                    .font(.system(size: 10, weight: .bold))
+                    .rotationEffect(.degrees(expanded ? 90 : 0))
+            }
+            .foregroundStyle(Theme.mutedForeground)
+            .padding(.horizontal, 8)
+            .frame(height: 36)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.pressable)
+        .padding(.top, 6)
+        .overlay(alignment: .top) { Rectangle().fill(Theme.border).frame(height: 1).padding(.horizontal, 6).padding(.top, 6) }
+        .help(expanded ? "Hide the completed tasks" : "Show the \(count) completed \(count == 1 ? "task" : "tasks")")
+        .accessibilityLabel("Archive, \(count) completed")
+        .accessibilityValue(expanded ? "Expanded" : "Collapsed")
     }
 }
 
@@ -172,7 +247,7 @@ struct NewTaskRow: View {
         var newId: String?
         var rule: Recurrence?
         store.perform("New Task", undoManager: undoManager) {
-            let id = store.create(text: quick.text, date: target, time: quick.time, duration: quick.duration, location: quick.location, tags: quick.tags, priority: quick.priority, color: quick.color ?? .none)
+            let id = store.create(text: quick.text, date: target, time: quick.time, duration: quick.duration, location: quick.location, tags: quick.tags, priority: quick.priority, color: quick.color ?? .none, project: planner.projectId)
             newId = id
             if let spec = quick.repeatSpec, let anchor = target {
                 rule = spec.rule(anchor: anchor)
@@ -239,6 +314,10 @@ struct TaskRow: View {
     var onDrop: (String, Bool) -> Void
     /// The keyboard cursor is on this row.
     var isCursor = false
+    /// The list it is shown in, and that list's order: Shift-click on a
+    /// checkbox sets every task from the last one clicked to this one.
+    var listKey: String?
+    var listOrder: [String] = []
     @Environment(TaskStore.self) private var store
     @Environment(PlannerModel.self) private var planner
     @Environment(\.undoManager) private var undoManager
@@ -246,28 +325,48 @@ struct TaskRow: View {
     @State private var dropLine: Bool?
     @State private var pendingScope: ScopeAction?
     @State private var rowHeight = Theme.rowHeight
+    /// The check burst's progress (0 at rest); the task is marked done when it ends.
+    @State private var burst = 0.0
+    /// Counts bursts, so one that was cancelled does not tick the task.
+    @State private var burstRun = 0
+    /// The mouse button is down on the row.
+    @State private var pressed = false
     @Environment(FocusTimer.self) private var timer
+
+    /// The title as a row shows it: a trailing " · Project" is left out when
+    /// the task belongs to that project, since the line below (or the
+    /// project's own view) already says it.
+    static func displayTitle(_ text: String, project: String?) -> String {
+        guard let project, !project.isEmpty else { return text }
+        let suffix = " · " + project
+        guard text.count > suffix.count, text.lowercased().hasSuffix(suffix.lowercased()) else { return text }
+        let title = String(text.dropLast(suffix.count)).trimmingCharacters(in: .whitespaces)
+        return title.isEmpty ? text : title
+    }
 
     var body: some View {
         let task = item.task
+        let taskProject = AppModel.shared.projects.project(task.project_id)
         HStack(alignment: .top, spacing: 8) {
             // A round checkbox at the start, like Reminders, carrying the
             // task's color on its border.
             Button {
-                withAnimation(Motion.standard) {
-                    store.perform(task.done ? "Mark as Not Done" : "Mark as Done", undoManager: undoManager) {
-                        _ = store.toggleDone(item.id)
-                    }
+                let shift = NSEvent.modifierFlags.contains(.shift)
+                if !shift, !task.done, !Motion.reduceMotion {
+                    celebrate()
+                } else {
+                    withAnimation(Motion.standard) { checkboxClicked(shift: shift) }
                 }
             } label: {
-                TaskCheckbox(color: task.color, done: task.done, emphasized: hovering)
+                TaskCheckbox(color: task.color, done: task.done || burst > 0, emphasized: hovering)
+                    .checkBurst(burst)
                     .frame(width: 28, height: 28)
                     .contentShape(Rectangle())
                     .padding(.horizontal, -6)
                     .padding(.vertical, -6)
             }
             .buttonStyle(.pressable)
-            .help(task.done ? "Mark as not done" : "Mark as done")
+            .help(task.done ? "Mark as not done (Shift-click: every task from the last one clicked)" : "Mark as done (Shift-click: every task from the last one clicked)")
             // VoiceOver: a checkbox named after the task.
             .accessibilityLabel(task.text)
             .accessibilityValue(task.done ? "Done" : "Not done")
@@ -282,7 +381,7 @@ struct TaskRow: View {
                     .help(RecurrenceEngine.summary(rule))
                     .accessibilityLabel("Repeats \(RecurrenceEngine.summary(rule))")
             }
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 5) {
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
                     // Priority as in Reminders: !, !! or !!! before the text.
                     if task.priority != .none {
@@ -291,18 +390,63 @@ struct TaskRow: View {
                             .foregroundStyle(task.done ? Theme.mutedForeground : Theme.foreground)
                             .accessibilityLabel("\(task.priority.label) priority")
                     }
-                    TaskLabel(text: task.text, color: task.color, done: task.done, lines: 2, pill: false)
+                    TaskLabel(text: Self.displayTitle(task.text, project: taskProject?.name), color: task.color, done: task.done, lines: 2, pill: false)
                 }
-                if !task.tags.isEmpty {
-                    Text(task.tags.map { "#" + $0 }.joined(separator: " "))
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(Theme.mutedForeground)
-                        .lineLimit(1)
-                        .accessibilityLabel("Tags: " + task.tags.joined(separator: ", "))
+                // In All tasks, the project it belongs to, then its tags as quiet chips.
+                let project = planner.projectId == nil ? taskProject : nil
+                if project != nil || !task.tags.isEmpty {
+                    HStack(spacing: 6) {
+                        if let project {
+                            HStack(spacing: 5) {
+                                ProjectDot(color: project.color, size: 7)
+                                Text(project.name)
+                                    .truncationMode(.tail)
+                            }
+                            .layoutPriority(1)
+                            .accessibilityElement(children: .combine)
+                            .accessibilityLabel("Project: \(project.name)")
+                        }
+                        ForEach(task.tags.prefix(3), id: \.self) { tag in
+                            Text(tag)
+                                .font(.system(size: 11, weight: .medium))
+                                .padding(.horizontal, 6)
+                                .frame(height: 17)
+                                .background(Capsule().fill(Theme.secondary))
+                                .fixedSize()
+                                .accessibilityLabel("Tag: \(tag)")
+                        }
+                        if task.tags.count > 3 {
+                            Text("+\(task.tags.count - 3)")
+                                .font(.system(size: 11, weight: .medium))
+                                .fixedSize()
+                                .accessibilityLabel("\(task.tags.count - 3) more tags")
+                        }
+                    }
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(Theme.mutedForeground)
+                    .lineLimit(1)
+                    .opacity(task.done ? 0.7 : 1)
                 }
             }
             Spacer(minLength: 4)
-            if hovering, !task.done {
+            if timer.taskId == item.id {
+                // The task being timed: ■ stops it (as in zistemo).
+                Button {
+                    TimerActions.stop(timer: timer)
+                } label: {
+                    Image(systemName: "stop.fill")
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundStyle(Theme.background)
+                        .frame(width: 20, height: 20)
+                        .background(Circle().fill(Theme.foreground))
+                        .frame(width: 28, height: 28)
+                        .contentShape(Rectangle())
+                        .padding(-4)
+                }
+                .buttonStyle(.pressable)
+                .help("Stop the timer")
+                .accessibilityLabel("Stop the timer on \(task.text)")
+            } else if hovering, !task.done {
                 Button {
                     TimerActions.start(item.id, day: task.date, store: store, planner: planner, timer: timer)
                 } label: {
@@ -335,7 +479,7 @@ struct TaskRow: View {
         .frame(minHeight: Theme.rowHeight)
         .background(
             RoundedRectangle(cornerRadius: Theme.rowRadius, style: .continuous)
-                .fill(hovering || isCursor ? Theme.hover : .clear)
+                .fill(pressed ? Theme.pressed : hovering || isCursor ? Theme.hover : .clear)
         )
         .overlay(alignment: .leading) {
             if isCursor { Capsule().fill(Theme.foreground).frame(width: 3).padding(.vertical, 10).offset(x: -2) }
@@ -347,7 +491,10 @@ struct TaskRow: View {
         .contentShape(Rectangle())
         .onHover { hovering = $0 }
         .animation(Motion.quick, value: hovering)
+        .animation(Motion.quick, value: pressed)
         .onTapGesture { planner.open(item.id) }
+        // Feedback on mouse-down, before the click opens the task.
+        .onPressChange { pressed = $0 }
         .draggable(item.id) {
             TaskLabel(text: task.text, color: task.color, done: task.done, pill: false)
                 .padding(.horizontal, 12)
@@ -403,6 +550,105 @@ struct TaskCheckbox: View {
     }
 }
 
+/// The burst played when a task is ticked: the checkbox pops away, a circle
+/// swells and hollows into a thinning ring, then seven pairs of dots fly out while the checkbox springs back, done, with a slight
+/// overshoot. `progress` runs from 0 to 1 (linear); every part reads its own
+/// window of it. Draw it centered on the checkbox, `size` being the
+/// checkbox's diameter; it never takes clicks. One color, the foreground:
+/// black in light mode, white in dark mode.
+struct CheckBurst: View, Animatable {
+    var progress: Double
+    var size: CGFloat
+
+    var animatableData: Double {
+        get { progress }
+        set { progress = newValue }
+    }
+
+    /// The whole burst, in seconds.
+    static let duration = 0.6
+
+    private static let color = Theme.foreground
+
+    /// Where `progress` sits between `start` and `end`, clamped to 0...1.
+    private func phase(_ start: Double, _ end: Double) -> Double {
+        min(max((progress - start) / (end - start), 0), 1)
+    }
+
+    var body: some View {
+        let radius = size * 0.85
+        // The circle: grows (0–0.25), then hollows (0.25–0.42).
+        let grow = 1 - pow(1 - phase(0, 0.25), 2)
+        let hollow = phase(0.25, 0.42)
+        let outer = radius * grow
+        let ring = outer * (1 - hollow)
+        // The dots: appear on the ring (0.3), fly out (ease out) and shrink to nothing.
+        let fly = 1 - pow(1 - phase(0.3, 0.9), 3)
+        let fade = phase(0.55, 1)
+        let distance = radius * (1 + 0.55 * fly)
+
+        ZStack {
+            if ring > 0.1 {
+                Circle()
+                    .strokeBorder(Self.color, lineWidth: ring)
+                    .frame(width: outer * 2, height: outer * 2)
+            }
+            if progress >= 0.3 && fade < 1 {
+                ForEach(0..<7, id: \.self) { index in
+                    let angle = Double(index) / 7 * 2 * .pi - .pi / 2
+                    dot(diameter: size * 0.24 * (1 - fade), angle: angle, distance: distance)
+                    dot(diameter: size * 0.14 * (1 - fade), angle: angle + 0.3, distance: distance * 0.92)
+                }
+            }
+        }
+        .frame(width: size * 4, height: size * 4)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+
+    private func dot(diameter: CGFloat, angle: Double, distance: CGFloat) -> some View {
+        Circle()
+            .fill(Self.color)
+            .frame(width: diameter, height: diameter)
+            .offset(x: cos(angle) * distance, y: sin(angle) * distance)
+    }
+
+    /// The checkbox's scale along the burst: gone at once, back from 0.35 as
+    /// a small dot that overshoots to 1.15 and settles at 1.
+    static func checkboxScale(_ progress: Double) -> CGFloat {
+        switch progress {
+        case ..<0.08: return 1 - progress / 0.08
+        case ..<0.35: return 0
+        case ..<0.65: return 0.3 + 0.85 * (1 - pow(1 - (progress - 0.35) / 0.3, 2))
+        case ..<0.85: return 1.15 - 0.15 * ((progress - 0.65) / 0.2)
+        default: return 1
+        }
+    }
+}
+
+/// Drives `CheckBurst` and the checkbox's scale from one animated value.
+private struct CheckBurstEffect: ViewModifier, Animatable {
+    var progress: Double
+    var size: CGFloat
+    var animatableData: Double {
+        get { progress }
+        set { progress = newValue }
+    }
+
+    func body(content: Content) -> some View {
+        content
+            .scaleEffect(progress > 0 && progress < 1 ? CheckBurst.checkboxScale(progress) : 1)
+            .background { if progress > 0 && progress < 1 { CheckBurst(progress: progress, size: size) } }
+    }
+}
+
+extension View {
+    /// Plays the check burst around this checkbox while `progress` animates from 0 to 1.
+    func checkBurst(_ progress: Double, size: CGFloat = 16) -> some View {
+        modifier(CheckBurstEffect(progress: progress, size: size))
+    }
+}
+
 /// Quiet markers at the end of a row: a notes icon when the task has a
 /// description, and a checklist with "done/total" when it has subtasks.
 struct TaskMarkers: View {
@@ -415,8 +661,9 @@ struct TaskMarkers: View {
         if hasNotes || total > 0 || task.location != nil || task.flagged {
             HStack(spacing: 6) {
                 if task.flagged {
+                    // The flag takes the task's color, like its checkbox.
                     Image(systemName: "flag.fill")
-                        .foregroundStyle(Theme.foreground)
+                        .foregroundStyle(Theme.checkbox(task.color)?.ring ?? Theme.foreground)
                         .help("Flagged")
                         .accessibilityLabel("Flagged")
                 }
@@ -536,6 +783,16 @@ struct TaskActions {
         store.perform(on ? "Flag" : "Unflag", undoManager: undoManager) { store.update(item.id, TaskPatch(flagged: on)) }
     }
 
+    @discardableResult
+    func project(_ item: PlannerItem, _ project: String?) -> String? {
+        let id = store.perform("Move to Project", undoManager: undoManager) { store.setProject(item, project) }
+        // Out of the project being shown: say where it went.
+        if let shown = planner.projectId, project != shown {
+            planner.show("Moved to \(AppModel.shared.projects.project(project)?.name ?? "No Project").", canUndo: true)
+        }
+        return id
+    }
+
     func delete(_ item: PlannerItem, scope: ChangeScope = .this) {
         store.perform("Delete Task", undoManager: undoManager) { store.delete(item.id, scope: scope) }
         planner.show("Task deleted.", canUndo: true)
@@ -569,6 +826,9 @@ struct TaskMenu: View {
             }
         }
         Button(item.task.flagged ? "Unflag" : "Flag") { actions.flag(item, !item.task.flagged) }
+        Menu("Project") {
+            ProjectMenuItems(current: item.task.project_id) { actions.project(item, $0) }
+        }
         Divider()
         if item.task.date != planner.today {
             Button("Today") { actions.move(item, to: planner.today) }
@@ -658,5 +918,48 @@ private struct ScopePrompt: ViewModifier {
             onDone?(nil)
         }
         pending = nil
+    }
+}
+
+extension TaskRow {
+    /// Plays the check burst, then ticks the task: a day's done tasks leave
+    /// for its Archive, so the row has to stay until the burst is over. A
+    /// second click while it plays is a change of mind: the burst stops and
+    /// the task stays as it was.
+    func celebrate() {
+        var reset = Transaction()
+        reset.disablesAnimations = true
+        burstRun += 1
+        guard burst == 0 else {
+            withTransaction(reset) { burst = 0 }
+            return
+        }
+        let run = burstRun
+        withAnimation(.linear(duration: CheckBurst.duration)) { burst = 1 }
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(CheckBurst.duration))
+            guard run == burstRun else { return }
+            withTransaction(reset) { burst = 0 }
+            if store.item(item.id)?.task.done == false {
+                withAnimation(Motion.standard) { checkboxClicked(shift: false) }
+            }
+        }
+    }
+
+    /// A click ticks or unticks the task and remembers it. A Shift-click on
+    /// another task of the same list gives every task between the two (both
+    /// included) the state the first one got, as one undoable change.
+    func checkboxClicked(shift: Bool) {
+        if shift, let listKey, let anchor = planner.checkAnchor, anchor.listKey == listKey,
+           anchor.id != item.id, let ids = anchor.range(to: item.id) {
+            let done = store.item(anchor.id)?.task.done ?? true
+            let count = store.perform(done ? "Mark as Done" : "Mark as Not Done", undoManager: undoManager) { store.setDone(ids, done) }
+            if count > 0 { planner.show("\(count) \(count == 1 ? "task" : "tasks") marked as \(done ? "done" : "not done").", canUndo: true) }
+            return
+        }
+        store.perform(item.task.done ? "Mark as Not Done" : "Mark as Done", undoManager: undoManager) {
+            _ = store.toggleDone(item.id)
+        }
+        planner.checkAnchor = listKey.map { CheckAnchor(listKey: $0, id: item.id, order: listOrder) }
     }
 }

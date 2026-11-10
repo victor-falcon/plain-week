@@ -9,6 +9,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- **Shift-click to tick a range on macOS.** Click one task's checkbox, then Shift-click another in the same day or
+  Backlog: every task in between gets the same state, as one undoable change.
+- **Click outside to close on macOS.** Clicking the planner behind an open task, weekly review or command palette
+  closes it; edits are already saved.
+- **Projects on macOS.** A Projects list in the sidebar: each project has a name and a color, and clicking one shows
+  its own week, Backlog and Done, where new tasks go into it. Tasks move between projects from their sheet or the
+  right-click menu, and zistemo tickets go into the project named after their zistemo project. Projects sync between
+  Macs and go into backups.
+- **zistemo sync on macOS (prototype).** Settings › Sync › zistemo brings your open zistemo time tickets in as
+  #zistemo tasks, keeps their done state in step both ways, and ▶ on one runs zistemo's live timer (a timer
+  started in zistemo runs here too). It works offline
+  (the time then goes to your timesheet later) and catches up at the next sync.
 - **Red and orange task colors.** Two new colors in the pickers and the right-click menu, on the web and in the macOS
   app, in light and dark. Sync and JSON import accept them.
 - **Native macOS app** (`macos/`). A SwiftUI version of the planner for macOS 14 and later, in a minimal,
@@ -17,9 +29,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   with the Backlog (the web app's Someday) and a Done list for the selected day, or every day, as folding sections,
   over a foldable month calendar (click a date to show it). Notes are a small Markdown editor with writing keys (⌘B bold, ⌘1–4 headings,
   ⌘T todo lines, ⌘E time, ⇧⌘C colors, ⌥⌘B block caret). Each row starts with a round
-  checkbox in the task's color and ends with the time and markers for notes and subtasks. New tasks read natural
+  checkbox in the task's color and ends with the time and markers for notes and subtasks. Ticking a task plays a short burst (a ring and
+  flying dots, black or white with the theme) before it moves to the Archive, or a plain fade with Reduce Motion. New tasks read natural
   words ("tomorrow call Joao @11:30 #yellow daily") with a live preview, and the task sheet works from the keyboard
-  alone (⌥⌘D date, ⌥⌘T time, ⌥⌘R repeat, ⌥⌘C color). Each day shows a progress bar and a ▶ that starts a timer on
+  alone (⌥⌘D date, ⌥⌘T time, ⌥⌘R repeat, ⌥⌘C color); completed tasks move to a folding Archive at the bottom of their day; a keyboard button in the task sheet's corner lists every shortcut in a panel that slides out of the sheet, and Settings › Shortcuts changes them. Each day shows a progress bar and a ▶ that starts a timer on
   its next task in a floating mini window (title, checkbox, play / pause; scroll over it to move between the day's tasks, like a widget stack). A focus mode (⇧⌘F) blurs every day but
   the one you click (today by default). The interface follows a small design system (type scale, motion, radii,
   one button family), answers every press at once and honours Reduce Motion and Reduce Transparency. It has the eleven
@@ -32,7 +45,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   keep a "Plain Week" list in Reminders in step both ways and put timed tasks in a "Plain Week" calendar, so the
   week reaches iPhone and Apple Watch. See
   [macos/README.md](./macos/README.md).
-- **Filter by tag, priority and flag on macOS.** A title bar button (⇧⌘L) with a header pill to clear it. Sidebar
+- **Filter by tag, priority and flag on macOS.** A Filter section at the top of the sidebar and a title bar button (⇧⌘L), with a header pill to clear it. Sidebar
   section chevrons now line up at the right edge.
 - **Cleaner notes and a larger task window on macOS.** Markdown markers (`**`, `_`, `++`, `~~`, `#`, `==`) hide
   except on the line being edited, and a toolbar button (⌥⌘E) makes the task window wider and taller for long notes. The toolbar is icons only;

@@ -91,6 +91,9 @@ struct PlainTask: Codable, Hashable, Identifiable {
     var tags: [String]
     var flagged: Bool
     var priority: TaskPriority
+    /// The project it belongs to (`Project.id`); nil: none. macOS app only:
+    /// the web app has no projects and ignores the key.
+    var project_id: String?
     var notes: String
     var subtasks: [Subtask]
     var recurrence: Recurrence?
@@ -101,14 +104,14 @@ struct PlainTask: Codable, Hashable, Identifiable {
     var deleted_at: String?
 
     enum CodingKeys: String, CodingKey {
-        case id, text, date, someday_column, position, done, done_at, color, time, duration, remind, location, tags, flagged, priority, notes, subtasks,
+        case id, text, date, someday_column, position, done, done_at, color, time, duration, remind, location, tags, flagged, priority, project_id, notes, subtasks,
              recurrence, series_id, occurrence_date, created_at, updated_at, deleted_at
     }
 
     init(
         id: String, text: String, date: String?, someday_column: Int?, position: String,
         done: Bool = false, done_at: String? = nil, color: TaskColor = .none, time: String? = nil,
-        duration: Int? = nil, remind: Int? = nil, location: String? = nil, tags: [String] = [], flagged: Bool = false, priority: TaskPriority = .none, notes: String = "", subtasks: [Subtask] = [], recurrence: Recurrence? = nil,
+        duration: Int? = nil, remind: Int? = nil, location: String? = nil, tags: [String] = [], flagged: Bool = false, priority: TaskPriority = .none, project_id: String? = nil, notes: String = "", subtasks: [Subtask] = [], recurrence: Recurrence? = nil,
         series_id: String? = nil, occurrence_date: String? = nil,
         created_at: String, updated_at: String, deleted_at: String? = nil
     ) {
@@ -127,6 +130,7 @@ struct PlainTask: Codable, Hashable, Identifiable {
         self.tags = tags
         self.flagged = flagged
         self.priority = priority
+        self.project_id = project_id
         self.notes = notes
         self.subtasks = subtasks
         self.recurrence = recurrence
@@ -154,6 +158,7 @@ struct PlainTask: Codable, Hashable, Identifiable {
         tags = (try? c.decodeIfPresent([String].self, forKey: .tags)) ?? []
         flagged = (try? c.decodeIfPresent(Bool.self, forKey: .flagged)) ?? false
         priority = (try? c.decodeIfPresent(TaskPriority.self, forKey: .priority)) ?? TaskPriority.none
+        project_id = try c.decodeIfPresent(String.self, forKey: .project_id)
         notes = try c.decodeIfPresent(String.self, forKey: .notes) ?? ""
         subtasks = try c.decodeIfPresent([Subtask].self, forKey: .subtasks) ?? []
         recurrence = try c.decodeIfPresent(Recurrence.self, forKey: .recurrence)
@@ -182,6 +187,7 @@ struct PlainTask: Codable, Hashable, Identifiable {
         try c.encode(tags, forKey: .tags)
         try c.encode(flagged, forKey: .flagged)
         try c.encode(priority, forKey: .priority)
+        try c.encode(project_id, forKey: .project_id)
         try c.encode(notes, forKey: .notes)
         try c.encode(subtasks, forKey: .subtasks)
         try c.encode(recurrence, forKey: .recurrence)
@@ -227,13 +233,15 @@ struct PlannerItem: Identifiable, Hashable {
     var isRecurring: Bool { kind != .task }
 }
 
-/// The JSON backup, identical to the web app's export file.
+/// The JSON backup, identical to the web app's export file (plus the
+/// macOS app's projects, which the web app ignores).
 struct ExportFile: Codable {
     var format: String
     var version: Int
     var exported_at: String
     var app_version: String
     var tasks: [PlainTask]
+    var projects: [Project]? = nil
 
     static let formatName = "plain-week"
     static let currentVersion = 1

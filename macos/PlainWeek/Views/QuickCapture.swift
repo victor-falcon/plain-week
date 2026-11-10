@@ -134,7 +134,7 @@ struct QuickCaptureView: View {
         let target = quick.targetDate(listDate: planner.today, today: planner.today)
         let undo = TimerActions.mainWindow?.undoManager
         store.perform("New Task", undoManager: undo) {
-            let id = store.create(text: quick.text, date: target, time: quick.time, duration: quick.duration, location: quick.location, tags: quick.tags, priority: quick.priority, color: quick.color ?? .none)
+            let id = store.create(text: quick.text, date: target, time: quick.time, duration: quick.duration, location: quick.location, tags: quick.tags, priority: quick.priority, color: quick.color ?? .none, project: planner.projectId)
             if let spec = quick.repeatSpec, let anchor = target { _ = try? store.setRecurrence(id, spec.rule(anchor: anchor)) }
         }
         planner.show(target.map { "Added to \(DoneList.dayLabel($0, today: planner.today))" } ?? "Added to Backlog", canUndo: undo != nil)

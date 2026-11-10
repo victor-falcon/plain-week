@@ -59,6 +59,11 @@ struct PlannerView: View {
         }
         .sheet(isPresented: $planner.showReview) { WeeklyReview(timeLog: timeLog) }
         .sheet(isPresented: $planner.showPalette) { CommandPaletteView() }
+        .closesDialogOnOutsideClick(isOpen: dialogOpen) {
+            planner.openTask = nil
+            planner.showReview = false
+            planner.showPalette = false
+        }
         .onChange(of: planner.focusRequest) { _, request in
             guard let request else { return }
             if request == DataTransfer.somedayKey { planner.showSidebar = true }
@@ -90,6 +95,7 @@ struct PlannerMain: View {
         // Vim keys while nothing else takes the keyboard (see KeyboardNav).
         .focusable()
         .focused($keyboardFocus)
+        // No ring around the whole planner; its buttons show their own.
         .focusEffectDisabled()
         .onKeyPress(phases: .down) { press in
             // Typing in a field (a new task, a rename) is never a planner key.
@@ -123,7 +129,8 @@ struct PlannerHeader: View {
                     .font(Theme.display)
                     .tracking(-1.8)
                     .foregroundStyle(planner.showsToday ? Theme.foreground : Theme.mutedForeground)
-                    .contentTransition(.numericText())
+                    // A word, not a number: cross-fade rather than roll its letters.
+                    .contentTransition(.opacity)
                     // A narrow window shrinks the month rather than the controls.
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)
@@ -149,6 +156,7 @@ struct PlannerHeader: View {
 
     private func controls(compact: Bool) -> some View {
         HStack(spacing: 8) {
+            ProjectPill()
             FilterPill()
             TimerPill(compact: compact)
             FocusButton(compact: compact)
@@ -204,9 +212,10 @@ struct DayEvents: View {
 struct DayProgressBar: View {
     var date: String
     @Environment(TaskStore.self) private var store
+    @Environment(PlannerModel.self) private var planner
 
     var body: some View {
-        let progress = store.progress(on: date)
+        let progress = store.progress(on: date, filter: planner.filter)
         let fraction = progress.total == 0 ? 0 : CGFloat(progress.done) / CGFloat(progress.total)
         GeometryReader { proxy in
             ZStack(alignment: .leading) {
@@ -234,7 +243,7 @@ struct DayPlayButton: View {
     @Environment(FocusTimer.self) private var timer
 
     var body: some View {
-        let next = store.openTasks(on: date).first
+        let next = store.openTasks(on: date, filter: planner.filter).first
         Button {
             TimerActions.startDay(date, store: store, planner: planner, timer: timer)
         } label: {
@@ -245,7 +254,6 @@ struct DayPlayButton: View {
                 .background(Circle().fill(next == nil ? Theme.border : Theme.foreground))
         }
         .buttonStyle(.pressable)
-        .focusEffectDisabled()
         .disabled(next == nil)
         .help(next.map { "Start the timer on “\($0.task.text)”" } ?? "Nothing left to do on this day")
         .accessibilityLabel(next.map { "Start the timer on \($0.task.text)" } ?? "Nothing left to do on \(Format.weekdayDate(date))")
@@ -262,7 +270,7 @@ struct DayStartButton: View {
     @Environment(FocusTimer.self) private var timer
 
     var body: some View {
-        if let next = store.openTasks(on: date).first {
+        if let next = store.openTasks(on: date, filter: planner.filter).first {
             Button {
                 TimerActions.startDay(date, store: store, planner: planner, timer: timer)
             } label: {
@@ -281,7 +289,6 @@ struct DayStartButton: View {
             }
             .buttonStyle(MonoPrimaryButtonStyle())
             .shadow(color: .black.opacity(0.18), radius: 10, y: 4)
-            .focusEffectDisabled()
             .help("Start the timer on “\(next.task.text)”")
             .accessibilityLabel("Start the timer on \(next.task.text)")
         }
@@ -312,6 +319,12 @@ struct TimerPill: View {
             }
             .buttonStyle(PillButtonStyle(active: false))
             .help(compact ? "Minimize to the mini timer: \(item.task.text)" : "Minimize to the mini timer")
+            Button { TimerActions.stop(timer: timer) } label: {
+                Image(systemName: "stop.fill").font(.system(size: 11, weight: .bold))
+            }
+            .buttonStyle(PillButtonStyle(active: false))
+            .help("Stop the timer")
+            .accessibilityLabel("Stop the timer")
         }
     }
 }
@@ -359,7 +372,7 @@ struct TitleBarIcons: View {
         // place…). ⌘N still adds one inline in today's list.
         TitleBarButton(systemImage: "square.and.pencil", help: "New Task") {
             planner.goToToday()
-            planner.openDraft(store.create(text: "", date: planner.today))
+            planner.openDraft(store.create(text: "", date: planner.today, project: planner.projectId))
         }
         FilterButton()
         TitleBarButton(systemImage: "gearshape", help: "Settings (⌘,)") { openSettings() }
@@ -383,7 +396,6 @@ struct TitleBarButton: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.pressable)
-        .focusEffectDisabled()
         .onHover { hovering = $0 }
         .animation(Motion.quick, value: hovering)
         .help(help)
@@ -443,14 +455,20 @@ struct PillButtonStyle: ButtonStyle {
     var active = false
 
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 13, weight: .semibold))
-            .lineLimit(1)
-            .padding(.horizontal, 14)
-            .frame(height: 34)
-            .background(Capsule().fill(active ? Theme.foreground : configuration.isPressed ? Theme.hover : Theme.card))
-            .overlay(Capsule().strokeBorder(active ? .clear : Theme.border))
-            .contentShape(Capsule())
+        // Three steps: at rest, under the pointer, pressed.
+        Hovering { hovering in
+            configuration.label
+                .font(.system(size: 13, weight: .semibold))
+                .lineLimit(1)
+                .padding(.horizontal, 14)
+                .frame(height: 34)
+                .background(Capsule().fill(active ? Theme.foreground : Theme.card))
+                .background(Capsule().fill(Theme.background))
+                .overlay(Capsule().fill(active ? .clear : configuration.isPressed ? Theme.pressed : hovering ? Theme.hover : .clear))
+                .overlay(Capsule().strokeBorder(active ? .clear : Theme.border))
+                .opacity(active && configuration.isPressed ? 0.75 : active && hovering ? 0.88 : 1)
+                .contentShape(Capsule())
+        }
     }
 }
 
@@ -712,6 +730,7 @@ struct DayColumn: View {
             .padding(.horizontal, 6)
             .contentShape(Rectangle())
             .onTapGesture { withAnimation(Motion.standard) { planner.select(date) } }
+            .pressDim()
             .stripPanGesture()
             .help(isSelected ? "Click to show every done task" : "Click to show this day's done tasks")
             .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
@@ -728,6 +747,19 @@ struct DayColumn: View {
                 .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height in
                     fillRows = max(1, Int(height / Theme.rowHeight))
                 }
+                // The start button, for the day under the pointer and the
+                // selected day; never while typing a new task in this day. It
+                // sits in the list's bottom inset, so a long day's last rows
+                // (and its Archive) scroll clear of it rather than under it.
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    if (hovering || isSelected) && !blurred && focus.wrappedValue != date {
+                        DayStartButton(date: date)
+                            .padding(.top, 6)
+                            .padding(.bottom, 8)
+                            .frame(maxWidth: .infinity)
+                            .transition(Motion.slide(.bottom))
+                    }
+                }
             }
         }
         .frame(maxHeight: .infinity, alignment: .top)
@@ -742,16 +774,6 @@ struct DayColumn: View {
                 .strokeBorder(isSelected ? Theme.selectedDayBorder : isToday ? Theme.plannerAccent.opacity(0.3) : Theme.border,
                               lineWidth: isSelected ? 2 : 1)
         )
-        // The start button, over the bottom of the card, for the day under
-        // the pointer and the selected day; never while typing a new task in
-        // this day, where it would cover the text.
-        .overlay(alignment: .bottom) {
-            if (hovering || isSelected) && !blurred && focus.wrappedValue != date {
-                DayStartButton(date: date)
-                    .padding(.bottom, 16)
-                    .transition(Motion.slide(.bottom))
-            }
-        }
         .onHover { hovering = $0 }
         .animation(Motion.standard, value: (hovering || isSelected) && focus.wrappedValue != date)
         .frame(maxWidth: .infinity)
@@ -796,11 +818,39 @@ struct PlannerSidebar: View {
         let done = planner.filter.apply(store.doneTasks(on: planner.selectedDay))
         VStack(spacing: 0) {
         ScrollView(.vertical) {
-            VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 12) {
+                // Filter first, then the projects, the Backlog and Done, a hairline between them.
+                AccordionSection(title: "Filter", systemImage: planner.filter.isActive ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle",
+                                 count: 0, expanded: $planner.filterExpanded) {
+                    FilterControls()
+                        .padding(.horizontal, 6)
+                        .padding(.top, 4)
+                } accessory: {
+                    if planner.filter.isActive {
+                        Button("Clear") { withAnimation(Motion.standard) { planner.filter = TaskFilter() } }
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(Theme.mutedForeground)
+                            .padding(.horizontal, 6)
+                            .frame(height: 28)
+                            .contentShape(Rectangle())
+                            .padding(.vertical, -6)
+                            .buttonStyle(.pressable)
+                            .help("Show every task")
+                    }
+                }
+
+                SidebarSectionLine()
+
+                ProjectsSection()
+
+                SidebarSectionLine()
+
                 AccordionSection(title: "Backlog", systemImage: "tray",
                                  count: backlog.filter { !$0.task.done }.count, expanded: $planner.backlogExpanded) {
                     TaskListView(listKey: DataTransfer.somedayKey, date: nil, items: backlog, minRows: 1, focus: focus)
                 }
+
+                SidebarSectionLine()
 
                 AccordionSection(title: "Done", systemImage: "checkmark.circle",
                                  count: done.count, expanded: $planner.doneExpanded) {
@@ -916,14 +966,14 @@ struct AccordionSection<Content: View, Accessory: View>: View {
                 } label: {
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
                         Image(systemName: systemImage)
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.system(size: 13, weight: .semibold))
                             .foregroundStyle(Theme.mutedForeground)
+                        // The same size as the calendar's month below it.
                         Text(title)
-                            .font(Theme.heading)
-                            .tracking(-0.6)
+                            .font(.system(size: 15, weight: .semibold))
                         if count > 0 {
                             Text("\(count)")
-                                .font(.system(size: 13, weight: .semibold).monospacedDigit())
+                                .font(.system(size: 12, weight: .semibold).monospacedDigit())
                                 .foregroundStyle(Theme.mutedForeground)
                         }
                         Spacer(minLength: 0)
@@ -931,7 +981,6 @@ struct AccordionSection<Content: View, Accessory: View>: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.pressable)
-                .focusEffectDisabled()
                 .help(expanded ? "Collapse \(title)" : "Expand \(title)")
                 .accessibilityAddTraits(.isHeader)
                 .accessibilityValue(expanded ? "Expanded" : "Collapsed")
@@ -944,11 +993,11 @@ struct AccordionSection<Content: View, Accessory: View>: View {
                         .font(.system(size: 11, weight: .bold))
                         .foregroundStyle(Theme.mutedForeground)
                         .rotationEffect(.degrees(expanded ? 90 : 0))
-                        .frame(width: 18, height: 18)
+                        .frame(width: 28, height: 28)
                         .contentShape(Rectangle())
+                        .padding(-5)
                 }
                 .buttonStyle(.pressable)
-                .focusEffectDisabled()
                 .accessibilityHidden(true)
             }
             .padding(.leading, 6)
@@ -968,8 +1017,16 @@ struct AccordionSection<Content: View, Accessory: View>: View {
 /// weekday initials from Monday, weekends and other months' days in grey,
 /// today in a red circle and the selected day ringed. Clicking a date shows
 /// that day in the strip and selects it; clicking the month goes to today.
+/// A mark under a date shows a day with something on it: a filled dot while
+/// tasks are left to do, a small ring when all its tasks are done or it only has
+/// Calendar events.
 struct MiniCalendar: View {
+    /// What a day holds, for its dot.
+    enum Mark { case open, quiet }
+
     @Environment(PlannerModel.self) private var planner
+    @Environment(TaskStore.self) private var store
+    @Environment(CalendarEvents.self) private var calendar
     /// The first day of the month on display.
     @State private var month: String?
 
@@ -981,11 +1038,12 @@ struct MiniCalendar: View {
         let start = DateKey.startOfWeek(shown)
         let days = (0..<42).map { DateKey.addDays(start, $0) }
         let monthNumber = DateKey.parts(shown).month
+        let tasks = store.days(from: days[0], to: days[41])
 
         VStack(spacing: 8) {
             HStack {
                 Button { move(-1, from: shown) } label: {
-                    Image(systemName: "chevron.backward").frame(width: 24, height: 24).contentShape(Rectangle())
+                    Image(systemName: "chevron.backward").frame(width: 28, height: 28).contentShape(Rectangle())
                 }
                 .help("Previous month")
                 Spacer()
@@ -998,14 +1056,13 @@ struct MiniCalendar: View {
                 .help("Go to today")
                 Spacer()
                 Button { move(1, from: shown) } label: {
-                    Image(systemName: "chevron.forward").frame(width: 24, height: 24).contentShape(Rectangle())
+                    Image(systemName: "chevron.forward").frame(width: 28, height: 28).contentShape(Rectangle())
                 }
                 .help("Next month")
             }
             .buttonStyle(.pressable)
             .font(.system(size: 14, weight: .regular))
             .foregroundStyle(Theme.mutedForeground)
-            .focusEffectDisabled()
 
             LazyVGrid(columns: Self.columns, spacing: 4) {
                 ForEach(1...7, id: \.self) { weekday in
@@ -1015,7 +1072,7 @@ struct MiniCalendar: View {
                         .frame(height: 20)
                 }
                 ForEach(days, id: \.self) { day in
-                    dayCell(day, inMonth: DateKey.parts(day).month == monthNumber)
+                    dayCell(day, inMonth: DateKey.parts(day).month == monthNumber, items: tasks[day] ?? [])
                 }
             }
         }
@@ -1025,7 +1082,11 @@ struct MiniCalendar: View {
         }
     }
 
-    private func dayCell(_ day: String, inMonth: Bool) -> some View {
+    private func dayCell(_ day: String, inMonth: Bool, items: [PlannerItem]) -> some View {
+        let open = items.filter { !$0.task.done }.count
+        // Events are known for the weeks around the strip (what the day cards loaded).
+        let events = calendar.events(on: day).count
+        let mark: Mark? = open > 0 ? .open : items.isEmpty && events == 0 ? nil : .quiet
         let isToday = day == planner.today
         let isSelected = day == planner.selectedDay
         let isWeekend = DateKey.isoWeekday(day) >= 6
@@ -1033,27 +1094,49 @@ struct MiniCalendar: View {
             : !inMonth ? Theme.mutedForeground.opacity(0.45)
             : isWeekend ? Theme.mutedForeground
             : Theme.foreground.opacity(0.85)
+        let summary = Self.summary(open: open, done: items.count - open, events: events)
         return Button {
             withAnimation(Motion.structural) { planner.reveal(day) }
         } label: {
-            Text("\(DateKey.dayOfMonth(day))")
-                .font(.system(size: 14, weight: isToday ? .bold : .medium).monospacedDigit())
-                .foregroundStyle(color)
-                .frame(width: 26, height: 26)
-                .background {
-                    if isToday {
+            VStack(spacing: 1) {
+                Text("\(DateKey.dayOfMonth(day))")
+                    .font(.system(size: 14, weight: isToday ? .bold : .medium).monospacedDigit())
+                    .foregroundStyle(color)
+                    .frame(width: 26, height: 26)
+                    .background {
+                        if isToday {
+                            Circle().fill(Theme.foreground)
+                        } else if isSelected {
+                            Circle().strokeBorder(Theme.foreground.opacity(0.35), lineWidth: 1.5)
+                        }
+                    }
+                // Filled: tasks to do. A ring: all done, or only events (a
+                // shape, so the two do not differ by shade alone).
+                ZStack {
+                    if mark == .open {
                         Circle().fill(Theme.foreground)
-                    } else if isSelected {
-                        Circle().strokeBorder(Theme.foreground.opacity(0.35), lineWidth: 1.5)
+                    } else {
+                        Circle().strokeBorder(Theme.mutedForeground, lineWidth: 1)
                     }
                 }
-                .frame(maxWidth: .infinity)
-                .contentShape(Rectangle())
+                .frame(width: 5, height: 5)
+                .opacity(mark == nil ? 0 : inMonth ? 1 : 0.45)
+            }
+            .frame(maxWidth: .infinity)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.pressable)
-        .focusEffectDisabled()
-        .help(Format.fullDate(day))
-        .accessibilityLabel(Format.fullDate(day))
+        .help(summary.isEmpty ? Format.fullDate(day) : "\(Format.fullDate(day)): \(summary)")
+        .accessibilityLabel(summary.isEmpty ? Format.fullDate(day) : "\(Format.fullDate(day)), \(summary)")
+    }
+
+    /// "2 to do, 1 done, 3 events", leaving out what the day does not have.
+    static func summary(open: Int, done: Int, events: Int) -> String {
+        var parts: [String] = []
+        if open > 0 { parts.append("\(open) to do") }
+        if done > 0 { parts.append("\(done) done") }
+        if events > 0 { parts.append(events == 1 ? "1 event" : "\(events) events") }
+        return parts.joined(separator: ", ")
     }
 
     private func move(_ months: Int, from first: String) {
@@ -1067,6 +1150,111 @@ struct MiniCalendar: View {
     static func firstOfMonth(_ day: String) -> String {
         let p = DateKey.parts(day)
         return DateKey.make(p.year, p.month, 1)
+    }
+}
+
+/// A month calendar for choosing a date, drawn like the sidebar's: the month
+/// between ‹ ›, weekday initials from Monday, weekends and other months'
+/// days in grey, today in a filled circle and the current date ringed.
+/// Clicking the month goes back to today's month.
+struct MonthPicker: View {
+    /// The date chosen now, if any.
+    var selected: String?
+    var today: String
+    var onPick: (String) -> Void
+    /// The first day of the month on display.
+    @State private var month: String?
+
+    private static let columns = Array(repeating: GridItem(.flexible(), spacing: 0), count: 7)
+
+    var body: some View {
+        let shown = month ?? MiniCalendar.firstOfMonth(selected ?? today)
+        let start = DateKey.startOfWeek(shown)
+        let monthNumber = DateKey.parts(shown).month
+
+        VStack(spacing: 8) {
+            HStack {
+                Button { move(-1, from: shown) } label: {
+                    Image(systemName: "chevron.backward").frame(width: 28, height: 28).contentShape(Rectangle())
+                }
+                .help("Previous month")
+                .accessibilityLabel("Previous month")
+                Spacer()
+                Button { withAnimation(Motion.standard) { month = MiniCalendar.firstOfMonth(today) } } label: {
+                    Text(Format.monthYear(shown)).font(.system(size: 15, weight: .semibold))
+                }
+                .help("Show this month")
+                Spacer()
+                Button { move(1, from: shown) } label: {
+                    Image(systemName: "chevron.forward").frame(width: 28, height: 28).contentShape(Rectangle())
+                }
+                .help("Next month")
+                .accessibilityLabel("Next month")
+            }
+            .buttonStyle(.pressable)
+            .font(.system(size: 14, weight: .regular))
+            .foregroundStyle(Theme.mutedForeground)
+
+            LazyVGrid(columns: Self.columns, spacing: 4) {
+                ForEach(1...7, id: \.self) { weekday in
+                    Text(Format.weekdayName(weekday).prefix(1))
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(Theme.mutedForeground)
+                        .frame(height: 20)
+                }
+                ForEach((0..<42).map { DateKey.addDays(start, $0) }, id: \.self) { day in
+                    cell(day, inMonth: DateKey.parts(day).month == monthNumber)
+                }
+            }
+        }
+    }
+
+    private func cell(_ day: String, inMonth: Bool) -> some View {
+        let isToday = day == today
+        let isSelected = day == selected
+        let isWeekend = DateKey.isoWeekday(day) >= 6
+        let color: Color = isToday ? Theme.background
+            : !inMonth ? Theme.mutedForeground.opacity(0.45)
+            : isWeekend ? Theme.mutedForeground
+            : Theme.foreground.opacity(0.85)
+        return Button { onPick(day) } label: {
+            Text("\(DateKey.dayOfMonth(day))")
+                .font(.system(size: 14, weight: isToday || isSelected ? .bold : .medium).monospacedDigit())
+                .foregroundStyle(color)
+                .frame(width: 28, height: 28)
+                .background {
+                    if isToday { Circle().fill(Theme.foreground) }
+                }
+                .overlay {
+                    // The task's date is ringed (around today's disc too).
+                    if isSelected { Circle().strokeBorder(Theme.foreground.opacity(isToday ? 1 : 0.45), lineWidth: 1.5).padding(isToday ? -3 : 0) }
+                }
+                .frame(maxWidth: .infinity)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.pressable)
+        .help(Format.fullDate(day))
+        .accessibilityLabel(Format.fullDate(day))
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
+    private func move(_ months: Int, from first: String) {
+        let p = DateKey.parts(first)
+        var year = p.year, monthNumber = p.month + months
+        if monthNumber > 12 { monthNumber = 1; year += 1 }
+        if monthNumber < 1 { monthNumber = 12; year -= 1 }
+        withAnimation(Motion.standard) { month = DateKey.make(year, monthNumber, 1) }
+    }
+}
+
+/// The hairline between two sections of the sidebar.
+struct SidebarSectionLine: View {
+    var body: some View {
+        Rectangle()
+            .fill(Theme.border)
+            .frame(height: 1)
+            .padding(.horizontal, 6)
+            .accessibilityHidden(true)
     }
 }
 

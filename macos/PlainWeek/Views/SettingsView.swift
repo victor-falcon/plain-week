@@ -8,7 +8,20 @@ import SwiftUI
 struct SettingsView: View {
     @State private var paneId = Self.initialPane
 
+    /// The pane to open on, asked for from elsewhere (the task window's
+    /// "Change Shortcuts…"): read when the window is created, or sent to it
+    /// when it is already open.
+    static var requestedPane: String?
+    static let showPaneNotification = Notification.Name("PlainWeekShowSettingsPane")
+
+    /// Opens Settings on `pane` (call `openSettings()` after it).
+    static func show(_ pane: SettingsPane) {
+        requestedPane = pane.rawValue
+        NotificationCenter.default.post(name: showPaneNotification, object: pane.rawValue)
+    }
+
     private static var initialPane: String {
+        if let pane = requestedPane { return pane }
         #if DEBUG
         if let pane = ProcessInfo.processInfo.environment["PLAINWEEK_SNAPSHOT_SETTINGS"] { return pane }
         #endif
@@ -42,7 +55,9 @@ struct SettingsView: View {
         .frame(width: 860, height: 620)
         .ignoresSafeArea(.container, edges: .top)
         .background(SettingsWindowStyle())
-        .focusEffectDisabled()
+        .onReceive(NotificationCenter.default.publisher(for: Self.showPaneNotification)) { note in
+            if let pane = note.object as? String { paneId = pane }
+        }
     }
 
     private var pane: SettingsPane { SettingsPane(rawValue: paneId) ?? .general }
@@ -101,6 +116,7 @@ struct SettingsView: View {
                 case .planner: PlannerPane()
                 case .timer: TimerPane()
                 case .notifications: NotificationsPane()
+                case .shortcuts: ShortcutsPane()
                 case .sync: SyncPane()
                 case .privacy: PrivacyPane()
                 case .data: DataPane()
@@ -115,11 +131,11 @@ struct SettingsView: View {
 }
 
 enum SettingsPane: String, CaseIterable, Identifiable {
-    case general, planner, timer, notifications, sync, privacy, data
+    case general, planner, timer, notifications, shortcuts, sync, privacy, data
     var id: String { rawValue }
 
     static let groups: [(title: String, panes: [SettingsPane])] = [
-        ("Plain Week", [.general, .planner, .timer, .notifications]),
+        ("Plain Week", [.general, .planner, .timer, .notifications, .shortcuts]),
         ("Your data", [.sync, .privacy, .data]),
     ]
 
@@ -129,6 +145,7 @@ enum SettingsPane: String, CaseIterable, Identifiable {
         case .planner: "Planner"
         case .timer: "Timer"
         case .notifications: "Notifications"
+        case .shortcuts: "Shortcuts"
         case .sync: "Sync"
         case .privacy: "Privacy"
         case .data: "Data"
@@ -141,6 +158,7 @@ enum SettingsPane: String, CaseIterable, Identifiable {
         case .planner: "What the week does on its own each day."
         case .timer: "The stopwatch or Pomodoro started from a day's ▶."
         case .notifications: "Reminders for tasks with a time."
+        case .shortcuts: "The keys of the task window and its notes. Click one, then press the new keys."
         case .sync: "Your week on your other Macs, and in Reminders and Calendar."
         case .privacy: "Keep your week behind a password."
         case .data: "Export, import, clean-up, paper and daily backups."
@@ -153,6 +171,7 @@ enum SettingsPane: String, CaseIterable, Identifiable {
         case .planner: "calendar"
         case .timer: "timer"
         case .notifications: "bell"
+        case .shortcuts: "keyboard"
         case .sync: "arrow.triangle.2.circlepath"
         case .privacy: "lock"
         case .data: "externaldrive"
@@ -194,6 +213,8 @@ private struct SettingsGroup<Content: View>: View {
 private struct SettingsRow<Trailing: View>: View {
     var title: String
     var detail: String?
+    /// The detail line reports a problem: red, with a warning sign.
+    var warning = false
     @ViewBuilder var trailing: Trailing
 
     var body: some View {
@@ -202,10 +223,17 @@ private struct SettingsRow<Trailing: View>: View {
                 Text(title).font(.system(size: 14, weight: .medium))
                     .accessibilityAddTraits(.isHeader)
                 if let detail {
-                    Text(detail)
-                        .font(.system(size: 13))
-                        .foregroundStyle(Theme.mutedForeground)
-                        .fixedSize(horizontal: false, vertical: true)
+                    HStack(alignment: .firstTextBaseline, spacing: 5) {
+                        if warning {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .font(.system(size: 11, weight: .semibold))
+                                .accessibilityLabel("Problem")
+                        }
+                        Text(detail)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .font(.system(size: 13, weight: warning ? .medium : .regular))
+                    .foregroundStyle(warning ? Theme.danger : Theme.mutedForeground)
                 }
             }
             Spacer(minLength: 0)
@@ -465,6 +493,112 @@ private struct NotificationsPane: View {
 
 /// Sync: a folder in iCloud Drive shared by your Macs, and the Reminders and
 /// Calendar mirrors that carry the week to iPhone and Watch.
+/// Settings › Shortcuts: every key of the task window and its notes, each
+/// with a button that records a new one, a way back to its default, and
+/// Restore Defaults for all of them.
+private struct ShortcutsPane: View {
+    @State private var recording: ShortcutAction?
+    @State private var problem: (action: ShortcutAction, message: String)?
+    @State private var monitor: Any?
+    private let shortcuts = Shortcuts.shared
+
+    var body: some View {
+        ForEach(ShortcutGroup.allCases) { group in
+            SettingsGroup(title: group.title,
+                          footer: group.explanation + " Fixed keys: " + group.fixed.map { "\($0.keys) \($0.title.lowercased())" }.joined(separator: ", ") + ".") {
+                ForEach(group.actions) { action in
+                    SettingsRow(title: action.title, detail: detail(action),
+                                warning: recording != action && problem?.action == action) {
+                        HStack(spacing: 8) {
+                            if shortcuts.isCustom(action), recording != action {
+                                Button { reset(action) } label: {
+                                    Image(systemName: "arrow.uturn.backward")
+                                        .font(.system(size: 11, weight: .semibold))
+                                        .foregroundStyle(Theme.mutedForeground)
+                                        .frame(width: 28, height: 28)
+                                        .contentShape(Rectangle())
+                                }
+                                .buttonStyle(.pressable)
+                                .help("Back to \(action.defaultCombo.display)")
+                                .accessibilityLabel("Restore the default shortcut of \(action.title)")
+                            }
+                            Button { recording == action ? stop() : record(action) } label: {
+                                if recording == action {
+                                    Text("Press the keys…")
+                                        .font(.system(size: 12, weight: .medium))
+                                        .foregroundStyle(Theme.background)
+                                        .padding(.horizontal, 10)
+                                        .frame(height: 24)
+                                        .background(Capsule().fill(Theme.foreground))
+                                } else {
+                                    KeyCaps(text: shortcuts.label(action))
+                                        .frame(minHeight: 28)
+                                        .contentShape(Rectangle())
+                                }
+                            }
+                            .buttonStyle(.pressable)
+                            .help(recording == action ? "Press the new keys, or Esc to keep the old ones" : "Click to change")
+                            .accessibilityLabel("\(action.title): \(shortcuts.label(action)). Change")
+                        }
+                    }
+                }
+            }
+        }
+        SettingsGroup {
+            SettingsRow(title: "Restore defaults", detail: "Every shortcut back to the keys Plain Week came with.") {
+                Button("Restore") {
+                    stop()
+                    problem = nil
+                    shortcuts.resetAll()
+                }
+                .buttonStyle(PillButtonStyle())
+                .disabled(!shortcuts.hasChanges)
+            }
+        }
+        .onDisappear(perform: stop)
+    }
+
+    /// The row's grey line: what went wrong with the last try, else what the key does.
+    private func detail(_ action: ShortcutAction) -> String {
+        if recording == action { return "Press the new keys now. Esc keeps \(shortcuts.label(action))." }
+        if let problem, problem.action == action { return problem.message }
+        return action.detail
+    }
+
+    private func reset(_ action: ShortcutAction) {
+        problem = nil
+        shortcuts.reset(action)
+    }
+
+    /// Listens for the next key press in this window: Esc cancels, anything
+    /// else becomes the shortcut if it can.
+    private func record(_ action: ShortcutAction) {
+        stop()
+        problem = nil
+        recording = action
+        monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            guard let action = recording else { return event }
+            let plain = event.modifierFlags.intersection([.command, .option, .shift, .control]).isEmpty
+            if event.keyCode == 53, plain {
+                stop()
+                return nil
+            }
+            guard let combo = KeyCombo(event: event) else { return nil }
+            if let found = shortcuts.set(combo, for: action) {
+                problem = (action, "\(combo.display): \(found.message)")
+            }
+            stop()
+            return nil
+        }
+    }
+
+    private func stop() {
+        if let monitor { NSEvent.removeMonitor(monitor) }
+        monitor = nil
+        recording = nil
+    }
+}
+
 private struct SyncPane: View {
     private let folder = AppModel.shared.folderSync
     private let mirror = AppModel.shared.remindersMirror
@@ -493,6 +627,7 @@ private struct SyncPane: View {
                 RowSwitch(isOn: Binding(get: { publisher.isEnabled }, set: { publisher.setEnabled($0) }))
             }
         }
+        ZistemoGroup()
     }
 
     private var folderStatus: String {
@@ -699,6 +834,74 @@ private struct DataPane: View {
                         .buttonStyle(PillButtonStyle())
                 }
             }
+        }
+    }
+}
+
+/// zistemo: the account, developer key and API token, then status and Sync Now.
+private struct ZistemoGroup: View {
+    private let zistemo = AppModel.shared.zistemo
+    @State private var account = AppModel.shared.zistemo.account
+    @State private var devKey = ""
+    @State private var email = AppModel.shared.zistemo.email
+    @State private var password = ""
+    @State private var apiToken = ""
+    @State private var error: String?
+    @State private var connecting = false
+
+    var body: some View {
+        SettingsGroup(title: "zistemo",
+                      footer: error ?? "Your open time tickets come in as #zistemo tasks. Ticking one completes it in zistemo, and its ▶ runs zistemo's own timer (offline, the time goes to your timesheet later). The developer key is in your zistemo profile under API (owners and admins). Sign in with the API Token from your profile, or with your email and password (Plain Week then signs in again every two hours). They stay in your keychain.") {
+            if zistemo.isEnabled {
+                SettingsRow(title: zistemo.email.isEmpty ? "\(zistemo.account).zistemo.com" : "\(zistemo.account).zistemo.com · \(zistemo.email)", detail: status) {
+                    HStack(spacing: 8) {
+                        Button("Sync Now") { zistemo.syncNow() }.buttonStyle(PillButtonStyle()).disabled(zistemo.isSyncing)
+                        Button("Disconnect") { zistemo.disconnect() }.buttonStyle(PillButtonStyle())
+                    }
+                }
+            } else {
+                SettingsRow(title: "Account", detail: "Your zistemo address, such as acme.zistemo.com.") {
+                    TextField("acme.zistemo.com", text: $account).textFieldStyle(.roundedBorder).frame(width: 220).modifier(RowLabel())
+                }
+                SettingsRow(title: "Developer key") {
+                    SecureField("API developer key", text: $devKey).textFieldStyle(.roundedBorder).frame(width: 220).modifier(RowLabel())
+                }
+                SettingsRow(title: "API token", detail: "From your zistemo profile (Browser extension API Token). Or leave it empty and use your email and password.") {
+                    SecureField("API token", text: $apiToken).textFieldStyle(.roundedBorder).frame(width: 220).modifier(RowLabel())
+                }
+                SettingsRow(title: "Email", detail: "What you sign in to zistemo with (email or username).") {
+                    TextField("you@example.com", text: $email).textFieldStyle(.roundedBorder).frame(width: 220).modifier(RowLabel())
+                }
+                SettingsRow(title: "Password") {
+                    SecureField("zistemo password", text: $password).textFieldStyle(.roundedBorder).frame(width: 220).modifier(RowLabel())
+                }
+                SettingsRow(title: "Connect", detail: "Signs in to zistemo, then brings in your tickets.") {
+                    Button(connecting ? "Connecting…" : "Connect", action: connect)
+                        .buttonStyle(PillButtonStyle())
+                        .disabled(connecting || account.isEmpty || devKey.isEmpty || (apiToken.isEmpty && (email.isEmpty || password.isEmpty)))
+                }
+            }
+        }
+    }
+
+    private var status: String {
+        if let failure = zistemo.lastError { return failure }
+        var parts = ["\(zistemo.linkedCount) linked"]
+        if zistemo.isLive { parts.append("timer running in zistemo") }
+        if zistemo.unsentSeconds > 0 { parts.append("\(FocusTimer.format(zistemo.unsentSeconds)) not sent yet") }
+        if zistemo.isSyncing { parts.append("syncing…") } else if let last = zistemo.lastSync {
+            parts.append("synced \(last.formatted(date: .omitted, time: .shortened))")
+        }
+        return parts.joined(separator: " · ")
+    }
+
+    private func connect() {
+        connecting = true
+        error = nil
+        Task {
+            error = await zistemo.connect(account: account, devKey: devKey, apiToken: apiToken, email: email, password: password)
+            connecting = false
+            if error == nil { devKey = ""; password = ""; apiToken = "" }
         }
     }
 }

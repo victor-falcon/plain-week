@@ -72,6 +72,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         MainActor.assumeIsolated { !DayPanel.shared.isOpen }
     }
 
+    /// The Dock icon brings back a planner hidden behind the mini timer.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        MainActor.assumeIsolated {
+            guard let window = TimerActions.mainWindow, !window.isVisible || window.isMiniaturized else { return true }
+            TimerActions.showPlanner()
+            return false
+        }
+    }
+
     /// Quitting with a task sheet (or any sheet) open: every edit is already
     /// saved, so close the sheets and quit instead of refusing.
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
@@ -185,7 +194,7 @@ enum DataTransfer {
     }
 
     static func export(_ store: TaskStore, planner: PlannerModel) {
-        let file = store.exportFile(appVersion: appVersion)
+        let file = store.exportFile(appVersion: appVersion, projects: AppModel.shared.projects.projects)
         guard !file.tasks.isEmpty else { planner.show("There are no tasks to export."); return }
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.json]
@@ -209,7 +218,16 @@ enum DataTransfer {
         do {
             let file = try TaskStore.parseImport(Data(contentsOf: url))
             let undo = NSApp.keyWindow?.undoManager
-            let count = store.perform("Import", undoManager: undo) { store.importTasks(file) }
+            // The file's projects join this Mac's by name.
+            var projectIds: [String: String] = [:]
+            let projects = AppModel.shared.projects
+            for project in file.projects ?? [] where !project.isDeleted {
+                let isNew = projects.named(project.name) == nil
+                guard let id = projects.findOrCreate(project.name) else { continue }
+                if isNew { projects.setColor(id, project.color) }
+                projectIds[project.id] = id
+            }
+            let count = store.perform("Import", undoManager: undo) { store.importTasks(file, projects: projectIds) }
             planner.show("Imported \(count) \(count == 1 ? "task" : "tasks").", canUndo: undo != nil)
         } catch {
             planner.show(error.localizedDescription)

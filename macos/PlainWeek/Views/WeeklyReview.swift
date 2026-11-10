@@ -90,7 +90,6 @@ struct WeeklyReview: View {
         .padding(28)
         .frame(width: 560)
         .background(Theme.background)
-        .focusEffectDisabled()
     }
 
     private func stat(_ value: String, _ label: String) -> some View {

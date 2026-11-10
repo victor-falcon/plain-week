@@ -118,18 +118,21 @@ final class NoteTextView: NSTextView {
         let mods = event.modifierFlags.intersection([.command, .shift, .option, .control])
         let key = event.charactersIgnoringModifiers?.lowercased() ?? ""
 
-        switch (mods, key) {
-        case ([.command], "1"), ([.command], "2"), ([.command], "3"), ([.command], "4"):
-            run { NoteMarkdown.toggleHeading($0, level: Int(key)!) }
-        case ([.command], "t"): run(NoteMarkdown.toggleTodo)
-        case ([.command], "e"): run { NoteMarkdown.insert($0, NoteMarkdown.timeStamp()) }
-        case ([.command, .shift], "e"): run { NoteMarkdown.insert($0, NoteMarkdown.dateStamp()) }
-        case ([.command, .shift], "x"): run { NoteMarkdown.toggleWrap($0, .strike) }
-        case ([.command], "b"): run { NoteMarkdown.toggleWrap($0, .bold) }
-        case ([.command], "i"): run { NoteMarkdown.toggleWrap($0, .italic) }
-        case ([.command], "u"): run { NoteMarkdown.toggleWrap($0, .underline) }
-        case ([.command, .shift], "c"): showColorMenu()
-        case ([.command, .option], "b"):
+        // ⌘1–4 are fixed; the rest follow Settings › Shortcuts.
+        if mods == [.command], let level = Int(key), (1...4).contains(level) {
+            run { NoteMarkdown.toggleHeading($0, level: level) }
+            return true
+        }
+        switch Shortcuts.shared.action(for: event, in: .notes) {
+        case .todo: run(NoteMarkdown.toggleTodo)
+        case .timeStamp: run { NoteMarkdown.insert($0, NoteMarkdown.timeStamp()) }
+        case .dateStamp: run { NoteMarkdown.insert($0, NoteMarkdown.dateStamp()) }
+        case .strike: run { NoteMarkdown.toggleWrap($0, .strike) }
+        case .bold: run { NoteMarkdown.toggleWrap($0, .bold) }
+        case .italic: run { NoteMarkdown.toggleWrap($0, .italic) }
+        case .underline: run { NoteMarkdown.toggleWrap($0, .underline) }
+        case .textColor: showColorMenu()
+        case .blockCaret:
             blockCaret.toggle()
             updateInsertionPointStateAndRestartTimer(true)
             needsDisplay = true

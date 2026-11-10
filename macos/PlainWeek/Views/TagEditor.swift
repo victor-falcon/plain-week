@@ -22,17 +22,21 @@ struct TagEditor: View {
                     .frame(height: 22)
                     .accessibilityHidden(true)
                 ForEach(tags, id: \.self) { tag in
-                    HStack(spacing: 3) {
+                    HStack(spacing: 0) {
                         Text(tag)
                         Button { save(tags.filter { $0 != tag }) } label: {
                             Image(systemName: "xmark").font(.system(size: 8, weight: .bold))
+                                // A real target around the small glyph, up to the chip's edge.
+                                .frame(width: 20, height: 22)
+                                .contentShape(Rectangle())
                         }
                         .buttonStyle(.pressable)
                         .help("Remove #\(tag)")
                         .accessibilityLabel("Remove tag \(tag)")
                     }
                     .font(.system(size: 12, weight: .medium))
-                    .padding(.horizontal, 8)
+                    .padding(.leading, 8)
+                    .padding(.trailing, 2)
                     .frame(height: 22)
                     .background(Capsule().fill(Theme.hover))
                 }

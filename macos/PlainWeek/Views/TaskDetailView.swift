@@ -35,6 +35,8 @@ struct TaskDetailView: View {
     @State private var tagsFocusTick = 0
     /// Wider and taller, for writing longer notes; remembered.
     @AppStorage("taskSheetExpanded") private var expanded = false
+    /// The list of keyboard shortcuts, out of the trailing edge.
+    @State private var showShortcuts = false
 
     init(taskId: String, focusTags: Bool = false) {
         _taskId = State(initialValue: taskId)
@@ -51,10 +53,15 @@ struct TaskDetailView: View {
                     .padding(40)
             }
         }
-        .frame(width: expanded ? 880 : 560)
+        .frame(width: (expanded ? 880 : 560) + (showShortcuts ? ShortcutsPanel.width : 0))
         .background(Theme.background)
+        .clipped()
         .animation(Motion.standard, value: expanded)
+        .animation(Motion.standard, value: showShortcuts)
     }
+
+    /// The action's current keys, for tooltips and menus.
+    private func keys(_ action: ShortcutAction) -> String { Shortcuts.shared.label(action) }
 
     private var actions: TaskActions { TaskActions(store: store, planner: planner, undoManager: undoManager) }
 
@@ -117,14 +124,6 @@ struct TaskDetailView: View {
                     follow(store.update(taskId, TaskPatch(notes: value)))
                 }
             }
-            if notesFocused {
-                Text("⌘B bold  ·  ⌘I italic  ·  ⌘U underline  ·  ⇧⌘X strike  ·  ⌘1–4 heading  ·  ⌘T todo  ·  ⌘E time  ·  ⇧⌘E date  ·  ⇧⌘C color  ·  ⌥⌘B block caret")
-                    .font(.system(size: 11))
-                    .foregroundStyle(Theme.mutedForeground.opacity(0.8))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-                    .transition(.opacity)
-            }
 
             subtasks(task)
 
@@ -138,6 +137,14 @@ struct TaskDetailView: View {
             shortcutFooter
         }
         .padding(28)
+        // The shortcuts list takes its own column on the trailing side.
+        .padding(.trailing, showShortcuts ? ShortcutsPanel.width : 0)
+        .overlay(alignment: .trailing) {
+            if showShortcuts {
+                ShortcutsPanel { showShortcuts = false }
+                    .transition(Motion.slide(.trailing))
+            }
+        }
         .background { sheetShortcuts(item) }
         // The Mac's Delete key, when no text field is taking it.
         .onDeleteCommand {
@@ -192,7 +199,7 @@ struct TaskDetailView: View {
             .buttonStyle(ToolbarButtonStyle(active: picker == .date))
             .disabled(item.kind == .series)
             .popover(isPresented: pickerBinding(.date), arrowEdge: .bottom) { datePicker(item) }
-            .help("Date (⌥⌘D)")
+            .help("Date (\(keys(.date)))")
 
             Button {
                 picker = .time
@@ -201,7 +208,7 @@ struct TaskDetailView: View {
             }
             .buttonStyle(ToolbarButtonStyle(active: picker == .time))
             .popover(isPresented: pickerBinding(.time), arrowEdge: .bottom) { timePicker(task) }
-            .help("Time (⌥⌘T)")
+            .help("Time (\(keys(.time)))")
 
             Button {
                 picker = .location
@@ -218,7 +225,7 @@ struct TaskDetailView: View {
                     })
                 }
             }
-            .help(task.location.map { "Location: \($0)" } ?? "Location (⌥⌘P)")
+            .help(task.location.map { "Location: \($0)" } ?? "Location (\(keys(.location)))")
 
             Menu {
                 ForEach(TaskPriority.allCases) { priority in
@@ -246,7 +253,7 @@ struct TaskDetailView: View {
                     .contentTransition(.symbolEffect(.replace))
             }
             .buttonStyle(ToolbarButtonStyle(active: task.flagged))
-            .help(task.flagged ? "Unflag (⌥⌘F)" : "Flag (⌥⌘F)")
+            .help(task.flagged ? "Unflag (\(keys(.flag)))" : "Flag (\(keys(.flag)))")
 
             Spacer()
 
@@ -257,7 +264,7 @@ struct TaskDetailView: View {
                 }
             } label: { Image(systemName: "trash") }
                 .buttonStyle(ToolbarButtonStyle(active: false))
-                .help("Delete (⌫, or ⇧⌘⌫ while typing)")
+                .help("Delete (⌫, or \(keys(.delete)) while typing)")
 
             Button {
                 picker = .repeating
@@ -274,22 +281,22 @@ struct TaskDetailView: View {
                         }
                     }
                 }
-                .help((store.series(of: item)?.recurrence.map { "Repeat: \(RecurrenceEngine.summary($0))" } ?? "Repeat") + " (⌥⌘R)")
+                .help((store.series(of: item)?.recurrence.map { "Repeat: \(RecurrenceEngine.summary($0))" } ?? "Repeat") + " (\(keys(.repeating)))")
 
             Button {
                 picker = .color
             } label: { ColorSwatch(color: task.color, size: 14) }
                 .buttonStyle(ToolbarButtonStyle(active: picker == .color))
                 .popover(isPresented: pickerBinding(.color), arrowEdge: .bottom) { colorPicker(item) }
-                .help("Color (⌥⌘C)")
+                .help("Color (\(keys(.color)))")
 
             Menu {
-                Button("Tomorrow  ⌥⌘→") { follow(actions.tomorrow(item)) }
-                Button("Next Week  ⇧⌥⌘→") { follow(actions.nextWeek(item)) }
-                Button("Backlog  ⌥⌘L") { follow(actions.move(item, to: nil)) }
+                Button("Tomorrow  \(keys(.tomorrow))") { follow(actions.tomorrow(item)) }
+                Button("Next Week  \(keys(.nextWeek))") { follow(actions.nextWeek(item)) }
+                Button("Backlog  \(keys(.backlog))") { follow(actions.move(item, to: nil)) }
                     .disabled(task.date == nil)
                 Divider()
-                Button("Duplicate  ⌘D") { actions.duplicate(item) }
+                Button("Duplicate  \(keys(.duplicate))") { actions.duplicate(item) }
             } label: { Image(systemName: "ellipsis") }
                 .menuStyle(.borderlessButton)
                 .menuIndicator(.hidden)
@@ -300,7 +307,7 @@ struct TaskDetailView: View {
                 Image(systemName: expanded ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
             }
             .buttonStyle(ToolbarButtonStyle(active: expanded))
-            .help(expanded ? "Smaller (⌥⌘E)" : "Larger, for longer notes (⌥⌘E)")
+            .help(expanded ? "Smaller (\(keys(.expand)))" : "Larger, for longer notes (\(keys(.expand)))")
             .accessibilityLabel(expanded ? "Make the window smaller" : "Make the window larger")
 
             Button("Done") { dismiss() }
@@ -327,18 +334,19 @@ struct TaskDetailView: View {
     private func details(_ item: PlannerItem) -> some View {
         let task = item.task
         FlowLayout(spacing: 6) {
-            detailChip(task.date.map(Format.fullDate) ?? "Backlog", "calendar", help: "Date (⌥⌘D)") {
+            detailChip(task.date.map(Format.fullDate) ?? "Backlog", "calendar", help: "Date (\(keys(.date)))") {
                 if item.kind != .series { picker = .date }
             }
+            projectChip(item)
             if let time = task.time {
                 let label = task.duration.map { "\(time) · \(TaskTiming.short($0))" } ?? time
-                detailChip(label, "clock", help: "Time (⌥⌘T)") { picker = .time }
+                detailChip(label, "clock", help: "Time (\(keys(.time)))") { picker = .time }
             }
             if let rule = store.series(of: item)?.recurrence {
-                detailChip(RecurrenceEngine.summary(rule), "repeat", help: "Repeat (⌥⌘R)") { picker = .repeating }
+                detailChip(RecurrenceEngine.summary(rule), "repeat", help: "Repeat (\(keys(.repeating)))") { picker = .repeating }
             }
             if let place = task.location {
-                detailChip(Place.short(place, max: 40), "mappin.and.ellipse", help: "\(place) (⌥⌘P)") { picker = .location }
+                detailChip(Place.short(place, max: 40), "mappin.and.ellipse", help: "\(place) (\(keys(.location)))") { picker = .location }
             }
             if task.priority != .none {
                 Menu {
@@ -356,16 +364,39 @@ struct TaskDetailView: View {
                 .help("Priority (⌥⌘0–3)")
             }
             if task.flagged {
-                detailChip("Flagged", "flag.fill", help: "Unflag (⌥⌘F)") { setFlag(false) }
+                detailChip("Flagged", "flag.fill", tint: Theme.checkbox(task.color)?.ring, help: "Unflag (\(keys(.flag)))") { setFlag(false) }
             }
         }
         .accessibilityElement(children: .contain)
     }
 
-    private func detailChip(_ text: String, _ icon: String, help: String, action: @escaping () -> Void) -> some View {
+    /// `tint` colors the icon alone (the flag takes the task's color).
+    /// The task's project (or "No Project"), a menu to move it.
+    private func projectChip(_ item: PlannerItem) -> some View {
+        let project = AppModel.shared.projects.project(item.task.project_id)
+        return Menu {
+            ProjectMenuItems(current: item.task.project_id) { id in
+                follow(store.perform("Move to Project", undoManager: undoManager) { store.setProject(item, id) })
+            }
+        } label: {
+            HStack(spacing: 5) {
+                if let project { ProjectDot(color: project.color, size: 8) } else { Image(systemName: "folder").font(.system(size: 11, weight: .medium)) }
+                Text(project?.name ?? "No Project").lineLimit(1)
+            }
+            .font(.system(size: 12, weight: .medium))
+        }
+        .menuStyle(.button)
+        .buttonStyle(DetailChipStyle())
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help("Project")
+    }
+
+    private func detailChip(_ text: String, _ icon: String, tint: Color? = nil, help: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 5) {
                 Image(systemName: icon).font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(tint.map { AnyShapeStyle($0) } ?? AnyShapeStyle(.foreground))
                 Text(text).lineLimit(1)
             }
             .font(.system(size: 12, weight: .medium))
@@ -398,32 +429,23 @@ struct TaskDetailView: View {
                     return false
                 }
             }
-            DatePicker("Date", selection: Binding(
-                get: { DateKey.localDate(item.task.date ?? planner.today) },
-                set: { date in
-                    picker = nil
-                    let key = DateKey.local(date)
-                    guard key != item.task.date else { return }
-                    follow(store.perform("Move Task", undoManager: undoManager) { store.move(item.id, to: key) })
-                }
-            ), displayedComponents: .date)
-            .datePickerStyle(.graphical)
-            .labelsHidden()
-            .environment(\.calendar, Self.mondayCalendar)
+            // The same month calendar as the sidebar's.
+            MonthPicker(selected: item.task.date, today: planner.today) { key in
+                picker = nil
+                guard key != item.task.date else { return }
+                follow(store.perform("Move Task", undoManager: undoManager) { store.move(item.id, to: key) })
+            }
             Button("Backlog") {
                 picker = nil
                 follow(store.perform("Move Task", undoManager: undoManager) { store.move(item.id, to: nil) })
             }
-            .disabled(item.task.date == nil || item.isRecurring && item.kind == .occurrence && false)
+            .buttonStyle(PillButtonStyle())
+            .disabled(item.task.date == nil)
         }
-        .padding(12)
+        .padding(14)
+        .frame(width: 280)
+        .background(Theme.background)
     }
-
-    private static let mondayCalendar: Calendar = {
-        var calendar = Calendar.current
-        calendar.firstWeekday = 2
-        return calendar
-    }()
 
     private func timePicker(_ task: PlainTask) -> some View {
         let current = task.time ?? "09:00"
@@ -520,61 +542,68 @@ struct TaskDetailView: View {
         let task = item.task
         Group {
             Button("Date") { picker = .date }
-                .keyboardShortcut("d", modifiers: [.command, .option])
+                .shortcut(.date)
                 .disabled(item.kind == .series)
             Button("Time") { picker = .time }
-                .keyboardShortcut("t", modifiers: [.command, .option])
+                .shortcut(.time)
             Button("Location") { picker = .location }
-                .keyboardShortcut("p", modifiers: [.command, .option])
+                .shortcut(.location)
             Button("Expand") { expanded.toggle() }
-                .keyboardShortcut("e", modifiers: [.command, .option])
+                .shortcut(.expand)
+            Button("Shortcuts") { showShortcuts.toggle() }
+                .shortcut(.shortcuts)
             Button("Tags") { tagsFocusTick += 1 }
-                .keyboardShortcut("g", modifiers: [.command, .option])
+                .shortcut(.tags)
             Button("Flag") { setFlag(!task.flagged) }
-                .keyboardShortcut("f", modifiers: [.command, .option])
+                .shortcut(.flag)
             ForEach(TaskPriority.allCases) { priority in
                 Button(priority.label) { setPriority(priority) }
                     .keyboardShortcut(KeyEquivalent(Character(String(priority.rawValue))), modifiers: [.command, .option])
             }
             Button("Repeat") { picker = .repeating }
-                .keyboardShortcut("r", modifiers: [.command, .option])
+                .shortcut(.repeating)
                 .disabled(task.date == nil)
             Button("Color") { picker = .color }
-                .keyboardShortcut("c", modifiers: [.command, .option])
+                .shortcut(.color)
             Button("Mark as Done") {
                 follow(store.perform(task.done ? "Mark as Not Done" : "Mark as Done", undoManager: undoManager) { store.toggleDone(taskId) })
             }
-            .keyboardShortcut(.return, modifiers: [.command])
+            .shortcut(.done)
             Button("Delete") {
                 if store.asksScope(item) { pendingScope = .delete } else {
                     actions.delete(item)
                     dismiss()
                 }
             }
-            .keyboardShortcut(.delete, modifiers: [.command, .shift])
+            .shortcut(.delete)
             Button("Tomorrow") { follow(actions.tomorrow(item)) }
-                .keyboardShortcut(.rightArrow, modifiers: [.command, .option])
+                .shortcut(.tomorrow)
             Button("Next Week") { follow(actions.nextWeek(item)) }
-                .keyboardShortcut(.rightArrow, modifiers: [.command, .option, .shift])
+                .shortcut(.nextWeek)
             Button("Backlog") { follow(actions.move(item, to: nil)) }
-                .keyboardShortcut("l", modifiers: [.command, .option])
+                .shortcut(.backlog)
                 .disabled(task.date == nil)
             Button("Duplicate") { actions.duplicate(item) }
-                .keyboardShortcut("d", modifiers: [.command])
+                .shortcut(.duplicate)
         }
+        // Keys only: Tab never lands on these invisible buttons.
+        .focusable(false)
         .opacity(0)
         .frame(width: 0, height: 0)
         .allowsHitTesting(false)
         .accessibilityHidden(true)
     }
 
+    /// The keyboard button in the bottom-right corner: opens the list of shortcuts.
     private var shortcutFooter: some View {
-        Text("⌥⌘D date  ·  ⌥⌘T time  ·  ⌥⌘P place  ·  ⌥⌘F flag  ·  ⌥⌘0–3 priority  ·  ⌥⌘G tags  ·  ⌥⌘E larger  ·  ⌥⌘R repeat  ·  ⌥⌘C color  ·  ⌘↩ done  ·  ⌫ delete  ·  ⌥⌘→ tomorrow")
-            .font(.system(size: 11))
-            .foregroundStyle(Theme.mutedForeground.opacity(0.8))
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .lineLimit(3)
-            .fixedSize(horizontal: false, vertical: true)
+        HStack {
+            Spacer()
+            Button { showShortcuts.toggle() } label: { Image(systemName: "keyboard") }
+                .buttonStyle(ToolbarButtonStyle(active: showShortcuts))
+                .font(.system(size: 13))
+                .help(showShortcuts ? "Hide the keyboard shortcuts (\(keys(.shortcuts)))" : "Keyboard shortcuts (\(keys(.shortcuts)))")
+                .accessibilityLabel(showShortcuts ? "Hide the keyboard shortcuts" : "Show the keyboard shortcuts")
+        }
     }
 
     private func applyRule(_ rule: Recurrence?, scope: ChangeScope) {
@@ -686,12 +715,14 @@ private struct SubtaskRow: View {
 /// A grey capsule in the task sheet's details line.
 struct DetailChipStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .foregroundStyle(Theme.mutedForeground)
-            .padding(.horizontal, 9)
-            .frame(height: 24)
-            .background(Capsule().fill(configuration.isPressed ? Theme.foreground.opacity(0.12) : Theme.hover))
-            .contentShape(Capsule())
+        Hovering { hovering in
+            configuration.label
+                .foregroundStyle(hovering ? Theme.foreground : Theme.mutedForeground)
+                .padding(.horizontal, 9)
+                .frame(height: 24)
+                .background(Capsule().fill(configuration.isPressed ? Theme.foreground.opacity(0.16) : hovering ? Theme.pressed : Theme.hover))
+                .contentShape(Capsule())
+        }
     }
 }
 
@@ -701,13 +732,15 @@ struct ToolbarButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var isEnabled
 
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .padding(.horizontal, 9)
-            .frame(minWidth: 30, minHeight: 30)
-            .foregroundStyle(active ? Theme.background : Theme.foreground)
-            .background(Capsule().fill(active ? Theme.foreground : configuration.isPressed ? Theme.foreground.opacity(0.1) : .clear))
-            .contentShape(Capsule())
-            .opacity(isEnabled ? 1 : 0.4)
+        Hovering { hovering in
+            configuration.label
+                .padding(.horizontal, 9)
+                .frame(minWidth: 30, minHeight: 30)
+                .foregroundStyle(active ? Theme.background : Theme.foreground)
+                .background(Capsule().fill(active ? Theme.foreground : configuration.isPressed ? Theme.pressed : hovering ? Theme.hover : .clear))
+                .contentShape(Capsule())
+                .opacity(!isEnabled ? 0.4 : active && configuration.isPressed ? 0.75 : active && hovering ? 0.88 : 1)
+        }
     }
 }
 

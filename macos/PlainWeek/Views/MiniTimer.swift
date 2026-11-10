@@ -14,7 +14,7 @@ enum TimerActions {
 
     /// Starts on the day's next unfinished task, if it has one.
     static func startDay(_ day: String, store: TaskStore, planner: PlannerModel, timer: FocusTimer) {
-        guard let next = store.openTasks(on: day).first else { return }
+        guard let next = store.openTasks(on: day, filter: planner.filter).first else { return }
         start(next.id, day: day, store: store, planner: planner, timer: timer)
     }
 
@@ -25,7 +25,7 @@ enum TimerActions {
         let undo = mainWindow?.undoManager
         let doneId = store.perform("Mark as Done", undoManager: undo) { store.toggleDone(id) } ?? id
         let day = timer.day ?? store.item(doneId)?.task.date
-        if let day, let next = store.openTasks(on: day).first(where: { $0.id != doneId }) {
+        if let day, let next = store.openTasks(on: day, filter: planner.filter).first(where: { $0.id != doneId }) {
             timer.start(next.id, day: day)
         } else {
             stop(timer: timer)
@@ -39,23 +39,27 @@ enum TimerActions {
     /// The unfinished tasks of the timer's day: the mini window's stack.
     static func stack(store: TaskStore, timer: FocusTimer) -> [PlannerItem] {
         guard let id = timer.taskId, let day = timer.day ?? store.item(id)?.task.date else { return [] }
-        return store.openTasks(on: day)
+        // Within the project (and filter) the planner shows.
+        return store.openTasks(on: day, filter: AppModel.shared.planner.filter)
     }
 
     /// Moves the timer to the next (+1) or previous (−1) task of the stack.
     /// It stops at both ends; false when there is nowhere to go.
     @discardableResult
     static func step(_ offset: Int, store: TaskStore, timer: FocusTimer) -> Bool {
+        guard let target = stepTarget(offset, store: store, timer: timer) else { return false }
+        timer.switchTask(to: target)
+        return true
+    }
+
+    /// The task a step of `offset` would land on, or nil at the end of the stack.
+    static func stepTarget(_ offset: Int, store: TaskStore, timer: FocusTimer) -> String? {
         let tasks = stack(store: store, timer: timer)
         guard let index = tasks.firstIndex(where: { $0.id == timer.taskId }) else {
             // The timed task is done or gone: any scroll goes to the first one left.
-            guard let first = tasks.first else { return false }
-            timer.switchTask(to: first.id)
-            return true
+            return tasks.first?.id
         }
-        guard tasks.indices.contains(index + offset) else { return false }
-        timer.switchTask(to: tasks[index + offset].id)
-        return true
+        return tasks.indices.contains(index + offset) ? tasks[index + offset].id : nil
     }
 
     static func stop(timer: FocusTimer) {
@@ -79,8 +83,29 @@ enum TimerActions {
             MiniTimerPanel.shared.show(store: store, planner: planner, timer: timer)
             return
         }
+        // Full screen cannot minimize: leave it first, then minimize.
+        if window.styleMask.contains(.fullScreen) {
+            var token: NSObjectProtocol?
+            token = NotificationCenter.default.addObserver(forName: NSWindow.didExitFullScreenNotification, object: window, queue: .main) { _ in
+                if let token { NotificationCenter.default.removeObserver(token) }
+                MainActor.assumeIsolated { minimize(window, store: store, planner: planner, timer: timer) }
+            }
+            window.toggleFullScreen(nil)
+            return
+        }
+        minimize(window, store: store, planner: planner, timer: timer)
+    }
+
+    /// Minimizes the planner (which opens the mini window). If the window
+    /// does not go (minimizing turned off, or refused), it is hidden instead
+    /// and the mini window opens anyway; "Show Plain Week" brings it back.
+    private static func minimize(_ window: NSWindow, store: TaskStore, planner: PlannerModel, timer: FocusTimer) {
         window.miniaturize(nil)
-        // A window that cannot minimize (full screen) keeps the planner, with its pill.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+            guard timer.isActive, window.isVisible, !window.isMiniaturized else { return }
+            window.orderOut(nil)
+            MiniTimerPanel.shared.show(store: store, planner: planner, timer: timer)
+        }
     }
 
     static var mainWindow: NSWindow? {
@@ -208,26 +233,58 @@ final class MiniTimerPanel {
 /// stack: one step per trackpad swipe (momentum ignored) or mouse wheel notch.
 @MainActor
 final class ScrollStepper {
+    /// What a scroll event means for the stack.
+    enum Output: Equatable {
+        /// The fingers have moved this far (points) without stepping yet: the
+        /// title follows them.
+        case drag(CGFloat)
+        /// Go to the next (+1) or previous (−1) task.
+        case step(Int)
+        /// The fingers lifted: whatever was dragged settles back.
+        case end
+    }
+
+    /// The travel that commits a step.
+    static let threshold: CGFloat = 24
     private var total: CGFloat = 0
     private var fired = false
     private var lastNotch = Date.distantPast
 
-    /// +1 (next, scrolling down the stack), −1 (previous) or nil.
-    func step(for event: NSEvent) -> Int? {
+    /// `canStep` says whether there is a task in that direction; at the end
+    /// of the stack the swipe never steps and keeps reporting its travel, so
+    /// the title can stretch against the edge.
+    func handle(_ event: NSEvent, canStep: (Int) -> Bool) -> Output? {
         if event.hasPreciseScrollingDeltas {
             guard event.momentumPhase.isEmpty else { return nil }
-            if event.phase.contains(.began) {
-                total = 0
-                fired = false
-            }
-            total += event.scrollingDeltaY
-            guard !fired, abs(total) > 24 else { return nil }
-            fired = true
-            return total < 0 ? 1 : -1
+            return track(delta: event.scrollingDeltaY, began: event.phase.contains(.began),
+                         ended: event.phase.contains(.ended) || event.phase.contains(.cancelled), canStep: canStep)
         }
         guard event.scrollingDeltaY != 0, Date().timeIntervalSince(lastNotch) > 0.3 else { return nil }
         lastNotch = Date()
-        return event.scrollingDeltaY < 0 ? 1 : -1
+        return .step(event.scrollingDeltaY < 0 ? 1 : -1)
+    }
+
+    /// One trackpad sample (split from `handle` for tests).
+    func track(delta: CGFloat, began: Bool, ended: Bool, canStep: (Int) -> Bool) -> Output? {
+        if began {
+            total = 0
+            fired = false
+        }
+        if ended { return .end }
+        guard !fired else { return nil }
+        total += delta
+        let direction = total < 0 ? 1 : -1
+        if abs(total) > Self.threshold, canStep(direction) {
+            fired = true
+            return .step(direction)
+        }
+        return .drag(total)
+    }
+
+    /// Progressive resistance past an edge: the further the pull, the less
+    /// the title follows (it never travels more than `limit`).
+    static func rubberBand(_ travel: CGFloat, limit: CGFloat = 28) -> CGFloat {
+        travel * limit * 0.55 / (limit + 0.55 * abs(travel))
     }
 }
 
@@ -260,20 +317,52 @@ struct MiniTimerView: View {
     @State private var edge: Edge = .bottom
     @State private var stepper = ScrollStepper()
     @State private var scrollMonitor: Any?
+    /// How far the title is pulled by a swipe in progress.
+    @State private var pull: CGFloat = 0
 
     /// Moves to the next or previous task; the title slides the way of the scroll.
     private func step(_ offset: Int) {
         // While locked the task stays hidden, so the stack does not move.
         guard !AppModel.shared.lock.isLocked else { return }
         edge = offset > 0 ? .bottom : .top
-        withAnimation(Motion.standard) { _ = TimerActions.step(offset, store: store, timer: timer) }
+        withAnimation(Motion.standard) {
+            pull = 0
+            _ = TimerActions.step(offset, store: store, timer: timer)
+        }
+    }
+
+    private func canStep(_ offset: Int) -> Bool {
+        !AppModel.shared.lock.isLocked && TimerActions.stepTarget(offset, store: store, timer: timer) != nil
+    }
+
+    /// A scroll over the mini window: the title follows the fingers, steps
+    /// once they have gone far enough, stretches against the first and last
+    /// task, and settles back when they lift.
+    private func scrolled(_ output: ScrollStepper.Output) {
+        switch output {
+        case let .drag(travel):
+            guard !Motion.reduceMotion else { return }
+            let direction = travel < 0 ? 1 : -1
+            // Towards a task: nearly 1:1. Against an edge: rubber-banded.
+            pull = canStep(direction) ? travel * 0.7 : ScrollStepper.rubberBand(travel)
+        case let .step(offset):
+            if canStep(offset) {
+                step(offset)
+            } else if !Motion.reduceMotion {
+                // A wheel notch against an edge: a small nudge that springs back.
+                pull = offset > 0 ? -6 : 6
+                withAnimation(Motion.standard) { pull = 0 }
+            }
+        case .end:
+            withAnimation(Motion.standard) { pull = 0 }
+        }
     }
 
     private func watchScrolling() {
         guard scrollMonitor == nil else { return }
         scrollMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { event in
             guard let window = event.window, window === MiniTimerPanel.shared.window else { return event }
-            if let offset = stepper.step(for: event) { step(offset) }
+            if let output = stepper.handle(event, canStep: canStep) { scrolled(output) }
             return nil
         }
     }
@@ -301,6 +390,7 @@ struct MiniTimerView: View {
                         .id(timer.taskId)
                         .transition(Motion.reduceMotion ? .opacity : .push(from: edge))
                 }
+                .offset(y: pull)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .clipped()
                 .accessibilityHint(stack.count > 1 ? "Scroll or use the up and down arrows to switch tasks" : "")
@@ -343,7 +433,7 @@ struct MiniTimerView: View {
             VStack(spacing: 8) {
                 Button { TimerActions.showPlanner() } label: { Image(systemName: "arrow.up.left.and.arrow.down.right") }
                     .help("Open Plain Week")
-                Button { TimerActions.stop(timer: timer) } label: { Image(systemName: "xmark") }
+                Button { TimerActions.stop(timer: timer) } label: { Image(systemName: "stop.fill") }
                     .help("Stop the timer")
             }
             .buttonStyle(.pressable)
@@ -356,10 +446,11 @@ struct MiniTimerView: View {
                 Button("Previous Task") { step(-1) }.keyboardShortcut(.upArrow, modifiers: [])
                 Button("Next Task") { step(1) }.keyboardShortcut(.downArrow, modifiers: [])
             }
+            // Keys only: Tab never lands on these invisible buttons.
+            .focusable(false)
             .opacity(0)
             .accessibilityHidden(true)
         }
-        .focusEffectDisabled()
         .padding(.horizontal, 18)
         .padding(.vertical, 16)
         .frame(width: 340)

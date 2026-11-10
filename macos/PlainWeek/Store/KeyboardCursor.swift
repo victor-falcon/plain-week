@@ -29,7 +29,8 @@ enum KeyboardNav {
 
         var cursor = planner.cursor ?? Cursor(day: planner.showsToday ? planner.today : planner.weekStart, index: 0)
         let starting = planner.cursor == nil
-        let items = { (day: String) in planner.filter.apply(store.days(from: day, to: day)[day] ?? []) }
+        // The cursor walks the rows on screen: a closed Archive hides the done tasks.
+        let items = { (day: String) in planner.visibleItems(planner.filter.apply(store.days(from: day, to: day)[day] ?? []), on: day) }
 
         switch key {
         case "j", KeyCode.down:
