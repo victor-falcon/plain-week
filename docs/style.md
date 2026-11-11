@@ -271,20 +271,20 @@ opens by itself on that device; the header button always opens it. The open stat
 Built in `resources/js/pages/planner.tsx` from the components in `resources/js/components/planner/`. Measurements
 follow Tweek; colors, radius and font come from the tokens.
 
-| Element         | Desktop (≥1024px, `lg:`)                                                                                                                                                            | Mobile/tablet (<1024px)                                                    |
-| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| Page            | 24px side padding (`px-6`), 24px between columns (`gap-x-6`)                                                                                                                        | 16px side padding (`px-4`)                                                 |
-| Header          | "October 2026" `text-4xl font-bold tracking-tighter` + "W42" `text-muted-foreground/50`; 40px round buttons (account, previous, next)                                               | Sticky, translucent background; abbreviated title ("Oct 2026", `text-3xl`) |
-| Title           | `text-planner-accent` when the shown week is not the current one; clicking it returns to today                                                                                      | Same                                                                       |
-| Week grid       | 6 equal columns: Monday to Friday, then Saturday stacked directly over Sunday; Sunday's header takes one row slot, so the column ends level with the weekdays (5 + 1 + 4 = 10 rows) | One column, days one after another (40px apart)                            |
-| Day header      | Date (`font-bold tracking-tight`) at the start, weekday (`text-muted-foreground/70`) at the end, `pb-3`, 2px `border-foreground` bottom                                             | Same                                                                       |
-| Today           | Header text and border `planner-accent`, weekday `planner-accent-muted`; whole day on a `bg-planner-accent/6` tint (`/10` dark), `rounded-t-lg`, 10px bleed (start, end, top)       | Same                                                                       |
-| Weekend         | Saturday and Sunday headers are quieter: date `text-muted-foreground/70`, weekday `/50`, border `border-muted-foreground/25`; today keeps the accent                                | Same                                                                       |
-| Rows            | `h-row` (42px, `--spacing-row`), 1px `border-border` bottom                                                                                                                         | Same                                                                       |
-| Empty rows      | Always filled up to 10 per weekday, 5 for Saturday, 4 for Sunday, 2 per Someday column (and at least one after the last task)                                                       | Only one empty row after the tasks                                         |
-| Someday         | Below the week, full width: one list in 3 ruled columns, filled top to bottom, then left to right; empty rows only after the last task; title above                                 | One list, then a single empty row                                          |
-| Task text       | `text-sm`                                                                                                                                                                           | `text-base`                                                                |
-| Complete button | Check icon at the row end, shown on hover or keyboard focus with a mouse (always on touch screens and when done)                                                                    | Always shown                                                               |
+| Element         | Desktop (≥1024px, `lg:`)                                                                                                                                                             | Mobile/tablet (<1024px)                                                    |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
+| Page            | 24px side padding (`px-6`), 24px between columns (`gap-x-6`)                                                                                                                         | 16px side padding (`px-4`)                                                 |
+| Header          | "October 2026" `text-4xl font-bold tracking-tighter` + "W42" `text-muted-foreground/50`; 40px round buttons (account, previous, next)                                                | Sticky, translucent background; abbreviated title ("Oct 2026", `text-3xl`) |
+| Title           | `text-planner-accent` when the shown week is not the current one; clicking it returns to today                                                                                       | Same                                                                       |
+| Week grid       | 5 equal tracks (`grid-cols-5`): Monday to Friday on top; below them (48px apart) Saturday under Monday, Sunday under Tuesday and Someday spanning Wednesday to Friday (`col-span-3`) | One column, days one after another, then Someday (40px apart)              |
+| Day header      | Date (`font-bold tracking-tight`) at the start, weekday (`text-muted-foreground/70`) at the end, `pb-3`, 2px `border-foreground` bottom                                              | Same                                                                       |
+| Today           | Header text and border `planner-accent`, weekday `planner-accent-muted`; whole day on a `bg-planner-accent/6` tint (`/10` dark), `rounded-t-lg`, 10px bleed (start, end, top)        | Same                                                                       |
+| Weekend         | Saturday and Sunday headers are quieter: date `text-muted-foreground/70`, weekday `/50`, border `border-muted-foreground/25`; today keeps the accent                                 | Same                                                                       |
+| Rows            | Task rows `min-h-row` (42px, `--spacing-row`) and grow as the text wraps; new-task rows `h-row`; 1px `border-border` bottom                                                          | Same                                                                       |
+| Empty rows      | Always filled up to 8 per weekday, 4 for Saturday, Sunday and Someday each (and at least one after the last task)                                                                    | Only one empty row after the tasks                                         |
+| Someday         | Next to Saturday and Sunday, spanning Wednesday to Friday: one ruled list, empty rows only after the last task; a header like a day's (bold title, 2px `border-foreground` bottom)   | One list, then a single empty row                                          |
+| Task text       | `text-sm`, wraps up to 3 lines (`line-clamp-3`, `wrap-anywhere`); the full text is in the task dialog                                                                                | `text-base`, same wrapping                                                 |
+| Complete button | Check icon at the row end, shown on hover or keyboard focus with a mouse (always on touch screens and when done)                                                                     | Always shown                                                               |
 
 Row behaviour:
 
@@ -306,13 +306,17 @@ Row behaviour:
 - The keyboard focus ring of a task row spans the whole row (drawn by an `after:` overlay of the text button), not just
   the text.
 - Done tasks are `text-muted-foreground` and `line-through`; a colored pill fades to 50 %.
+- The text pill wraps up to three lines and is `rounded-xl`, about half its 24px line: a one-line pill still reads as
+  fully round and a wrapped one becomes a rounded block (a per-line `box-decoration-clone` pill looked choppy and does
+  not combine with `line-clamp`). The row aligns to the top (`items-start`, `py-2` on the text button, so a one-line
+  row stays 42px), and the time pill, repeat icon, `⏎` hint and check are nudged down to sit on the first line.
 - A task with a time shows it first in a small outlined pill (`border-current`, `text-xs`, tabular numbers), and timed
   tasks are listed first in their day, earliest first. A colored text pill keeps a 4px gap (`ms-1`) from the time pill
   or repeat icon before it.
 
 Drag and drop (behaviour in [architecture.md](./architecture.md#drag-and-drop)):
 
-- The dragged task follows the pointer as its pill on a lifted row (`bg-background`, `shadow-lg`, `ring-1 ring-border`,
+- The dragged task follows the pointer as its pill (wrapped like in its row) on a lifted row (`bg-background`, `shadow-lg`, `ring-1 ring-border`,
   `rounded-md`); the source row stays in place at 40 % opacity.
 - Where it will land is a 2px `bg-primary` line between rows. Layers: edge zones (5) < drag overlay (10) < insertion
   line (11) < sticky mobile header (20), so the line shows through the dragged task.
@@ -586,8 +590,7 @@ text, 4.5:1), because the dark-mode `--primary` is only 2.2:1 on the dark backgr
 Today's whole day (header and rows) also sits on a translucent tint, `bg-planner-accent/6` in light and
 `dark:bg-planner-accent/10` in dark (the dark accent is lighter, so it needs more to read the same). It has rounded top
 corners (`rounded-t-lg`) and bleeds 10px past the start, end and top (`-mx-2.5 -mt-2.5` with matching `px-2.5 pt-2.5`),
-so the header text and row rules stay exactly where the other days have them. On desktop Sunday skips the top bleed
-(`lg:not-first:mt-0 lg:not-first:pt-0`), since it sits right under Saturday's last row. The contrast ratios below for
+so the header text and row rules stay exactly where the other days have them. The contrast ratios below for
 `--planner-accent-muted` are measured on that tint, since today's weekday is the only place it is used.
 
 | Token                    | Light                                           | Dark                                        |

@@ -313,7 +313,6 @@ function Someday() {
                 placement={{ date: null }}
                 tasks={tasks}
                 rows={2}
-                columns={3}
                 newTaskLabel={SOMEDAY_LABEL}
                 onOpenTask={() => {}}
             />
@@ -322,59 +321,27 @@ function Someday() {
     );
 }
 
-describe('TaskList in columns', () => {
+describe('TaskList growing past its rows', () => {
     const list = () =>
         document.querySelector<HTMLElement>('[data-list="someday"]')!;
 
-    it('packs the tasks first and grows the columns as the list grows', async () => {
+    it('fills its rows, then keeps one empty row after the last task', async () => {
         render(<Someday />);
 
-        expect(screen.getAllByLabelText(SOMEDAY_LABEL)).toHaveLength(6);
-        expect(list().style.getPropertyValue('--list-rows')).toBe('2');
+        expect(screen.getAllByLabelText(SOMEDAY_LABEL)).toHaveLength(2);
 
-        for (const text of ['S0', 'S1', 'S2', 'S3', 'S4', 'S5']) {
+        for (const text of ['S0', 'S1', 'S2']) {
             await createTask({ text, date: null });
         }
 
-        // Six tasks and at least one empty row: three rows per column.
-        await waitFor(() =>
-            expect(list().style.getPropertyValue('--list-rows')).toBe('3'),
-        );
-        expect(screen.getAllByLabelText(SOMEDAY_LABEL)).toHaveLength(3);
+        await screen.findByRole('button', { name: 'S2' });
+        expect(screen.getAllByLabelText(SOMEDAY_LABEL)).toHaveLength(1);
 
-        // In the DOM (the grid's flow order) no empty row sits between tasks.
+        // No empty row sits between tasks.
         const order = [
             ...list().querySelectorAll('[data-task-id], [data-new-task-row]'),
         ].map((row) => (row.matches('[data-task-id]') ? 'task' : 'empty'));
 
-        expect(order).toEqual([
-            ...Array<string>(6).fill('task'),
-            ...Array<string>(3).fill('empty'),
-        ]);
-    });
-
-    it('keeps rows mounted when a task changes column', async () => {
-        for (const text of ['S0', 'S1', 'S2', 'S3', 'S4']) {
-            await createTask({ text, date: null });
-        }
-
-        render(<Someday />);
-
-        // Two rows per column: S2 starts the second column.
-        const row = (await screen.findByRole('button', { name: 'S2' })).closest(
-            '[data-task-id]',
-        );
-
-        await createTask({ text: 'S5', date: null });
-        await waitFor(() =>
-            expect(list().style.getPropertyValue('--list-rows')).toBe('3'),
-        );
-
-        // Now S2 ends the first column, in the same element.
-        expect(
-            screen
-                .getByRole('button', { name: 'S2' })
-                .closest('[data-task-id]'),
-        ).toBe(row);
+        expect(order).toEqual(['task', 'task', 'task', 'empty']);
     });
 });

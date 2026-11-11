@@ -7,8 +7,8 @@ import {
     parseWeekParam,
     somedayArchiveWeek,
     startOfWeek,
-    weekColumns,
     weekFromUrl,
+    weekLayout,
     weekThursday,
     weekdayIndex,
 } from './week';
@@ -94,19 +94,21 @@ describe('parseWeekParam', () => {
     );
 });
 
-describe('weekColumns', () => {
-    it('gives Monday to Friday a column each and stacks the weekend so it ends level with them', () => {
-        expect(weekColumns(day('2026-10-12'))).toEqual([
-            [{ date: '2026-10-12', rows: 10 }],
-            [{ date: '2026-10-13', rows: 10 }],
-            [{ date: '2026-10-14', rows: 10 }],
-            [{ date: '2026-10-15', rows: 10 }],
-            [{ date: '2026-10-16', rows: 10 }],
-            [
-                { date: '2026-10-17', rows: 5 },
+describe('weekLayout', () => {
+    it('puts Monday to Friday on top and the weekend, with fewer rows, below', () => {
+        expect(weekLayout(day('2026-10-12'))).toEqual({
+            weekdays: [
+                { date: '2026-10-12', rows: 8 },
+                { date: '2026-10-13', rows: 8 },
+                { date: '2026-10-14', rows: 8 },
+                { date: '2026-10-15', rows: 8 },
+                { date: '2026-10-16', rows: 8 },
+            ],
+            weekend: [
+                { date: '2026-10-17', rows: 4 },
                 { date: '2026-10-18', rows: 4 },
             ],
-        ]);
+        });
     });
 });
 

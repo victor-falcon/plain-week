@@ -1,18 +1,14 @@
 import { parseDateKey, toDateKey, weekDateKeys } from '@/lib/db/dates';
 
-/** Empty rows rendered per day on desktop (Monday to Friday). */
-export const WEEKDAY_ROWS = 10;
+/** Minimum ruled rows of Monday to Friday on desktop (more as a day fills). */
+export const WEEKDAY_ROWS = 8;
 
 /**
- * Saturday and Sunday share the sixth column. Sunday's header takes one row
- * slot, so Sunday gets one row less and the column ends level with the
- * weekdays (5 + 1 + 4 = 10).
+ * Minimum ruled rows of Saturday, Sunday and Someday on desktop. They share
+ * the row below the weekdays, so they end level with each other.
  */
-export const SATURDAY_ROWS = 5;
-export const SUNDAY_ROWS = WEEKDAY_ROWS - SATURDAY_ROWS - 1;
-
-/** Minimum rows per Someday column on desktop (more as the list grows). */
-export const SOMEDAY_ROWS = 2;
+export const WEEKEND_ROWS = 4;
+export const SOMEDAY_ROWS = 4;
 
 export function addDays(date: Date, days: number): Date {
     return new Date(date.getFullYear(), date.getMonth(), date.getDate() + days);
@@ -83,21 +79,26 @@ export type PlannerDay = {
     rows: number;
 };
 
-/**
- * The six desktop columns of a week: Monday to Friday get one day each, and
- * the sixth column stacks Saturday over Sunday.
- */
-export function weekColumns(weekStart: Date): PlannerDay[][] {
-    const days = weekDateKeys(weekStart);
-    const weekdays = days
-        .slice(0, 5)
-        .map((date) => [{ date, rows: WEEKDAY_ROWS }]);
-    const weekend = [
-        { date: days[5], rows: SATURDAY_ROWS },
-        { date: days[6], rows: SUNDAY_ROWS },
-    ];
+export type WeekLayout = {
+    /** Monday to Friday: the top row on desktop. */
+    weekdays: PlannerDay[];
+    /** Saturday and Sunday: under Monday and Tuesday on desktop. */
+    weekend: PlannerDay[];
+};
 
-    return [...weekdays, weekend];
+/**
+ * The days of a week as the desktop planner lays them out: Monday to Friday
+ * side by side, then Saturday and Sunday in the row below, next to Someday.
+ */
+export function weekLayout(weekStart: Date): WeekLayout {
+    const days = weekDateKeys(weekStart);
+
+    return {
+        weekdays: days
+            .slice(0, 5)
+            .map((date) => ({ date, rows: WEEKDAY_ROWS })),
+        weekend: days.slice(5).map((date) => ({ date, rows: WEEKEND_ROWS })),
+    };
 }
 
 export const WEEK_PARAM = 'week';

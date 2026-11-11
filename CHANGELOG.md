@@ -7,6 +7,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- **Wider weekdays, wrapping titles.** Task titles wrap up to three lines instead of being cut off with "…"; the
+  weekend and Someday move below Monday to Friday (Saturday, Sunday, then Someday as one list) so the weekdays get
+  wider columns on desktop.
+
 ## [0.3.15] - 2026-11-08
 
 ### Added

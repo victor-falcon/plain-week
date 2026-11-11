@@ -491,7 +491,7 @@ export function PlannerDnd({
                 {dragged && !held && (
                     <div
                         data-drag-overlay
-                        className="flex h-row cursor-grabbing items-center rounded-md bg-background text-sm shadow-lg ring-1 ring-border max-lg:text-base"
+                        className="flex h-full min-h-row cursor-grabbing items-start rounded-md bg-background py-2 text-sm shadow-lg ring-1 ring-border max-lg:text-base"
                     >
                         <TaskLabel task={dragged.task} />
                     </div>

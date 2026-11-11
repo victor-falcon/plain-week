@@ -7,7 +7,6 @@ import { PlannerDnd } from '@/components/planner/planner-dnd';
 import { PlannerHeader } from '@/components/planner/planner-header';
 import { ScopePromptProvider } from '@/components/planner/scope-prompt';
 import { ShortcutsDialog } from '@/components/planner/shortcuts-dialog';
-import { SomedaySection } from '@/components/planner/someday-section';
 import { TaskDialog } from '@/components/planner/task-dialog/task-dialog';
 import { WeekGrid } from '@/components/planner/week-grid';
 import { SyncProvider } from '@/components/sync-provider';
@@ -75,18 +74,13 @@ export default function PlannerLayout({ children }: { children: ReactNode }) {
                             onNextWeek={navigation.nextWeek}
                             onToday={navigation.goToToday}
                         />
-                        <main className="flex flex-col gap-10 px-4 pt-6 pb-12 lg:gap-12 lg:px-6 lg:pt-14">
+                        <main className="flex flex-col px-4 pt-6 pb-12 lg:px-6 lg:pt-14">
                             <PlannerDnd
                                 weekStart={navigation.weekStart}
                                 onPreviousWeek={navigation.previousWeek}
                                 onNextWeek={navigation.nextWeek}
                             >
                                 <WeekGrid
-                                    weekStart={navigation.weekStart}
-                                    today={today}
-                                    onOpenTask={setOpenTaskId}
-                                />
-                                <SomedaySection
                                     weekStart={navigation.weekStart}
                                     today={today}
                                     onOpenTask={setOpenTaskId}

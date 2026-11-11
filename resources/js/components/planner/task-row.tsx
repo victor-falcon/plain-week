@@ -75,7 +75,7 @@ function RepeatIcon({ summary }: { summary: string | null }) {
     const icon = (
         <span
             data-testid="repeat-icon"
-            className="ms-1.5 flex shrink-0 opacity-70"
+            className="ms-1.5 mt-1.5 flex shrink-0 opacity-70"
         >
             <Repeat aria-hidden className="size-3" />
         </span>
@@ -104,17 +104,22 @@ function TaskLabelView({
     const afterBadge =
         Boolean(color.pill) && (Boolean(task.time) || repeat.repeats);
 
+    // The parent aligns items to the top, so the time pill and repeat icon
+    // are nudged down to sit centered on the text's first (24px) line.
     return (
         <>
             {task.time && (
-                <span className="ms-1.5 shrink-0 rounded-full border border-current px-1.5 text-xs leading-5 tabular-nums">
+                <span className="ms-1.5 mt-px shrink-0 rounded-full border border-current px-1.5 text-xs leading-5 tabular-nums">
                     {task.time}
                 </span>
             )}
             {repeat.repeats && <RepeatIcon summary={repeat.summary} />}
+            {/* Wraps up to three lines. The radius is half a line, so a
+                one-line pill still reads as fully rounded and a wrapped one
+                becomes a rounded block. */}
             <span
                 className={cn(
-                    'truncate rounded-full px-1.5 leading-6',
+                    'line-clamp-3 min-w-0 rounded-xl px-1.5 leading-6 wrap-anywhere whitespace-normal',
                     color.pill,
                     afterBadge && 'ms-1',
                     task.done && 'line-through',
@@ -215,7 +220,9 @@ export function TaskRow({
                     }
                 }}
                 className={cn(
-                    'group/task relative flex h-row items-center gap-1 border-b border-border select-none [-webkit-touch-callout:none]',
+                    // At least one ruled row tall (42px), growing as the text
+                    // wraps; controls sit on the first line.
+                    'group/task relative flex min-h-row items-start gap-1 border-b border-border select-none [-webkit-touch-callout:none]',
                     task.done && 'text-muted-foreground',
                     isDragging && 'opacity-40',
                     // The keyboard cursor, or keyboard focus on the text
@@ -234,7 +241,7 @@ export function TaskRow({
                     onClick={() => onOpen(task.id)}
                     // Focus shows on the row as the cursor's look
                     // (`CURSOR_ROW_CLASS`), not as a ring on the button.
-                    className="h-full min-w-0 flex-1 justify-start gap-0 rounded-none px-0 text-base font-normal text-inherit hover:bg-transparent hover:text-inherit focus-visible:border-transparent focus-visible:ring-0 active:not-aria-[haspopup]:translate-y-0 lg:text-sm dark:hover:bg-transparent"
+                    className="h-auto min-w-0 flex-1 items-start justify-start gap-0 self-stretch rounded-none border-0 px-0 py-2 text-start text-base font-normal whitespace-normal text-inherit hover:bg-transparent hover:text-inherit focus-visible:border-transparent focus-visible:ring-0 active:not-aria-[haspopup]:translate-y-0 lg:text-sm dark:hover:bg-transparent"
                 >
                     <TaskLabelView task={task} repeat={repeat} />
                     {/* Grows in on hover: it takes no room until then, and
@@ -243,7 +250,7 @@ export function TaskRow({
                         action="task.open"
                         size="row"
                         className={cn(
-                            'ms-auto max-w-0 overflow-hidden opacity-0 transition-[max-width,opacity] duration-200 group-data-cursor/task:max-w-8 group-data-cursor/task:opacity-100',
+                            'ms-auto mt-0.5 max-w-0 overflow-hidden opacity-0 transition-[max-width,opacity] duration-200 group-data-cursor/task:max-w-8 group-data-cursor/task:opacity-100',
                             !cursorShown &&
                                 'group-hover/task:max-w-8 group-hover/task:opacity-100',
                         )}
@@ -256,7 +263,7 @@ export function TaskRow({
                     size="icon-sm"
                     {...attributes}
                     aria-label={`Move ${task.text}`}
-                    className="sr-only shrink-0 rounded-full hover:bg-transparent focus-visible:not-sr-only"
+                    className="sr-only mt-1 shrink-0 rounded-full hover:bg-transparent focus-visible:not-sr-only"
                 >
                     <GripVertical className="size-5" />
                 </Button>
@@ -270,7 +277,7 @@ export function TaskRow({
                     className={cn(
                         // Hidden until hover only for mouse users on desktop; touch
                         // screens of any size always show it.
-                        'shrink-0 rounded-full hover:bg-transparent lg:pointer-fine:opacity-0 lg:pointer-fine:group-hover/task:opacity-100 lg:pointer-fine:focus-visible:opacity-100',
+                        'mt-1 shrink-0 rounded-full hover:bg-transparent lg:pointer-fine:opacity-0 lg:pointer-fine:group-hover/task:opacity-100 lg:pointer-fine:focus-visible:opacity-100',
                         task.done && 'lg:pointer-fine:opacity-100',
                     )}
                 >
