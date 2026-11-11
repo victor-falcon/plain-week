@@ -316,8 +316,8 @@ Row behaviour:
 
 Drag and drop (behaviour in [architecture.md](./architecture.md#drag-and-drop)):
 
-- The dragged task follows the pointer as its pill (wrapped like in its row) on a lifted row (`bg-background`, `shadow-lg`, `ring-1 ring-border`,
-  `rounded-md`); the source row stays in place at 40 % opacity.
+- The dragged task follows the pointer as its pill (wrapped like in its row) on a lifted row (`bg-background`,
+  `shadow-lg`, `ring-1 ring-border`, `rounded-md`); the source row stays in place at 40 % opacity.
 - Where it will land is a 2px `bg-primary` line between rows. Layers: edge zones (5) < drag overlay (10) < insertion
   line (11) < sticky mobile header (20), so the line shows through the dragged task.
 - While dragging, `bg-muted` zones (208px tall, `rounded-e-3xl` / `rounded-s-3xl`, 24px wide on desktop, 16px on

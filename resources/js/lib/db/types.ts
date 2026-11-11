@@ -16,7 +16,10 @@ export const TASK_COLORS = [
 
 export type TaskColor = (typeof TASK_COLORS)[number];
 
-/** Someday has three columns. */
+/**
+ * Someday's legacy columns: only a sort key now (Someday is one list on
+ * screen), kept as-is for the schema and the sync contract.
+ */
 export const SOMEDAY_COLUMNS = [0, 1, 2] as const;
 
 export type SomedayColumn = (typeof SOMEDAY_COLUMNS)[number];

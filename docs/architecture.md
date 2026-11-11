@@ -549,9 +549,10 @@ measurements in [style.md](./style.md#planner-layout)). It follows the offline-f
   date moves into a new week while the current week is shown, `useWeekNavigation` follows to the new current week; a
   week the user navigated to stays.
 - Unfinished tasks of earlier days move to today: see [Carry over](#carry-over-unfinished-tasks).
-- Pure logic lives in `lib/planner/` with unit tests: ISO week math and the desktop week layout (`weekLayout` in `week.ts`: Monday to Friday, then the weekend, with their minimum rows), smart
-  time and date (`smart-time.ts`, `smart-date.ts`, combined by `smart-input.ts`), date labels (`format.ts`), task color
-  styles (`task-colors.ts`) and drop resolution (`drop.ts`).
+- Pure logic lives in `lib/planner/` with unit tests: ISO week math and the desktop week layout (`weekLayout` in
+  `week.ts`: Monday to Friday, then the weekend, with their minimum rows), smart time and date (`smart-time.ts`,
+  `smart-date.ts`, combined by `smart-input.ts`), date labels (`format.ts`), task color styles (`task-colors.ts`) and
+  drop resolution (`drop.ts`).
 
 ### Carry over unfinished tasks
 
@@ -610,8 +611,8 @@ writes the local database (`moveTask`); sync follows in the background.
   the drag started (so stepping swaps places), in another list above it.
 - Days show timed tasks first by time, so only untimed tasks are positional there: the `beforeId`/`afterId` handed to
   `moveTask` are the closest untimed tasks around the drop point, and a timed task keeps its slot by time (moving it
-  within its own day is a no-op). Someday is one positional list: a drop anywhere in it reorders it. A drop that would not change anything
-  writes nothing.
+  within its own day is a no-op). Someday is one positional list: a drop anywhere in it reorders it. A drop that would
+  not change anything writes nothing.
 - Edge zones (`start` = previous week, `end` = next week, so RTL mirrors) appear only while dragging. Hovering one
   for 600 ms changes the shown week, and keeps doing so while hovered, so the drag continues in the new week. Dropping
   on one moves the task to the same weekday of the week beyond the shown one (a Someday task goes to its Monday),
@@ -645,12 +646,12 @@ writes the local database (`moveTask`); sync follows in the background.
   task to the previous / next day in either direction.
 - The cursor is one task, or one list's new-task row (the last stop of each list). Lists are in visual order: Monday to
   Sunday, then Someday, the reading order of the desktop grid too (Monday to Friday, then Saturday, Sunday and Someday
-  in the row below): `l` from Friday goes on to Saturday and from Sunday to Someday. It is stored as list, task id and row
-  index: it follows its task when the task moves (an occurrence moved becomes an exception with a new id, taken from
+  in the row below): `l` from Friday goes on to Saturday and from Sunday to Someday. It is stored as list, task id and
+  row index: it follows its task when the task moves (an occurrence moved becomes an exception with a new id, taken from
   the move's result), and lands on the same row of its list when the task is gone. `h` / `l` go back to the row the
-  cursor was last on in the list they enter (remembered per list until the week changes), or else the same row.
-  `H` / `L` / `←` / `→` carry it to the same weekday and row; `t` puts it on today. The first motion with no cursor
-  starts on today's first task (the first list in another week), or on the focused row when Tab got there first.
+  cursor was last on in the list they enter (remembered per list until the week changes), or else the same row. `H` /
+  `L` / `←` / `→` carry it to the same weekday and row; `t` puts it on today. The first motion with no cursor starts on
+  today's first task (the first list in another week), or on the focused row when Tab got there first.
 - Focus is real and roving: the cursor's task text button, or the new-task row itself (`tabIndex=-1`, not its input,
   so keys there are still shortcuts; Enter, `a` or `i` focus the input and Esc in it comes back), takes focus when the
   cursor moves by key, so screen readers announce it (the new-task row is a group named "New task for Mon 12 Oct.
