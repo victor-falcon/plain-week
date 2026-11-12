@@ -829,6 +829,24 @@ struct TaskMenu: View {
         Menu("Project") {
             ProjectMenuItems(current: item.task.project_id) { actions.project(item, $0) }
         }
+        Button(AppModel.shared.claude.isWorking(item.id) ? "Claude Is Working…" : "Ask Claude") {
+            let claude = AppModel.shared.claude
+            guard claude.hasKey else {
+                planner.show("Add your Anthropic API key in Settings › Claude first.")
+                return
+            }
+            let id = item.id
+            let undo = undoManager
+            Task {
+                planner.show("Claude is working on “\(item.task.text)”…")
+                if let failure = await claude.work(on: id, store: store, projects: AppModel.shared.projects, undoManager: undo) {
+                    planner.show(failure)
+                } else {
+                    planner.show("Claude's answer is in the notes of “\(item.task.text)”.")
+                }
+            }
+        }
+        .disabled(AppModel.shared.claude.isWorking(item.id))
         Divider()
         if item.task.date != planner.today {
             Button("Today") { actions.move(item, to: planner.today) }

@@ -21,6 +21,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   #zistemo tasks, keeps their done state in step both ways, and ▶ on one runs zistemo's live timer (a timer
   started in zistemo runs here too). It works offline
   (the time then goes to your timesheet later) and catches up at the next sync.
+- **Claude in the macOS app.** With your own Anthropic API key (Settings › Claude), the ✦ next to Projects plans a
+  project from a goal: Claude proposes the tasks with notes, steps and days, and you review them before anything is
+  created. The ✦ in a task's window (or Ask Claude in its right-click menu) has Claude do that task in writing, with web
+  search, and adds the result to its notes. Nothing is sent unless you ask.
+- **A drifting glow behind focus mode on macOS.** While focus mode is on, a few large soft glows in the foreground color
+  move slowly behind the planner. They stay still with Reduce Motion and are hidden with Reduce Transparency.
 - **Ready for Mac App Store review.** The macOS app ships a privacy manifest (no tracking, no data collected),
   declares that it uses only exempt encryption, asks for notification permission the first time there is something
   to notify rather than at launch, and its copyright reads "© 2026 Agacom".
@@ -64,6 +70,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- **Tickets taken away in zistemo leave the macOS planner.** A ticket unassigned from you or deleted in zistemo
+  removed nothing before; its open task now goes at the next sync. Done tasks stay as a record.
 - **Events added to the macOS "Plain Week" calendar were deleted.** Calendar publishing removed any event in that
   calendar it had not made. Such events now become tasks instead.
 - **macOS Calendar events stop showing after an update.** When macOS forgot the app's Calendar or Reminders access

@@ -117,6 +117,7 @@ struct SettingsView: View {
                 case .timer: TimerPane()
                 case .notifications: NotificationsPane()
                 case .shortcuts: ShortcutsPane()
+                case .claude: ClaudePane()
                 case .sync: SyncPane()
                 case .privacy: PrivacyPane()
                 case .data: DataPane()
@@ -131,11 +132,11 @@ struct SettingsView: View {
 }
 
 enum SettingsPane: String, CaseIterable, Identifiable {
-    case general, planner, timer, notifications, shortcuts, sync, privacy, data
+    case general, planner, timer, notifications, shortcuts, claude, sync, privacy, data
     var id: String { rawValue }
 
     static let groups: [(title: String, panes: [SettingsPane])] = [
-        ("Plain Week", [.general, .planner, .timer, .notifications, .shortcuts]),
+        ("Plain Week", [.general, .planner, .timer, .notifications, .shortcuts, .claude]),
         ("Your data", [.sync, .privacy, .data]),
     ]
 
@@ -146,6 +147,7 @@ enum SettingsPane: String, CaseIterable, Identifiable {
         case .timer: "Timer"
         case .notifications: "Notifications"
         case .shortcuts: "Shortcuts"
+        case .claude: "Claude"
         case .sync: "Sync"
         case .privacy: "Privacy"
         case .data: "Data"
@@ -159,6 +161,7 @@ enum SettingsPane: String, CaseIterable, Identifiable {
         case .timer: "The stopwatch or Pomodoro started from a day's ▶."
         case .notifications: "Reminders for tasks with a time."
         case .shortcuts: "The keys of the task window and its notes. Click one, then press the new keys."
+        case .claude: "Plan projects and get tasks done with Claude, using your own Anthropic API key."
         case .sync: "Your week on your other Macs, and in Reminders and Calendar."
         case .privacy: "Keep your week behind a password."
         case .data: "Export, import, clean-up, paper and daily backups."
@@ -172,6 +175,7 @@ enum SettingsPane: String, CaseIterable, Identifiable {
         case .timer: "timer"
         case .notifications: "bell"
         case .shortcuts: "keyboard"
+        case .claude: "sparkles"
         case .sync: "arrow.triangle.2.circlepath"
         case .privacy: "lock"
         case .data: "externaldrive"
@@ -596,6 +600,50 @@ private struct ShortcutsPane: View {
         if let monitor { NSEvent.removeMonitor(monitor) }
         monitor = nil
         recording = nil
+    }
+}
+
+private struct ClaudePane: View {
+    private let claude = AppModel.shared.claude
+    @State private var key = ""
+    @State private var checking = false
+    @State private var error: String?
+
+    var body: some View {
+        SettingsGroup(title: "API key",
+                      footer: error ?? "Create a key at console.anthropic.com › API Keys. Claude is billed to that account, per use: planning a project costs a few cents, a task a little more when Claude searches the web. The key stays in your keychain.") {
+            if claude.hasKey {
+                SettingsRow(title: "Anthropic API key", detail: "Saved in your keychain.") {
+                    Button("Remove") { claude.removeKey() }.buttonStyle(PillButtonStyle())
+                }
+            } else {
+                SettingsRow(title: "Anthropic API key", detail: "Starts with sk-ant-.") {
+                    SecureField("sk-ant-…", text: $key).textFieldStyle(.roundedBorder).frame(width: 220).modifier(RowLabel())
+                }
+                SettingsRow(title: "Save", detail: "Checks the key with Anthropic first.") {
+                    Button(checking ? "Checking…" : "Save Key", action: save)
+                        .buttonStyle(PillButtonStyle())
+                        .disabled(checking || key.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+            }
+        }
+        SettingsGroup(title: "What Claude does",
+                      footer: "Only what you ask for is sent to Anthropic, and only then: the goal you type, or the task you send (its title, notes, steps and project). Everything Claude writes is saved on this Mac like your other tasks.") {
+            SettingsRow(title: "Plan a project",
+                        detail: "The ✦ next to Projects in the sidebar: describe a goal, review the tasks Claude proposes, then create the project.")
+            SettingsRow(title: "Ask Claude about a task",
+                        detail: "The ✦ in a task's window, or Ask Claude in its right-click menu: Claude does the task in writing (a draft, research, a checklist) and adds the result to its notes.")
+        }
+    }
+
+    private func save() {
+        checking = true
+        error = nil
+        Task {
+            error = await claude.saveKey(key)
+            checking = false
+            if error == nil { key = "" }
+        }
     }
 }
 

@@ -11,7 +11,7 @@ struct PlannerView: View {
     @Environment(\.undoManager) private var undoManager
     @FocusState private var focusedList: String?
 
-    private var dialogOpen: Bool { planner.openTask != nil || planner.showReview || planner.showPalette }
+    private var dialogOpen: Bool { planner.openTask != nil || planner.showReview || planner.showPalette || planner.showClaudePlan }
 
     /// A New Task dialog closed without a title leaves nothing behind.
     private func dropEmptyDraft() {
@@ -37,7 +37,15 @@ struct PlannerView: View {
                 Rectangle().fill(Theme.border).frame(width: 1)
             }
             PlannerMain(focus: $focusedList)
-                .background(Theme.background)
+                .background {
+                    ZStack {
+                        Theme.background
+                        if planner.focusMode && !Motion.reduceTransparency {
+                            FocusGlow().transition(.opacity)
+                        }
+                    }
+                    .animation(.easeInOut(duration: 0.8), value: planner.focusMode)
+                }
         }
         // Title bar icons, level with the traffic lights, as in Mail or Notes:
         // the sidebar button just right of the lights; Backlog and New Task at
@@ -59,10 +67,12 @@ struct PlannerView: View {
         }
         .sheet(isPresented: $planner.showReview) { WeeklyReview(timeLog: timeLog) }
         .sheet(isPresented: $planner.showPalette) { CommandPaletteView() }
+        .sheet(isPresented: $planner.showClaudePlan) { ClaudePlanSheet() }
         .closesDialogOnOutsideClick(isOpen: dialogOpen) {
             planner.openTask = nil
             planner.showReview = false
             planner.showPalette = false
+            planner.showClaudePlan = false
         }
         .onChange(of: planner.focusRequest) { _, request in
             guard let request else { return }
@@ -447,6 +457,62 @@ struct FocusBlur: ViewModifier {
 
 extension View {
     func focusBlur(_ blurred: Bool) -> some View { modifier(FocusBlur(blurred: blurred)) }
+}
+
+/// Focus mode's backdrop: a few large soft glows in the foreground color
+/// that drift and breathe slowly behind the planner (still with Reduce Motion).
+struct FocusGlow: View {
+    @Environment(\.colorScheme) private var scheme
+
+    /// Where each glow sits and wanders, as fractions of the planner's size.
+    private struct Blob {
+        var from: UnitPoint
+        var to: UnitPoint
+        /// Diameter, as a fraction of the planner's width.
+        var size: CGFloat
+        var period: Double
+        var strength: Double
+    }
+
+    private static let blobs = [
+        Blob(from: UnitPoint(x: 0.88, y: 0.95), to: UnitPoint(x: 0.72, y: 0.78), size: 0.75, period: 26, strength: 1),
+        Blob(from: UnitPoint(x: 0.3, y: 1.05), to: UnitPoint(x: 0.45, y: 0.85), size: 0.5, period: 34, strength: 0.6),
+        Blob(from: UnitPoint(x: 0.95, y: 0.15), to: UnitPoint(x: 0.78, y: 0.3), size: 0.45, period: 40, strength: 0.45),
+    ]
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack {
+                ForEach(Self.blobs.indices, id: \.self) { i in
+                    GlowBlob(blob: Self.blobs[i], area: geo.size, peak: scheme == .dark ? 0.26 : 0.09)
+                }
+            }
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+
+    private struct GlowBlob: View {
+        var blob: Blob
+        var area: CGSize
+        var peak: Double
+        @State private var away = false
+
+        var body: some View {
+            let size = area.width * blob.size
+            let at = away ? blob.to : blob.from
+            Circle()
+                .fill(RadialGradient(colors: [Theme.foreground.opacity(peak * blob.strength), Theme.foreground.opacity(0)],
+                                     center: .center, startRadius: 0, endRadius: size / 2))
+                .frame(width: size, height: size)
+                .scaleEffect(away ? 1.12 : 0.92)
+                .position(x: area.width * at.x, y: area.height * at.y)
+                .onAppear {
+                    guard !Motion.reduceMotion else { return }
+                    withAnimation(.easeInOut(duration: blob.period / 2).repeatForever(autoreverses: true)) { away = true }
+                }
+        }
+    }
 }
 
 /// A capsule text button.
@@ -884,6 +950,17 @@ struct PlannerSidebar: View {
             .padding(.bottom, 16)
         }
         .scrollIndicators(.automatic)
+        // The window controls and title bar icons sit on the sidebar's own
+        // color, so the list never shows through them as it scrolls.
+        .overlay(alignment: .top) {
+            VStack(spacing: 0) {
+                Theme.sidebar.frame(height: 36)
+                LinearGradient(colors: [Theme.sidebar, Theme.sidebar.opacity(0)], startPoint: .top, endPoint: .bottom)
+                    .frame(height: 8)
+            }
+            .ignoresSafeArea(.container, edges: .top)
+            .allowsHitTesting(false)
+        }
 
             CalendarDrawer()
         }

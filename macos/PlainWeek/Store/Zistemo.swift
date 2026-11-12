@@ -346,8 +346,13 @@ enum Json {
 /// The zistemo developer key and API token, kept in the login keychain.
 enum ZistemoKeychain {
     static let service = "app.plainweek.zistemo"
+    static func read(_ account: String) -> String? { Keychain.read(service: service, account: account) }
+    static func write(_ account: String, _ value: String) { Keychain.write(service: service, account: account, value) }
+}
 
-    static func read(_ account: String) -> String? {
+/// Generic passwords in the login keychain, one per service and account.
+enum Keychain {
+    static func read(service: String, account: String) -> String? {
         let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
                                     kSecAttrService as String: service,
                                     kSecAttrAccount as String: account,
@@ -358,7 +363,8 @@ enum ZistemoKeychain {
         return String(data: data, encoding: .utf8)
     }
 
-    static func write(_ account: String, _ value: String) {
+    /// Replaces the value; an empty one removes it.
+    static func write(service: String, account: String, _ value: String) {
         let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
                                     kSecAttrService as String: service,
                                     kSecAttrAccount as String: account]

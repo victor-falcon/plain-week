@@ -58,6 +58,8 @@ final class PlannerModel {
     /// The weekly review and the command palette sheets.
     var showReview = false
     var showPalette = false
+    /// "Plan a Project" with Claude.
+    var showClaudePlan = false
     /// The Backlog and Done sidebar (remembered across launches).
     var showSidebar: Bool = UserDefaults.standard.object(forKey: "showSidebar") as? Bool ?? true {
         // A narrow window closing it is not the user's choice, so it is not remembered.

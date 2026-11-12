@@ -20,6 +20,7 @@ final class AppModel {
     let remindersMirror: RemindersMirror
     let calendarPublisher: CalendarPublisher
     let zistemo: ZistemoSync
+    let claude = ClaudeAssistant()
     let lock: AppLock
     private var launched = false
 

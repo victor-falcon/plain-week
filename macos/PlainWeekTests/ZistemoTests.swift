@@ -77,6 +77,47 @@ final class ZistemoTests: XCTestCase {
         XCTAssertEqual(store.allRows.filter { !$0.isDeleted }.count, 0)
     }
 
+    func testTicketTakenAwayInZistemoRemovesItsTask() throws {
+        let (store, sync) = makeSync()
+        _ = sync.reconcile([ticket(1), ticket(2), ticket(3)], today: today)
+        let ids = Dictionary(uniqueKeysWithValues: sync.state.links.map { ($0.value.ticketId, $0.key) })
+        store.toggleDone(try XCTUnwrap(ids[2]))
+        let open = { store.allRows.filter { !$0.isDeleted }.map(\.id) }
+
+        // 1 and 3 are gone from zistemo: 1 and 3 leave, the done 2 stays.
+        _ = sync.reconcile([], today: today)
+        XCTAssertEqual(Set(open()), [try XCTUnwrap(ids[2])])
+        XCTAssertEqual(sync.linkedCount, 0)
+
+        // Assigned again later: it comes back.
+        _ = sync.reconcile([ticket(1)], today: today)
+        XCTAssertEqual(open().count, 2)
+    }
+
+    func testTicketThatOnlySlidOutOfTheDaysAskedForStays() throws {
+        let (store, sync) = makeSync()
+        _ = sync.reconcile([ticket(1, start: "2026-11-01")], today: today)
+        // Three weeks on, the ticket started before the days asked for.
+        _ = sync.reconcile([], today: "2026-12-01")
+        XCTAssertEqual(store.allRows.filter { !$0.isDeleted }.count, 1)
+        XCTAssertEqual(sync.linkedCount, 1)
+    }
+
+    func testTaskWithTheTimerRunningStays() throws {
+        let (store, sync) = makeSync()
+        let timer = FocusTimer()
+        timer.settingsOverride = .init()
+        sync.timer = timer
+        _ = sync.reconcile([ticket(1)], today: today)
+        let id = try XCTUnwrap(store.allRows.first?.id)
+        timer.start(id, day: today, mode: .stopwatch)
+        _ = sync.reconcile([], today: today)
+        XCTAssertNotNil(store.item(id))
+        timer.stop()
+        _ = sync.reconcile([], today: today)
+        XCTAssertNil(store.item(id))
+    }
+
     func testReadsStateFromBeforeTheLiveTimer() throws {
         let old = #"{"links":{"t1":{"ticketId":1,"projectId":2,"taskId":3,"groupId":0,"remoteCompleted":false,"localDone":false}},"pending":[],"userId":9}"#
         let state = try JSONDecoder().decode(ZistemoSync.State.self, from: Data(old.utf8))

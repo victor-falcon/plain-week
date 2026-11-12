@@ -68,6 +68,18 @@ struct ProjectsSection: View {
             }
         } accessory: {
             Button {
+                planner.showClaudePlan = true
+            } label: {
+                Image(systemName: "sparkles").font(.system(size: 12, weight: .semibold))
+                    .frame(width: 28, height: 28)
+                    .contentShape(Rectangle())
+                    .padding(-8)
+            }
+            .buttonStyle(.pressable)
+            .foregroundStyle(Theme.mutedForeground)
+            .help("Plan a Project with Claude")
+            .accessibilityLabel("Plan a Project with Claude")
+            Button {
                 newName = ""
                 adding = true
                 planner.projectsExpanded = true

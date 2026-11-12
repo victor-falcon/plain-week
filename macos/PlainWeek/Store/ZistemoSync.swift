@@ -6,7 +6,8 @@ import Observation
 ///
 /// - Each open ticket assigned to you, from two weeks ago to six weeks ahead,
 ///   becomes a task tagged #zistemo on its start day (today when it started
-///   earlier). Removing the task here leaves the ticket alone.
+///   earlier). Removing the task here leaves the ticket alone; a ticket
+///   unassigned or deleted in zistemo takes its open task away here.
 /// - Ticking the task completes the ticket, and the other way round (the
 ///   side that changed since the last sync wins).
 /// - Focus timer time on the task goes to your zistemo timesheet against the
@@ -28,6 +29,9 @@ final class ZistemoSync {
     static let tag = "zistemo"
     /// Shorter timer runs stay on this Mac only (zistemo logs hours).
     static let minimumSeconds: TimeInterval = 60
+    /// The days asked for, relative to today.
+    static let daysBack = 14
+    static let daysAhead = 42
 
     /// A task that stands for a ticket, and the states both sides had when
     /// they last agreed.
@@ -41,6 +45,8 @@ final class ZistemoSync {
         /// The task was put in its zistemo project's Plain Week project once
         /// (moving it elsewhere afterwards sticks). nil in older files.
         var filed: Bool?
+        /// The ticket's start day when last seen (nil in older files).
+        var start: String?
     }
 
     /// zistemo's live timer, while the focus timer runs on a linked task.
@@ -254,7 +260,7 @@ final class ZistemoSync {
                 state.userId = userId
             }
             let today = DateKey.local()
-            let tickets = try await withClient { try await $0.timeTickets(userId: userId, from: DateKey.addDays(today, -14), to: DateKey.addDays(today, 42)) }
+            let tickets = try await withClient { try await $0.timeTickets(userId: userId, from: DateKey.addDays(today, -Self.daysBack), to: DateKey.addDays(today, Self.daysAhead)) }
             let pushes = reconcile(tickets, today: today)
             save()
             for push in pushes {
@@ -290,9 +296,11 @@ final class ZistemoSync {
         var byTicket: [Int: String] = [:]
         for (taskId, link) in state.links { byTicket[link.ticketId] = taskId }
         var pushes: [Push] = []
+        let seen = Set(tickets.map(\.id))
 
         for ticket in tickets {
             if let taskId = byTicket[ticket.id], var link = state.links[taskId] {
+                link.start = ticket.startDate ?? link.start
                 link.projectId = ticket.projectId
                 link.taskId = ticket.taskId
                 link.groupId = ticket.groupId
@@ -324,10 +332,32 @@ final class ZistemoSync {
                 if !ticket.groupName.isEmpty { notes = notes.isEmpty ? ticket.groupName : "\(ticket.groupName)\n\n\(notes)" }
                 let id = store.create(text: title, date: date, tags: [Self.tag], notes: notes, project: project(for: ticket))
                 state.links[id] = Link(ticketId: ticket.id, projectId: ticket.projectId, taskId: ticket.taskId,
-                                       groupId: ticket.groupId, remoteCompleted: false, localDone: false, filed: true)
+                                       groupId: ticket.groupId, remoteCompleted: false, localDone: false, filed: true,
+                                       start: ticket.startDate)
             }
         }
+
+        for (taskId, link) in state.links where !seen.contains(link.ticketId) {
+            removeIfGone(taskId, link, today: today)
+        }
         return pushes
+    }
+
+    /// A linked ticket zistemo no longer lists. It was unassigned or deleted
+    /// if it would still fall in the days asked for; one that only slid out
+    /// of them (it started over two weeks ago) is left as it is. Its task
+    /// goes, unless it is done (kept as a record) or the focus timer runs on it.
+    private func removeIfGone(_ taskId: String, _ link: Link, today: String) {
+        let task = store.item(taskId)?.task
+        // Older links have no start day: the day the task was planned on stands in.
+        let day = link.start ?? task?.date ?? today
+        guard day >= DateKey.addDays(today, -Self.daysBack), day <= DateKey.addDays(today, Self.daysAhead)
+        else { return }
+        if let task {
+            if timer?.taskId == taskId || state.live?.taskId == taskId { return }
+            if !task.done { store.delete(taskId) }
+        }
+        state.links[taskId] = nil
     }
 
     /// The Plain Week project named after the ticket's zistemo project

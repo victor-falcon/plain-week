@@ -10,6 +10,7 @@ struct TaskDetailView: View {
     @Environment(PlannerModel.self) private var planner
     @Environment(\.undoManager) private var undoManager
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openSettings) private var openSettings
 
     @State private var title = ""
     @State private var notes = ""
@@ -37,6 +38,9 @@ struct TaskDetailView: View {
     @AppStorage("taskSheetExpanded") private var expanded = false
     /// The list of keyboard shortcuts, out of the trailing edge.
     @State private var showShortcuts = false
+    /// Why the last Ask Claude failed.
+    @State private var claudeError: String?
+    private var claude: ClaudeAssistant { AppModel.shared.claude }
 
     init(taskId: String, focusTags: Bool = false) {
         _taskId = State(initialValue: taskId)
@@ -125,6 +129,18 @@ struct TaskDetailView: View {
                 }
             }
 
+            if let claudeError {
+                Label(claudeError, systemImage: "exclamationmark.triangle.fill")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Theme.danger)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else if claude.isWorking(taskId) {
+                Label("Claude is working on this task. Its answer goes into the notes; you can close this window meanwhile.", systemImage: "sparkles")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Theme.mutedForeground)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
             subtasks(task)
 
             let tracked = timeLog.total(for: taskId)
@@ -173,6 +189,8 @@ struct TaskDetailView: View {
             DispatchQueue.main.async { loaded = true }
         }
         .onDisappear(perform: addSubtask)
+        // Notes changed elsewhere (Claude's answer, another Mac): shown here too.
+        .onChange(of: task.notes) { _, value in if value != notes { notes = value } }
         .scopePrompt($pendingScope, item: item) { id in
             if let id { follow(id) } else { dismiss() }
         }
@@ -182,6 +200,19 @@ struct TaskDetailView: View {
             Button("Only This Task") { applyRule(pending.rule, scope: .this) }
             Button("This and All Future") { applyRule(pending.rule, scope: .future) }
             Button("Cancel", role: .cancel) {}
+        }
+    }
+
+    private func askClaude() {
+        guard claude.hasKey else {
+            SettingsView.show(.claude)
+            openSettings()
+            return
+        }
+        claudeError = nil
+        let id = taskId
+        Task {
+            claudeError = await claude.work(on: id, store: store, projects: AppModel.shared.projects, undoManager: undoManager)
         }
     }
 
@@ -254,6 +285,18 @@ struct TaskDetailView: View {
             }
             .buttonStyle(ToolbarButtonStyle(active: task.flagged))
             .help(task.flagged ? "Unflag (\(keys(.flag)))" : "Flag (\(keys(.flag)))")
+
+            Button(action: askClaude) {
+                if claude.isWorking(taskId) {
+                    ProgressView().controlSize(.small).frame(width: 16, height: 16)
+                } else {
+                    Image(systemName: "sparkles")
+                }
+            }
+            .buttonStyle(ToolbarButtonStyle(active: claude.isWorking(taskId)))
+            .disabled(claude.isWorking(taskId))
+            .help(claude.isWorking(taskId) ? "Claude is working on this task…" : "Ask Claude: does the task in writing and adds the result to the notes")
+            .accessibilityLabel("Ask Claude")
 
             Spacer()
 
