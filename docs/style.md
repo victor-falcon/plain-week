@@ -310,7 +310,8 @@ Row behaviour:
   2px vertical padding hangs into the row's padding, so the pill is 28px tall on one line (a capsule, the radius is
   half of it) without growing the row, and the 10px side padding keeps a wrapped block's text clear of its corners (a
   per-line `box-decoration-clone` pill looked choppy and does not combine with `line-clamp`). Uncolored text has no
-  pill and keeps a plain `px-1.5`. The row aligns to the top (`items-start`, `py-2` on the text button, so a one-line
+  pill and keeps a plain `px-1.5`; colored text sits 4px further in on purpose (a pill bleeding outward would cross
+  the row's edge). The row aligns to the top (`items-start`, `py-2` on the text button, so a one-line
   row stays 42px), and the time pill, repeat icon, `⏎` hint and check are nudged down to sit on the first line.
 - A task with a time shows it first in a small outlined pill (`border-current`, `text-xs`, tabular numbers), and timed
   tasks are listed first in their day, earliest first. A colored text pill keeps a 4px gap (`ms-1`) from the time pill
