@@ -7,6 +7,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- **Evenly padded task pills.** A colored task pill has more room at its sides and a radius that fits its height, so a
+  title that wraps no longer sits tight against the rounded corners, and a one-line pill stays a capsule.
+
 ## [0.3.16] - 2026-11-11
 
 ### Changed

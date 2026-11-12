@@ -114,13 +114,16 @@ function TaskLabelView({
                 </span>
             )}
             {repeat.repeats && <RepeatIcon summary={repeat.summary} />}
-            {/* Wraps up to three lines. The radius is half a line, so a
-                one-line pill still reads as fully rounded and a wrapped one
-                becomes a rounded block. */}
+            {/* Wraps up to three lines. A colored pill gets 2px of vertical
+                padding, cancelled by a negative margin so the row stays 42px,
+                and a 14px radius: half its 28px height, so one line is a
+                capsule, while the 10px side padding keeps a wrapped block's
+                text clear of its corners. Plain text keeps its 6px inset. */}
             <span
                 className={cn(
-                    'line-clamp-3 min-w-0 rounded-xl px-1.5 leading-6 wrap-anywhere whitespace-normal',
+                    'line-clamp-3 min-w-0 leading-6 wrap-anywhere whitespace-normal',
                     color.pill,
+                    color.pill ? '-my-0.5 rounded-xl px-2.5 py-0.5' : 'px-1.5',
                     afterBadge && 'ms-1',
                     task.done && 'line-through',
                     task.done && color.pill && 'opacity-50',

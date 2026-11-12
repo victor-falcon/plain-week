@@ -306,9 +306,11 @@ Row behaviour:
 - The keyboard focus ring of a task row spans the whole row (drawn by an `after:` overlay of the text button), not just
   the text.
 - Done tasks are `text-muted-foreground` and `line-through`; a colored pill fades to 50 %.
-- The text pill wraps up to three lines and is `rounded-xl`, about half its 24px line: a one-line pill still reads as
-  fully round and a wrapped one becomes a rounded block (a per-line `box-decoration-clone` pill looked choppy and does
-  not combine with `line-clamp`). The row aligns to the top (`items-start`, `py-2` on the text button, so a one-line
+- The text wraps up to three lines. A colored pill is `rounded-xl` (14px) with `px-2.5 py-0.5` and `-my-0.5`: the
+  2px vertical padding hangs into the row's padding, so the pill is 28px tall on one line (a capsule, the radius is
+  half of it) without growing the row, and the 10px side padding keeps a wrapped block's text clear of its corners (a
+  per-line `box-decoration-clone` pill looked choppy and does not combine with `line-clamp`). Uncolored text has no
+  pill and keeps a plain `px-1.5`. The row aligns to the top (`items-start`, `py-2` on the text button, so a one-line
   row stays 42px), and the time pill, repeat icon, `⏎` hint and check are nudged down to sit on the first line.
 - A task with a time shows it first in a small outlined pill (`border-current`, `text-xs`, tabular numbers), and timed
   tasks are listed first in their day, earliest first. A colored text pill keeps a 4px gap (`ms-1`) from the time pill
@@ -626,6 +628,7 @@ background), so the pill text is readable on either theme.
 Usage rules:
 
 - Never reference the tokens directly in components. `TASK_COLOR_STYLES` in `resources/js/lib/planner/task-colors.ts`
-  is the single source of truth: per color it gives a `label`, the `pill` classes (around the task text, `rounded-full
-px-1.5`) and the `swatch` classes (for pickers). The color ids themselves live in `lib/db/types.ts` (`TASK_COLORS`).
+  is the single source of truth: per color it gives a `label`, the `pill` classes (background and text color around
+  the task text; its shape and padding live in `TaskLabel`) and the `swatch` classes (for pickers). The color ids
+  themselves live in `lib/db/types.ts` (`TASK_COLORS`).
 - To change a color, change its two tokens in both themes and this table.
