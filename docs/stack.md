@@ -180,7 +180,7 @@ resources/js/
 resources/images/pwa/     Source SVGs of the PWA icons (PNGs live in public/)
 resources/images/marketing/  Source of the og:image and the README header (PNGs in public/ and docs/images/)
 resources/views/app.blade.php  Root HTML document
-routes/                   web.php, settings.php, console.php
+routes/                   web.php, settings.php, billing.php, api.php, console.php
 scripts/                  Image scripts run with bun: marketing images and README screenshots (not in the app build)
 tests/                    Pest tests (Feature and Unit)
 video/                    Remotion promo video, its own bun project outside the app build (video/README.md)

@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Route;
 // In SaaS mode an account without a paid plan is sent to the paywall instead.
 Route::inertia('/', 'planner')->middleware(EnsureHasAccess::class)->name('home');
 
-Route::middleware(['auth', EnsureHasAccess::class, RememberTimezone::class])->prefix('sync')->name('sync.')->group(function () {
+Route::middleware(['auth', EnsureHasAccess::class, RememberTimezone::class, 'throttle:120,1'])->prefix('sync')->name('sync.')->group(function () {
     Route::post('push', [SyncController::class, 'push'])->name('push');
     Route::get('pull', [SyncController::class, 'pull'])->name('pull');
 });

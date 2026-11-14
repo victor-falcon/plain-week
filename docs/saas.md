@@ -38,6 +38,7 @@ It is used by:
 | Where                                        | Effect without access                                                         |
 | -------------------------------------------- | ----------------------------------------------------------------------------- |
 | `EnsureHasAccess` on `/` and `sync/*`        | Pages redirect to `/plans`; JSON requests (sync) get `402 Payment Required`   |
+| `EnsureHasAccess` on `/api/v1/sync/*`        | `402 Payment Required` for the native apps (`/api/v1/me` reports `hasAccess`) |
 | Inertia shared props                         | `saas.enabled`, `account: { hasAccess, plan } \| null` (null for guests)      |
 | `SyncProvider` and the sync engine           | The engine does not start; a `402` stops it, keeps local data, shows `/plans` |
 | `EnsureHasAccess` on Google Calendar connect | Redirect to `/plans` (the page and disconnecting stay reachable)              |

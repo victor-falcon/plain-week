@@ -96,6 +96,40 @@ function push(array $tasks, ?SyncFormat $format = SyncFormat::DailyRules): TestR
 }
 
 /**
+ * Issues an API token for the user through the token endpoint and returns the plain token.
+ */
+function issueApiToken(User $user, string $password = 'password'): string
+{
+    $response = test()->postJson(route('api.tokens.store'), [
+        'email' => $user->email,
+        'password' => $password,
+        'name' => 'test device',
+    ])->assertCreated();
+
+    $token = $response->json('token');
+    assert(is_string($token));
+
+    return $token;
+}
+
+/**
+ * Bearer headers for the API, with the sync format header like the web client sends; a null
+ * format sends no `X-Sync-Format` header, like v0.0.3 and older.
+ *
+ * @return array<string, string>
+ */
+function apiAuth(string $token, ?SyncFormat $format = SyncFormat::DailyRules): array
+{
+    $headers = ['Authorization' => "Bearer {$token}"];
+
+    if ($format !== null) {
+        $headers[SyncFormat::HEADER] = (string) $format->value;
+    }
+
+    return $headers;
+}
+
+/**
  * SaaS mode on, with a fake Stripe that knows the two prices and the launch coupon.
  */
 function enableSaas(): FakeStripe

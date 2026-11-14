@@ -5,9 +5,12 @@ namespace App\Providers;
 use App\Push\PushSender;
 use App\Push\WebPushSender;
 use Carbon\CarbonImmutable;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Foundation\DevCommands;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 use Laravel\Cashier\Cashier;
@@ -34,6 +37,9 @@ class AppServiceProvider extends ServiceProvider
 
         // Prices are VAT-inclusive; Stripe Tax computes the tax part in Checkout.
         Cashier::calculateTaxes();
+
+        // The API group's default throttle (the native apps' routes); sync routes add their own limit.
+        RateLimiter::for('api', fn (Request $request) => Limit::perMinute(120)->by($request->ip()));
 
         // `composer dev` also runs the scheduler (routes/console.php), like the Docker image does.
         DevCommands::artisan('schedule:work', 'scheduler');

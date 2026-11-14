@@ -124,6 +124,31 @@ Response `200`: `{ "tasks": [<Task>, ...], "cursor": <version of the last return
 with tasks ordered by `version` ascending. Tombstones (`deleted_at` not null) are included. A `limit` outside 1–1000 is
 a `422` (it is not clamped).
 
+Both sync routes are rate limited to 120 requests per minute (`throttle:120,1`).
+
+## Native app API
+
+The native apps (a Tauri shell around this frontend) use no cookies: each device authenticates with a **Bearer token**,
+issued under the `/api` prefix (routes/api.php). Everything else is the same sync contract as above. API clients send
+`Accept: application/json`.
+
+- `POST /api/v1/tokens` — `{ email, password, name?, code? }`, `throttle:5,1`. The email is lowercased like Fortify's
+  login. When the account has confirmed 2FA, `code` (TOTP or a recovery code) is required as well. Answer `201`
+  `{ token, name }`: the plain token is returned **once** and only its SHA-256 hash is stored (`api_tokens`). Wrong
+  credentials are a `422` with an `email` (or `code`) error, like the web login. At most 25 tokens per account; the
+  oldest is dropped when a 26th is issued.
+- `DELETE /api/v1/tokens` — revokes the calling device's token (its logout). `204`.
+- `GET /api/v1/me` — `{ user, account: { hasAccess, plan } }`, so an app can show the paywall before syncing.
+- `POST /api/v1/sync/push`, `GET /api/v1/sync/pull` — the same contract, validation, last-write-wins and cursor as
+  `/sync/push` and `/sync/pull` (same `SyncController`/`PushTasks`/`PullTasks`); `X-Sync-Format` and `X-Timezone` behave
+  identically. In SaaS mode an account without a plan gets `402 Payment Required`.
+
+Authentication is `AuthenticateApiToken`: the Bearer token is looked up by its hash, checked for expiry, and its owner
+becomes `$request->user()` (the matched row is exposed as the `api_token` request attribute, so `DELETE
+/api/v1/tokens` revokes exactly it). A missing, unknown or expired token is a `401`. The `api` middleware group is
+rate limited to 120 requests per minute per IP (`RateLimiter` `api`, see `AppServiceProvider`), the sync routes
+additionally to 120 per minute on both the web and the API side.
+
 ## Client sync engine
 
 - Every local mutation writes the record and an outbox entry (keyed by the task id) in the same Dexie transaction.

@@ -7,6 +7,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **API for the native apps.** `POST /api/v1/tokens` (email + password, plus the 2FA code when the account has confirmed 2FA) issues a per-device Bearer token — returned once, stored only as a SHA-256 hash in `api_tokens`. `DELETE /api/v1/tokens` revokes the device's token, `GET /api/v1/me` returns the account and plan, and `POST /api/v1/sync/push` + `GET /api/v1/sync/pull` mirror the web sync contract for token auth, with `X-Sync-Format` and `X-Timezone` working the same; in SaaS mode a planless account gets `402`.
+
+### Fixed
+
+- **Rate-limited the sync endpoints.** `/sync/push` and `/sync/pull` (web and `/api/v1/sync/*`) now allow 120 requests per minute per client instead of being unthrottled; issuing API tokens is limited to 5 per minute.
+
 ## [0.3.17] - 2026-11-12
 
 ### Fixed

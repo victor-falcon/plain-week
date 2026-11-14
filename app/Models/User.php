@@ -82,6 +82,16 @@ class User extends Authenticatable implements MustVerifyEmail, PasskeyUser
     }
 
     /**
+     * The bearer tokens of the native apps (routes/api.php), one per device.
+     *
+     * @return HasMany<ApiToken, $this>
+     */
+    public function apiTokens(): HasMany
+    {
+        return $this->hasMany(ApiToken::class);
+    }
+
+    /**
      * @return HasMany<PushSubscription, $this>
      */
     public function pushSubscriptions(): HasMany
