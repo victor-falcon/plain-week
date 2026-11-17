@@ -7,6 +7,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.3.18] - 2026-11-17
+
 ### Changed
 
 - **The week fills the window.** On desktop the week takes all the room below the header, with no empty space under
@@ -452,7 +454,8 @@ between devices.
   app, so an instance without mail works.
 - **Documentation** for contributors and coding agents in `docs/` and `AGENTS.md`.
 
-[Unreleased]: https://github.com/victor-falcon/plain-week/compare/v0.3.17...HEAD
+[Unreleased]: https://github.com/victor-falcon/plain-week/compare/v0.3.18...HEAD
+[0.3.18]: https://github.com/victor-falcon/plain-week/compare/v0.3.17...v0.3.18
 [0.3.17]: https://github.com/victor-falcon/plain-week/compare/v0.3.16...v0.3.17
 [0.3.16]: https://github.com/victor-falcon/plain-week/compare/v0.3.15...v0.3.16
 [0.3.15]: https://github.com/victor-falcon/plain-week/compare/v0.3.14...v0.3.15
