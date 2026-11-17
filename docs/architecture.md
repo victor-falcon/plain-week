@@ -605,8 +605,10 @@ writes the local database (`moveTask`); sync follows in the background.
   The click that follows a pointer drag (also one cancelled with Escape) is swallowed. Planner shortcuts are
   suspended while a task is dragged.
 - Collision detection hit-tests the pointer: edge zones win over task rows, which win over the list they sit in. Over
-  a row, the upper half drops above it and the lower half below it; over the rest of a list (its empty rows) the task
-  is appended; released anywhere else (gutters, headers) the drag is cancelled. Keyboard drags have no pointer: the
+  a row, the upper half drops above it and the lower half below it; over the rest of a list (its empty row and, on
+  desktop, the ruled area below it) the task is appended; released anywhere else (gutters, headers) the drag is
+  cancelled. On desktop a list scrolls inside its cell, so a task row only counts where the pointer is also inside its
+  list (rows scrolled out of view still sit on the page, over the gap or the cell below). Keyboard drags have no pointer: the
   overlay steps onto a row; within the task's own list it lands below the row when that row is further down than where
   the drag started (so stepping swaps places), in another list above it.
 - Days show timed tasks first by time, so only untimed tasks are positional there: the `beforeId`/`afterId` handed to

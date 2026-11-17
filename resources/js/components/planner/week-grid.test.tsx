@@ -9,7 +9,7 @@ describe('WeekGrid', () => {
     beforeEach(() => wipeLocalDatabase());
     afterEach(cleanup);
 
-    it('lists the days in reading order, then Someday spanning the last three tracks', async () => {
+    it('lists the days in reading order, then Someday, on every window shape', async () => {
         render(
             <ScopePromptProvider>
                 <WeekGrid
@@ -20,8 +20,9 @@ describe('WeekGrid', () => {
             </ScopePromptProvider>,
         );
 
-        // The five-track grid places its children in DOM order: Monday to
-        // Friday on top, then Saturday, Sunday and Someday (three tracks).
+        // Every desktop grid places its children in DOM order: five tracks
+        // with Someday spanning three (wide windows), four tracks (near
+        // square) or three with Someday spanning two (tall).
         const sections = await screen.findAllByRole('region');
 
         expect(
@@ -40,9 +41,11 @@ describe('WeekGrid', () => {
             'Sun 18 Oct',
             'Someday',
         ]);
-        expect(sections[0].parentElement?.className).toContain(
-            'lg:grid-cols-5',
-        );
-        expect(sections[7].className).toContain('lg:col-span-3');
+        const grid = sections[0].parentElement?.className;
+        expect(grid).toContain('lg:week-wide:grid-cols-5');
+        expect(grid).toContain('lg:week-square:grid-cols-4');
+        expect(grid).toContain('lg:week-tall:grid-cols-3');
+        expect(sections[7].className).toContain('lg:week-wide:col-span-3');
+        expect(sections[7].className).toContain('lg:week-tall:col-span-2');
     });
 });

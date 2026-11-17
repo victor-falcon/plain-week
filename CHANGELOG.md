@@ -7,6 +7,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- **The week fills the window.** On desktop the week takes all the room below the header, with no empty space under
+  it, and picks its grid from the window's shape: Monday to Friday over the weekend and Someday on wide windows, four
+  columns on near square ones, three on tall ones. Each day's ruled lines run to the bottom of its cell (click them to
+  add a task, drop a task on them to put it last), and a day with more tasks than fit scrolls on its own.
+
 ## [0.3.17] - 2026-11-12
 
 ### Fixed

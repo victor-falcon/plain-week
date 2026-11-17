@@ -41,7 +41,6 @@ function List({
             <TaskList
                 placement={placement}
                 tasks={tasks}
-                rows={3}
                 newTaskLabel="New task"
                 onOpenTask={onOpenTask}
             />

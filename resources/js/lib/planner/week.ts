@@ -1,14 +1,4 @@
-import { parseDateKey, toDateKey, weekDateKeys } from '@/lib/db/dates';
-
-/** Minimum ruled rows of Monday to Friday on desktop (more as a day fills). */
-export const WEEKDAY_ROWS = 8;
-
-/**
- * Minimum ruled rows of Saturday, Sunday and Someday on desktop. They share
- * the row below the weekdays, so they end level with each other.
- */
-export const WEEKEND_ROWS = 4;
-export const SOMEDAY_ROWS = 4;
+import { parseDateKey, toDateKey } from '@/lib/db/dates';
 
 export function addDays(date: Date, days: number): Date {
     return new Date(date.getFullYear(), date.getMonth(), date.getDate() + days);
@@ -72,33 +62,6 @@ export function parseWeekParam(value: string | null): Date | null {
     const date = parseDateKey(value);
 
     return toDateKey(date) === value ? startOfWeek(date) : null;
-}
-
-export type PlannerDay = {
-    date: string;
-    rows: number;
-};
-
-export type WeekLayout = {
-    /** Monday to Friday: the top row on desktop. */
-    weekdays: PlannerDay[];
-    /** Saturday and Sunday: under Monday and Tuesday on desktop. */
-    weekend: PlannerDay[];
-};
-
-/**
- * The days of a week as the desktop planner lays them out: Monday to Friday
- * side by side, then Saturday and Sunday in the row below, next to Someday.
- */
-export function weekLayout(weekStart: Date): WeekLayout {
-    const days = weekDateKeys(weekStart);
-
-    return {
-        weekdays: days
-            .slice(0, 5)
-            .map((date) => ({ date, rows: WEEKDAY_ROWS })),
-        weekend: days.slice(5).map((date) => ({ date, rows: WEEKEND_ROWS })),
-    };
 }
 
 export const WEEK_PARAM = 'week';

@@ -34,7 +34,6 @@ function Day() {
                 <TaskList
                     placement={{ date: WEDNESDAY }}
                     tasks={tasks}
-                    rows={3}
                     newTaskLabel="New task"
                     onOpenTask={() => {}}
                 />

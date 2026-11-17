@@ -11,6 +11,24 @@
 @custom-variant dark (&:is(.dark *));
 /* A planner row under the keyboard cursor, or a task row whose text button has keyboard focus. */
 @custom-variant cursor-row (&[data-cursor], &:has([data-task-open]:focus-visible));
+/*
+ * The desktop week grid by window shape (docs/style.md, Planner layout): wide windows get
+ * Monday to Friday over the weekend and Someday, near square ones a 4x2 grid, tall ones a 3x3 grid.
+ */
+@custom-variant week-wide (@media (aspect-ratio >= 6/5));
+@custom-variant week-square (@media (4/5 <= aspect-ratio < 6/5));
+@custom-variant week-tall (@media (aspect-ratio < 4/5));
+
+/* Ruled lines every row (42px), level with the 1px bottom border of the rows above. */
+@utility bg-ruled {
+    background-image: repeating-linear-gradient(
+        to bottom,
+        transparent 0,
+        transparent calc(var(--spacing-row) - 1px),
+        var(--color-border) calc(var(--spacing-row) - 1px),
+        var(--color-border) var(--spacing-row)
+    );
+}
 
 :root {
     --background: oklch(1 0 0);

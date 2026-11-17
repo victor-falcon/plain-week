@@ -66,7 +66,9 @@ export default function PlannerLayout({ children }: { children: ReactNode }) {
                     onOpenTask={setOpenTaskId}
                     onOpenSettings={signedIn ? openSettings : undefined}
                 >
-                    <div className="flex min-h-screen flex-col bg-background text-foreground">
+                    {/* On desktop the page is exactly the window: the header, then the
+                        week filling the rest. */}
+                    <div className="flex min-h-screen flex-col bg-background text-foreground lg:h-dvh">
                         <PlannerHeader
                             weekStart={navigation.weekStart}
                             isCurrentWeek={navigation.isCurrentWeek}
@@ -74,7 +76,7 @@ export default function PlannerLayout({ children }: { children: ReactNode }) {
                             onNextWeek={navigation.nextWeek}
                             onToday={navigation.goToToday}
                         />
-                        <main className="flex flex-col px-4 pt-6 pb-12 lg:px-6 lg:pt-14">
+                        <main className="flex flex-col px-4 pt-6 pb-12 lg:min-h-0 lg:flex-1 lg:px-6 lg:pt-8 lg:pb-6">
                             <PlannerDnd
                                 weekStart={navigation.weekStart}
                                 onPreviousWeek={navigation.previousWeek}

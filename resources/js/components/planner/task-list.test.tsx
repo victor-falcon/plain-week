@@ -19,13 +19,7 @@ import { createTask, listTasksIn } from '@/lib/db/tasks';
 const DAY = '2026-10-12';
 const LABEL = 'New task for Mon 12 Oct';
 
-function Day({
-    onOpenTask = () => {},
-    rows = 10,
-}: {
-    onOpenTask?: (id: string) => void;
-    rows?: number;
-}) {
+function Day({ onOpenTask = () => {} }: { onOpenTask?: (id: string) => void }) {
     const tasks = useLiveQuery(() => listTasksIn({ date: DAY }), []);
 
     return (
@@ -33,7 +27,6 @@ function Day({
             <TaskList
                 placement={{ date: DAY }}
                 tasks={tasks}
-                rows={rows}
                 newTaskLabel={LABEL}
                 onOpenTask={onOpenTask}
             />
@@ -51,17 +44,27 @@ afterEach(() => {
 });
 
 describe('TaskList', () => {
-    it('fills the day with empty rows', () => {
+    it('shows one empty row, then the ruled filler that focuses it', async () => {
+        const user = userEvent.setup();
         render(<Day />);
 
-        expect(screen.getAllByLabelText(LABEL)).toHaveLength(10);
+        const input = screen.getByLabelText(LABEL);
+        const filler =
+            document.querySelector<HTMLElement>('[data-list-filler]')!;
+
+        expect(filler.previousElementSibling?.contains(input)).toBe(true);
+        expect(filler.getAttribute('aria-hidden')).toBe('true');
+
+        await user.click(filler);
+
+        expect(document.activeElement).toBe(input);
     });
 
     it('creates a task with Enter, with smart time, and keeps typing below it', async () => {
         const user = userEvent.setup();
         render(<Day />);
 
-        await user.click(screen.getAllByLabelText(LABEL)[3]);
+        await user.click(screen.getByLabelText(LABEL));
         await user.keyboard('17:30 Gym{Enter}');
 
         const row = await screen.findByRole('button', { name: '17:30 Gym' });
@@ -70,14 +73,13 @@ describe('TaskList', () => {
         expect(task).toMatchObject({ text: 'Gym', time: '17:30' });
         expect(row.textContent).toContain('17:30');
 
-        // Focus moved to the first empty row, now right below the new task.
-        const emptyRows = screen.getAllByLabelText(LABEL);
-        expect(emptyRows).toHaveLength(9);
-        expect(document.activeElement).toBe(emptyRows[0]);
+        // Focus stays in the empty row, now right below the new task.
+        const emptyRow = screen.getByLabelText(LABEL);
+        expect(document.activeElement).toBe(emptyRow);
         expect(
             row
                 .closest('[data-task-id]')
-                ?.nextElementSibling?.contains(emptyRows[0]),
+                ?.nextElementSibling?.contains(emptyRow),
         ).toBe(true);
 
         await user.keyboard('Read{Enter}');
@@ -89,26 +91,9 @@ describe('TaskList', () => {
         ]);
     });
 
-    it('keeps focus in the row the user moved to while the previous one saves', async () => {
+    it('keeps typing after Enter', async () => {
         const user = userEvent.setup();
-        render(<Day rows={5} />);
-
-        await user.click(screen.getAllByLabelText(LABEL)[0]);
-        await user.keyboard('First');
-        const lastRow = screen.getAllByLabelText(LABEL)[4];
-        await user.click(lastRow);
-
-        await screen.findByRole('button', { name: 'First' });
-        expect(lastRow.isConnected).toBe(true);
-        expect(document.activeElement).toBe(lastRow);
-
-        await user.keyboard('Second{Enter}');
-        await screen.findByRole('button', { name: 'Second' });
-    });
-
-    it('keeps typing after Enter when the list is full', async () => {
-        const user = userEvent.setup();
-        render(<Day rows={1} />);
+        render(<Day />);
 
         await user.click(screen.getByLabelText(LABEL));
         await user.keyboard('One{Enter}');
@@ -125,12 +110,10 @@ describe('TaskList', () => {
         const user = userEvent.setup();
         render(<Day />);
 
-        await user.click(screen.getAllByLabelText(LABEL)[0]);
+        await user.click(screen.getByLabelText(LABEL));
         await user.keyboard('Nope{Escape}');
 
-        expect(document.activeElement).not.toBe(
-            screen.getAllByLabelText(LABEL)[0],
-        );
+        expect(document.activeElement).not.toBe(screen.getByLabelText(LABEL));
         expect(await listTasksIn({ date: DAY })).toEqual([]);
     });
 
@@ -138,7 +121,7 @@ describe('TaskList', () => {
         const user = userEvent.setup();
         render(<Day />);
 
-        await user.click(screen.getAllByLabelText(LABEL)[0]);
+        await user.click(screen.getByLabelText(LABEL));
         await user.keyboard('One{Enter}{Escape}');
         await screen.findByRole('button', { name: 'One' });
 
@@ -159,7 +142,7 @@ describe('TaskList', () => {
             const user = userEvent.setup();
             render(<Day />);
 
-            const row = screen.getAllByLabelText(LABEL)[0];
+            const row = screen.getByLabelText(LABEL);
             await user.click(row);
             await user.keyboard('14 oct 17:30 Gym{Enter}');
 
@@ -177,7 +160,7 @@ describe('TaskList', () => {
             const user = userEvent.setup();
             render(<Day />);
 
-            await user.click(screen.getAllByLabelText(LABEL)[0]);
+            await user.click(screen.getByLabelText(LABEL));
             await user.keyboard('12 Oct Read{Enter}');
 
             await screen.findByRole('button', { name: 'Read' });
@@ -188,7 +171,7 @@ describe('TaskList', () => {
             const user = userEvent.setup();
             render(<Day />);
 
-            await user.click(screen.getAllByLabelText(LABEL)[0]);
+            await user.click(screen.getByLabelText(LABEL));
             await user.keyboard('1 ene Trip{Enter}');
 
             expect(
@@ -217,7 +200,7 @@ describe('TaskList', () => {
             const user = userEvent.setup();
             render(<Day />);
 
-            await user.click(screen.getAllByLabelText(LABEL)[0]);
+            await user.click(screen.getByLabelText(LABEL));
             await user.keyboard('Gym 31 Dec{Enter}');
 
             await screen.findByRole('button', { name: 'Gym 31 Dec' });
@@ -228,7 +211,7 @@ describe('TaskList', () => {
         const user = userEvent.setup();
         render(<Day />);
 
-        await user.click(screen.getAllByLabelText(LABEL)[0]);
+        await user.click(screen.getByLabelText(LABEL));
         await user.keyboard('Blurred');
         await user.click(document.body);
 
@@ -239,7 +222,7 @@ describe('TaskList', () => {
         const user = userEvent.setup();
         render(<Day />);
 
-        await user.click(screen.getAllByLabelText(LABEL)[0]);
+        await user.click(screen.getByLabelText(LABEL));
         await user.keyboard('   {Enter}');
         await user.click(document.body);
 
@@ -312,7 +295,6 @@ function Someday() {
             <TaskList
                 placement={{ date: null }}
                 tasks={tasks}
-                rows={2}
                 newTaskLabel={SOMEDAY_LABEL}
                 onOpenTask={() => {}}
             />
@@ -321,14 +303,14 @@ function Someday() {
     );
 }
 
-describe('TaskList growing past its rows', () => {
+describe('TaskList with tasks', () => {
     const list = () =>
         document.querySelector<HTMLElement>('[data-list="someday"]')!;
 
-    it('fills its rows, then keeps one empty row after the last task', async () => {
+    it('keeps one empty row after the last task', async () => {
         render(<Someday />);
 
-        expect(screen.getAllByLabelText(SOMEDAY_LABEL)).toHaveLength(2);
+        expect(screen.getAllByLabelText(SOMEDAY_LABEL)).toHaveLength(1);
 
         for (const text of ['S0', 'S1', 'S2']) {
             await createTask({ text, date: null });

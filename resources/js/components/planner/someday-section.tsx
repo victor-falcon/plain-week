@@ -1,6 +1,5 @@
 import { TaskList } from '@/components/planner/task-list';
 import { useSomedayTasks } from '@/hooks/use-tasks';
-import { SOMEDAY_ROWS } from '@/lib/planner/week';
 import { cn } from '@/lib/utils';
 
 type Props = {
@@ -29,7 +28,7 @@ export function SomedaySection({
     return (
         <section
             aria-labelledby="someday-title"
-            className={cn('flex min-w-0 flex-col', className)}
+            className={cn('flex min-h-0 min-w-0 flex-col', className)}
         >
             <h2
                 id="someday-title"
@@ -40,7 +39,6 @@ export function SomedaySection({
             <TaskList
                 placement={SOMEDAY_PLACEMENT}
                 tasks={tasks}
-                rows={SOMEDAY_ROWS}
                 newTaskLabel="New Someday task"
                 onOpenTask={onOpenTask}
             />

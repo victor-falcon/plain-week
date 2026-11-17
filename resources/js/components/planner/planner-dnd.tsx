@@ -91,6 +91,24 @@ function byPriority(collisions: Collision[]): Collision[] {
         );
 }
 
+/**
+ * Drops task rows hit outside their list's box: on desktop a list scrolls
+ * inside its cell, and the rows scrolled out of it still have their place on
+ * the page, over the gap or the cell below.
+ */
+function inVisibleRows(collisions: Collision[]): Collision[] {
+    const hitIds = new Set(collisions.map(({ id }) => id));
+
+    return collisions.filter((collision) => {
+        const data = dropDataOf(collision);
+
+        return (
+            data?.type !== 'task' ||
+            hitIds.has(listDroppableId(placementKey(data.placement)))
+        );
+    });
+}
+
 /** Whether the drop goes below the task row hit, carried on the collision. */
 function isBelow(collision: Collision): boolean {
     return (collision.data as { below?: boolean }).below === true;
@@ -106,7 +124,7 @@ function isBelow(collision: Collision): boolean {
 const collisionDetection: CollisionDetection = (args) => {
     const pointer = args.pointerCoordinates;
     let collisions = byPriority(
-        pointer ? pointerWithin(args) : rectIntersection(args),
+        pointer ? inVisibleRows(pointerWithin(args)) : rectIntersection(args),
     );
 
     if (collisions.length === 0 && !pointer) {

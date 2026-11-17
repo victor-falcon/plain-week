@@ -9,20 +9,19 @@ type Props = {
     /** 'YYYY-MM-DD'. */
     date: string;
     tasks: PlannerTask[] | undefined;
-    rows: number;
     isToday: boolean;
     onOpenTask: (taskId: string) => void;
     className?: string;
 };
 
 /**
- * One day: its header ("12 Oct … Mon") over its ruled task list. Saturday and
- * Sunday get a quieter header so the weekend reads apart from the work week.
+ * One day: its header ("12 Oct … Mon") over its ruled task list, which fills
+ * the rest of the day's cell on desktop. Saturday and Sunday get a quieter
+ * header so the weekend reads apart from the work week.
  */
 export function DayColumn({
     date,
     tasks,
-    rows,
     isToday,
     onOpenTask,
     className,
@@ -36,11 +35,12 @@ export function DayColumn({
             aria-label={`${weekday} ${dayLabel}`}
             aria-current={isToday ? 'date' : undefined}
             className={cn(
-                'flex min-w-0 flex-col',
-                // A soft tint that bleeds 10px past the start, end and top,
-                // padded back so the header and rows stay in place.
+                'flex min-h-0 min-w-0 flex-col',
+                // A soft tint that bleeds 10px past the start, end and top
+                // (and the bottom of the desktop cell), padded back so the
+                // header and rows stay in place.
                 isToday &&
-                    '-mx-2.5 -mt-2.5 rounded-t-lg bg-planner-accent/6 px-2.5 pt-2.5 dark:bg-planner-accent/10',
+                    '-mx-2.5 -mt-2.5 rounded-t-lg bg-planner-accent/6 px-2.5 pt-2.5 lg:-mb-2.5 lg:rounded-b-lg lg:pb-2.5 dark:bg-planner-accent/10',
                 className,
             )}
         >
@@ -68,7 +68,6 @@ export function DayColumn({
             <TaskList
                 placement={{ date }}
                 tasks={tasks}
-                rows={rows}
                 newTaskLabel={`New task for ${weekday} ${dayLabel}`}
                 onOpenTask={onOpenTask}
             />

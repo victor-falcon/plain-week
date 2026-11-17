@@ -10,7 +10,6 @@ function renderDay(isToday: boolean, date = '2026-10-12') {
             <DayColumn
                 date={date}
                 tasks={[]}
-                rows={2}
                 isToday={isToday}
                 onOpenTask={() => {}}
             />

@@ -31,9 +31,7 @@ type Props = {
     placement: TaskPlacement;
     /** Sorted tasks; `undefined` while the first local read is in progress. */
     tasks: PlannerTask[] | undefined;
-    /** Ruled rows to fill on desktop. Mobile shows a single empty row. */
-    rows: number;
-    /** Accessible label of the empty rows, e.g. "New task for Mon 12 Oct". */
+    /** Accessible label of the empty row, e.g. "New task for Mon 12 Oct". */
     newTaskLabel: string;
     onOpenTask: (taskId: string) => void;
     className?: string;
@@ -49,22 +47,21 @@ function DropIndicator() {
 }
 
 /**
- * A ruled list: the tasks, then empty rows that add new ones. Every empty row
- * appends to the end of the list, so none sits between two tasks. Empty rows are keyed by their slot
- * (row position), so adding a task only unmounts the row it replaces and an
- * input the user is in stays put. Creating with Enter moves focus to the next
- * empty slot after the new task, so typing can go on.
+ * A ruled list: the tasks, then one empty row that appends new ones. Creating
+ * with Enter keeps focus in that row, now below the new task, so typing can go
+ * on. On desktop the list fills the rest of its cell: ruled lines carry on
+ * below the empty row to the bottom (a click there focuses the empty row, a
+ * drop there lands at the end of the list), and the list scrolls on its own
+ * when its tasks do not fit.
  */
 export function TaskList({
     placement,
     tasks,
-    rows,
     newTaskLabel,
     onOpenTask,
     className,
 }: Props) {
-    const emptyInputs = useRef(new Map<number, HTMLInputElement>());
-    const focusAfterCreate = useRef(false);
+    const newTaskInput = useRef<HTMLInputElement>(null);
     const taskCount = tasks?.length ?? 0;
     const listKey = placementKey(placement);
     const listTasks = tasks ?? [];
@@ -79,8 +76,6 @@ export function TaskList({
     const { indicator } = usePlannerDnd();
     const indicatorBefore =
         indicator?.listKey === listKey ? indicator.beforeTaskId : undefined;
-    // Room for every task plus at least one empty row.
-    const emptyRows = Math.max(rows - taskCount, 1);
     const cursor = useKeyboardCursor();
     const { registerList, returnToList } = useKeyboardCursorApi();
     const cursorOnNewRow =
@@ -93,22 +88,7 @@ export function TaskList({
         }
     }, [registerList, listKey, placement, tasks]);
 
-    // When the row that had focus was replaced by its task (no empty row was
-    // left below it), continue in the first empty row.
-    useLayoutEffect(() => {
-        if (!focusAfterCreate.current) {
-            return;
-        }
-
-        focusAfterCreate.current = false;
-
-        // The keyboard cursor may have focused the new-task row itself.
-        if (!document.activeElement?.matches('[data-new-task-row] input')) {
-            emptyInputs.current.get(taskCount)?.focus();
-        }
-    }, [taskCount]);
-
-    const handleSubmit = (input: string, via: 'enter' | 'blur') => {
+    const handleSubmit = (input: string) => {
         const { text, date, time } = parseNewTaskInput(
             input,
             toDateKey(new Date()),
@@ -126,25 +106,10 @@ export function TaskList({
                 }
             })
             .catch(() => toast.error(`Could not save "${input}".`));
-
-        // Nothing took the row's slot, so typing goes on in the same row.
-        if (leavesList) {
-            return;
-        }
-
-        if (via === 'enter') {
-            // The new task takes the first empty slot; the next one stays.
-            focusAfterCreate.current = true;
-            emptyInputs.current.get(taskCount + 1)?.focus();
-        }
     };
 
-    // Esc leaves the list, even right after Enter while the task still saves,
-    // and puts the keyboard cursor on this list's new-task row.
-    const handleCancel = () => {
-        focusAfterCreate.current = false;
-        returnToList(listKey);
-    };
+    // Esc leaves the list and puts the keyboard cursor on its new-task row.
+    const handleCancel = () => returnToList(listKey);
 
     const handleToggleDone = (taskId: string) => {
         toggleDone(taskId).catch(() =>
@@ -153,10 +118,15 @@ export function TaskList({
     };
 
     return (
+        // On desktop the list scrolls inside its cell; its 8px side padding
+        // leaves room for the lifted look of the row being typed in.
         <div
             ref={setNodeRef}
             data-list={listKey}
-            className={cn('flex flex-col', className)}
+            className={cn(
+                'flex flex-col lg:-mx-2 lg:min-h-0 lg:flex-1 lg:[scrollbar-width:thin] lg:overflow-y-auto lg:px-2',
+                className,
+            )}
         >
             <SortableContext
                 items={listTasks.map((task) => task.id)}
@@ -178,35 +148,22 @@ export function TaskList({
                     </Fragment>
                 ))}
             </SortableContext>
-            {Array.from({ length: emptyRows }, (_, index) => {
-                const slot = taskCount + index;
-
-                return (
-                    <Fragment key={`new-${slot}`}>
-                        {indicatorBefore === null && slot === 0 && (
-                            <DropIndicator />
-                        )}
-                        <NewTaskRow
-                            ref={(input) => {
-                                if (input) {
-                                    emptyInputs.current.set(slot, input);
-                                }
-
-                                return () => {
-                                    emptyInputs.current.delete(slot);
-                                };
-                            }}
-                            label={newTaskLabel}
-                            // The first empty row is the list's cursor stop
-                            // (the only one shown on phones).
-                            isCursor={index === 0 && cursorOnNewRow}
-                            onSubmit={handleSubmit}
-                            onCancel={handleCancel}
-                            className={index > 0 ? 'max-lg:hidden' : undefined}
-                        />
-                    </Fragment>
-                );
-            })}
+            {indicatorBefore === null && taskCount === 0 && <DropIndicator />}
+            <NewTaskRow
+                ref={newTaskInput}
+                label={newTaskLabel}
+                isCursor={cursorOnNewRow}
+                onSubmit={handleSubmit}
+                onCancel={handleCancel}
+            />
+            {/* Desktop: ruled lines down to the bottom of the cell. Pointer
+                only; the empty row above is the keyboard's way in. */}
+            <div
+                aria-hidden
+                data-list-filler
+                onClick={() => newTaskInput.current?.focus()}
+                className="min-h-0 flex-1 cursor-text bg-ruled max-lg:hidden"
+            />
         </div>
     );
 }

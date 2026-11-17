@@ -28,7 +28,6 @@ function Day({ date }: { date: string }) {
         <TaskList
             placement={{ date }}
             tasks={tasks}
-            rows={3}
             newTaskLabel={`New task for ${date}`}
             onOpenTask={() => {}}
         />
