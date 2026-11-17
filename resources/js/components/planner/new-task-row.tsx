@@ -14,7 +14,7 @@ type Props = {
     /** The keyboard cursor is on this row (it is the list's last stop). */
     isCursor?: boolean;
     /** Called with the trimmed text when the row is submitted. */
-    onSubmit: (text: string, via: 'enter' | 'blur') => void;
+    onSubmit: (text: string) => void;
     /** Called when Esc cancels the row and leaves the list. */
     onCancel?: () => void;
     className?: string;
@@ -53,7 +53,7 @@ export function NewTaskRow({
             const text = take(event.currentTarget);
 
             if (text !== '') {
-                onSubmit(text, 'enter');
+                onSubmit(text);
             }
         } else if (event.key === 'Escape') {
             event.preventDefault();
@@ -67,7 +67,7 @@ export function NewTaskRow({
         const text = take(event.currentTarget);
 
         if (text !== '') {
-            onSubmit(text, 'blur');
+            onSubmit(text);
         }
     };
 

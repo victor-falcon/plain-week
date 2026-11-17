@@ -88,6 +88,16 @@ export function TaskList({
         }
     }, [registerList, listKey, placement, tasks]);
 
+    // A new task pushes the empty row down: keep it in view while typing in
+    // it, in a list that scrolls inside its cell (desktop).
+    useLayoutEffect(() => {
+        const input = newTaskInput.current;
+
+        if (input !== null && document.activeElement === input) {
+            input.scrollIntoView?.({ block: 'nearest' });
+        }
+    }, [taskCount]);
+
     const handleSubmit = (input: string) => {
         const { text, date, time } = parseNewTaskInput(
             input,
@@ -118,13 +128,14 @@ export function TaskList({
     };
 
     return (
-        // On desktop the list scrolls inside its cell; its 8px side padding
-        // leaves room for the lifted look of the row being typed in.
+        // On desktop the list scrolls inside its cell (its rows keep their
+        // height); its 8px side padding leaves room for the lifted look of
+        // the row being typed in.
         <div
             ref={setNodeRef}
             data-list={listKey}
             className={cn(
-                'flex flex-col lg:-mx-2 lg:min-h-0 lg:flex-1 lg:[scrollbar-width:thin] lg:overflow-y-auto lg:px-2',
+                'flex flex-col *:shrink-0 lg:-mx-2 lg:min-h-0 lg:flex-1 lg:[scrollbar-width:thin] lg:overflow-y-auto lg:px-2',
                 className,
             )}
         >

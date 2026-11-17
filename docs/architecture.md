@@ -549,8 +549,8 @@ measurements in [style.md](./style.md#planner-layout)). It follows the offline-f
   date moves into a new week while the current week is shown, `useWeekNavigation` follows to the new current week; a
   week the user navigated to stays.
 - Unfinished tasks of earlier days move to today: see [Carry over](#carry-over-unfinished-tasks).
-- Pure logic lives in `lib/planner/` with unit tests: ISO week math and the desktop week layout (`weekLayout` in
-  `week.ts`: Monday to Friday, then the weekend, with their minimum rows), smart time and date (`smart-time.ts`,
+- Pure logic lives in `lib/planner/` with unit tests: ISO week math (`week.ts`; the desktop week grid itself is CSS,
+  see [style.md](./style.md#planner-layout)), smart time and date (`smart-time.ts`,
   `smart-date.ts`, combined by `smart-input.ts`), date labels (`format.ts`), task color styles (`task-colors.ts`) and
   drop resolution (`drop.ts`).
 

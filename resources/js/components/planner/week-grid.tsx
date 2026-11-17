@@ -22,7 +22,8 @@ type Props = {
  * - tall: three tracks, Monday to Wednesday, Thursday to Saturday, then
  *   Sunday and Someday spanning two.
  *
- * Every cell takes its share of the height and scrolls its own list. Smaller
+ * Every cell takes its share of the height and scrolls its own list; rows
+ * keep a minimum height, so a very short window scrolls the page. Smaller
  * screens show a single column: the days in order, then Someday. The DOM
  * keeps that reading order (Monday to Sunday, then Someday) on every screen.
  */

@@ -92,11 +92,12 @@ function byPriority(collisions: Collision[]): Collision[] {
 }
 
 /**
- * Drops task rows hit outside their list's box: on desktop a list scrolls
+ * Drops task rows hit outside their list's box (the pointer, or the dragged
+ * overlay on a keyboard drag, is not over the list): on desktop a list scrolls
  * inside its cell, and the rows scrolled out of it still have their place on
  * the page, over the gap or the cell below.
  */
-function inVisibleRows(collisions: Collision[]): Collision[] {
+function withinOwnList(collisions: Collision[]): Collision[] {
     const hitIds = new Set(collisions.map(({ id }) => id));
 
     return collisions.filter((collision) => {
@@ -124,7 +125,7 @@ function isBelow(collision: Collision): boolean {
 const collisionDetection: CollisionDetection = (args) => {
     const pointer = args.pointerCoordinates;
     let collisions = byPriority(
-        pointer ? inVisibleRows(pointerWithin(args)) : rectIntersection(args),
+        withinOwnList(pointer ? pointerWithin(args) : rectIntersection(args)),
     );
 
     if (collisions.length === 0 && !pointer) {
