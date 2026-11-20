@@ -7,42 +7,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-20
+
 ### Added
 
-- **Task changes on the server.** The server can now change a user's tasks exactly like the planner does (create,
-  edit, move, repeat, delete, restore, carry over and import), groundwork for letting AI agents manage your planner.
-  Your browsers pick the changes up on their next sync.
-- **Connect AI agents.** Plain Week is now an MCP server at `/mcp`, so an AI agent such as Claude can work with your
-  planner. Add it to claude.ai or Claude Desktop as a custom connector and approve it on a Plain Week page (OAuth), or
-  create a personal token for Claude Code and other headless agents. **Settings › Agents** has the URL, setup steps for
-  each client, your tokens and the connected apps, each of which you can revoke. Agents can do what you do in the
-  planner: read a range of days, Someday, one task or a search; create tasks in batches, edit, check off, change
-  subtasks, move, duplicate, repeat, delete and restore them, move unfinished tasks to today, and export or import
-  a backup. On plainweek.eu it needs a paid plan. Self-hosted it is on by default: `MCP_ENABLED=false` turns
-  it off, and the Docker image creates the key pair that signs tokens in its storage volume.
-- **Agent activity.** Settings › Agents now lists what agents changed in your planner, newest first: which agent,
-  when, and a short summary such as "Created 3 tasks on Mon 23 Nov". Entries are kept for 90 days.
-- **AI agents, announced.** The landing page shows what an AI agent can do with your planner, with an FAQ item, and
-  signed-in users see a one-time "New" card that leads to Settings › Agents & apps (or to the plans without one).
+- **MCP connector: let AI agents manage your planner.** Plain Week is now an MCP server at `/mcp`, so an AI agent such
+  as Claude can read and manage your planner. Agents can do what you do in the planner: read a range of days, Someday,
+  one task or a search; create tasks in batches, edit, check off, change subtasks, move, duplicate, repeat, delete and
+  restore them, move unfinished tasks to today, and export or import a backup. Their changes are made on the server
+  and reach your browsers on their next sync.
+- **Settings › Agents & apps.** The new settings page walks you through each client: add Plain Week to claude.ai or
+  Claude Desktop as a custom connector and approve it on a Plain Week page (OAuth), or create a personal token for
+  Claude Code and other headless agents; an "Apps" tab has the API URL, the Bearer header and the OAuth metadata. It
+  lists your tokens and the agents and apps you connected, with when each was last used, so you can revoke them, and the
+  agent activity log: what agents changed in your planner, newest first, with the agent, the time and a short summary
+  such as "Created 3 tasks on Mon 23 Nov". Entries are kept for 90 days.
 - **API for native apps.** `GET /api/v1/me` (the account and its plan, so an app can show the paywall) and
   `POST /api/v1/sync/push` + `GET /api/v1/sync/pull`, the exact web sync contract (`X-Sync-Format` and `X-Timezone`
   included) for Bearer tokens; in SaaS mode a planless account gets `402`. Apps use the same tokens as agents: they
   sign in with OAuth 2.1 and PKCE (redirecting to a loopback address or a `plainweek://` URL), or you paste a personal
   token. There is no email-and-password login for apps. Groundwork for the desktop and mobile apps (#98); the rate
   limits, the raw sync strings and the API tests build on #99 by @tuuuniSnowfield.
-
-### Changed
-
-- **Settings › Agents & apps.** Settings › Agents is now Settings › Agents & apps (same address): it explains that
-  tokens work for apps too, has an "Apps" setup tab (API URL, Bearer header, OAuth metadata) and lists apps next to
-  agents, with when each was last used, to revoke them. OAuth and the app API no longer depend on the MCP server:
-  with `MCP_ENABLED=false` only `/mcp` goes. Self-hosted instances that turned MCP off now keep `/oauth/*`, the
-  `.well-known/oauth-*` metadata and client registration reachable, and the page stays without its MCP part.
-
-### Fixed
-
-- **Rate-limited sync.** `/sync/push` and `/sync/pull` (and the API's) allow 120 requests a minute per account
-  instead of being unlimited.
+- **AI agents, announced.** The landing page shows what an AI agent can do with your planner, with an FAQ item, and
+  signed-in users see a one-time "New" card that leads to Settings › Agents & apps (or to the plans without one).
+- **Availability.** On plainweek.eu the connector and the app API need a paid plan. Self-hosted they are on by default,
+  and the Docker image creates the key pair that signs tokens in its storage volume. `MCP_ENABLED=false` removes only
+  `/mcp`: OAuth (`/oauth/*`, the `.well-known/oauth-*` metadata and client registration), the app API and Settings ›
+  Agents & apps (without its MCP part) stay.
 
 ### Changed
 
@@ -50,6 +41,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   "Back to planner" button sits at the top and another at the end of the page, the sections are a column on desktop
   and a row that scrolls sideways on phones, and Send feedback, Repository, Documentation and Log out moved to the
   footer.
+
+### Fixed
+
+- **Rate-limited sync.** `/sync/push` and `/sync/pull` (and the API's) allow 120 requests a minute per account
+  instead of being unlimited.
 
 ## [0.3.19] - 2026-11-19
 
@@ -505,7 +501,8 @@ between devices.
   app, so an instance without mail works.
 - **Documentation** for contributors and coding agents in `docs/` and `AGENTS.md`.
 
-[Unreleased]: https://github.com/victor-falcon/plain-week/compare/v0.3.19...HEAD
+[Unreleased]: https://github.com/victor-falcon/plain-week/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/victor-falcon/plain-week/compare/v0.3.19...v0.4.0
 [0.3.19]: https://github.com/victor-falcon/plain-week/compare/v0.3.18...v0.3.19
 [0.3.18]: https://github.com/victor-falcon/plain-week/compare/v0.3.17...v0.3.18
 [0.3.17]: https://github.com/victor-falcon/plain-week/compare/v0.3.16...v0.3.17
