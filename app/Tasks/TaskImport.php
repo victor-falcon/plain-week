@@ -204,7 +204,7 @@ final class TaskImport
             $isSomeday = $key === '';
             $end = $queries->listEnd($isSomeday ? null : (string) $key);
             usort($list, $isSomeday ? TaskOrder::compareSomedayOrder(...) : TaskOrder::compareTaskOrder(...));
-            $positions = FractionalIndex::nBetween($end['position'] ?? null, null, count($list));
+            $positions = TaskOrder::positionsAfter($end['position'] ?? null, count($list));
 
             foreach ($list as $i => $task) {
                 $sortKeys[$task['id']] = [

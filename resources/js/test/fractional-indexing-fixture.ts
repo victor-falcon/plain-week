@@ -69,6 +69,15 @@ const EDGE_CASES: Array<[Bound, Bound]> = [
     ['b0', null],
     ['a1V', 'a1W'],
     ['a1Vzzz', 'a1W'],
+    // Digit-only fractions that compare differently as numbers and as
+    // strings (PHP compares numeric strings as numbers).
+    ['a125', 'a15'],
+    ['a15', 'a125'],
+    ['a19', 'a2'],
+    ['a01', 'a1'],
+    ['a1', 'a01'],
+    ['a09', 'a1'],
+    ['a0125', 'a05'],
 ];
 
 export function buildFractionalIndexingFixture(): FractionalIndexingFixture {

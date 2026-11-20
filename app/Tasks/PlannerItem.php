@@ -77,13 +77,15 @@ final readonly class PlannerItem
     }
 
     /**
-     * Splits an occurrence id (`${seriesId}:${YYYY-MM-DD}`); null for the id of a row.
+     * Splits an occurrence id (`${seriesId}:${YYYY-MM-DD}`); null for the id of a row. Unlike the client, whose ids
+     * come from its own screen, an impossible date (`2026-02-31`) is not an occurrence id, so it never resolves to a
+     * day it would overflow to.
      *
      * @return array{seriesId: string, date: string}|null
      */
     public static function parseOccurrenceId(string $id): ?array
     {
-        return preg_match('/^(.+):(\d{4}-\d{2}-\d{2})$/', $id, $match) === 1
+        return preg_match('/^(.+):(\d{4}-\d{2}-\d{2})$/', $id, $match) === 1 && RecurrenceRule::isDateKey($match[2])
             ? ['seriesId' => $match[1], 'date' => $match[2]]
             : null;
     }

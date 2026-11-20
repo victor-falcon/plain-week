@@ -922,10 +922,11 @@ so a change to one side goes into both. Browsers pick its writes up on their nex
 - **Shapes.** Rows are arrays with the sync wire shape (`Task::toRecord()`, also what `TaskResource` returns); items
   are `App\Tasks\PlannerItem` (`kind`: `task`, `series`, `occurrence`, `exception`, plus the record). Reads go
   through `App\Tasks\TaskQueries`, which reuses `TaskOccurrences::expandSeries` and `winningException`. Every `$id`
-  also accepts an occurrence id. `Scope::This` / `Scope::Future` defaults are the client's.
+  also accepts an occurrence id (one with an impossible date, such as `…:2026-02-31`, is not found). `Scope::This` / `Scope::Future` defaults are the client's.
 - **Errors.** A missing, deleted or someone else's task throws `TaskNotFound`; a change the planner refuses (an
-  invalid rule, a Someday task that should repeat, moving a series row, a row that would not pass the push rules, a
-  date that is not `YYYY-MM-DD`) throws `InvalidTaskChange`; a file that cannot be imported throws `ImportError`. All
+  invalid rule, a Someday task that should repeat, moving a series row, a row that would not pass the push rules (the
+  message lists the field errors), a neighbour whose stored position is not a valid key, a date that is not
+  `YYYY-MM-DD`) throws `InvalidTaskChange`; a file that cannot be imported throws `ImportError`. All
   extend `TaskDomainException`, and the message is meant for the user. Nothing is written when one is thrown.
 - **Writes.** Each method runs in one transaction whose first statement takes the `sync_versions` write lock
   (`App\Actions\Sync\SyncVersions::lock()`), so it reads and writes as if alone, like a push. Every written row is

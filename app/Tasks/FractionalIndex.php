@@ -7,8 +7,9 @@ use InvalidArgumentException;
 /**
  * A port of npm `fractional-indexing` v4 (`generateKeyBetween`, `generateNKeysBetween`) with its default alphabets:
  * base-62 digits and A-Z/a-z heads, the keys the client writes to `position`. Keys must be byte for byte the same as
- * the client's, which `tests/fixtures/fractional-indexing.json` (written from the npm library) checks. Keys are ASCII,
- * so PHP's byte comparison orders them like JavaScript's string comparison.
+ * the client's, which `tests/fixtures/fractional-indexing.json` (written from the npm library) checks. Keys are ASCII
+ * and compared with `strcmp` (never `<`: PHP compares numeric strings such as `"25"` and `"5"` as numbers), which
+ * orders them like JavaScript's string comparison.
  */
 final class FractionalIndex
 {
@@ -31,7 +32,7 @@ final class FractionalIndex
             self::validateOrderKey($b);
         }
 
-        if ($a !== null && $b !== null && $a > $b) {
+        if ($a !== null && $b !== null && strcmp($a, $b) > 0) {
             [$a, $b] = [$b, $a];
         }
 
@@ -47,7 +48,7 @@ final class FractionalIndex
                 return $ib.self::midpoint('', $fb);
             }
 
-            if ($ib < $b) {
+            if (strcmp($ib, $b) < 0) {
                 return $ib;
             }
 
@@ -72,7 +73,7 @@ final class FractionalIndex
 
         $i = self::incrementInteger($ia) ?? throw new InvalidArgumentException('cannot increment any more');
 
-        return $i < $b ? $i : $ia.self::midpoint($fa, null);
+        return strcmp($i, $b) < 0 ? $i : $ia.self::midpoint($fa, null);
     }
 
     /**
@@ -125,7 +126,7 @@ final class FractionalIndex
     {
         $zero = self::DIGITS[0];
 
-        if ($b !== null && $a >= $b) {
+        if ($b !== null && strcmp($a, $b) >= 0) {
             throw new InvalidArgumentException("{$a} >= {$b}");
         }
 

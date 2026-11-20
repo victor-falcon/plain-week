@@ -4,6 +4,7 @@ use App\Models\Task;
 use App\Models\User;
 use App\Tasks\InvalidTaskChange;
 use App\Tasks\PlannerItem;
+use App\Tasks\Scope;
 use App\Tasks\TaskNotFound;
 use App\Tasks\TaskRepository;
 use Carbon\CarbonImmutable;
@@ -232,6 +233,29 @@ describe('server writes', function () {
             ->and(fn () => $this->tasks->createTask(['text' => 'B', 'date' => '2026-02-30']))->toThrow(InvalidTaskChange::class)
             ->and(repoRow($task['id']))->toBe($task)
             ->and(repoTexts(REPO_DAY))->toBe(['A']);
+    });
+
+    it('names the field a refused row breaks', function () {
+        $task = $this->tasks->createTask(['text' => 'A', 'date' => REPO_DAY]);
+
+        expect(fn () => $this->tasks->updateTask($task['id'], ['time' => '25:00']))
+            ->toThrow(InvalidTaskChange::class, 'The time field must match the format H:i.');
+    });
+
+    it('refuses to place a task next to a malformed position as a domain error', function () {
+        Task::factory()->for($this->user)->create(['date' => REPO_DAY, 'position' => 'a00']);
+
+        expect(fn () => $this->tasks->createTask(['text' => 'A', 'date' => REPO_DAY]))->toThrow(InvalidTaskChange::class)
+            ->and(Task::query()->count())->toBe(1);
+    });
+
+    it('never takes an impossible date in an occurrence id for another day', function () {
+        $series = $this->tasks->createTask(['text' => 'Gym', 'date' => REPO_DAY]);
+        $this->tasks->setRecurrence($series['id'], ['type' => 'daily', 'every' => 1]);
+
+        expect($this->tasks->findTask("{$series['id']}:2026-02-31"))->toBeNull()
+            ->and(fn () => $this->tasks->deleteTask("{$series['id']}:2026-10-32", Scope::Future))->toThrow(TaskNotFound::class)
+            ->and(repoRow($series['id'])['recurrence'])->toBe(['type' => 'daily', 'every' => 1]);
     });
 
     it('creates a batch in one go, keeping its order', function () {

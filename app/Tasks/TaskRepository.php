@@ -97,7 +97,8 @@ final class TaskRepository
 
     /**
      * Creates several tasks in one transaction, each placed as if created one after the other (so a batch for one
-     * day keeps its order at the end of it).
+     * day keeps its order at the end of it; several given the same `after_id` each land right after it, so they end
+     * up in reverse order, like successive creates in the planner).
      *
      * @param  list<NewTask>  $inputs
      * @return list<TaskRecord>
@@ -188,7 +189,7 @@ final class TaskRepository
             }
 
             if ($item->kind === ItemKind::Occurrence) {
-                $row = $this->tombstone($this->materialize($this->seriesOfOccurrence($item), (string) $item->occurrenceDate()));
+                $row = $this->tombstone($this->rowOf($item));
 
                 return [[$row], $row];
             }
@@ -240,9 +241,7 @@ final class TaskRepository
             }
 
             $slot = $this->slotIn($date, $afterId, $beforeId, exclude: [$id, $item->id()]);
-            $base = $item->kind === ItemKind::Occurrence
-                ? $this->materialize($this->seriesOfOccurrence($item), (string) $item->occurrenceDate())
-                : $item->task;
+            $base = $this->rowOf($item);
             $row = [...$base, ...$slot, 'updated_at' => $this->nextTimestamp($base['updated_at'])];
 
             return [[$row], PlannerItem::fromRow($row)];
@@ -262,9 +261,7 @@ final class TaskRepository
             $siblings = $this->queries->listIn($item->task['date']);
             $index = array_search($item->id(), array_map(fn (PlannerItem $sibling) => $sibling->id(), $siblings), true);
             $next = $index === false ? ($siblings[0] ?? null) : ($siblings[$index + 1] ?? null);
-            $source = $item->kind === ItemKind::Occurrence
-                ? $this->materialize($this->seriesOfOccurrence($item), (string) $item->occurrenceDate())
-                : $item->task;
+            $source = $this->rowOf($item);
             $copy = [
                 ...$this->plainCopy($source),
                 ...$this->slotBetween($item->task['date'], $item->task, $next?->task),
@@ -368,6 +365,7 @@ final class TaskRepository
     /**
      * Moves every unfinished plain task dated before `$today` to `$today`, after the tasks already there (occurrences
      * included), oldest day first and in each day's order. Recurring tasks never move. Returns how many moved.
+     * (The client also skips untouched demo tasks; those are never synced, so the server has none.)
      */
     public function carryOverTasks(string $today): int
     {
@@ -428,7 +426,7 @@ final class TaskRepository
                 return [[], $item];
             }
 
-            $row = $this->materialize($this->seriesOfOccurrence($item), (string) $item->occurrenceDate());
+            $row = $this->rowOf($item);
 
             return [[$row], PlannerItem::fromRow($row)];
         });
@@ -483,11 +481,14 @@ final class TaskRepository
             try {
                 TaskRecordRules::validate(array_values($records));
             } catch (ValidationException $e) {
-                throw new InvalidTaskChange($e->getMessage(), previous: $e);
+                throw new InvalidTaskChange(implode(' ', $e->validator->errors()->all()), previous: $e);
             }
 
             $version = SyncVersions::reserve(count($records));
-            $stored = Task::query()->whereIn('id', array_keys($records))->get()->keyBy('id');
+            // In chunks: an import can hold more ids than SQLite binds in one statement.
+            $stored = collect(array_chunk(array_map('strval', array_keys($records)), 500))
+                ->flatMap(fn (array $ids) => Task::query()->whereIn('id', $ids)->get())
+                ->keyBy('id');
 
             foreach ($records as $id => $record) {
                 $task = $stored->get($id) ?? new Task;
@@ -508,7 +509,8 @@ final class TaskRepository
         });
 
         if ($written) {
-            SyncGoogleCalendar::dispatchFor($this->user, SyncGoogleCalendar::DEBOUNCE_SECONDS);
+            // Like a push that applied rows. Deferred while a caller's own transaction is still open.
+            DB::afterCommit(fn () => SyncGoogleCalendar::dispatchFor($this->user, SyncGoogleCalendar::DEBOUNCE_SECONDS));
         }
 
         return $result;
@@ -535,7 +537,7 @@ final class TaskRepository
             }
 
             $row = match ($item->kind) {
-                ItemKind::Occurrence => $this->patched($this->materialize($this->seriesOfOccurrence($item), (string) $item->occurrenceDate()), $patch),
+                ItemKind::Occurrence => $this->patched($this->rowOf($item), $patch),
                 ItemKind::Series => $this->patched($item->task, self::seriesPatch($patch)),
                 default => $this->patched($item->task, $patch),
             };
@@ -547,6 +549,18 @@ final class TaskRepository
     private function getLive(string $id): PlannerItem
     {
         return $this->queries->find($id) ?? throw TaskNotFound::withId($id);
+    }
+
+    /**
+     * The row behind an item: its own, or for a generated occurrence a new exception row with nothing changed yet.
+     *
+     * @return TaskRecord
+     */
+    private function rowOf(PlannerItem $item): array
+    {
+        return $item->kind === ItemKind::Occurrence
+            ? $this->materialize($this->seriesOfOccurrence($item), (string) $item->occurrenceDate())
+            : $item->task;
     }
 
     /**

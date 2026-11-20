@@ -2,6 +2,8 @@
 
 namespace App\Tasks;
 
+use InvalidArgumentException;
+
 /**
  * Ordering and placement of tasks inside a list, a port of the client's `lib/db/position.ts` (and
  * `compareCarryOverOrder` from `lib/db/carry-over.ts`). Positions are fractional-indexing keys
@@ -52,11 +54,38 @@ final class TaskOrder
      */
     public static function positionBetween(?string $after, ?string $before): string
     {
-        if ($after !== null && $before !== null && $after >= $before) {
-            return FractionalIndex::between($after, null);
-        }
+        try {
+            if ($after !== null && $before !== null && strcmp($after, $before) >= 0) {
+                return FractionalIndex::between($after, null);
+            }
 
-        return FractionalIndex::between($after, $before);
+            return FractionalIndex::between($after, $before);
+        } catch (InvalidArgumentException $e) {
+            throw self::invalidPosition($e);
+        }
+    }
+
+    /**
+     * `$n` positions after `$after`, in order ({@see FractionalIndex::nBetween}).
+     *
+     * @return list<string>
+     */
+    public static function positionsAfter(?string $after, int $n): array
+    {
+        try {
+            return FractionalIndex::nBetween($after, null, $n);
+        } catch (InvalidArgumentException $e) {
+            throw self::invalidPosition($e);
+        }
+    }
+
+    /**
+     * A neighbour's stored position is not a valid key (the push only checks it is a string), which the client cannot
+     * place next to either.
+     */
+    private static function invalidPosition(InvalidArgumentException $e): InvalidTaskChange
+    {
+        return new InvalidTaskChange("A neighbouring task has an invalid position ({$e->getMessage()}). Move it first.", previous: $e);
     }
 
     /**

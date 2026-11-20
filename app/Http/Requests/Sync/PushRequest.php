@@ -15,11 +15,6 @@ class PushRequest extends FormRequest
     public const int MAX_RECORDS = 500;
 
     /**
-     * The largest `every` of a daily rule.
-     */
-    public const int MAX_EVERY_DAYS = TaskRecordRules::MAX_EVERY_DAYS;
-
-    /**
      * Get the validation rules that apply to the request. The record rules are shared with server-side writes
      * ({@see TaskRecordRules}).
      *
