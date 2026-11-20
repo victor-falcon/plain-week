@@ -252,40 +252,50 @@ function TaskMenuItems({
  * get the same items from the row's "more" button (`TaskMenuButton`). The
  * actions are props so callers decide what each one does.
  */
-export function TaskContextMenu({ task, children, ...actions }: Props) {
-    // Closed by a press elsewhere: leave focus where that press puts it.
+/**
+ * Focus when a task menu closes: back to the task's row, wherever an action
+ * moved it (when it is gone, Radix falls back to the element that had focus),
+ * unless a press elsewhere closed it: focus stays where that press put it.
+ * Returns the props for the menu's root and content.
+ */
+function useTaskMenuFocus(task: Task) {
     const closedFromOutside = useRef(false);
+
+    return {
+        onOpenChange: (open: boolean) => {
+            if (open) {
+                closedFromOutside.current = false;
+            }
+        },
+        onInteractOutside: () => {
+            closedFromOutside.current = true;
+        },
+        onCloseAutoFocus: (event: Event) => {
+            const row = document.querySelector<HTMLElement>(
+                `[data-task-id="${CSS.escape(task.id)}"] button`,
+            );
+
+            if (row && !closedFromOutside.current) {
+                event.preventDefault();
+                row.focus();
+            }
+        },
+    };
+}
+
+export function TaskContextMenu({ task, children, ...actions }: Props) {
+    const { onOpenChange, ...focusProps } = useTaskMenuFocus(task);
     const handleShortcut = useMenuShortcuts(MENU_SHORTCUTS);
 
     return (
-        <ContextMenu
-            onOpenChange={(open) => {
-                if (open) {
-                    closedFromOutside.current = false;
-                }
-            }}
-        >
+        <ContextMenu onOpenChange={onOpenChange}>
             <ContextMenuTrigger asChild onKeyDown={openFromKeyboard}>
                 {children}
             </ContextMenuTrigger>
             <ContextMenuContent
                 aria-label={t('planner.taskMenu', { text: task.text })}
                 onKeyDown={handleShortcut}
-                onInteractOutside={() => {
-                    closedFromOutside.current = true;
-                }}
-                // Back to the task's row, wherever an action moved it (when
-                // it is gone, Radix falls back to the element that had focus).
-                onCloseAutoFocus={(event) => {
-                    const row = document.querySelector<HTMLElement>(
-                        `[data-task-id="${CSS.escape(task.id)}"] button`,
-                    );
-
-                    if (row && !closedFromOutside.current) {
-                        event.preventDefault();
-                        row.focus();
-                    }
-                }}
+                {...focusProps}
                 // As wide as the swatch grid: the items fit inside it.
                 className="min-w-0"
             >
@@ -302,9 +312,9 @@ export function TaskContextMenu({ task, children, ...actions }: Props) {
 /**
  * The row's quiet "more" button (⋮) at its end, opening the task menu's items
  * as a dropdown: the way to reach them on a touch screen, where a long press
- * drags the task instead. Shown where the row's check button is always shown
- * (touch screens of any size, and every screen below `lg`); hidden for mouse
- * users on desktop, who right click.
+ * drags the task instead. Shown below `lg` and on any device with a touch
+ * screen (a touch laptop too); hidden on desktops with only a mouse or
+ * trackpad, whose users right click.
  *
  * Pressing it must not pick the task up: it stops the press from reaching
  * the row's drag listeners.
@@ -314,10 +324,11 @@ export function TaskMenuButton({
     className,
     ...actions
 }: TaskContextMenuActions & { task: Task; className?: string }) {
+    const { onOpenChange, ...focusProps } = useTaskMenuFocus(task);
     const handleShortcut = useMenuShortcuts(MENU_SHORTCUTS);
 
     return (
-        <DropdownMenu>
+        <DropdownMenu onOpenChange={onOpenChange}>
             <DropdownMenuTrigger asChild>
                 <Button
                     type="button"
@@ -327,7 +338,7 @@ export function TaskMenuButton({
                     onTouchStart={(event) => event.stopPropagation()}
                     onMouseDown={(event) => event.stopPropagation()}
                     className={cn(
-                        'mt-1 w-6 shrink-0 rounded-full text-muted-foreground hover:bg-transparent lg:pointer-fine:hidden',
+                        'mt-1 shrink-0 rounded-full text-muted-foreground hover:bg-transparent lg:pointer-fine:not-any-pointer-coarse:hidden',
                         className,
                     )}
                 >
@@ -340,6 +351,7 @@ export function TaskMenuButton({
                 aria-labelledby={undefined}
                 aria-label={t('planner.taskMenu', { text: task.text })}
                 onKeyDown={handleShortcut}
+                {...focusProps}
                 // As wide as the swatch grid: the items fit inside it.
                 className="w-auto min-w-0"
             >

@@ -1,7 +1,6 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CircleCheck, GripVertical, Repeat } from 'lucide-react';
 import { useRef } from 'react';
-import type { PointerEvent } from 'react';
 import {
     CURSOR_ROW_CLASS,
     useCursorFocus,
@@ -40,11 +39,6 @@ import { isRecurring } from '@/lib/recurrence/expand';
 import type { PlannerTask } from '@/lib/recurrence/expand';
 import { cn } from '@/lib/utils';
 import { LinkedText } from './linked-text';
-
-/** A finger press, which a long press would turn into a menu. */
-function isTouchPress(event: PointerEvent<HTMLElement>): boolean {
-    return event.pointerType === 'touch';
-}
 
 type Props = {
     task: PlannerTask;
@@ -231,7 +225,13 @@ export function TaskRow({
                 data-cursor={isCursor || undefined}
                 {...listeners}
                 onPointerDown={(event) => {
-                    touchPressed.current = isTouchPress(event);
+                    // Only presses on the row itself, not ones bubbling up
+                    // the React tree from a portalled menu.
+                    if (!event.currentTarget.contains(event.target as Node)) {
+                        return;
+                    }
+
+                    touchPressed.current = event.pointerType === 'touch';
 
                     // Skips Radix's own 700 ms touch long press, which would
                     // open the menu under a held drag. Click and focus are

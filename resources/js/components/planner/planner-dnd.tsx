@@ -62,6 +62,8 @@ const MOUSE_DRAG_DISTANCE_PX = 5;
  * button does.
  */
 const TOUCH_DRAG_DELAY_MS = 250;
+// Both about a finger's jitter: the first before the task is picked up, the
+// second after.
 const TOUCH_DRAG_TOLERANCE_PX = 8;
 const TOUCH_HOLD_TOLERANCE_PX = 8;
 
@@ -262,8 +264,9 @@ type Props = {
  * Drag and drop for the planner: tasks move within a day, across days, to and
  * from Someday, and to the previous / next week through the screen-edge zones
  * (start = previous, end = next, so RTL mirrors). A mouse drag starts after
- * 5px of movement, a touch drag with a press that holds (it picks the task up)
- * then moves, and the move button of a row starts a keyboard drag. Drops are written with `moveTask` (local only).
+ * 5px of movement, a touch drag with a press that holds (it picks the task
+ * up) then moves, and the move button of a row starts a keyboard drag. Drops
+ * are written with `moveTask` (local only).
  *
  * Rows use `@dnd-kit/sortable` for its keyboard coordinates and item
  * registration, but are not shifted with its transforms: an insertion line

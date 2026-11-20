@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import {
+    act,
     cleanup,
     fireEvent,
     render,
@@ -289,6 +290,22 @@ describe('TaskContextMenu', () => {
         fireEvent.pointerDown(button, { pointerType: 'mouse', button: 2 });
         await openMenu(button);
     });
+
+    it("skips Radix's own touch long press", async () => {
+        const { button } = await setup();
+
+        vi.useFakeTimers();
+
+        try {
+            fireEvent.pointerDown(button, { pointerType: 'touch' });
+            act(() => {
+                vi.advanceTimersByTime(1000);
+            });
+            expect(screen.queryByRole('menu')).toBeNull();
+        } finally {
+            vi.useRealTimers();
+        }
+    });
 });
 
 describe('TaskMenuButton', () => {
@@ -332,6 +349,17 @@ describe('TaskMenuButton', () => {
         await user.keyboard('w');
         await waitFor(async () =>
             expect((await stored(task.id))?.date).toBe('2026-10-19'),
+        );
+    });
+
+    it('returns focus to the row when it closes', async () => {
+        const { user } = await setup();
+
+        await openMoreMenu(user);
+        await user.keyboard('{Escape}');
+        await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+        expect(document.activeElement).toBe(
+            screen.getByRole('button', { name: 'Plan trip' }),
         );
     });
 });
