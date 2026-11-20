@@ -121,7 +121,10 @@ Browser QA for UI changes runs against a production build, so the service worker
    `plain-week.landing-dismissed`. On a desktop viewport (1024px+, fine pointer) the first visit that doesn't show the
    landing card opens the install mobile app card (dialog named "Plain Week on your phone"): press
    `[data-test="install-app-done"]`, or set `localStorage` `plain-week.install-app-seen`; the header button is
-   `[data-test="install-mobile-app"]`. Both are off on loopback hosts: to see them, map a name to the server (Chromium
+   `[data-test="install-mobile-app"]`. Signed in with the MCP server on, the first load that doesn't show the landing
+   card opens the MCP announcement card (dialog named "Your AI agent can plan your week") instead of the install card:
+   press `[data-test="mcp-announcement-dismiss"]`, or set `localStorage` `plain-week.mcp-announcement-seen`. The
+   install card and its header button are off on loopback hosts: to see them, map a name to the server (Chromium
    `--host-resolver-rules="MAP plainweek.test 127.0.0.1"`). Settings › Data
    (`/settings/data`) has `[data-test="export-data"]` / `[data-test="import-data"]`; the import reads the hidden
    `[data-test="import-file-input"]`, so `setInputFiles` on it skips the native file picker.

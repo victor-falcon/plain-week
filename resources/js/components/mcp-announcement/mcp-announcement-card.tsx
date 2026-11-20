@@ -2,7 +2,7 @@ import { Link, usePage } from '@inertiajs/react';
 import { useRef, useSyncExternalStore } from 'react';
 import { FloatingCard } from '@/components/floating-card';
 import {
-    AGENT_PROMPTS,
+    ANNOUNCEMENT_PROMPTS,
     AgentPrompts,
 } from '@/components/mcp-announcement/agent-prompts';
 import { Badge } from '@/components/ui/badge';
@@ -45,7 +45,7 @@ export function McpAnnouncementCard() {
                 primary.current?.focus();
             }}
         >
-            <AgentPrompts prompts={[AGENT_PROMPTS[0], AGENT_PROMPTS[2]]} />
+            <AgentPrompts prompts={ANNOUNCEMENT_PROMPTS} />
 
             <p
                 className="text-sm leading-normal text-muted-foreground"

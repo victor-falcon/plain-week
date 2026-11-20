@@ -48,8 +48,7 @@ export default function Planner() {
             return;
         }
 
-        if (signedIn && mcpEnabled && mcpAnnouncementStore.isPending()) {
-            mcpAnnouncementStore.openOnce();
+        if (signedIn && mcpEnabled && mcpAnnouncementStore.openOnce()) {
             installAppStore.deferToNextLoad();
 
             return;
