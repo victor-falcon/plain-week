@@ -12,15 +12,17 @@ import TextLink from '@/components/text-link';
 import { Input } from '@/components/ui/input';
 import { login } from '@/routes';
 import { email } from '@/routes/password';
+import { t } from '@/lib/i18n';
+import { tRich } from '@/lib/i18n/rich';
 
 export default function ForgotPassword({ status }: { status?: string }) {
     return (
         <>
-            <Head title="Forgot password" />
+            <Head title={t('auth.forgotPasswordTitle')} />
 
             <FloatingCard
-                title="Forgot your password?"
-                description="Enter your email and we'll send you a link to choose a new one."
+                title={t('auth.forgotYourPassword')}
+                description={t('auth.forgotPasswordDescription')}
                 onBack={() => router.visit(login())}
                 onClose={closeToPlanner}
             >
@@ -31,7 +33,7 @@ export default function ForgotPassword({ status }: { status?: string }) {
                         <>
                             <AuthField
                                 id="email"
-                                label="Email"
+                                label={t('auth.email')}
                                 error={errors.email}
                             >
                                 <Input
@@ -41,7 +43,7 @@ export default function ForgotPassword({ status }: { status?: string }) {
                                     required
                                     autoComplete="email"
                                     autoFocus
-                                    placeholder="you@example.com"
+                                    placeholder={t('auth.emailPlaceholder')}
                                     aria-invalid={!!errors.email}
                                     className={authInputClass}
                                 />
@@ -51,14 +53,18 @@ export default function ForgotPassword({ status }: { status?: string }) {
                                 processing={processing}
                                 data-test="email-password-reset-link-button"
                             >
-                                Email reset link
+                                {t('auth.emailResetLink')}
                             </AuthSubmit>
                         </>
                     )}
                 </Form>
 
                 <AuthFootnote>
-                    Remembered it? <TextLink href={login()}>Log in</TextLink>
+                    {tRich('auth.rememberedIt', {
+                        link: (text) => (
+                            <TextLink href={login()}>{text}</TextLink>
+                        ),
+                    })}
                 </AuthFootnote>
             </FloatingCard>
         </>

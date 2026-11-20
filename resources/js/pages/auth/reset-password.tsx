@@ -9,6 +9,7 @@ import { FloatingCard } from '@/components/floating-card';
 import PasswordInput from '@/components/password-input';
 import { Input } from '@/components/ui/input';
 import { update } from '@/routes/password';
+import { t } from '@/lib/i18n';
 
 type Props = {
     token: string;
@@ -19,11 +20,11 @@ type Props = {
 export default function ResetPassword({ token, email, passwordRules }: Props) {
     return (
         <>
-            <Head title="Reset password" />
+            <Head title={t('auth.resetPassword')} />
 
             <FloatingCard
-                title="Choose a new password"
-                description="Then log in with it on every device."
+                title={t('auth.chooseNewPassword')}
+                description={t('auth.resetPasswordDescription')}
                 onClose={closeToPlanner}
             >
                 <Form
@@ -36,7 +37,7 @@ export default function ResetPassword({ token, email, passwordRules }: Props) {
                         <>
                             <AuthField
                                 id="email"
-                                label="Email"
+                                label={t('auth.email')}
                                 error={errors.email}
                             >
                                 <Input
@@ -52,7 +53,7 @@ export default function ResetPassword({ token, email, passwordRules }: Props) {
 
                             <AuthField
                                 id="password"
-                                label="New password"
+                                label={t('auth.newPassword')}
                                 error={errors.password}
                             >
                                 <PasswordInput
@@ -60,7 +61,7 @@ export default function ResetPassword({ token, email, passwordRules }: Props) {
                                     name="password"
                                     autoComplete="new-password"
                                     autoFocus
-                                    placeholder="Choose a password"
+                                    placeholder={t('auth.choosePassword')}
                                     passwordrules={passwordRules}
                                     aria-invalid={!!errors.password}
                                     className={authInputClass}
@@ -69,14 +70,14 @@ export default function ResetPassword({ token, email, passwordRules }: Props) {
 
                             <AuthField
                                 id="password_confirmation"
-                                label="Confirm password"
+                                label={t('auth.confirmPassword')}
                                 error={errors.password_confirmation}
                             >
                                 <PasswordInput
                                     id="password_confirmation"
                                     name="password_confirmation"
                                     autoComplete="new-password"
-                                    placeholder="Repeat it"
+                                    placeholder={t('auth.repeatPassword')}
                                     passwordrules={passwordRules}
                                     aria-invalid={
                                         !!errors.password_confirmation
@@ -89,7 +90,7 @@ export default function ResetPassword({ token, email, passwordRules }: Props) {
                                 processing={processing}
                                 data-test="reset-password-button"
                             >
-                                Reset password
+                                {t('auth.resetPassword')}
                             </AuthSubmit>
                         </>
                     )}

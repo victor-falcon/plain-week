@@ -1,5 +1,6 @@
 import { router } from '@inertiajs/react';
 import { toast } from 'sonner';
+import { t } from '@/lib/i18n';
 
 const OFFLINE_VISIT_TOAST_ID = 'offline-visit';
 
@@ -29,7 +30,7 @@ export function notifyOfflineVisits(): void {
             // prefetches must keep the default, which clears Inertia's
             // prefetch cache so a later click still sends a real visit.
             event.preventDefault();
-            toast.error("You're offline. This page needs a connection.", {
+            toast.error(t('pwa.offlineVisit'), {
                 id: OFFLINE_VISIT_TOAST_ID,
             });
         }

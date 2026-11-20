@@ -736,6 +736,44 @@ The data layer only helps offline if the app itself loads offline. A service wor
   else opens `/`. The logic lives in `lib/pwa/push-handlers.ts` (tested without a worker); `sw.ts` only wires the
   events.
 
+## Translations
+
+English is the only bundled language, and every user-facing string goes through a translation lookup, so an instance
+can add languages or reword English with JSON files ([self-hosting.md](./self-hosting.md#translations)).
+
+**Client.** An in-house, typed `t()` (`resources/js/lib/i18n`), no library: the catalog is the `as const` object in
+`resources/js/lang/en.ts`, merged from one file per area (`lang/en/planner.ts`, `settings.ts`, …), so keys are
+`keyof typeof en` and a missing or misspelled key fails `tsc`. Keys are flat, `<area>.<name>`; values are a string with
+`{name}` placeholders or a plural `{ one, other, … }` keyed by `Intl.PluralRules` category (plural keys require a
+`count`). `tRich(key, { link: (text) => … })` (`lib/i18n/rich.tsx`) renders `<link>…</link>` tags in a message with
+React elements, so a sentence with a link stays one message. `t()` reads a module-level catalog that `app.tsx` sets in
+`withApp` from the first page's `i18n` props, before the first render; never call it at module top level (labels in
+module constants are getters or functions). The bundled English is the fallback for every key the instance does not
+translate.
+
+**Dates.** `lib/planner/format.ts` formats with `Intl` in the active locale (`dateLocale()`, `dateFormat(options)`,
+cached formatters); English stays `en-GB` ("12 Oct", weeks start on Monday). The shadcn `Calendar` gets `Intl`
+captions, weekday names and labels for other languages (`lib/i18n/calendar.ts`), so no date-fns locale is bundled.
+Typed dates in the task input (`lib/planner/smart-date.ts`) are English words in every language.
+
+**Server.** `App\Support\Translations` lists the offered locales (`en`, then each `<locale>.json` in
+`config('app.translations_path')`) and reads the files (a file that is not a JSON object is logged and ignored).
+`App\Http\Middleware\SetLocale` (web group) sets the request locale: `users.language` when still offered, else the
+best match for `Accept-Language` (exact, then same language), else `APP_LOCALE` when offered, else `en`; it adds
+`Vary: Accept-Language`. `<html lang dir>` follow it (`dir="rtl"` by language, see [style.md](./style.md#rtl)).
+`App\Support\TranslationOverridesLoader` lays the same files over Laravel's JSON translations, so `__('English text')`
+and framework keys (`validation.required`) are translated with no `lang/` directory in the repository. Mail and
+notifications use `User::preferredLocale()` (`language`, else the sign-up `locale`, when offered); the push
+notification job sets it, or `APP_LOCALE`, around its sends.
+
+**Delivery and offline.** The shared Inertia prop `i18n` is `{ locale, locales, messages }`: `messages` is the English
+overrides plus the active locale's, sent as a once prop keyed by locale and content hash, so visits do not resend it
+until a file changes. The full page load embeds it, and so does the cached offline shell, so the planner renders
+translated offline with no extra request. A language change (Settings › Preferences, or a login into an account with
+another language) arrives as an Inertia response whose `i18n.locale` differs from the running one; the page then
+reloads (`lib/i18n/reload-on-change.ts`). The same response changes `auth.user` (`language`), so the shell is
+re-cached ([Offline app shell](#offline-app-shell)).
+
 ## Server side
 
 Laravel provides:
@@ -760,6 +798,7 @@ Laravel provides:
 | `/settings/*`                                |                                       | `auth`.                                                                              |
 | `GET /settings/data`                         | `data.edit`                           | `auth`. Inertia page `settings/data` (export / import run client-side).              |
 | `GET /settings/preferences`                  | `preferences.edit`                    | `auth`. Inertia page `settings/preferences` (values stored in the browser).          |
+| `PATCH /settings/language`                   | `language.update`                     | `auth`. `{ language: <offered locale> \| null }` (`users.language`); redirects back. |
 | `GET /settings/integrations`                 | `integrations.edit`                   | `auth`.² Inertia page `settings/integrations`.                                       |
 | `GET /settings/integrations/google/connect`  | `integrations.google.connect`         | `auth`.¹ ² Redirects to Google's consent screen (`throttle:10,1`).                   |
 | `GET /settings/integrations/google/callback` | `integrations.google.callback`        | `auth`.¹ ² Google's OAuth redirect URI: stores the connection, creates the calendar. |
@@ -843,6 +882,7 @@ leading spaces in `text`) round-trip exactly.
 | `notification_morning_time` | string(5)            | `HH:mm`, default `08:00`: when the morning notifications go out, in `timezone`                                     |
 | `referral_source`           | string(32), nullable | `App\Enums\ReferralSource`, asked at sign-up in SaaS mode only (see [saas.md](./saas.md#sign-up-answers))          |
 | `locale`                    | string(5), nullable  | `en` or `es`, from `Accept-Language` at sign-up; the language of emails (see [saas.md](./saas.md#sign-up-answers)) |
+| `language`                  | string(35), nullable | Interface language picked in Settings › Preferences; null follows the browser (see [Translations](#translations))  |
 | `welcomed_at`               | timestamp, nullable  | When the welcome email was claimed (SaaS mode, first access; see [saas.md](./saas.md#welcome-email))               |
 
 `sync_versions`: a single row (`id = 1`) holding the last version handed out, seeded by its migration.

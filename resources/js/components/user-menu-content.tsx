@@ -12,6 +12,7 @@ import { useLogout } from '@/hooks/use-logout';
 import { useMobileNavigation } from '@/hooks/use-mobile-navigation';
 import { edit } from '@/routes/profile';
 import type { User } from '@/types';
+import { t } from '@/lib/i18n';
 
 type Props = {
     user: User;
@@ -39,7 +40,7 @@ export function UserMenuContent({ user }: Props) {
                         onClick={cleanup}
                     >
                         <Settings className="me-2" />
-                        Settings
+                        {t('app.settings')}
                     </Link>
                 </DropdownMenuItem>
                 <SendFeedbackMenuItem onClick={cleanup} />
@@ -51,7 +52,7 @@ export function UserMenuContent({ user }: Props) {
                 data-test="logout-button"
             >
                 <LogOut className="me-2" />
-                Log out
+                {t('auth.logOut')}
             </DropdownMenuItem>
         </>
     );

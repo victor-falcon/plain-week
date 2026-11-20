@@ -9,6 +9,10 @@ The three non-negotiables (offline-first, shadcn components only, English everyw
 Everything in the repository is written in English: code, identifiers, comments, docs, commit messages, pull request
 titles and descriptions.
 
+User-facing text is never hard-coded: in the React app it is a key in the English catalog (`resources/js/lang/en/<area>.ts`)
+read with `t()` or `tRich()`, never at module top level; on the server it goes through `__('English text')`. Keep the
+English wording when you move a string (tests assert on it). See [architecture.md](./architecture.md#translations).
+
 ## Code style
 
 | Area                  | Tool                                                                                                                  | Command                                 |

@@ -9,6 +9,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- **Translations.** Every text of the app can now be translated. Plain Week still ships in English, and self-hosted
+  instances can add languages or reword English by dropping one JSON file per language into
+  `/app/storage/translations` (`TRANSLATIONS_PATH`); the server's messages, emails and push notifications use the same
+  files. The app follows the browser's language, and when the instance offers more than English, **Settings ›
+  Preferences** has a Language picker that applies to all your devices. Translations keep working offline.
+  `APP_LOCALE` sets the language for browsers that ask for none the instance offers.
 - **Close sign-up on private instances.** `REGISTRATION_ENABLED=false` turns off sign-up: the sign-up page answers `404`,
   the login page has no "Sign up" link and the planner's "Sync your week" leads to the login page. Existing users log in
   and reset their password as before. A fresh instance with no users stays open until its first account is created.

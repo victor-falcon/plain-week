@@ -13,6 +13,7 @@ import type { ScopeAction } from '@/components/planner/scope-prompt';
 import { useSeries, useTask } from '@/hooks/use-tasks';
 import type { Scope } from '@/lib/db/tasks';
 import type { Task } from '@/lib/db/types';
+import { t } from '@/lib/i18n';
 import { asksScope } from '@/lib/planner/repeat';
 import type { PlannerTask, SeriesItem } from '@/lib/recurrence/expand';
 
@@ -136,7 +137,7 @@ export function useTaskEditorSession(openedId: string): {
                         onSaved?.(result);
                     },
                     () => {
-                        toast.error(error ?? 'Could not update the task.');
+                        toast.error(error ?? t('task.updateFailed'));
                     },
                 )
                 .catch(() => {})

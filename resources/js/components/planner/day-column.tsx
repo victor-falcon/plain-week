@@ -3,6 +3,7 @@ import { parseDateKey } from '@/lib/db/dates';
 import type { PlannerTask } from '@/lib/recurrence/expand';
 import { formatDay, formatWeekday } from '@/lib/planner/format';
 import { weekdayIndex } from '@/lib/planner/week';
+import { t } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 
 type Props = {
@@ -32,7 +33,7 @@ export function DayColumn({
 
     return (
         <section
-            aria-label={`${weekday} ${dayLabel}`}
+            aria-label={t('planner.dayLabel', { weekday, day: dayLabel })}
             aria-current={isToday ? 'date' : undefined}
             className={cn(
                 'flex min-h-0 min-w-0 flex-col',
@@ -68,7 +69,10 @@ export function DayColumn({
             <TaskList
                 placement={{ date }}
                 tasks={tasks}
-                newTaskLabel={`New task for ${weekday} ${dayLabel}`}
+                newTaskLabel={t('planner.newTaskForDay', {
+                    weekday,
+                    day: dayLabel,
+                })}
                 onOpenTask={onOpenTask}
             />
         </section>

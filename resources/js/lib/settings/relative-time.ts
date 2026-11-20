@@ -1,3 +1,5 @@
+import { intlLocale, t } from '@/lib/i18n';
+
 const UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
     ['year', 365 * 24 * 60 * 60],
     ['month', 30 * 24 * 60 * 60],
@@ -16,7 +18,9 @@ export function formatTimeAgo(iso: string, now: Date = new Date()): string {
         0,
         (now.getTime() - new Date(iso).getTime()) / 1000,
     );
-    const format = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
+    const format = new Intl.RelativeTimeFormat(intlLocale(), {
+        numeric: 'auto',
+    });
 
     for (const [unit, size] of UNITS) {
         if (seconds >= size) {
@@ -24,5 +28,5 @@ export function formatTimeAgo(iso: string, now: Date = new Date()): string {
         }
     }
 
-    return 'just now';
+    return t('settings.relativeTime.now');
 }

@@ -2,7 +2,8 @@ import type { IsoWeekday, Recurrence } from '@/lib/db/types';
 import { dayOfMonth, isoWeekday } from '@/lib/recurrence/dates';
 import { startsSeries } from '@/lib/recurrence/expand';
 import type { PlannerTask, SeriesItem } from '@/lib/recurrence/expand';
-import { LOCALE, formatShortDate } from './format';
+import { t } from '@/lib/i18n';
+import { dateFormat, formatShortDate } from './format';
 
 /** ISO weekdays in the order the picker shows them: weeks start on Monday. */
 export const ISO_WEEKDAYS: IsoWeekday[] = [1, 2, 3, 4, 5, 6, 7];
@@ -15,21 +16,12 @@ function weekdayDate(weekday: IsoWeekday): Date {
     return new Date(A_MONDAY_MS + (weekday - 1) * DAY_MS);
 }
 
-const shortWeekday = new Intl.DateTimeFormat(LOCALE, {
-    weekday: 'short',
-    timeZone: 'UTC',
-});
-const longWeekday = new Intl.DateTimeFormat(LOCALE, {
-    weekday: 'long',
-    timeZone: 'UTC',
-});
-
 /** "Mon" (or "Monday" with `long`). */
 export function weekdayName(
     weekday: IsoWeekday,
     style: 'short' | 'long' = 'short',
 ): string {
-    return (style === 'long' ? longWeekday : shortWeekday).format(
+    return dateFormat({ weekday: style, timeZone: 'UTC' }).format(
         weekdayDate(weekday),
     );
 }
@@ -188,22 +180,26 @@ export function summarizeRecurrence(
     let summary: string;
 
     if (recurrence.type === 'daily') {
-        summary =
-            recurrence.every === 1
-                ? 'Every day'
-                : `Every ${recurrence.every} days`;
+        summary = t('task.repeatEveryDays', { count: recurrence.every });
     } else if (recurrence.type === 'monthly') {
-        summary = `Monthly on day ${recurrence.day}`;
+        summary = t('task.repeatMonthly', { day: recurrence.day });
     } else if (recurrence.weekdays.length === 7) {
-        summary = 'Every day';
+        summary = t('task.repeatEveryDays', { count: 1 });
     } else {
         const days = ISO_WEEKDAYS.filter((day) =>
             recurrence.weekdays.includes(day),
         );
-        summary = `Every ${days.map((day) => weekdayName(day)).join(', ')}`;
+        summary = t('task.repeatWeekdays', {
+            days: days
+                .map((day) => weekdayName(day))
+                .join(t('common.listSeparator')),
+        });
     }
 
     return recurrence.until
-        ? `${summary}, until ${formatShortDate(recurrence.until, today)}`
+        ? t('task.repeatUntil', {
+              summary,
+              date: formatShortDate(recurrence.until, today),
+          })
         : summary;
 }

@@ -1,4 +1,5 @@
 import { toast } from 'sonner';
+import { t } from '@/lib/i18n';
 
 const UPDATE_TOAST_ID = 'pwa-update';
 
@@ -8,11 +9,11 @@ const UPDATE_TOAST_ID = 'pwa-update';
  * until the next visit.
  */
 export function showUpdateToast(update: () => Promise<void>): void {
-    toast('Update available', {
+    toast(t('pwa.updateAvailable'), {
         id: UPDATE_TOAST_ID,
         duration: Infinity,
         action: {
-            label: 'Reload',
+            label: t('pwa.reload'),
             onClick: () => void update(),
         },
     });

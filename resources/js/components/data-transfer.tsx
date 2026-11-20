@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { intlLocale, t } from '@/lib/i18n';
 import { buildExport } from '@/lib/transfer/export';
 import { exportFileName } from '@/lib/transfer/format';
 import type { ExportFile } from '@/lib/transfer/format';
@@ -27,17 +28,21 @@ import type { ImportSummary } from '@/lib/transfer/import';
 /** How long the export's blob URL lives; some browsers start the download late. */
 const DOWNLOAD_URL_LIFETIME_MS = 30_000;
 
+function formatCount(count: number): string {
+    return count.toLocaleString(intlLocale());
+}
+
 function tasksLabel(count: number): string {
-    return count === 1 ? '1 task' : `${count.toLocaleString()} tasks`;
+    return t('settings.data.tasks', { count, formatted: formatCount(count) });
 }
 
 function previewText({ taskCount, recurringCount }: ImportSummary): string {
-    const recurring =
-        recurringCount > 0
-            ? ` (${recurringCount.toLocaleString()} recurring)`
-            : '';
-
-    return `${tasksLabel(taskCount)}${recurring} will be added. Your existing tasks will stay unchanged.`;
+    return recurringCount > 0
+        ? t('settings.data.previewRecurring', {
+              tasks: tasksLabel(taskCount),
+              recurring: formatCount(recurringCount),
+          })
+        : t('settings.data.preview', { tasks: tasksLabel(taskCount) });
 }
 
 function errorMessage(error: unknown, fallback: string): string {
@@ -58,7 +63,7 @@ async function exportData(prepare: () => Promise<boolean>): Promise<void> {
         const { taskCount } = summarizeImport(file);
 
         if (taskCount === 0) {
-            toast.info('There are no tasks to export.');
+            toast.info(t('settings.data.nothingToExport'));
 
             return;
         }
@@ -75,13 +80,16 @@ async function exportData(prepare: () => Promise<boolean>): Promise<void> {
         link.click();
         link.remove();
         setTimeout(() => URL.revokeObjectURL(url), DOWNLOAD_URL_LIFETIME_MS);
-        toast.success(`Exported ${tasksLabel(taskCount)}`, {
-            description: upToDate
-                ? undefined
-                : 'Not synced with your account right now, so changes made on other devices may be missing.',
-        });
+        toast.success(
+            t('settings.data.exported', { tasks: tasksLabel(taskCount) }),
+            {
+                description: upToDate
+                    ? undefined
+                    : t('settings.data.exportedNotSynced'),
+            },
+        );
     } catch (error) {
-        toast.error(errorMessage(error, 'Could not export your data.'));
+        toast.error(errorMessage(error, t('settings.data.exportFailed')));
     }
 }
 
@@ -147,7 +155,7 @@ export function useDataTransfer({
             const summary = summarizeImport(file);
 
             if (summary.taskCount === 0) {
-                toast.info('There are no tasks in this file.');
+                toast.info(t('settings.data.nothingInFile'));
                 setState({ phase: 'closed' });
 
                 return;
@@ -155,7 +163,7 @@ export function useDataTransfer({
 
             setState({ phase: 'preview', file, summary });
         } catch (error) {
-            toast.error(errorMessage(error, 'Could not read this file.'));
+            toast.error(errorMessage(error, t('settings.data.readFailed')));
             setState({ phase: 'closed' });
         }
     }
@@ -187,12 +195,19 @@ export function useDataTransfer({
                     });
                 },
             });
-            toast.success(`Imported ${tasksLabel(summary.taskCount)}`);
+            toast.success(
+                t('settings.data.imported', {
+                    tasks: tasksLabel(summary.taskCount),
+                }),
+            );
         } catch (error) {
             toast.error(
                 written > 0
-                    ? `The import stopped after ${written.toLocaleString()} of ${total.toLocaleString()} tasks; those were added.`
-                    : errorMessage(error, 'Could not import this file.'),
+                    ? t('settings.data.importStopped', {
+                          written: formatCount(written),
+                          total: formatCount(total),
+                      })
+                    : errorMessage(error, t('settings.data.importFailed')),
             );
 
             if (written > 0) {
@@ -228,10 +243,16 @@ export function useDataTransfer({
             >
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Import data</AlertDialogTitle>
+                        <AlertDialogTitle>
+                            {t('settings.data.import.title')}
+                        </AlertDialogTitle>
                         <AlertDialogDescription>
                             {state.phase === 'importing'
-                                ? `Importing ${tasksLabel(state.summary.taskCount)}…`
+                                ? t('settings.data.importing', {
+                                      tasks: tasksLabel(
+                                          state.summary.taskCount,
+                                      ),
+                                  })
                                 : state.phase === 'preview' &&
                                   previewText(state.summary)}
                         </AlertDialogDescription>
@@ -239,13 +260,13 @@ export function useDataTransfer({
                     {state.phase === 'importing' && (
                         <Progress
                             value={state.progress}
-                            aria-label="Import progress"
+                            aria-label={t('settings.data.progress')}
                             className="rtl:-scale-x-100"
                         />
                     )}
                     <AlertDialogFooter>
                         <AlertDialogCancel disabled={importing}>
-                            Cancel
+                            {t('common.cancel')}
                         </AlertDialogCancel>
                         <Button
                             disabled={importing}
@@ -258,7 +279,9 @@ export function useDataTransfer({
                                 }
                             }}
                         >
-                            {importing ? 'Importing…' : 'Import'}
+                            {importing
+                                ? t('settings.data.importingButton')
+                                : t('settings.data.importButton')}
                         </Button>
                     </AlertDialogFooter>
                 </AlertDialogContent>

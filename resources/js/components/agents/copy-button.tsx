@@ -7,11 +7,12 @@ import {
     TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { useClipboard } from '@/hooks/use-clipboard';
+import { t } from '@/lib/i18n';
 
 /** An icon button that copies `value`; the icon turns into a check once copied. */
 export function CopyButton({
     value,
-    label = 'Copy',
+    label = t('settings.agents.copy'),
     'data-test': dataTest,
 }: {
     value: string;
@@ -32,16 +33,16 @@ export function CopyButton({
                     data-test={dataTest}
                     onClick={async () => {
                         if (!(await copy(value))) {
-                            toast.error(
-                                'Could not copy. Select the text and copy it instead.',
-                            );
+                            toast.error(t('settings.agents.copyFailed'));
                         }
                     }}
                 >
                     {copied ? <Check /> : <Copy />}
                 </Button>
             </TooltipTrigger>
-            <TooltipContent>{copied ? 'Copied' : label}</TooltipContent>
+            <TooltipContent>
+                {copied ? t('settings.agents.copied') : label}
+            </TooltipContent>
         </Tooltip>
     );
 }

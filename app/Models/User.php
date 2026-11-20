@@ -4,8 +4,10 @@ namespace App\Models;
 
 use App\Billing\Plan;
 use App\Enums\ReferralSource;
+use App\Support\Translations;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Contracts\Translation\HasLocalePreference;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -40,11 +42,12 @@ use Laravel\Passport\HasApiTokens;
  * @property string $notification_morning_time
  * @property ReferralSource|null $referral_source
  * @property string|null $locale
+ * @property string|null $language
  * @property Carbon|null $welcomed_at
  */
 #[Fillable(['name', 'email', 'password', 'referral_source', 'locale'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token', 'stripe_id', 'pm_type', 'pm_last_four', 'lifetime_payment_id'])]
-class User extends Authenticatable implements MustVerifyEmail, OAuthenticatable, PasskeyUser
+class User extends Authenticatable implements HasLocalePreference, MustVerifyEmail, OAuthenticatable, PasskeyUser
 {
     /** @use HasFactory<UserFactory> */
     use Billable, HasApiTokens, HasFactory, Notifiable, PasskeyAuthenticatable, TwoFactorAuthenticatable;
@@ -73,6 +76,23 @@ class User extends Authenticatable implements MustVerifyEmail, OAuthenticatable,
             'welcomed_at' => 'datetime',
             'referral_source' => ReferralSource::class,
         ];
+    }
+
+    /**
+     * The language for emails and push notifications sent outside a request: the one picked in Settings ›
+     * Preferences, else the browser language recorded at sign-up, when the instance still offers it.
+     */
+    public function preferredLocale(): ?string
+    {
+        $translations = app(Translations::class);
+
+        foreach ([$this->language, $this->locale] as $locale) {
+            if ($translations->isAvailable($locale)) {
+                return $locale;
+            }
+        }
+
+        return null;
     }
 
     /**

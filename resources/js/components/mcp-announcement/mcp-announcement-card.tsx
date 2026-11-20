@@ -2,11 +2,12 @@ import { Link, usePage } from '@inertiajs/react';
 import { useRef, useSyncExternalStore } from 'react';
 import { FloatingCard } from '@/components/floating-card';
 import {
-    ANNOUNCEMENT_PROMPTS,
     AgentPrompts,
+    announcementPrompts,
 } from '@/components/mcp-announcement/agent-prompts';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { t } from '@/lib/i18n';
 import { mcpAnnouncementStore } from '@/lib/mcp-announcement';
 import { cn } from '@/lib/utils';
 import { edit as editAgents } from '@/routes/agents';
@@ -29,15 +30,15 @@ export function McpAnnouncementCard() {
 
     return (
         <FloatingCard
-            title="Your AI agent can plan your week"
-            description="Connect Claude, ChatGPT or any MCP client. It reads and changes your planner like you do, only after you approve it, and you can revoke it any time."
+            title={t('announcement.title')}
+            description={t('announcement.description')}
             onClose={mcpAnnouncementStore.close}
             toolbar={
                 <Badge
                     className="bg-foreground text-background"
                     data-test="mcp-announcement-badge"
                 >
-                    New
+                    {t('announcement.badge')}
                 </Badge>
             }
             onOpenAutoFocus={(event) => {
@@ -45,15 +46,17 @@ export function McpAnnouncementCard() {
                 primary.current?.focus();
             }}
         >
-            <AgentPrompts prompts={ANNOUNCEMENT_PROMPTS} />
+            <AgentPrompts prompts={announcementPrompts()} />
 
             <p
                 className="text-sm leading-normal text-muted-foreground"
                 data-test="mcp-announcement-note"
             >
-                {hasAccess
-                    ? 'Set it up in Settings › Agents & apps.'
-                    : 'It comes with the sync plan. Once you have it, set it up in Settings › Agents & apps.'}
+                {t(
+                    hasAccess
+                        ? 'announcement.setup'
+                        : 'announcement.setupNeedsPlan',
+                )}
             </p>
 
             <div className="grid grid-cols-2 gap-3">
@@ -63,7 +66,7 @@ export function McpAnnouncementCard() {
                     onClick={mcpAnnouncementStore.close}
                     data-test="mcp-announcement-dismiss"
                 >
-                    Not now
+                    {t('announcement.dismiss')}
                 </Button>
                 <Button asChild className={cn(pill, solidPill)}>
                     <Link
@@ -72,7 +75,11 @@ export function McpAnnouncementCard() {
                         onClick={mcpAnnouncementStore.close}
                         data-test="mcp-announcement-connect"
                     >
-                        {hasAccess ? 'Connect an agent' : 'See plans'}
+                        {t(
+                            hasAccess
+                                ? 'announcement.connect'
+                                : 'announcement.seePlans',
+                        )}
                     </Link>
                 </Button>
             </div>

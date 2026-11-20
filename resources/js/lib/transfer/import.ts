@@ -12,11 +12,12 @@ import {
 } from '@/lib/db/position';
 import type { SomedaySortKey } from '@/lib/db/position';
 import { SOMEDAY_COLUMNS } from '@/lib/db/types';
+import { t } from '@/lib/i18n';
 import type { Task } from '@/lib/db/types';
 import { EXPORT_FORMAT, EXPORT_VERSION } from './format';
 import type { ExportFile } from './format';
 import { backupRows } from './rows';
-import { ImportError, validateTask } from './validate';
+import { ImportError, taskLabel, validateTask } from './validate';
 
 export { ImportError } from './validate';
 
@@ -59,7 +60,9 @@ export async function parseImport(input: Blob | string): Promise<ExportFile> {
 
     if (size > MAX_IMPORT_BYTES) {
         throw new ImportError(
-            `This file is too large to import (more than ${MAX_IMPORT_BYTES / 1024 / 1024} MB).`,
+            t('settings.transfer.tooLarge', {
+                size: MAX_IMPORT_BYTES / 1024 / 1024,
+            }),
         );
     }
 
@@ -69,7 +72,7 @@ export async function parseImport(input: Blob | string): Promise<ExportFile> {
     try {
         data = JSON.parse(text);
     } catch {
-        throw new ImportError('This file is not valid JSON.');
+        throw new ImportError(t('settings.transfer.notJson'));
     }
 
     if (
@@ -77,7 +80,7 @@ export async function parseImport(input: Blob | string): Promise<ExportFile> {
         data === null ||
         (data as { format?: unknown }).format !== EXPORT_FORMAT
     ) {
-        throw new ImportError('This is not a Plain Week export file.');
+        throw new ImportError(t('settings.transfer.notExport'));
     }
 
     const file = data as Record<string, unknown>;
@@ -85,13 +88,17 @@ export async function parseImport(input: Blob | string): Promise<ExportFile> {
     if (file.version !== EXPORT_VERSION) {
         throw new ImportError(
             typeof file.version === 'number' && file.version > EXPORT_VERSION
-                ? `This file comes from a newer version of Plain Week (format version ${file.version}). Update Plain Week to import it.`
-                : `Unsupported export format version: ${JSON.stringify(file.version)}.`,
+                ? t('settings.transfer.newerVersion', {
+                      version: file.version,
+                  })
+                : t('settings.transfer.unsupportedVersion', {
+                      version: JSON.stringify(file.version),
+                  }),
         );
     }
 
     if (!Array.isArray(file.tasks)) {
-        throw new ImportError('This file has no task list.');
+        throw new ImportError(t('settings.transfer.noTaskList'));
     }
 
     const tasks = file.tasks.map((task, index) => validateTask(task, index));
@@ -100,7 +107,11 @@ export async function parseImport(input: Blob | string): Promise<ExportFile> {
     tasks.forEach((task, index) => {
         if (ids.has(task.id)) {
             throw new ImportError(
-                `Task ${index + 1}: "id" is used by another task in the file.`,
+                t('settings.transfer.fieldError', {
+                    label: taskLabel(index),
+                    field: 'id',
+                    rule: t('settings.transfer.rule.duplicateId'),
+                }),
             );
         }
 

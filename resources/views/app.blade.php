@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" dir="{{ in_array(app()->getLocale(), config('app.rtl_locales')) ? 'rtl' : 'ltr' }}" @class(['dark' => ($appearance ?? 'system') == 'dark'])>
+<html lang="{{ \App\Support\Translations::tag(app()->getLocale()) }}" dir="{{ app(\App\Support\Translations::class)->isRtl(app()->getLocale()) ? 'rtl' : 'ltr' }}" @class(['dark' => ($appearance ?? 'system') == 'dark'])>
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -37,7 +37,8 @@
              every page shares the home page's card. The image is rendered from resources/images/marketing
              (docs/stack.md#marketing-images). --}}
         @php($siteUrl = rtrim(config('app.url'), '/'))
-        @php($siteDescription = 'A minimal weekly planner and to-do list. Free, open source and offline-first.')
+        @php($siteDescription = __('A minimal weekly planner and to-do list. Free, open source and offline-first.'))
+        @php($imageAlt = __('Plain Week: your week, plain and simple. A weekly planner with one column per day.'))
         <meta name="description" content="{{ $siteDescription }}">
         <meta property="og:type" content="website">
         <meta property="og:site_name" content="{{ config('app.name') }}">
@@ -47,12 +48,12 @@
         <meta property="og:image" content="{{ $siteUrl }}/og-image.png">
         <meta property="og:image:width" content="1200">
         <meta property="og:image:height" content="630">
-        <meta property="og:image:alt" content="Plain Week: your week, plain and simple. A weekly planner with one column per day.">
+        <meta property="og:image:alt" content="{{ $imageAlt }}">
         <meta name="twitter:card" content="summary_large_image">
         <meta name="twitter:title" content="{{ config('app.name') }}">
         <meta name="twitter:description" content="{{ $siteDescription }}">
         <meta name="twitter:image" content="{{ $siteUrl }}/og-image.png">
-        <meta name="twitter:image:alt" content="Plain Week: your week, plain and simple. A weekly planner with one column per day.">
+        <meta name="twitter:image:alt" content="{{ $imageAlt }}">
 
         <link rel="icon" href="/favicon.ico" sizes="32x32">
         <link rel="icon" href="/favicon.svg" type="image/svg+xml">

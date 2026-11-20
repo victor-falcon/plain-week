@@ -13,6 +13,7 @@ import PasskeyVerify from '@/components/passkey-verify';
 import PasswordInput from '@/components/password-input';
 import { store } from '@/routes/password/confirm';
 import { edit as editProfile } from '@/routes/profile';
+import { t } from '@/lib/i18n';
 
 /** Closing goes to the settings the card floats over, not to the protected page. */
 function leave(): void {
@@ -26,11 +27,11 @@ function leave(): void {
 export default function ConfirmPassword() {
     return (
         <>
-            <Head title="Confirm password" />
+            <Head title={t('auth.confirmPassword')} />
 
             <FloatingCard
-                title="Confirm your password"
-                description="This is a secure area. Confirm your password before continuing."
+                title={t('auth.confirmYourPassword')}
+                description={t('auth.confirmPasswordDescription')}
                 onClose={leave}
             >
                 <PasskeyVerify
@@ -38,9 +39,9 @@ export default function ConfirmPassword() {
                         options: confirmOptions(),
                         submit: confirmStore(),
                     }}
-                    label="Confirm with passkey"
-                    loadingLabel="Confirming..."
-                    separator="Or confirm with password"
+                    label={t('auth.confirmWithPasskey')}
+                    loadingLabel={t('auth.confirming')}
+                    separator={t('auth.orConfirmWithPassword')}
                 />
 
                 <Form
@@ -52,13 +53,13 @@ export default function ConfirmPassword() {
                         <>
                             <AuthField
                                 id="password"
-                                label="Password"
+                                label={t('auth.password')}
                                 error={errors.password}
                             >
                                 <PasswordInput
                                     id="password"
                                     name="password"
-                                    placeholder="Your password"
+                                    placeholder={t('auth.passwordPlaceholder')}
                                     autoComplete="current-password"
                                     autoFocus
                                     aria-invalid={!!errors.password}
@@ -70,7 +71,7 @@ export default function ConfirmPassword() {
                                 processing={processing}
                                 data-test="confirm-password-button"
                             >
-                                Confirm password
+                                {t('auth.confirmPassword')}
                             </AuthSubmit>
                         </>
                     )}

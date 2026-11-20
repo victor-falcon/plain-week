@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { checkout } from '@/routes/billing';
 import type { Plan } from '@/types';
+import { t } from '@/lib/i18n';
 
 export type CheckoutOptions = {
     /** A promotion code; the server checks it again and refuses a bad one. */
@@ -25,7 +26,7 @@ export function useCheckout() {
 
         const failed = () => {
             setPending(null);
-            toast.error('Could not open the checkout. Please try again.');
+            toast.error(t('billing.checkoutFailed'));
         };
 
         router.post(checkout.url(plan), code ? { code } : {}, {

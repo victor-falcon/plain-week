@@ -14,6 +14,8 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { useCurrentUrl } from '@/hooks/use-current-url';
 import { useLogout } from '@/hooks/use-logout';
+import { t } from '@/lib/i18n';
+import type { TextKey } from '@/lib/i18n';
 import { DOCUMENTATION_URL, REPOSITORY_URL } from '@/lib/project';
 import { cn, toUrl } from '@/lib/utils';
 import { home } from '@/routes';
@@ -28,7 +30,9 @@ import { edit } from '@/routes/profile';
 import { edit as editSecurity } from '@/routes/security';
 import type { NavItem } from '@/types';
 
-type SettingsNavItem = NavItem & {
+type SettingsNavItem = Omit<NavItem, 'title'> & {
+    /** Resolved with t() at render: the catalog is not set when this module loads. */
+    title: TextKey;
     /** Hidden when false (e.g. a feature this instance doesn't offer). */
     visible?: (props: SharedProps) => boolean;
 };
@@ -37,50 +41,51 @@ type SharedProps = ReturnType<typeof usePage>['props'];
 
 const sectionNavItems: SettingsNavItem[] = [
     {
-        title: 'Profile',
+        title: 'settings.nav.profile',
         href: edit(),
     },
     {
-        title: 'Security',
+        title: 'settings.nav.security',
         href: editSecurity(),
     },
     {
-        title: 'Appearance',
+        title: 'settings.nav.appearance',
         href: editAppearance(),
     },
     {
-        title: 'Preferences',
+        title: 'settings.nav.preferences',
         href: editPreferences(),
     },
     {
-        title: 'Notifications',
+        title: 'settings.nav.notifications',
         href: editNotifications(),
         visible: (props) => props.notifications?.enabled ?? false,
     },
     {
-        title: 'Integrations',
+        title: 'settings.nav.integrations',
         href: editIntegrations(),
         visible: (props) => props.integrations?.googleCalendar ?? false,
     },
     {
-        title: 'Agents & apps',
+        title: 'settings.nav.agents',
         href: editAgents(),
     },
     {
-        title: 'Data',
+        title: 'settings.nav.data',
         href: editData(),
     },
     {
-        title: 'Billing',
+        title: 'settings.nav.billing',
         href: editBilling(),
         visible: (props) => props.saas?.enabled ?? false,
     },
 ];
 
-const projectLinks = [
-    { title: 'Repository', href: REPOSITORY_URL, icon: FolderGit2 },
-    { title: 'Documentation', href: DOCUMENTATION_URL, icon: BookOpen },
-];
+const projectLinks: { title: TextKey; href: string; icon: typeof BookOpen }[] =
+    [
+        { title: 'app.repository', href: REPOSITORY_URL, icon: FolderGit2 },
+        { title: 'app.documentation', href: DOCUMENTATION_URL, icon: BookOpen },
+    ];
 
 /** Leaves the settings for the planner (the home page). */
 function BackToPlanner({
@@ -94,7 +99,7 @@ function BackToPlanner({
         <Button variant={variant} size="sm" asChild>
             <Link href={home()} prefetch data-test={testId}>
                 <ArrowLeft className="rtl:rotate-180" />
-                Back to planner
+                {t('settings.layout.backToPlanner')}
             </Link>
         </Button>
     );
@@ -156,8 +161,8 @@ export default function SettingsLayout({ children }: PropsWithChildren) {
 
                 <main className="mt-6 flex-1">
                     <Heading
-                        title="Settings"
-                        description="Manage your profile and account settings"
+                        title={t('settings.layout.title')}
+                        description={t('settings.layout.description')}
                     />
 
                     <div className="flex flex-col gap-6 lg:flex-row lg:gap-12">
@@ -165,7 +170,7 @@ export default function SettingsLayout({ children }: PropsWithChildren) {
                             <nav
                                 ref={navRef}
                                 className="-mx-4 flex gap-1 overflow-x-auto px-4 lg:mx-0 lg:flex-col lg:overflow-visible lg:px-0"
-                                aria-label="Settings"
+                                aria-label={t('settings.layout.title')}
                             >
                                 {navItems.map((item) => {
                                     const current = isCurrentOrParentUrl(
@@ -189,7 +194,7 @@ export default function SettingsLayout({ children }: PropsWithChildren) {
                                                     current ? 'page' : undefined
                                                 }
                                             >
-                                                {item.title}
+                                                {t(item.title)}
                                             </Link>
                                         </Button>
                                     );
@@ -225,7 +230,7 @@ export default function SettingsLayout({ children }: PropsWithChildren) {
                                         data-test="send-feedback"
                                     >
                                         <MessageSquare />
-                                        Send feedback
+                                        {t('settings.layout.sendFeedback')}
                                     </a>
                                 </Button>
                             )}
@@ -243,7 +248,7 @@ export default function SettingsLayout({ children }: PropsWithChildren) {
                                         rel="noopener noreferrer"
                                     >
                                         <item.icon />
-                                        {item.title}
+                                        {t(item.title)}
                                     </a>
                                 </Button>
                             ))}
@@ -256,7 +261,7 @@ export default function SettingsLayout({ children }: PropsWithChildren) {
                                     data-test="logout-button"
                                 >
                                     <LogOut />
-                                    Log out
+                                    {t('auth.logOut')}
                                 </Button>
                             )}
                         </div>

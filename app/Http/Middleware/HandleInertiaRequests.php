@@ -8,7 +8,10 @@ use App\Mcp\McpConfig;
 use App\Models\User;
 use App\Push\PushConfig;
 use App\Support\Feedback;
+use App\Support\Translations;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\App;
+use Inertia\Inertia;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
@@ -43,6 +46,9 @@ class HandleInertiaRequests extends Middleware
     {
         $user = $request->user();
         $pushEnabled = PushConfig::enabled();
+        $translations = app(Translations::class);
+        $locale = App::getLocale();
+        $messages = $translations->messages($locale);
 
         return [
             ...parent::share($request),
@@ -73,6 +79,15 @@ class HandleInertiaRequests extends Middleware
             ],
             // Lazy: computed per request only for signed-in users (it may query the subscription).
             'account' => fn () => $user instanceof User ? $user->accountSummary() : null,
+            // The interface language (App\Http\Middleware\SetLocale) and the instance's translations on top of the
+            // bundled English catalog. The cached offline shell embeds them, so the planner renders translated
+            // offline. `messages` is sent once per locale and content (the client keeps it between visits).
+            'i18n' => [
+                'locale' => $locale,
+                'locales' => $translations->available(),
+                'messages' => Inertia::once(fn () => (object) $messages)
+                    ->as('i18n.'.$locale.'.'.hash('xxh3', (string) json_encode($messages))),
+            ],
         ];
     }
 }

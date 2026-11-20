@@ -9,6 +9,8 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
+import { t } from '@/lib/i18n';
+import type { TextKey } from '@/lib/i18n';
 import { formatTimeAgo } from '@/lib/settings/relative-time';
 
 /** One write an agent made through the MCP server. */
@@ -21,9 +23,9 @@ export type ActivityEntry = {
     createdAt: string;
 };
 
-const CLIENT_TYPES: Record<ActivityEntry['clientType'], string> = {
-    token: 'Personal token',
-    oauth: 'Connected app',
+const CLIENT_TYPES: Record<ActivityEntry['clientType'], TextKey> = {
+    token: 'settings.agents.activity.clientToken',
+    oauth: 'settings.agents.activity.clientOauth',
 };
 
 /** A page of the activity log, newest first. */
@@ -71,17 +73,15 @@ export function ActivityLog({ activity }: { activity: ActivityPage }) {
     return (
         <Card data-test="agents-activity">
             <CardHeader>
-                <CardTitle>Activity</CardTitle>
+                <CardTitle>{t('settings.agents.activity.title')}</CardTitle>
                 <CardDescription>
-                    What agents changed in your planner over the last 90 days.
-                    To undo a change, ask the agent or edit the task in the
-                    planner.
+                    {t('settings.agents.activity.description')}
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
                 {entries.length === 0 ? (
                     <p className="text-sm text-muted-foreground">
-                        No changes by agents yet.
+                        {t('settings.agents.activity.empty')}
                     </p>
                 ) : (
                     <ul
@@ -102,7 +102,7 @@ export function ActivityLog({ activity }: { activity: ActivityPage }) {
                                     </span>
                                     <span aria-hidden>·</span>
                                     <span>
-                                        {CLIENT_TYPES[entry.clientType]}
+                                        {t(CLIENT_TYPES[entry.clientType])}
                                     </span>
                                     <span aria-hidden>·</span>
                                     <time
@@ -121,7 +121,7 @@ export function ActivityLog({ activity }: { activity: ActivityPage }) {
 
                 {paged && (
                     <nav
-                        aria-label="Activity pages"
+                        aria-label={t('settings.agents.activity.pages')}
                         className="flex items-center justify-between gap-2"
                     >
                         <PageLink
@@ -129,13 +129,13 @@ export function ActivityLog({ activity }: { activity: ActivityPage }) {
                             data-test="agents-activity-newer"
                         >
                             <ChevronLeft className="rtl:rotate-180" />
-                            Newer
+                            {t('settings.agents.activity.newer')}
                         </PageLink>
                         <PageLink
                             href={nextPageUrl}
                             data-test="agents-activity-older"
                         >
-                            Older
+                            {t('settings.agents.activity.older')}
                             <ChevronRight className="rtl:rotate-180" />
                         </PageLink>
                     </nav>

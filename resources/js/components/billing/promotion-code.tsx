@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
 import { promotionCode } from '@/routes/billing';
 import type { Plan } from '@/types';
+import { t } from '@/lib/i18n';
 
 /** A code the server accepted for a plan, with the price it gives. */
 export type AppliedCode = {
@@ -57,10 +58,7 @@ export function usePromotionCode() {
                 }
             },
             onNetworkError: () =>
-                http.setError(
-                    'code',
-                    'Could not check the code. Check your connection.',
-                ),
+                http.setError('code', t('billing.codeCheckFailed')),
         }).catch(() => {
             // The error is already shown next to the field.
         });
@@ -137,7 +135,7 @@ export function PromotionCodeField({
                 onClick={state.reveal}
                 data-test="reveal-promotion-code"
             >
-                Have a code?
+                {t('billing.haveCode')}
             </Button>
         );
     }
@@ -154,8 +152,8 @@ export function PromotionCodeField({
         >
             <div className="flex gap-2">
                 <Input
-                    aria-label="Promotion code"
-                    placeholder="Promotion code"
+                    aria-label={t('billing.promotionCode')}
+                    placeholder={t('billing.promotionCode')}
                     // Not when it opens prefilled with the page.
                     autoFocus={state.edited || state.code === ''}
                     autoCapitalize="characters"
@@ -174,7 +172,7 @@ export function PromotionCodeField({
                     disabled={state.processing || state.code.trim() === ''}
                 >
                     {state.processing && <Spinner />}
-                    Apply
+                    {t('billing.apply')}
                 </Button>
             </div>
             <InputError message={state.error} role="alert" />
@@ -183,7 +181,11 @@ export function PromotionCodeField({
                 role="status"
                 className="text-sm text-muted-foreground empty:hidden"
             >
-                {applied && `${applied.code} applied: ${applied.price} today.`}
+                {applied &&
+                    t('billing.codeApplied', {
+                        code: applied.code,
+                        price: applied.price,
+                    })}
             </p>
         </form>
     );

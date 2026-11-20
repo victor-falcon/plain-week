@@ -1,3 +1,4 @@
+import { t } from '@/lib/i18n';
 import { TASK_COLORS } from '@/lib/db/types';
 import type { TaskColor } from '@/lib/db/types';
 
@@ -17,47 +18,65 @@ export type TaskColorStyle = {
  */
 export const TASK_COLOR_STYLES: Record<TaskColor, TaskColorStyle> = {
     none: {
-        label: 'No color',
+        get label() {
+            return t('planner.colorNone');
+        },
         pill: '',
         swatch: 'border border-foreground/40',
     },
     pink: {
-        label: 'Pink',
+        get label() {
+            return t('planner.colorPink');
+        },
         pill: 'bg-task-pink text-task-pink-foreground',
         swatch: 'bg-task-pink',
     },
     yellow: {
-        label: 'Yellow',
+        get label() {
+            return t('planner.colorYellow');
+        },
         pill: 'bg-task-yellow text-task-yellow-foreground',
         swatch: 'bg-task-yellow',
     },
     black: {
-        label: 'Black',
+        get label() {
+            return t('planner.colorBlack');
+        },
         pill: 'bg-task-black text-task-black-foreground',
         swatch: 'bg-task-black',
     },
     grey: {
-        label: 'Grey',
+        get label() {
+            return t('planner.colorGrey');
+        },
         pill: 'bg-task-grey text-task-grey-foreground',
         swatch: 'bg-task-grey',
     },
     cornflower: {
-        label: 'Cornflower',
+        get label() {
+            return t('planner.colorCornflower');
+        },
         pill: 'bg-task-cornflower text-task-cornflower-foreground',
         swatch: 'bg-task-cornflower',
     },
     mango: {
-        label: 'Mango',
+        get label() {
+            return t('planner.colorMango');
+        },
         pill: 'bg-task-mango text-task-mango-foreground',
         swatch: 'bg-task-mango',
     },
     green: {
-        label: 'Green',
+        get label() {
+            return t('planner.colorGreen');
+        },
         pill: 'bg-task-green text-task-green-foreground',
         swatch: 'bg-task-green',
     },
     lilac: {
-        label: 'Lilac',
+        get label() {
+            return t('planner.colorLilac');
+        },
         pill: 'bg-task-lilac text-task-lilac-foreground',
         swatch: 'bg-task-lilac',
     },

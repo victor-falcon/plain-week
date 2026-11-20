@@ -2,6 +2,7 @@ import { usePage } from '@inertiajs/react';
 import { MessageSquare } from 'lucide-react';
 import type { ComponentProps } from 'react';
 import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
+import { t } from '@/lib/i18n';
 
 const MAILTO = 'mailto:';
 
@@ -42,7 +43,7 @@ export function SendFeedbackMenuItem({ onClick }: { onClick?: () => void }) {
                 data-test="send-feedback"
             >
                 <MessageSquare className="me-2" />
-                Send feedback
+                {t('pwa.sendFeedback')}
             </a>
         </DropdownMenuItem>
     );

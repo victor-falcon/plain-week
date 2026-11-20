@@ -18,6 +18,7 @@ import { asksScope } from './repeat';
 import { nextWeekOf, tomorrowOf } from './quick-moves';
 import { saveLocally } from './save-locally';
 import { toastWithUndo } from './undo';
+import { t } from '@/lib/i18n';
 
 /**
  * The task actions shared by the task dialog and the task context menu. They
@@ -52,7 +53,7 @@ export function setTaskColor(
 ): Promise<PlannerTask | undefined> {
     return settle(
         updateTask(id, { color }, { scope }),
-        'Could not update the task.',
+        t('planner.updateTaskFailed'),
     );
 }
 
@@ -83,26 +84,28 @@ export function moveWithUndo(
 
     return settle(
         moveTask(id, move, { undo }).then((moved) => {
-            toastWithUndo(`Moved to ${placementLabel(move)}.`, () =>
-                saveLocally(undoChanges(undo), {
-                    error: 'Could not undo the move.',
-                }),
+            toastWithUndo(
+                t('planner.movedTo', { place: placementLabel(move) }),
+                () =>
+                    saveLocally(undoChanges(undo), {
+                        error: t('planner.undoMoveFailed'),
+                    }),
             );
 
             return moved;
         }),
-        'Could not move the task.',
+        t('planner.moveTaskFailed'),
     );
 }
 
 export function duplicateWithToast(id: string): Promise<Task | undefined> {
     return settle(
         duplicateTask(id).then((copy) => {
-            toast.success('Task duplicated.');
+            toast.success(t('planner.taskDuplicated'));
 
             return copy;
         }),
-        'Could not duplicate the task.',
+        t('planner.duplicateTaskFailed'),
     );
 }
 
@@ -118,14 +121,14 @@ export function deleteWithUndo(
 
     return settle(
         deleteTask(id, { scope, undo }).then((deleted) => {
-            toastWithUndo('Task deleted.', () =>
+            toastWithUndo(t('planner.taskDeleted'), () =>
                 saveLocally(undoChanges(undo), {
-                    error: 'Could not restore the task.',
+                    error: t('planner.restoreTaskFailed'),
                 }),
             );
 
             return deleted;
         }),
-        'Could not delete the task.',
+        t('planner.deleteTaskFailed'),
     );
 }

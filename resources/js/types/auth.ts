@@ -5,6 +5,8 @@ export type User = {
     avatar?: string;
     email_verified_at: string | null;
     two_factor_enabled?: boolean;
+    /** The interface language picked in Settings › Preferences; null follows the browser. */
+    language?: string | null;
     created_at: string;
     updated_at: string;
     [key: string]: unknown;

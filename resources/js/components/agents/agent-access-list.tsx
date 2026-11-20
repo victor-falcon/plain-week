@@ -1,5 +1,10 @@
 import type { ReactNode } from 'react';
+import { t } from '@/lib/i18n';
+import type { TextKey } from '@/lib/i18n';
+import { renderRich } from '@/lib/i18n/rich';
 import { formatTimeAgo } from '@/lib/settings/relative-time';
+
+type CreatedKey = 'settings.agents.created' | 'settings.agents.connected';
 
 /** A personal token or a connected OAuth app, as Settings › Agents & apps lists them. */
 export type AgentAccess = {
@@ -9,30 +14,32 @@ export type AgentAccess = {
     lastUsedAt: string | null;
 };
 
-function When({ iso }: { iso: string }) {
-    return (
-        <time dateTime={iso} title={new Date(iso).toLocaleString()}>
-            {formatTimeAgo(iso)}
-        </time>
-    );
+/** `text` ("5 minutes ago") as a <time> with the exact moment in its title. */
+function whenRenderer(iso: string) {
+    return {
+        when: (text: ReactNode) => (
+            <time dateTime={iso} title={new Date(iso).toLocaleString()}>
+                {text}
+            </time>
+        ),
+    };
+}
+
+/** A catalog message with a `<when>{time}</when>` span, rendered as a <time>. */
+function withWhen(key: TextKey, iso: string): ReactNode {
+    return renderRich(t(key, { time: formatTimeAgo(iso) }), whenRenderer(iso));
 }
 
 /** "Created 3 days ago · Last used 5 minutes ago" ("Never used" before the first call). */
-function Dates({ item, created }: { item: AgentAccess; created: string }) {
+function Dates({ item, created }: { item: AgentAccess; created: CreatedKey }) {
     return (
         <p className="text-xs text-muted-foreground">
             {item.createdAt !== null && (
-                <>
-                    {created} <When iso={item.createdAt} /> ·{' '}
-                </>
+                <>{withWhen(created, item.createdAt)} · </>
             )}
-            {item.lastUsedAt === null ? (
-                'Never used'
-            ) : (
-                <>
-                    Last used <When iso={item.lastUsedAt} />
-                </>
-            )}
+            {item.lastUsedAt === null
+                ? t('settings.agents.neverUsed')
+                : withWhen('settings.agents.lastUsed', item.lastUsedAt)}
         </p>
     );
 }
@@ -46,14 +53,14 @@ export function AgentAccessList({
     'data-test': dataTest,
 }: {
     items: AgentAccess[];
-    /** The verb before the first date ("Created", "Connected"). */
-    created: string;
-    empty: string;
+    /** The message with the first date ("Created …", "Connected …"). */
+    created: CreatedKey;
+    empty: TextKey;
     action: (item: AgentAccess) => ReactNode;
     'data-test'?: string;
 }) {
     if (items.length === 0) {
-        return <p className="text-sm text-muted-foreground">{empty}</p>;
+        return <p className="text-sm text-muted-foreground">{t(empty)}</p>;
     }
 
     return (

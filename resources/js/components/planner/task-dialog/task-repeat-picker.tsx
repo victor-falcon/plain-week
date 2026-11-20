@@ -20,6 +20,7 @@ import { parseDateKey, toDateKey } from '@/lib/db/dates';
 import { setRecurrence } from '@/lib/db/tasks';
 import { MAX_EVERY_DAYS } from '@/lib/db/types';
 import type { IsoWeekday } from '@/lib/db/types';
+import { t } from '@/lib/i18n';
 import { formatLongDate } from '@/lib/planner/format';
 import {
     ISO_WEEKDAYS,
@@ -93,8 +94,8 @@ export function TaskRepeatPicker() {
     const asksForScope = recurring && !!series && !wholeSeries;
 
     const label = current
-        ? `Repeat: ${summarizeRecurrence(current)}`
-        : 'Repeat';
+        ? t('task.repeatValue', { summary: summarizeRecurrence(current) })
+        : t('task.repeat');
 
     const apply = async () => {
         picker.onOpenChange(false);
@@ -130,7 +131,7 @@ export function TaskRepeatPicker() {
 
                 return first ? { id: occurrenceId(item.id, first) } : item;
             },
-            { follow: true, error: 'Could not change the repeat.' },
+            { follow: true, error: t('task.repeatFailed') },
         );
     };
 
@@ -164,8 +165,8 @@ export function TaskRepeatPicker() {
                     {wholeSeries && (
                         <p className="text-xs text-muted-foreground">
                             {draft.kind === 'never'
-                                ? 'Stops the whole series.'
-                                : 'Applies to the whole series.'}
+                                ? t('task.repeatStopsSeries')
+                                : t('task.repeatAppliesSeries')}
                         </p>
                     )}
                     <Button
@@ -174,7 +175,7 @@ export function TaskRepeatPicker() {
                         disabled={!repeatsAtLeastOnce(draft, anchor)}
                         onClick={apply}
                     >
-                        Apply
+                        {t('task.apply')}
                     </Button>
                 </PopoverContent>
             )}
@@ -212,8 +213,8 @@ function StartNote({ anchor, draft }: { anchor: string; draft: RepeatDraft }) {
     return (
         <p className="text-xs text-muted-foreground">
             {first
-                ? `Starts on ${formatLongDate(first)}.`
-                : 'Ends before it repeats once.'}
+                ? t('task.repeatStarts', { date: formatLongDate(first) })
+                : t('task.repeatEndsEarly')}
         </p>
     );
 }
@@ -236,7 +237,7 @@ function RepeatForm({
                 variant="outline"
                 size="sm"
                 spacing={0}
-                aria-label="Repeat"
+                aria-label={t('task.repeat')}
                 value={draft.kind}
                 onValueChange={(value) => {
                     // Radix sends '' when the current item is clicked again.
@@ -255,25 +256,25 @@ function RepeatForm({
                     value="never"
                     className={cn('flex-1', SELECTED_CLASS)}
                 >
-                    Never
+                    {t('task.repeatNever')}
                 </ToggleGroupItem>
                 <ToggleGroupItem
                     value="daily"
                     className={cn('flex-1', SELECTED_CLASS)}
                 >
-                    Daily
+                    {t('task.repeatDaily')}
                 </ToggleGroupItem>
                 <ToggleGroupItem
                     value="weekly"
                     className={cn('flex-1', SELECTED_CLASS)}
                 >
-                    Weekly
+                    {t('task.repeatWeekly')}
                 </ToggleGroupItem>
                 <ToggleGroupItem
                     value="monthly"
                     className={cn('flex-1', SELECTED_CLASS)}
                 >
-                    Monthly
+                    {t('task.repeatMonthlyOption')}
                 </ToggleGroupItem>
             </ToggleGroup>
 
@@ -290,7 +291,7 @@ function RepeatForm({
                         type="multiple"
                         size="sm"
                         spacing={1}
-                        aria-label="Weekdays"
+                        aria-label={t('task.repeatWeekdaysLabel')}
                         value={draft.weekdays.map(String)}
                         onValueChange={(values) => {
                             const weekdays = values.map(
@@ -323,8 +324,9 @@ function RepeatForm({
                         ))}
                     </ToggleGroup>
                     <p className="text-xs text-muted-foreground">
-                        Always on {weekdayName(anchorWeekday, 'long')}, the
-                        task's day.
+                        {t('task.repeatAlwaysOn', {
+                            weekday: weekdayName(anchorWeekday, 'long'),
+                        })}
                     </p>
                 </div>
             )}
@@ -332,7 +334,7 @@ function RepeatForm({
             {draft.kind === 'monthly' && (
                 <div className="flex flex-col gap-2">
                     <div className="flex items-center gap-2 text-sm">
-                        <span>Monthly on day</span>
+                        <span>{t('task.repeatMonthlyOnDay')}</span>
                         <Select
                             value={String(draft.day)}
                             onValueChange={(value) =>
@@ -341,7 +343,7 @@ function RepeatForm({
                         >
                             <SelectTrigger
                                 size="sm"
-                                aria-label="Day of the month"
+                                aria-label={t('task.dayOfMonth')}
                                 className="tabular-nums"
                             >
                                 <SelectValue />
@@ -357,7 +359,7 @@ function RepeatForm({
                     </div>
                     {draft.day > 28 && (
                         <p className="text-xs text-muted-foreground">
-                            On the last day in shorter months.
+                            {t('task.repeatLastDay')}
                         </p>
                     )}
                 </div>
@@ -394,14 +396,14 @@ function EveryDays({
     return (
         <div className="flex flex-col gap-2">
             <div className="flex items-center gap-2 text-sm">
-                <span>Every</span>
+                <span>{t('task.repeatEvery')}</span>
                 <Input
                     type="number"
                     inputMode="numeric"
                     min={1}
                     max={MAX_EVERY_DAYS}
                     step={1}
-                    aria-label="Number of days"
+                    aria-label={t('task.numberOfDays')}
                     aria-invalid={!valid}
                     aria-describedby={valid ? undefined : errorId}
                     value={text}
@@ -414,11 +416,11 @@ function EveryDays({
                     }}
                     className="h-8 w-20 tabular-nums"
                 />
-                <span>{every === 1 ? 'day' : 'days'}</span>
+                <span>{t('task.repeatDayUnit', { count: every })}</span>
             </div>
             {!valid && (
                 <p id={errorId} className="text-xs text-destructive">
-                    Enter a number of days from 1 to {MAX_EVERY_DAYS}.
+                    {t('task.repeatInvalidEvery', { max: MAX_EVERY_DAYS })}
                 </p>
             )}
         </div>
@@ -437,18 +439,18 @@ function RepeatEnd({
 }) {
     const [open, setOpen] = useState(false);
     const selected = until ? parseDateKey(until) : undefined;
-    const label = until ? formatLongDate(until) : 'Never';
+    const label = until ? formatLongDate(until) : t('task.repeatNever');
 
     return (
         <div className="flex items-center gap-2 text-sm">
-            <span>Ends</span>
+            <span>{t('task.repeatEnds')}</span>
             <Popover open={open} onOpenChange={setOpen}>
                 <PopoverTrigger asChild>
                     <Button
                         type="button"
                         variant="outline"
                         size="sm"
-                        aria-label={`Ends: ${label}`}
+                        aria-label={t('task.repeatEndsValue', { date: label })}
                     >
                         {label}
                     </Button>
@@ -476,7 +478,7 @@ function RepeatEnd({
                     type="button"
                     variant="ghost"
                     size="icon-sm"
-                    aria-label="Never ends"
+                    aria-label={t('task.repeatNeverEnds')}
                     onClick={() => onChange(null)}
                     className="rounded-full"
                 >

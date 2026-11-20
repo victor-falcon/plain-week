@@ -5,8 +5,11 @@ namespace App\Providers;
 use App\Agents\AuthorizationPage;
 use App\Push\PushSender;
 use App\Push\WebPushSender;
+use App\Support\TranslationOverridesLoader;
+use App\Support\Translations;
 use Carbon\CarbonImmutable;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Contracts\Translation\Loader;
 use Illuminate\Foundation\DevCommands;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Date;
@@ -34,6 +37,10 @@ class AppServiceProvider extends ServiceProvider
         Cashier::ignoreRoutes();
 
         $this->app->bind(PushSender::class, WebPushSender::class);
+
+        // Self-hosted translation files (TRANSLATIONS_PATH), read at most once per request.
+        $this->app->scoped(Translations::class);
+        $this->app->extend('translation.loader', fn (Loader $loader) => new TranslationOverridesLoader($loader));
 
         // Only the authorization code grant (MCP clients, native apps) and personal access tokens are used.
         Passport::$deviceCodeGrantEnabled = false;

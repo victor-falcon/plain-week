@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import AppLogoIcon from '@/components/app-logo-icon';
 import { LegalLinks } from '@/components/billing/legal-links';
 import { home } from '@/routes';
+import { t } from '@/lib/i18n';
 
 export type Seller = {
     name: string;
@@ -36,7 +37,7 @@ export function LegalPage({
                     <h1 className="text-2xl font-semibold tracking-tight">
                         {title}
                     </h1>
-                    <p>Last updated: {updatedAt}</p>
+                    <p>{t('billing.lastUpdated', { date: updatedAt })}</p>
                 </header>
 
                 {children}

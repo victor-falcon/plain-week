@@ -1,5 +1,6 @@
 import { Fragment } from 'react';
 import { Kbd, KbdGroup } from '@/components/ui/kbd';
+import { t } from '@/lib/i18n';
 import { keyLabel, keyName, keysFor } from '@/lib/planner/shortcuts';
 import type { KeySequence, ShortcutId } from '@/lib/planner/shortcuts';
 
@@ -29,7 +30,7 @@ function KeySequenceView({ sequence }: { sequence: KeySequence }) {
     return (
         <>
             <span className="sr-only">
-                {sequence.map(keyName).join(' then ')}
+                {sequence.map(keyName).join(t('planner.keySequenceJoin'))}
             </span>
             <KeyCaps sequence={sequence} />
         </>
@@ -53,7 +54,7 @@ export function ShortcutKeys({
                 <Fragment key={index}>
                     {index > 0 && (
                         <span className="text-xs text-muted-foreground">
-                            or
+                            {t('planner.or')}
                         </span>
                     )}
                     <KeySequenceView sequence={sequence} />

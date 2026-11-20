@@ -25,6 +25,8 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import { Spinner } from '@/components/ui/spinner';
+import { t } from '@/lib/i18n';
+import { tRich } from '@/lib/i18n/rich';
 import { formatTimeAgo } from '@/lib/settings/relative-time';
 import { connect, destroy } from '@/routes/integrations/google';
 
@@ -65,23 +67,27 @@ function DisconnectButton({
         >
             <AlertDialogTrigger asChild>
                 <Button variant="outline" data-test="google-disconnect">
-                    Disconnect
+                    {t('settings.integrations.disconnect')}
                 </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
                 <AlertDialogHeader>
                     <AlertDialogTitle>
-                        Disconnect Google Calendar?
+                        {t('settings.integrations.disconnectTitle')}
                     </AlertDialogTitle>
                     <AlertDialogDescription>
                         {connection.broken
-                            ? `Plain Week can no longer reach ${connection.email}, so its “Plain Week” calendar stays there: delete it in Google Calendar if you don't need it. Your tasks stay in Plain Week.`
-                            : `The “Plain Week” calendar is deleted from ${connection.email}. Your tasks stay in Plain Week.`}
+                            ? t('settings.integrations.disconnectBroken', {
+                                  email: connection.email,
+                              })
+                            : t('settings.integrations.disconnectDescription', {
+                                  email: connection.email,
+                              })}
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                     <AlertDialogCancel disabled={processing}>
-                        Cancel
+                        {t('common.cancel')}
                     </AlertDialogCancel>
                     <AlertDialogAction
                         variant="destructive"
@@ -93,7 +99,7 @@ function DisconnectButton({
                         data-test="google-disconnect-confirm"
                     >
                         {processing && <Spinner />}
-                        Disconnect
+                        {t('settings.integrations.disconnect')}
                     </AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>
@@ -109,27 +115,31 @@ function SyncState({ connection }: { connection: GoogleCalendarConnection }) {
     return (
         <CardContent className="space-y-3" data-test="google-sync-state">
             <p className="text-sm text-muted-foreground">
-                {connection.lastSyncedAt === null ? (
-                    'Waiting for the first sync.'
-                ) : (
-                    <>
-                        Last synced{' '}
-                        <time
-                            dateTime={connection.lastSyncedAt}
-                            title={new Date(
-                                connection.lastSyncedAt,
-                            ).toLocaleString()}
-                        >
-                            {formatTimeAgo(connection.lastSyncedAt)}
-                        </time>
-                        .
-                    </>
-                )}
+                {connection.lastSyncedAt === null
+                    ? t('settings.integrations.waiting')
+                    : tRich(
+                          'settings.integrations.lastSynced',
+                          {
+                              when: (text) => (
+                                  <time
+                                      dateTime={connection.lastSyncedAt ?? ''}
+                                      title={new Date(
+                                          connection.lastSyncedAt ?? '',
+                                      ).toLocaleString()}
+                                  >
+                                      {text}
+                                  </time>
+                              ),
+                          },
+                          { time: formatTimeAgo(connection.lastSyncedAt) },
+                      )}
             </p>
             {connection.lastError !== null && (
                 <Alert variant="destructive" data-test="google-sync-error">
                     <CircleAlert />
-                    <AlertTitle>The last sync had a problem</AlertTitle>
+                    <AlertTitle>
+                        {t('settings.integrations.syncProblem')}
+                    </AlertTitle>
                     <AlertDescription>{connection.lastError}</AlertDescription>
                 </Alert>
             )}
@@ -148,15 +158,21 @@ function GoogleCalendarCard({
                 <CardTitle className="flex items-center gap-2">
                     Google Calendar
                     {connection?.broken && (
-                        <Badge variant="destructive">Needs reconnecting</Badge>
+                        <Badge variant="destructive">
+                            {t('settings.integrations.needsReconnecting')}
+                        </Badge>
                     )}
                 </CardTitle>
                 <CardDescription>
                     {connection === null
-                        ? 'Show your planned tasks in a “Plain Week” calendar in your Google account. Changes go one way: edit tasks here, not in Google.'
+                        ? t('settings.integrations.googleDescription')
                         : connection.broken
-                          ? `Google stopped accepting Plain Week's access to ${connection.email}. Reconnect to keep your calendar up to date.`
-                          : `Connected to ${connection.email}. Your planned tasks show up in its “Plain Week” calendar.`}
+                          ? t('settings.integrations.googleBroken', {
+                                email: connection.email,
+                            })
+                          : t('settings.integrations.googleConnected', {
+                                email: connection.email,
+                            })}
                 </CardDescription>
             </CardHeader>
             {connection !== null && !connection.broken && (
@@ -166,7 +182,9 @@ function GoogleCalendarCard({
                 {(connection === null || connection.broken) && (
                     <Button asChild>
                         <a href={connect.url()} data-test="google-connect">
-                            {connection === null ? 'Connect' : 'Reconnect'}
+                            {connection === null
+                                ? t('settings.integrations.connect')
+                                : t('settings.integrations.reconnect')}
                         </a>
                     </Button>
                 )}
@@ -186,15 +204,15 @@ function GoogleCalendarCard({
 export default function Integrations({ googleCalendar }: Props) {
     return (
         <>
-            <Head title="Integrations" />
+            <Head title={t('settings.integrations.title')} />
 
-            <h1 className="sr-only">Integrations</h1>
+            <h1 className="sr-only">{t('settings.integrations.title')}</h1>
 
             <div className="space-y-6">
                 <Heading
                     variant="small"
-                    title="Integrations"
-                    description="Connect Plain Week to other services"
+                    title={t('settings.integrations.title')}
+                    description={t('settings.integrations.description')}
                 />
 
                 <GoogleCalendarCard connection={googleCalendar} />

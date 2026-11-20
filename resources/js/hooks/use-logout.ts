@@ -3,13 +3,10 @@ import { useRef } from 'react';
 import { toast } from 'sonner';
 import { logOut } from '@/lib/sync';
 import { logout } from '@/routes';
+import { t } from '@/lib/i18n';
 
 function confirmDiscard(pendingChanges: number): boolean {
-    return window.confirm(
-        pendingChanges === 1
-            ? '1 change has not been synced yet and will be lost. Log out anyway?'
-            : `${pendingChanges} changes have not been synced yet and will be lost. Log out anyway?`,
-    );
+    return window.confirm(t('auth.logOutUnsynced', { count: pendingChanges }));
 }
 
 /**
@@ -38,7 +35,7 @@ export function useLogout(beforeLogout?: () => void) {
                 }
             })
             .catch(() => {
-                toast.error('Could not log out. Check your connection.');
+                toast.error(t('auth.logOutFailed'));
             })
             .finally(() => {
                 inProgress.current = false;

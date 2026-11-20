@@ -10,6 +10,7 @@ import { TASK_COLORS } from '@/lib/db/types';
 import { updateTask } from '@/lib/db/tasks';
 import { TASK_COLOR_STYLES, isTaskColor } from '@/lib/planner/task-colors';
 import { cn } from '@/lib/utils';
+import { t } from '@/lib/i18n';
 import { useTaskEditor } from './task-editor';
 import { useToolbarPicker } from './toolbar-picker';
 import { TOOLBAR_BUTTON_CLASS, ToolbarTooltip } from './toolbar-tooltip';
@@ -25,13 +26,15 @@ export function TaskColorPicker() {
 
     return (
         <Popover {...picker}>
-            <ToolbarTooltip label="Color" action="dialog.color">
+            <ToolbarTooltip label={t('task.color')} action="dialog.color">
                 <PopoverTrigger asChild>
                     <Button
                         type="button"
                         variant="ghost"
                         size="icon-sm"
-                        aria-label={`Color: ${current.label}`}
+                        aria-label={t('task.colorValue', {
+                            color: current.label,
+                        })}
                         className={cn(TOOLBAR_BUTTON_CLASS, 'group/color')}
                     >
                         <span
@@ -48,7 +51,7 @@ export function TaskColorPicker() {
             <PopoverContent align="end" className="w-auto p-2">
                 <ToggleGroup
                     type="single"
-                    aria-label="Task color"
+                    aria-label={t('task.taskColor')}
                     value={task.color}
                     onValueChange={(value) => {
                         // Radix sends '' when the current item is clicked again.

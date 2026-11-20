@@ -1,5 +1,6 @@
 import { TaskList } from '@/components/planner/task-list';
 import { useSomedayTasks } from '@/hooks/use-tasks';
+import { t } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 
 type Props = {
@@ -34,12 +35,12 @@ export function SomedaySection({
                 id="someday-title"
                 className="border-b-2 border-foreground pb-3 text-lg leading-7 font-bold tracking-tight lg:text-xl"
             >
-                Someday
+                {t('planner.someday')}
             </h2>
             <TaskList
                 placement={SOMEDAY_PLACEMENT}
                 tasks={tasks}
-                newTaskLabel="New Someday task"
+                newTaskLabel={t('planner.newSomedayTask')}
                 onOpenTask={onOpenTask}
             />
         </section>

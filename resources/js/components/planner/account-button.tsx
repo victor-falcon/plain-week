@@ -33,6 +33,8 @@ import { useVisibleSyncStatus } from '@/hooks/use-visible-sync-status';
 import { landingStore } from '@/lib/landing';
 import { syncEngine } from '@/lib/sync';
 import type { SyncStatus } from '@/lib/sync';
+import { t } from '@/lib/i18n';
+import type { TextKey } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 import type { User } from '@/types';
 import { login, register } from '@/routes';
@@ -41,13 +43,13 @@ import { plans } from '@/routes/billing';
 /** What the dot shows: the engine's status, or `paused` when the plan ended (SaaS). */
 type DotStatus = SyncStatus | 'paused';
 
-const STATUS_LABELS: Record<DotStatus, string> = {
-    idle: 'All changes synced',
-    syncing: 'Syncing…',
-    offline: 'Offline. Changes sync when you are back.',
-    error: 'Some changes could not be synced. Click to retry.',
-    paused: 'Sync paused. Renew your plan to sync again.',
-};
+const STATUS_LABEL_KEYS = {
+    idle: 'planner.syncIdle',
+    syncing: 'planner.syncSyncing',
+    offline: 'planner.syncOffline',
+    error: 'planner.syncError',
+    paused: 'planner.syncPaused',
+} as const satisfies Record<DotStatus, TextKey>;
 
 const DOT_COLORS: Record<DotStatus, string> = {
     idle: 'bg-sync-synced',
@@ -95,7 +97,7 @@ function ShortcutsMenuItem() {
             data-test="keyboard-shortcuts"
         >
             <Keyboard className="me-2" />
-            Keyboard shortcuts
+            {t('planner.keyboardShortcuts')}
             <DropdownMenuShortcut>
                 <ShortcutHint action="general.help" />
             </DropdownMenuShortcut>
@@ -110,16 +112,19 @@ function UserAccountMenu({ user }: { user: User }) {
     // SaaS mode: without a paid plan the engine does not run (the server answers 402).
     const status: DotStatus =
         account?.hasAccess === false ? 'paused' : engineStatus;
+    const statusLabel = t(STATUS_LABEL_KEYS[status]);
 
     return (
         <DropdownMenu>
-            <WithTooltip label={STATUS_LABELS[status]}>
+            <WithTooltip label={statusLabel}>
                 <DropdownMenuTrigger asChild>
                     <Button
                         variant="secondary"
                         size="icon-lg"
                         className="relative size-10 rounded-full"
-                        aria-label={`Account menu. ${STATUS_LABELS[status]}`}
+                        aria-label={t('planner.accountMenu', {
+                            status: statusLabel,
+                        })}
                         data-test="account-button"
                     >
                         <Avatar className="size-10">
@@ -143,7 +148,7 @@ function UserAccountMenu({ user }: { user: User }) {
                             data-test="retry-sync"
                         >
                             <RefreshCw className="me-2" />
-                            Retry sync
+                            {t('planner.retrySync')}
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                     </>
@@ -153,7 +158,7 @@ function UserAccountMenu({ user }: { user: User }) {
                         <DropdownMenuItem asChild>
                             <Link href={plans()} className="cursor-pointer">
                                 <CreditCard className="me-2" />
-                                Choose a plan
+                                {t('planner.choosePlan')}
                             </Link>
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
@@ -169,8 +174,6 @@ function UserAccountMenu({ user }: { user: User }) {
 
 const guestSegment =
     'h-10 bg-foreground text-sm font-semibold text-background hover:bg-foreground/85';
-
-const GUEST_TOOLTIP = 'Only on this device. Sync your week across devices.';
 
 /** Grey: nothing leaves this device yet. */
 function GuestDot({ className }: { className?: string }) {
@@ -193,14 +196,14 @@ function GuestMenuItems({ withSignUp }: { withSignUp: boolean }) {
                 <DropdownMenuItem asChild>
                     <Link href={register()} className="cursor-pointer">
                         <CloudUpload className="me-2" />
-                        Sync your week
+                        {t('planner.syncYourWeek')}
                     </Link>
                 </DropdownMenuItem>
             )}
             <DropdownMenuItem asChild>
                 <Link href={login()} className="cursor-pointer">
                     <LogIn className="me-2" />
-                    Log in
+                    {t('planner.logIn')}
                 </Link>
             </DropdownMenuItem>
             {saasEnabled && (
@@ -210,7 +213,7 @@ function GuestMenuItems({ withSignUp }: { withSignUp: boolean }) {
                     data-test="about-plain-week"
                 >
                     <Info className="me-2" />
-                    About Plain Week
+                    {t('planner.aboutPlainWeek')}
                 </DropdownMenuItem>
             )}
             <SendFeedbackMenuItem />
@@ -233,7 +236,7 @@ function GuestSyncButton() {
     return (
         <>
             <div className="flex items-center max-sm:hidden">
-                <WithTooltip label={GUEST_TOOLTIP}>
+                <WithTooltip label={t('planner.guestTooltip')}>
                     <Button
                         asChild
                         className={cn(
@@ -246,7 +249,7 @@ function GuestSyncButton() {
                             data-test="sync-your-week"
                         >
                             <GuestDot className="ring-2 ring-background/25" />
-                            Sync your week
+                            {t('planner.syncYourWeek')}
                         </Link>
                     </Button>
                 </WithTooltip>
@@ -257,7 +260,7 @@ function GuestSyncButton() {
                                 guestSegment,
                                 'w-8 rounded-s-none rounded-e-full border-s border-s-background/20 ps-1.5 pe-2',
                             )}
-                            aria-label="More account options"
+                            aria-label={t('planner.moreAccountOptions')}
                             data-test="account-button"
                         >
                             <ChevronDown className="size-4" />
@@ -275,7 +278,9 @@ function GuestSyncButton() {
                             guestSegment,
                             'relative size-10 rounded-full sm:hidden',
                         )}
-                        aria-label={`Sync your week. ${GUEST_TOOLTIP}`}
+                        aria-label={t('planner.syncYourWeekHint', {
+                            tooltip: t('planner.guestTooltip'),
+                        })}
                         data-test="guest-menu-compact"
                     >
                         <CloudUpload className="size-5" />

@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/input-otp';
 import { OTP_MAX_LENGTH } from '@/hooks/use-two-factor-auth';
 import { store } from '@/routes/two-factor/login';
+import { t } from '@/lib/i18n';
 
 export default function TwoFactorChallenge() {
     const [showRecoveryInput, setShowRecoveryInput] = useState(false);
@@ -31,16 +32,18 @@ export default function TwoFactorChallenge() {
 
     return (
         <>
-            <Head title="Two-factor authentication" />
+            <Head title={t('auth.twoFactorTitle')} />
 
             <FloatingCard
                 title={
-                    showRecoveryInput ? 'Recovery code' : 'Authentication code'
+                    showRecoveryInput
+                        ? t('auth.recoveryCode')
+                        : t('auth.authenticationCode')
                 }
                 description={
                     showRecoveryInput
-                        ? 'Confirm access to your account with one of your emergency recovery codes.'
-                        : 'Enter the code from your authenticator app.'
+                        ? t('auth.recoveryCodeDescription')
+                        : t('auth.authenticationCodeDescription')
                 }
                 onClose={closeToPlanner}
             >
@@ -57,8 +60,10 @@ export default function TwoFactorChallenge() {
                                     <Input
                                         name="recovery_code"
                                         type="text"
-                                        placeholder="Enter recovery code"
-                                        aria-label="Recovery code"
+                                        placeholder={t(
+                                            'auth.enterRecoveryCode',
+                                        )}
+                                        aria-label={t('auth.recoveryCode')}
                                         autoFocus
                                         required
                                         aria-invalid={!!errors.recovery_code}
@@ -77,7 +82,9 @@ export default function TwoFactorChallenge() {
                                         onChange={(value) => setCode(value)}
                                         disabled={processing}
                                         pattern={REGEXP_ONLY_DIGITS}
-                                        aria-label="Authentication code"
+                                        aria-label={t(
+                                            'auth.authenticationCode',
+                                        )}
                                         autoFocus
                                     >
                                         <InputOTPGroup>
@@ -97,7 +104,7 @@ export default function TwoFactorChallenge() {
                             )}
 
                             <AuthSubmit processing={processing}>
-                                Continue
+                                {t('common.continue')}
                             </AuthSubmit>
 
                             <AuthFootnote>
@@ -109,8 +116,8 @@ export default function TwoFactorChallenge() {
                                     }
                                 >
                                     {showRecoveryInput
-                                        ? 'Use an authentication code'
-                                        : 'Use a recovery code'}
+                                        ? t('auth.useAuthenticationCode')
+                                        : t('auth.useRecoveryCode')}
                                 </Button>
                             </AuthFootnote>
                         </>

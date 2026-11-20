@@ -1,4 +1,5 @@
 import { toast } from 'sonner';
+import { t } from '@/lib/i18n';
 
 type Options<T> = {
     /** Toast shown when the write fails. */
@@ -13,7 +14,9 @@ type Options<T> = {
  */
 export function saveLocally<T>(
     write: Promise<T>,
-    { error = 'Could not update the task.', onSaved }: Options<T> = {},
+    { error, onSaved }: Options<T> = {},
 ): void {
-    write.then(onSaved, () => toast.error(error));
+    write.then(onSaved, () =>
+        toast.error(error ?? t('planner.updateTaskFailed')),
+    );
 }

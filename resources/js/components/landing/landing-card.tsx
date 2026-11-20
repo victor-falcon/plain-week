@@ -27,56 +27,61 @@ import { cn } from '@/lib/utils';
 import { login, register } from '@/routes';
 import { privacy, terms } from '@/routes/legal';
 import type { Plan } from '@/types';
+import { t } from '@/lib/i18n';
 
 const SELF_HOSTING_URL = `${REPOSITORY_URL}/blob/main/docs/self-hosting.md`;
 const CHANGELOG_URL = `${REPOSITORY_URL}/blob/main/CHANGELOG.md`;
 
-const REASONS = [
-    {
-        title: 'One week, one screen',
-        text: 'A column per day and a Someday list. Nothing else to manage.',
-    },
-    {
-        title: 'Instant, even offline',
-        text: 'It lives on your device, so it never waits for a server.',
-    },
-    {
-        title: 'Repeats that fit life',
-        text: 'Weekly, monthly or every 21 days. Move one, or all that follow.',
-    },
-    {
-        title: 'Type, drag, done',
-        text: '"17:30 Gym" sets the time. Drag across days or weeks.',
-    },
-];
+function reasons() {
+    return [
+        {
+            title: t('landing.reasonWeekTitle'),
+            text: t('landing.reasonWeekText'),
+        },
+        {
+            title: t('landing.reasonInstantTitle'),
+            text: t('landing.reasonInstantText'),
+        },
+        {
+            title: t('landing.reasonRepeatsTitle'),
+            text: t('landing.reasonRepeatsText'),
+        },
+        {
+            title: t('landing.reasonTypeTitle'),
+            text: t('landing.reasonTypeText'),
+        },
+    ];
+}
 
-const QUESTIONS = [
-    {
-        question: 'Do I need an account?',
-        answer: 'No. Start now and use the planner in your browser for free. It stays on that device. An account is only for syncing.',
-    },
-    {
-        question: 'What exactly do I pay for?',
-        answer: 'Sync: your planner on every device, backed up on our server. The planner itself is the same for everyone.',
-    },
-    {
-        question: 'Can I cancel the weekly plan?',
-        answer: 'Anytime, from Settings › Billing. You keep sync until the end of the week you paid for.',
-    },
-    {
-        question: 'Where is my data stored?',
-        answer: 'On your device first. With an account, also on our server in the EU. Export it as JSON whenever you like.',
-    },
-    {
-        question: 'Can I use it with Claude or ChatGPT?',
-        answer: 'Yes, with a sync plan. Connect Claude, ChatGPT or any MCP client from Settings › Agents & apps. It reads and changes your planner only after you approve it, and you can revoke it any time.',
-        mcp: true,
-    },
-    {
-        question: 'Is there a free trial?',
-        answer: 'No trial and no free accounts. The browser version is free forever, and you can self-host the whole thing.',
-    },
-];
+function questions() {
+    return [
+        {
+            question: t('landing.questionAccount'),
+            answer: t('landing.answerAccount'),
+        },
+        {
+            question: t('landing.questionPay'),
+            answer: t('landing.answerPay'),
+        },
+        {
+            question: t('landing.questionCancel'),
+            answer: t('landing.answerCancel'),
+        },
+        {
+            question: t('landing.questionData'),
+            answer: t('landing.answerData'),
+        },
+        {
+            question: t('landing.questionAgents'),
+            answer: t('landing.answerAgents'),
+            mcp: true,
+        },
+        {
+            question: t('landing.questionTrial'),
+            answer: t('landing.answerTrial'),
+        },
+    ];
+}
 
 const pill = 'h-12 rounded-full text-base font-semibold';
 const solidPill = 'bg-foreground text-background hover:bg-foreground/90';
@@ -126,7 +131,7 @@ function ProductShots() {
     return (
         <figure
             className="relative h-60 shrink-0 overflow-hidden rounded-[1.125rem] bg-muted sm:h-75"
-            aria-label="The planner on a desktop and on a phone"
+            aria-label={t('landing.productShotsLabel')}
         >
             {shot('desktop', 'light', desktop)}
             {shot('desktop', 'dark', desktop)}
@@ -145,19 +150,16 @@ function AgentBlock() {
         >
             <div className="flex flex-col gap-2">
                 <Badge className="self-start bg-foreground text-background">
-                    New
+                    {t('announcement.badge')}
                 </Badge>
-                <SectionTitle>Your AI agent can plan your week</SectionTitle>
+                <SectionTitle>{t('announcement.title')}</SectionTitle>
                 <p className="text-sm leading-normal text-muted-foreground">
-                    Connect Claude, ChatGPT or any MCP client. It reads and
-                    changes your planner like you do, only after you approve it,
-                    and you can revoke it any time.
+                    {t('announcement.description')}
                 </p>
             </div>
             <AgentPrompts />
             <p className="text-[0.8125rem] leading-normal text-muted-foreground">
-                Works with Claude, ChatGPT and other MCP clients. Comes with the
-                sync plan.
+                {t('landing.agentsNote')}
             </p>
         </section>
     );
@@ -170,9 +172,9 @@ function SectionTitle({ children }: { children: ReactNode }) {
 function WhyItWorks() {
     return (
         <section className="flex flex-col gap-4.5 pt-2">
-            <SectionTitle>Why it works</SectionTitle>
+            <SectionTitle>{t('landing.whyItWorks')}</SectionTitle>
             <ul className="grid gap-5 sm:grid-cols-2">
-                {REASONS.map(({ title, text }) => (
+                {reasons().map(({ title, text }) => (
                     <li key={title} className="flex flex-col gap-1.5">
                         <span className="font-semibold">{title}</span>
                         <span className="text-sm leading-normal text-muted-foreground">
@@ -206,7 +208,7 @@ function CopyCode({ code }: { code: string }) {
                 variant="outline"
                 size="xs"
                 className="font-mono tracking-wide"
-                aria-label={`Copy the code ${code}`}
+                aria-label={t('landing.copyCode', { code })}
                 onClick={() => {
                     navigator.clipboard
                         ?.writeText(code)
@@ -225,7 +227,7 @@ function CopyCode({ code }: { code: string }) {
                 )}
             </Button>
             <span role="status" className="sr-only">
-                {copied && 'Code copied'}
+                {copied && t('landing.codeCopied')}
             </span>
         </>
     );
@@ -238,7 +240,9 @@ function FeaturedCodeLine({ featured }: { featured: FeaturedCode }) {
             className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm"
             data-test="featured-code-line"
         >
-            {featured.free ? 'Use code' : `${featured.price} with code`}{' '}
+            {featured.free
+                ? t('landing.useCode')
+                : t('landing.priceWithCode', { price: featured.price })}{' '}
             <CopyCode code={featured.code} />
         </p>
     );
@@ -256,10 +260,10 @@ function SoldOutLine({ soldOut }: { soldOut: SoldOutCode }) {
                     {soldOut.code}
                 </span>
                 <Badge variant="secondary" className="text-muted-foreground">
-                    Sold out
+                    {t('landing.soldOut')}
                 </Badge>
             </span>
-            <span>Free for our first founders.</span>
+            <span>{t('landing.freeForFounders')}</span>
         </div>
     );
 }
@@ -312,7 +316,7 @@ function PlanCard({
                 {price === null && <Skeleton className="h-8 w-20" />}
                 {price === undefined && (
                     <span className="text-sm text-muted-foreground">
-                        Price shown at sign-up
+                        {t('landing.priceShownAtSignUp')}
                     </span>
                 )}
                 {price && (
@@ -354,7 +358,7 @@ function PlanCard({
 function StruckPrice({ label, price }: { label: string; price: string }) {
     return (
         <span className="text-muted-foreground line-through">
-            <span className="sr-only">{label}: </span>
+            <span className="sr-only">{label} </span>
             {price}
         </span>
     );
@@ -373,16 +377,15 @@ function Pricing({ offers }: { offers: Offers | null | 'unavailable' }) {
     return (
         <section className="flex flex-col gap-4 pt-2">
             <div className="flex flex-col gap-2">
-                <SectionTitle>Sync on every device</SectionTitle>
+                <SectionTitle>{t('landing.syncTitle')}</SectionTitle>
                 <p className="text-sm text-muted-foreground">
-                    An account syncs your planner and keeps it safe on our
-                    server. No trials, no free tier: you only pay for sync.
+                    {t('landing.syncDescription')}
                 </p>
             </div>
             <div className="grid gap-4 pt-1 sm:grid-cols-2 sm:gap-3">
                 <PlanCard
                     plan="weekly"
-                    name="Weekly"
+                    name={t('billing.weekly')}
                     price={
                         loading
                             ? null
@@ -391,22 +394,22 @@ function Pricing({ offers }: { offers: Offers | null | 'unavailable' }) {
                     priceNote={
                         weeklyCode && known ? (
                             <StruckPrice
-                                label="Without the code"
+                                label={t('billing.withoutTheCode')}
                                 price={known.weekly.price}
                             />
                         ) : (
                             <span className="text-sm text-muted-foreground">
-                                / week
+                                {t('landing.perWeekShort')}
                             </span>
                         )
                     }
-                    note="Cancel anytime."
-                    action="Choose weekly"
+                    note={t('billing.weeklyNote')}
+                    action={t('landing.chooseWeekly')}
                     featured={weeklyCode}
                 />
                 <PlanCard
                     plan="lifetime"
-                    name="Lifetime"
+                    name={t('billing.lifetime')}
                     price={
                         loading
                             ? null
@@ -415,13 +418,13 @@ function Pricing({ offers }: { offers: Offers | null | 'unavailable' }) {
                     priceNote={
                         lifetimeCode && lifetimeWithoutCode ? (
                             <StruckPrice
-                                label="Without the code"
+                                label={t('billing.withoutTheCode')}
                                 price={lifetimeWithoutCode}
                             />
                         ) : (
                             lifetime?.regularPrice && (
                                 <StruckPrice
-                                    label="Regular price"
+                                    label={t('billing.regularPrice')}
                                     price={lifetime.regularPrice}
                                 />
                             )
@@ -429,16 +432,18 @@ function Pricing({ offers }: { offers: Offers | null | 'unavailable' }) {
                     }
                     note={
                         lifetimeCode?.free
-                            ? 'Free for our first founders, synced forever.'
-                            : 'Pay once, sync forever.'
+                            ? t('landing.freeForFoundersSynced')
+                            : t('billing.lifetimeNote')
                     }
-                    action="Get lifetime"
+                    action={t('landing.getLifetime')}
                     badge={known ? lifetimeBadge(known) : undefined}
                     featured={lifetimeCode}
                     soldOut={known?.soldOut ?? undefined}
                 />
             </div>
-            <p className="text-xs text-muted-foreground">Prices include VAT.</p>
+            <p className="text-xs text-muted-foreground">
+                {t('landing.pricesIncludeVat')}
+            </p>
         </section>
     );
 }
@@ -451,17 +456,16 @@ function SelfHosting() {
             className="dark flex flex-col gap-3 rounded-2xl bg-background p-5 text-foreground ring-1 ring-border"
         >
             <h3 className="text-xl font-bold tracking-tight">
-                Prefer your own server?
+                {t('landing.selfHostTitle')}
             </h3>
             <p className="text-sm leading-normal text-muted-foreground">
-                Plain Week is open source (MIT). Every feature, free, on your
-                machine. One container, SQLite, no other services.
+                {t('landing.selfHostDescription')}
             </p>
             <ExternalLink
                 href={SELF_HOSTING_URL}
                 className="self-start text-sm font-semibold"
             >
-                Self-hosting guide{' '}
+                {t('landing.selfHostGuide')}{' '}
                 <span aria-hidden className="inline-block rtl:rotate-180">
                     →
                 </span>
@@ -473,14 +477,15 @@ function SelfHosting() {
 function Questions({ mcp }: { mcp: boolean }) {
     return (
         <section className="flex flex-col gap-2">
-            <SectionTitle>Questions</SectionTitle>
+            <SectionTitle>{t('landing.questions')}</SectionTitle>
             <Accordion
                 type="single"
                 collapsible
                 className="rounded-none border-0"
             >
-                {QUESTIONS.filter((item) => mcp || !item.mcp).map(
-                    ({ question, answer }) => (
+                {questions()
+                    .filter((item) => mcp || !item.mcp)
+                    .map(({ question, answer }) => (
                         <AccordionItem
                             key={question}
                             value={question}
@@ -493,8 +498,7 @@ function Questions({ mcp }: { mcp: boolean }) {
                                 {answer}
                             </AccordionContent>
                         </AccordionItem>
-                    ),
-                )}
+                    ))}
             </Accordion>
         </section>
     );
@@ -506,19 +510,19 @@ function Footer() {
     return (
         <footer className="flex flex-wrap gap-x-4 gap-y-2 pt-2 text-[0.8125rem] text-muted-foreground">
             <Link href={terms()} className={link}>
-                Terms
+                {t('landing.terms')}
             </Link>
             <Link href={privacy()} className={link}>
-                Privacy
+                {t('landing.privacy')}
             </Link>
             <ExternalLink href={REPOSITORY_URL} className={link}>
                 GitHub
             </ExternalLink>
             <ExternalLink href={CHANGELOG_URL} className={link}>
-                Changelog
+                {t('landing.changelog')}
             </ExternalLink>
             <span className="ms-auto">
-                © {new Date().getFullYear()} Plain Week
+                {t('landing.copyright', { year: new Date().getFullYear() })}
             </span>
         </footer>
     );
@@ -539,8 +543,8 @@ export function LandingCard() {
 
     return (
         <FloatingCard
-            title="A minimal weekly planner that feels like paper."
-            description="Your whole week on one screen. It opens instantly and works offline. Pay once to sync it on every device."
+            title={t('landing.title')}
+            description={t('landing.description')}
             onClose={landingStore.dismiss}
             hideCloseButton
             // Start on the main action, not on the "Open source" link.
@@ -561,7 +565,7 @@ export function LandingCard() {
                         className="flex items-center gap-1.5 font-medium text-foreground"
                     >
                         <Code className="size-4" aria-hidden />
-                        Open source
+                        {t('landing.openSource')}
                     </ExternalLink>
                 </>
             }
@@ -573,7 +577,7 @@ export function LandingCard() {
                 <div className="grid grid-cols-2 gap-3">
                     <Button asChild className={cn(pill, outlinePill)}>
                         <Link href={login()} data-test="landing-login">
-                            Log in
+                            {t('auth.logIn')}
                         </Link>
                     </Button>
                     <Button
@@ -582,12 +586,15 @@ export function LandingCard() {
                         onClick={landingStore.dismiss}
                         data-test="landing-start"
                     >
-                        Start now
+                        {t('landing.startNow')}
                     </Button>
                 </div>
                 <p className="text-center text-[0.8125rem] text-muted-foreground">
-                    Free in your browser, no account needed.
-                    <span className="max-sm:hidden"> Sync is a paid plan.</span>
+                    {t('landing.freeInBrowser')}
+                    <span className="max-sm:hidden">
+                        {' '}
+                        {t('landing.syncIsPaid')}
+                    </span>
                 </p>
             </div>
 

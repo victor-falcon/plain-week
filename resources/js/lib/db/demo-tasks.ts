@@ -2,6 +2,7 @@ import { addDays, isoWeekday } from '@/lib/recurrence/dates';
 import { db } from './database';
 import { createTask, setRecurrence, toggleDone } from './tasks';
 import type { CreateTaskInput } from './tasks';
+import { t } from '@/lib/i18n';
 
 type DemoTask = CreateTaskInput & { done?: boolean; repeatWeekly?: boolean };
 
@@ -14,16 +15,16 @@ function demoTasks(today: string): DemoTask[] {
     const day = (offset: number) => addDays(monday, offset);
 
     return [
-        { text: 'Hover to complete me', date: day(0) },
-        { text: 'Done looks like this', date: day(0), done: true },
-        { text: 'Click a task to edit it', date: day(0) },
-        { text: 'Drag me to another day', date: day(0) },
-        { text: 'Pick a color in the editor', date: day(1), color: 'yellow' },
-        { text: 'Times go first', date: day(1), time: '17:30' },
-        { text: 'Type a date first, like 31 Dec Party', date: day(1) },
-        { text: 'Right-click for actions', date: day(2) },
-        { text: 'Weekly review', date: day(4), repeatWeekly: true },
-        { text: 'Ideas without a date live here', date: null },
+        { text: t('planner.demoHover'), date: day(0) },
+        { text: t('planner.demoDone'), date: day(0), done: true },
+        { text: t('planner.demoClick'), date: day(0) },
+        { text: t('planner.demoDrag'), date: day(0) },
+        { text: t('planner.demoColor'), date: day(1), color: 'yellow' },
+        { text: t('planner.demoTime'), date: day(1), time: '17:30' },
+        { text: t('planner.demoDate'), date: day(1) },
+        { text: t('planner.demoRightClick'), date: day(2) },
+        { text: t('planner.demoWeekly'), date: day(4), repeatWeekly: true },
+        { text: t('planner.demoSomeday'), date: null },
     ];
 }
 

@@ -6,6 +6,8 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { t } from '@/lib/i18n';
+import { tRich } from '@/lib/i18n/rich';
 import { CopyField } from './copy-button';
 
 /** Shown in the snippets until a personal token was just created. */
@@ -54,51 +56,55 @@ function AppsSetup({ api, bearer }: { api: ApiInfo; bearer: string }) {
     return (
         <div className="space-y-4" data-test="agents-apps-setup">
             <p className="text-sm text-muted-foreground">
-                In a Plain Week app, choose Sign in and approve it in the window
-                that opens; no token is needed. Apps that can't sign in take a
-                personal token instead.
+                {t('settings.agents.apps.setup.signIn')}
             </p>
             <p className="text-sm text-muted-foreground">
-                Building your own? Apps sync through the app API, signing in
-                with OAuth (authorization code with PKCE) or sending a personal
-                token as a Bearer header.
+                {t('settings.agents.apps.setup.building')}
             </p>
             <div className="space-y-2">
-                <p className="text-sm font-medium">API base URL</p>
+                <p className="text-sm font-medium">
+                    {t('settings.agents.apps.setup.baseUrl')}
+                </p>
                 <CopyField
                     value={api.baseUrl}
-                    label="Copy API URL"
+                    label={t('settings.agents.apps.setup.copyApiUrl')}
                     data-test="agents-api-url"
                 />
             </div>
             <div className="space-y-2">
-                <p className="text-sm font-medium">Header</p>
+                <p className="text-sm font-medium">
+                    {t('settings.agents.apps.setup.header')}
+                </p>
                 <CopyField
                     value={bearerHeader(bearer)}
-                    label="Copy header"
+                    label={t('settings.agents.apps.setup.copyHeader')}
                     data-test="agents-api-header"
                 />
             </div>
             <div className="space-y-2">
-                <p className="text-sm font-medium">Try it</p>
+                <p className="text-sm font-medium">
+                    {t('settings.agents.apps.setup.tryIt')}
+                </p>
                 <CopyField
                     value={apiCurlCommand(api.baseUrl, bearer)}
-                    label="Copy command"
+                    label={t('settings.agents.setup.copyCommand')}
                     multiline
                     data-test="agents-api-curl"
                 />
             </div>
             <div className="space-y-2">
-                <p className="text-sm font-medium">OAuth server metadata</p>
+                <p className="text-sm font-medium">
+                    {t('settings.agents.apps.setup.metadata')}
+                </p>
                 <CopyField
                     value={api.authorizationServerMetadataUrl}
-                    label="Copy metadata URL"
+                    label={t('settings.agents.apps.setup.copyMetadataUrl')}
                     data-test="agents-oauth-metadata"
                 />
                 <p className="text-sm text-muted-foreground">
-                    Lists the authorization, token and registration endpoints.
-                    Apps register themselves and redirect to a loopback address
-                    or a <code>plainweek://</code> URL.
+                    {tRich('settings.agents.apps.setup.metadataHint', {
+                        code: (text) => <code>{text}</code>,
+                    })}
                 </p>
             </div>
         </div>
@@ -107,22 +113,18 @@ function AppsSetup({ api, bearer }: { api: ApiInfo; bearer: string }) {
 
 function SetupCard({
     title,
-    subject,
+    description,
     children,
 }: {
     title: string;
-    /** Who gets access, for the description ("Apps", "Agents and apps"). */
-    subject: string;
+    description: string;
     children: React.ReactNode;
 }) {
     return (
         <Card data-test="agents-setup">
             <CardHeader>
                 <CardTitle>{title}</CardTitle>
-                <CardDescription>
-                    {subject} get the same access to your planner as you: they
-                    can read, add, change and delete tasks.
-                </CardDescription>
+                <CardDescription>{description}</CardDescription>
             </CardHeader>
             <CardContent>{children}</CardContent>
         </Card>
@@ -149,49 +151,54 @@ export function SetupSnippets({
 
     if (mcpUrl === null) {
         return (
-            <SetupCard title="Connect an app" subject="Apps">
+            <SetupCard
+                title={t('settings.agents.setup.titleApps')}
+                description={t('settings.agents.setup.descriptionApps')}
+            >
                 <AppsSetup api={api} bearer={bearer} />
             </SetupCard>
         );
     }
 
     return (
-        <SetupCard title="Connect an agent or app" subject="Agents and apps">
+        <SetupCard
+            title={t('settings.agents.setup.title')}
+            description={t('settings.agents.setup.description')}
+        >
             <Tabs defaultValue="claude">
                 <TabsList className="max-w-full justify-start overflow-x-auto">
                     <TabsTrigger value="claude">Claude</TabsTrigger>
                     <TabsTrigger value="claude-code">Claude Code</TabsTrigger>
-                    <TabsTrigger value="other">Other clients</TabsTrigger>
-                    <TabsTrigger value="apps">Apps</TabsTrigger>
+                    <TabsTrigger value="other">
+                        {t('settings.agents.setup.otherClients')}
+                    </TabsTrigger>
+                    <TabsTrigger value="apps">
+                        {t('settings.agents.setup.appsTab')}
+                    </TabsTrigger>
                 </TabsList>
                 <TabsContent value="claude" className="space-y-3 pt-2">
                     <ol className="list-decimal space-y-2 ps-5 text-sm text-muted-foreground">
                         <li>
-                            In claude.ai or Claude Desktop, open Settings ›
-                            Connectors and choose{' '}
-                            <span className="font-medium text-foreground">
-                                Add custom connector
-                            </span>
-                            .
+                            {tRich('settings.agents.setup.claudeStep1', {
+                                strong: (text) => (
+                                    <span className="font-medium text-foreground">
+                                        {text}
+                                    </span>
+                                ),
+                            })}
                         </li>
-                        <li>
-                            Name it “Plain Week” and paste the MCP server URL
-                            above.
-                        </li>
-                        <li>
-                            Choose Connect, then Approve in the Plain Week
-                            window that opens. No token is needed.
-                        </li>
+                        <li>{t('settings.agents.setup.claudeStep2')}</li>
+                        <li>{t('settings.agents.setup.claudeStep3')}</li>
                     </ol>
                 </TabsContent>
 
                 <TabsContent value="claude-code" className="space-y-3 pt-2">
                     <p className="text-sm text-muted-foreground">
-                        Create a personal token below, then run:
+                        {t('settings.agents.setup.claudeCodeIntro')}
                     </p>
                     <CopyField
                         value={claudeCodeCommand(mcpUrl, bearer)}
-                        label="Copy command"
+                        label={t('settings.agents.setup.copyCommand')}
                         multiline
                         data-test="agents-claude-code"
                     />
@@ -199,13 +206,11 @@ export function SetupSnippets({
 
                 <TabsContent value="other" className="space-y-3 pt-2">
                     <p className="text-sm text-muted-foreground">
-                        For clients that support remote MCP servers (Streamable
-                        HTTP). Those that support OAuth only need the URL; the
-                        others send a personal token:
+                        {t('settings.agents.setup.otherIntro')}
                     </p>
                     <CopyField
                         value={jsonConfig(mcpUrl, bearer)}
-                        label="Copy configuration"
+                        label={t('settings.agents.setup.copyConfiguration')}
                         multiline
                         data-test="agents-json"
                     />

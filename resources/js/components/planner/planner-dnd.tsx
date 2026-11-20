@@ -42,6 +42,7 @@ import type {
     TaskDragData,
     WeekDirection,
 } from '@/lib/planner/drop';
+import { t } from '@/lib/i18n';
 import { toastWithUndo } from '@/lib/planner/undo';
 
 /** A mouse drag starts after this much movement, so a click still opens. */
@@ -185,10 +186,9 @@ function dropTargetOf(collision: Collision | undefined): DropTarget | null {
     }
 }
 
-const screenReaderInstructions: ScreenReaderInstructions = {
-    draggable:
-        'To move a task, press Space or Enter on its move button. Use the arrow keys to choose where it goes, Space or Enter to drop it, Escape to cancel.',
-};
+const screenReaderInstructions = (): ScreenReaderInstructions => ({
+    draggable: t('planner.dragInstructions'),
+});
 
 function overLabel(data: unknown): string | null {
     const over = data as DropData | undefined;
@@ -198,7 +198,9 @@ function overLabel(data: unknown): string | null {
     }
 
     if (over.type === 'edge') {
-        return over.direction === -1 ? 'the previous week' : 'the next week';
+        return over.direction === -1
+            ? t('planner.previousWeekLower')
+            : t('planner.nextWeekLower');
     }
 
     return placementLabel(over.placement);
@@ -390,7 +392,7 @@ export function PlannerDnd({
 
         return moveTask(id, move)
             .catch((error: unknown) => {
-                toast.error('Could not move the task.');
+                toast.error(t('planner.moveTaskFailed'));
                 throw error;
             })
             .finally(() =>
@@ -417,7 +419,9 @@ export function PlannerDnd({
                     // The task left the screen: say where it went.
                     if (drop.indicator === null) {
                         toastWithUndo(
-                            `Moved to ${placementLabel(drop.move)}.`,
+                            t('planner.movedTo', {
+                                place: placementLabel(drop.move),
+                            }),
                             () => void write(task.id, undo),
                         );
                     }
@@ -454,22 +458,27 @@ export function PlannerDnd({
 
     const announcements: Announcements = {
         onDragStart: ({ active }) =>
-            `Picked up task ${textOf(active.data.current)}.`,
+            t('planner.pickedUp', { text: textOf(active.data.current) }),
         onDragOver: ({ over }) => {
             const label = overLabel(over?.data.current);
 
-            return label ? `Over ${label}.` : 'Not over a list.';
+            return label
+                ? t('planner.over', { place: label })
+                : t('planner.notOverList');
         },
         onDragEnd: ({ active }) => {
             const drop = lastResult.current;
             const text = textOf(active.data.current);
 
             return drop
-                ? `Moved ${text} to ${placementLabel(drop.move)}.`
-                : `${text} was not moved.`;
+                ? t('planner.droppedAt', {
+                      text,
+                      place: placementLabel(drop.move),
+                  })
+                : t('planner.notMoved', { text });
         },
         onDragCancel: ({ active }) =>
-            `Cancelled. ${textOf(active.data.current)} was not moved.`,
+            t('planner.dragCancelled', { text: textOf(active.data.current) }),
     };
 
     return (
@@ -481,7 +490,10 @@ export function PlannerDnd({
             measuring={{
                 droppable: { strategy: MeasuringStrategy.Always },
             }}
-            accessibility={{ announcements, screenReaderInstructions }}
+            accessibility={{
+                announcements,
+                screenReaderInstructions: screenReaderInstructions(),
+            }}
             onDragStart={handleDragStart}
             onDragMove={handleDragMove}
             onDragEnd={handleDragEnd}

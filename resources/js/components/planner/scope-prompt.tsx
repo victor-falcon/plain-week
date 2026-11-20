@@ -12,32 +12,37 @@ import {
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import type { Scope } from '@/lib/db/tasks';
+import { t } from '@/lib/i18n';
 import { needsScope } from '@/lib/planner/task-actions';
 import type { PlannerTask } from '@/lib/recurrence/expand';
 
 /** What the user is about to do to a recurring task. */
 export type ScopeAction = 'edit' | 'delete' | 'repeat' | 'stop-repeating';
 
-const COPY: Record<ScopeAction, { title: string; description: string }> = {
-    edit: {
-        title: 'Edit recurring task',
-        description: 'Change only this task, or this one and every later one?',
-    },
-    delete: {
-        title: 'Delete recurring task',
-        description: 'Delete only this task, or this one and every later one?',
-    },
-    repeat: {
-        title: 'Change repeat',
-        description:
-            'Apply the new repeat to only this task (it becomes a series of its own), or to this one and every later one?',
-    },
-    'stop-repeating': {
-        title: 'Stop repeating',
-        description:
-            'Turn only this task into a one-off task, or stop the series from this task on?',
-    },
-};
+function copyFor(action: ScopeAction): { title: string; description: string } {
+    switch (action) {
+        case 'edit':
+            return {
+                title: t('task.scopeEditTitle'),
+                description: t('task.scopeEditDescription'),
+            };
+        case 'delete':
+            return {
+                title: t('task.scopeDeleteTitle'),
+                description: t('task.scopeDeleteDescription'),
+            };
+        case 'repeat':
+            return {
+                title: t('task.scopeRepeatTitle'),
+                description: t('task.scopeRepeatDescription'),
+            };
+        case 'stop-repeating':
+            return {
+                title: t('task.scopeStopTitle'),
+                description: t('task.scopeStopDescription'),
+            };
+    }
+}
 
 type AskOptions = {
     /** The answer is kept for the next changes (the task dialog's edits). */
@@ -109,7 +114,7 @@ export function ScopePromptProvider({ children }: { children: ReactNode }) {
         restoreFocus(returnFocus.current);
     };
 
-    const copy = prompt ? COPY[prompt.action] : null;
+    const copy = prompt ? copyFor(prompt.action) : null;
     const destructive = prompt?.action === 'delete';
 
     return (
@@ -132,11 +137,13 @@ export function ScopePromptProvider({ children }: { children: ReactNode }) {
                             <AlertDialogDescription>
                                 {copy.description}
                                 {prompt?.remembered &&
-                                    ' Your answer applies to your other changes until you close the task.'}
+                                    ` ${t('task.scopeRemembered')}`}
                             </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogCancel>
+                                {t('common.cancel')}
+                            </AlertDialogCancel>
                             {/*
                               Two answers: Radix's Action closes the prompt,
                               so each one resolves before it closes.
@@ -145,7 +152,7 @@ export function ScopePromptProvider({ children }: { children: ReactNode }) {
                                 variant="outline"
                                 onClick={() => answer('future')}
                             >
-                                This and all future
+                                {t('task.scopeFuture')}
                             </AlertDialogAction>
                             <AlertDialogAction
                                 variant={
@@ -153,7 +160,7 @@ export function ScopePromptProvider({ children }: { children: ReactNode }) {
                                 }
                                 onClick={() => answer('this')}
                             >
-                                Only this task
+                                {t('task.scopeThis')}
                             </AlertDialogAction>
                         </AlertDialogFooter>
                     </AlertDialogContent>

@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/card';
 import { Spinner } from '@/components/ui/spinner';
 import { useCheckout } from '@/hooks/use-checkout';
+import { intlLocale, t } from '@/lib/i18n';
 import { plans, portal } from '@/routes/billing';
 import type { Plan } from '@/types';
 
@@ -33,7 +34,7 @@ type Props = {
 function formatDate(iso: string | null): string {
     return iso === null
         ? ''
-        : new Intl.DateTimeFormat(undefined, { dateStyle: 'long' }).format(
+        : new Intl.DateTimeFormat(intlLocale(), { dateStyle: 'long' }).format(
               new Date(iso),
           );
 }
@@ -46,11 +47,13 @@ function CurrentPlan({
     if (plan === 'lifetime') {
         return (
             <>
-                <CardTitle>Lifetime</CardTitle>
+                <CardTitle>{t('settings.billing.lifetime')}</CardTitle>
                 <CardDescription>
                     {lifetimeSince
-                        ? `Yours since ${formatDate(lifetimeSince)}. Sync is included for good.`
-                        : 'Sync is included for good.'}
+                        ? t('settings.billing.lifetimeSince', {
+                              date: formatDate(lifetimeSince),
+                          })
+                        : t('settings.billing.lifetimeDescription')}
                 </CardDescription>
             </>
         );
@@ -59,10 +62,9 @@ function CurrentPlan({
     if (subscription?.paymentFailed) {
         return (
             <>
-                <CardTitle>Weekly: payment failed</CardTitle>
+                <CardTitle>{t('settings.billing.paymentFailed')}</CardTitle>
                 <CardDescription>
-                    Update your payment method to keep syncing. Your tasks stay
-                    on this device meanwhile.
+                    {t('settings.billing.paymentFailedDescription')}
                 </CardDescription>
             </>
         );
@@ -71,13 +73,17 @@ function CurrentPlan({
     if (plan === 'weekly') {
         return (
             <>
-                <CardTitle>Weekly</CardTitle>
+                <CardTitle>{t('settings.billing.weekly')}</CardTitle>
                 <CardDescription>
                     {subscription?.cancelled
-                        ? `Cancelled. Sync keeps working until ${formatDate(subscription.endsAt)}.`
+                        ? t('settings.billing.cancelled', {
+                              date: formatDate(subscription.endsAt),
+                          })
                         : subscription?.renewsAt
-                          ? `Renews on ${formatDate(subscription.renewsAt)}.`
-                          : 'Renews every week.'}
+                          ? t('settings.billing.renewsOn', {
+                                date: formatDate(subscription.renewsAt),
+                            })
+                          : t('settings.billing.renewsWeekly')}
                 </CardDescription>
             </>
         );
@@ -85,9 +91,9 @@ function CurrentPlan({
 
     return (
         <>
-            <CardTitle>No plan</CardTitle>
+            <CardTitle>{t('settings.billing.noPlan')}</CardTitle>
             <CardDescription>
-                Choose a plan to sync your tasks across your devices.
+                {t('settings.billing.noPlanDescription')}
             </CardDescription>
         </>
     );
@@ -105,15 +111,15 @@ export default function Billing({
 
     return (
         <>
-            <Head title="Billing" />
+            <Head title={t('settings.billing.title')} />
 
-            <h1 className="sr-only">Billing</h1>
+            <h1 className="sr-only">{t('settings.billing.title')}</h1>
 
             <div className="space-y-6">
                 <Heading
                     variant="small"
-                    title="Billing"
-                    description="Your plan, payment method and invoices"
+                    title={t('settings.billing.title')}
+                    description={t('settings.billing.description')}
                 />
 
                 <Card data-test="current-plan">
@@ -127,7 +133,9 @@ export default function Billing({
                     <CardFooter className="gap-2">
                         {plan === null && subscription === null && (
                             <Button asChild>
-                                <Link href={plans()}>Choose a plan</Link>
+                                <Link href={plans()}>
+                                    {t('settings.billing.choosePlan')}
+                                </Link>
                             </Button>
                         )}
                         {hasStripeCustomer && (
@@ -141,8 +149,8 @@ export default function Billing({
                             >
                                 <a href={portal.url()}>
                                     {subscription === null
-                                        ? 'Invoices'
-                                        : 'Manage subscription'}
+                                        ? t('settings.billing.invoices')
+                                        : t('settings.billing.manage')}
                                 </a>
                             </Button>
                         )}
@@ -152,11 +160,11 @@ export default function Billing({
                 {plan === 'weekly' && lifetimeOffer && (
                     <Card data-test="upgrade-lifetime">
                         <CardHeader>
-                            <CardTitle>Upgrade to lifetime</CardTitle>
+                            <CardTitle>
+                                {t('settings.billing.upgrade')}
+                            </CardTitle>
                             <CardDescription>
-                                Pay once and stop paying every week. Your weekly
-                                subscription ends with the period you already
-                                paid for.
+                                {t('settings.billing.upgradeDescription')}
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
@@ -168,7 +176,7 @@ export default function Billing({
                                 onClick={() => start('lifetime')}
                             >
                                 {pending === 'lifetime' && <Spinner />}
-                                Upgrade to lifetime
+                                {t('settings.billing.upgrade')}
                             </Button>
                         </CardFooter>
                     </Card>

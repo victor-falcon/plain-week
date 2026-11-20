@@ -8,6 +8,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
+import { t } from '@/lib/i18n';
 
 type FloatingCardProps = {
     /** The card's heading; also names the dialog for screen readers. */
@@ -111,7 +112,10 @@ export function FloatingCard({
                 {hasTopBar && (
                     <div className="flex min-h-9 items-center justify-between gap-3">
                         {onBack && (
-                            <RoundIconButton label="Back" onClick={onBack}>
+                            <RoundIconButton
+                                label={t('common.back')}
+                                onClick={onBack}
+                            >
                                 <ChevronLeft className="rtl:rotate-180" />
                             </RoundIconButton>
                         )}
@@ -120,7 +124,7 @@ export function FloatingCard({
                         </div>
                         {showCloseButton && (
                             <RoundIconButton
-                                label="Close"
+                                label={t('common.close')}
                                 onClick={onClose}
                                 data-test="floating-card-close"
                             >

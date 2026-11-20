@@ -9,37 +9,35 @@ import { FloatingCard } from '@/components/floating-card';
 import { Button } from '@/components/ui/button';
 import { useLogout } from '@/hooks/use-logout';
 import { send } from '@/routes/verification';
+import { t } from '@/lib/i18n';
 
 export default function VerifyEmail({ status }: { status?: string }) {
     const handleLogout = useLogout();
 
     return (
         <>
-            <Head title="Email verification" />
+            <Head title={t('auth.emailVerification')} />
 
             <FloatingCard
-                title="Check your email"
-                description="Click the link we just emailed you to verify your address."
+                title={t('auth.checkYourEmail')}
+                description={t('auth.checkYourEmailDescription')}
                 onClose={closeToPlanner}
             >
                 {status === 'verification-link-sent' && (
-                    <AuthStatus>
-                        A new verification link has been sent to the email
-                        address you signed up with.
-                    </AuthStatus>
+                    <AuthStatus>{t('auth.verificationLinkSent')}</AuthStatus>
                 )}
 
                 <Form {...send.form()}>
                     {({ processing }) => (
                         <AuthSubmit processing={processing}>
-                            Resend verification email
+                            {t('auth.resendVerification')}
                         </AuthSubmit>
                     )}
                 </Form>
 
                 <AuthFootnote>
                     <Button variant="link" onClick={handleLogout}>
-                        Log out
+                        {t('auth.logOut')}
                     </Button>
                 </AuthFootnote>
             </FloatingCard>

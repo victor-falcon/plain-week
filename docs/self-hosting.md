@@ -55,6 +55,8 @@ echo "base64:$(openssl rand -base64 32)"
 | `APP_URL`               | `http://localhost`                      | The public URL, for example `https://plan.example.com`. Used in emails, generated links and link previews (og:image)                                                                                                                                                        |
 | `APP_NAME`              | `Plain Week`                            | Shown in the page title and emails                                                                                                                                                                                                                                          |
 | `APP_NOINDEX`           | `false`                                 | `true` asks search engines not to index the instance (see [Noindex](#noindex))                                                                                                                                                                                              |
+| `APP_LOCALE`            | `en`                                    | Language for browsers that ask for none the instance offers, and for push notifications of accounts on "Browser default". Must be `en` or a locale with a translation file (see [Translations](#translations))                                                              |
+| `TRANSLATIONS_PATH`     | `/app/storage/translations`             | Directory of `<locale>.json` translation files that add languages or reword English (see [Translations](#translations)). Missing or empty: English only                                                                                                                     |
 | `DB_DATABASE`           | `/app/storage/database/database.sqlite` | The SQLite file. Keep it under `/app/storage` so it lives on the volume                                                                                                                                                                                                     |
 | `TRUSTED_PROXIES`       | private ranges                          | Proxies whose `X-Forwarded-*` headers are trusted: comma-separated IPs/CIDRs, or `*` (any caller). The default trusts loopback and private networks (`127.0.0.0/8,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,::1,fc00::/7`), which covers Coolify and a proxy on the same host |
 | `SESSION_SECURE_COOKIE` | on when `APP_URL` is `https://`         | Only send the session cookie over HTTPS. Set `false` if `APP_URL` says `https://` but users reach the app over plain HTTP                                                                                                                                                   |
@@ -265,6 +267,66 @@ resetting their password and using everything else as before.
 While the instance has no users at all, sign-up stays open anyway, so a fresh instance can still create its first
 account; it closes as soon as that account exists. To add someone later, set `REGISTRATION_ENABLED=true` for as long as
 they need to sign up.
+
+## Translations
+
+Plain Week ships in English only. You can add languages, or reword the English text, without rebuilding the image: put
+one JSON file per language in the translations directory (`TRANSLATIONS_PATH`, by default `translations/` in the
+storage volume, so `/app/storage/translations`) and reload the page. No restart is needed.
+
+```text
+/app/storage/translations/
+├── de.json      # adds German
+├── pt-BR.json   # adds Brazilian Portuguese
+└── en.json      # rewords English (optional)
+```
+
+The file name is the language: a two- or three-letter code (`de`, `fil`), optionally with a region or script (`pt-BR`,
+`zh_Hant`). Each file is a JSON object of keys and texts. A key you leave out shows in English, so a file can start with
+a few keys and grow.
+
+```json
+{
+    "planner.someday": "Irgendwann",
+    "planner.carriedOver": {
+        "one": "{count} offene Aufgabe auf heute verschoben",
+        "other": "{count} offene Aufgaben auf heute verschoben"
+    },
+    "Profile updated.": "Profil gespeichert.",
+    "validation.required": "Das Feld :attribute ist erforderlich.",
+    "Reset your password": "Passwort zurücksetzen"
+}
+```
+
+- **App keys** (`planner.someday`, `settings.profile.title`, …) cover every text of the app. They are listed with their
+  English text in [`resources/js/lang/en`](../resources/js/lang/en), one file per area. `{name}` is a placeholder
+  filled in by the app; keep it. A plural is an object with one text per
+  [plural category](https://cldr.unicode.org/index/cldr-spec/plural-rules) of the language (`zero`, `one`, `two`,
+  `few`, `many`, `other`; `other` is required), and `{count}` is the number.
+- **Server texts** are keyed by their English text: flash messages ("Profile updated."), push notifications ("Today",
+  ":count tasks today"), the password reset and verification emails ("Reset your password", …) and the page's
+  link preview description. Laravel's own messages use its keys (`validation.required`, `auth.failed`,
+  `passwords.reset`, …; see [Laravel's `lang/en`](https://github.com/laravel/framework/tree/13.x/src/Illuminate/Translation/lang/en)).
+  `:name` is a placeholder there. Grouped Laravel keys work one by one (`validation.required`), not as nested
+  objects, so `validation.attributes.*` and `validation.custom.*` can't be overridden.
+
+**Which language is used.** Settings › Preferences shows a **Language** picker as soon as the instance offers more
+than English: "Browser default" (the default) or one of the languages, saved to the account so every device and the
+emails and push notifications follow it. Otherwise the browser's preferred languages pick the first language the
+instance offers (`de-AT` matches `de`, `pt` matches `pt-BR`), then `APP_LOCALE`, then English. Guests always get the
+browser's language. Arabic, Persian, Hebrew and Urdu are laid out right to left.
+
+**Offline.** The page carries the active language's translations, and the offline copy of the planner keeps them, so a
+translated planner stays translated offline. After you change a file, open the app once online to pick it up.
+
+**Not translated:** the terms and privacy pages of the hosted service (SaaS mode), the offline fallback page
+(`/offline.html`), the founder's welcome email (SaaS mode, English or Spanish), the MCP tool descriptions that AI agents
+read, and typed dates in the task input ("tomorrow", "fri"), which stay English words. A file that is not valid JSON
+is ignored and logged as a warning, so a typo never takes the instance down.
+
+With Docker Compose, mount a directory there, for example `./translations:/app/storage/translations:ro`. In Coolify,
+add a **Directory Mount** (or one **File Mount** per language) to the `plainweek` service at
+`/app/storage/translations`.
 
 ## Noindex
 

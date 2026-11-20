@@ -18,6 +18,8 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
+import { t } from '@/lib/i18n';
+import { tRich } from '@/lib/i18n/rich';
 import { plans } from '@/routes/billing';
 
 type Props = {
@@ -52,40 +54,48 @@ export default function Agents({
 
     return (
         <>
-            <Head title="Agents & apps" />
+            <Head title={t('settings.agents.title')} />
 
-            <h1 className="sr-only">Agents & apps</h1>
+            <h1 className="sr-only">{t('settings.agents.title')}</h1>
 
             <div className="space-y-6">
                 <Heading
                     variant="small"
-                    title="Agents & apps"
-                    description={
+                    title={t('settings.agents.title')}
+                    description={t(
                         mcpOn
-                            ? 'Let AI agents like Claude and apps read and plan your week'
-                            : 'Let apps read and plan your week'
-                    }
+                            ? 'settings.agents.description'
+                            : 'settings.agents.descriptionApiOnly',
+                    )}
                 />
 
                 {needsPlan && (
                     <Alert data-test="agents-needs-plan">
                         <CircleAlert />
                         <AlertTitle>
-                            {mcpOn ? 'Agents and apps need' : 'Apps need'} a
-                            paid plan
+                            {t(
+                                mcpOn
+                                    ? 'settings.agents.needsPlanTitle'
+                                    : 'settings.agents.needsPlanTitleApiOnly',
+                            )}
                         </AlertTitle>
                         <AlertDescription>
                             <p>
-                                You can set up a connection now;{' '}
-                                {mcpOn ? 'agents and apps' : 'apps'} can use
-                                your planner once you{' '}
-                                <Link
-                                    href={plans()}
-                                    className="font-medium text-foreground underline underline-offset-4"
-                                >
-                                    choose a plan
-                                </Link>
-                                .
+                                {tRich(
+                                    mcpOn
+                                        ? 'settings.agents.needsPlan'
+                                        : 'settings.agents.needsPlanApiOnly',
+                                    {
+                                        plan: (text) => (
+                                            <Link
+                                                href={plans()}
+                                                className="font-medium text-foreground underline underline-offset-4"
+                                            >
+                                                {text}
+                                            </Link>
+                                        ),
+                                    },
+                                )}
                             </p>
                         </AlertDescription>
                     </Alert>
@@ -94,16 +104,17 @@ export default function Agents({
                 {mcpOn && (
                     <Card data-test="agents-url">
                         <CardHeader>
-                            <CardTitle>MCP server URL</CardTitle>
+                            <CardTitle>
+                                {t('settings.agents.url.title')}
+                            </CardTitle>
                             <CardDescription>
-                                Plain Week is an MCP server: add this URL to any
-                                agent that supports remote MCP servers.
+                                {t('settings.agents.url.description')}
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
                             <CopyField
                                 value={mcpUrl}
-                                label="Copy URL"
+                                label={t('settings.agents.url.copy')}
                                 data-test="agents-mcp-url"
                             />
                         </CardContent>

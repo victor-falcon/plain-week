@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { useTaskDialogShortcuts } from '@/hooks/use-task-dialog-shortcuts';
 import { toggleDone, updateTask } from '@/lib/db/tasks';
+import { t } from '@/lib/i18n';
 import { deleteWithUndo } from '@/lib/planner/task-actions';
 import { cn } from '@/lib/utils';
 import { TaskColorPicker } from './task-color-picker';
@@ -163,17 +164,22 @@ function TaskDialogContent({ onClose }: { onClose: () => void }) {
                 }}
                 className="top-4 max-h-[calc(100dvh-2rem)] translate-y-0 gap-4 overflow-y-auto bg-secondary p-4 text-secondary-foreground sm:top-16 sm:max-h-[calc(100dvh-8rem)] sm:max-w-lg sm:p-6"
             >
-                <DialogTitle className="sr-only">Edit task</DialogTitle>
+                <DialogTitle className="sr-only">
+                    {t('task.editTitle')}
+                </DialogTitle>
                 <div className="-mx-2 -mt-1 flex min-w-0 items-center gap-1">
                     <TaskDatePicker />
                     <TaskTimePicker />
                     <div className="ms-auto flex items-center gap-1">
-                        <ToolbarTooltip label="Delete" action="dialog.delete">
+                        <ToolbarTooltip
+                            label={t('common.delete')}
+                            action="dialog.delete"
+                        >
                             <Button
                                 type="button"
                                 variant="ghost"
                                 size="icon-sm"
-                                aria-label="Delete"
+                                aria-label={t('common.delete')}
                                 onClick={handleDelete}
                                 className={TOOLBAR_BUTTON_CLASS}
                             >
@@ -193,7 +199,7 @@ function TaskDialogContent({ onClose }: { onClose: () => void }) {
                 <div className="mt-6 flex items-start gap-2 border-b border-foreground/30 pb-1">
                     <LinkedTextField
                         ref={titleRef}
-                        aria-label="Task"
+                        aria-label={t('task.taskLabel')}
                         defaultValue={task.text}
                         rows={1}
                         onChange={(event) => {
@@ -247,7 +253,9 @@ function TaskDialogContent({ onClose }: { onClose: () => void }) {
                         variant="ghost"
                         size="icon-sm"
                         aria-label={
-                            task.done ? 'Mark as not done' : 'Mark as done'
+                            task.done
+                                ? t('task.markNotDone')
+                                : t('task.markDone')
                         }
                         aria-pressed={task.done}
                         onClick={() =>
@@ -266,8 +274,8 @@ function TaskDialogContent({ onClose }: { onClose: () => void }) {
                 </div>
                 <LinkedTextField
                     ref={notesRef}
-                    aria-label="Notes"
-                    placeholder="Add some extra notes here…"
+                    aria-label={t('task.notes')}
+                    placeholder={t('task.notesPlaceholder')}
                     defaultValue={task.notes}
                     onChange={(event) => {
                         const field = event.target;

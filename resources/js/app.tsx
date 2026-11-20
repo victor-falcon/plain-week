@@ -5,6 +5,8 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { initializeTheme } from '@/hooks/use-appearance';
 import SettingsLayout from '@/layouts/settings/layout';
 import PlannerLayout from '@/layouts/planner-layout';
+import { configureI18n } from '@/lib/i18n';
+import { reloadOnLocaleChange } from '@/lib/i18n/reload-on-change';
 import { syncSubscriptionWithSession } from '@/lib/notifications/session';
 import { registerServiceWorker } from '@/lib/pwa/register';
 
@@ -33,7 +35,11 @@ void createInertiaApp({
         }
     },
     strictMode: true,
-    withApp(app) {
+    withApp(app, { page }) {
+        // Before the first render: the page (or the cached offline shell)
+        // carries the language and the instance's translations.
+        configureI18n(page.props.i18n);
+
         return (
             <DirectionProvider
                 dir={document.documentElement.dir === 'rtl' ? 'rtl' : 'ltr'}
@@ -49,6 +55,9 @@ void createInertiaApp({
         color: '#4B5563',
     },
 });
+
+// A response in another language reloads the page to render it.
+reloadOnLocaleChange();
 
 // This will set light / dark mode on load...
 initializeTheme();

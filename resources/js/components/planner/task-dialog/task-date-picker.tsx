@@ -9,6 +9,7 @@ import {
 import { parseDateKey, toDateKey } from '@/lib/db/dates';
 import { moveTask } from '@/lib/db/tasks';
 import { formatLongDate, formatShortDate } from '@/lib/planner/format';
+import { t } from '@/lib/i18n';
 import { focusCalendarDay } from './calendar-focus';
 import { useTaskEditor } from './task-editor';
 import { useToolbarPicker } from './toolbar-picker';
@@ -25,9 +26,11 @@ export function TaskDatePicker() {
     const { open, onOpenChange } = useToolbarPicker('date');
     const disabled = task.kind === 'series';
     const selected = task.date ? parseDateKey(task.date) : undefined;
-    const label = task.date ? formatLongDate(task.date) : 'Someday';
+    const label = task.date ? formatLongDate(task.date) : t('task.someday');
     // Phones show "12 Oct" so the toolbar stays on one line.
-    const shortLabel = task.date ? formatShortDate(task.date) : 'Someday';
+    const shortLabel = task.date
+        ? formatShortDate(task.date)
+        : t('task.someday');
 
     const handleSelect = (date: Date | undefined) => {
         onOpenChange(false);
@@ -35,20 +38,20 @@ export function TaskDatePicker() {
         if (date && toDateKey(date) !== task.date) {
             write((id) => moveTask(id, { date: toDateKey(date) }), {
                 follow: true,
-                error: 'Could not move the task.',
+                error: t('task.moveFailed'),
             });
         }
     };
 
     return (
         <Popover open={open && !disabled} onOpenChange={onOpenChange}>
-            <ToolbarTooltip label="Date" action="dialog.date">
+            <ToolbarTooltip label={t('task.date')} action="dialog.date">
                 <PopoverTrigger asChild>
                     <Button
                         type="button"
                         variant="ghost"
                         size="sm"
-                        aria-label={`Date: ${label}`}
+                        aria-label={t('task.dateValue', { date: label })}
                         disabled={disabled}
                         className={`${TOOLBAR_BUTTON_CLASS} min-w-0 shrink font-medium`}
                     >

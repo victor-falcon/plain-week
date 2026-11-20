@@ -7,6 +7,8 @@ import type {
     Saas,
 } from '@/types/auth';
 
+import type { I18nProps } from '@/lib/i18n';
+
 declare module 'react' {
     interface InputHTMLAttributes<T> {
         passwordrules?: string;
@@ -27,6 +29,7 @@ declare module '@inertiajs/core' {
             notifications: Notifications;
             mcp: Mcp;
             account: Account | null;
+            i18n: I18nProps;
             [key: string]: unknown;
         };
     }

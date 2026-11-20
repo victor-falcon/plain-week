@@ -6,6 +6,8 @@ import { FloatingCard } from '@/components/floating-card';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { approve, deny } from '@/routes/passport/authorizations';
+import { t } from '@/lib/i18n';
+import { tRich } from '@/lib/i18n/rich';
 
 type Props = {
     client: { id: string; name: string };
@@ -54,11 +56,14 @@ export default function Authorize({
 
     return (
         <>
-            <Head title="Connect an app" />
+            <Head title={t('auth.connectAnApp')} />
 
             <FloatingCard
-                title={`Connect ${client.name} to Plain Week?`}
-                description={`${client.name} will be able to see, add, change and delete the tasks in your planner, as ${account.email}.`}
+                title={t('auth.connectTitle', { client: client.name })}
+                description={t('auth.connectDescription', {
+                    client: client.name,
+                    email: account.email,
+                })}
                 toolbar={<AppLogoIcon className="size-9" aria-hidden />}
             >
                 {redirectHost !== null && (
@@ -66,11 +71,17 @@ export default function Authorize({
                         className="rounded-2xl bg-muted px-4 py-3 text-sm text-muted-foreground"
                         data-test="oauth-redirect-host"
                     >
-                        Approving sends you back to{' '}
-                        <span className="font-semibold break-all text-foreground">
-                            {redirectHost}
-                        </span>
-                        . Only approve if that is the app you are connecting.
+                        {tRich(
+                            'auth.approvingSendsYouBack',
+                            {
+                                host: (text) => (
+                                    <span className="font-semibold break-all text-foreground">
+                                        {text}
+                                    </span>
+                                ),
+                            },
+                            { host: redirectHost },
+                        )}
                     </p>
                 )}
 
@@ -86,7 +97,7 @@ export default function Authorize({
                             disabled={submitting !== null}
                             data-test="oauth-approve"
                         >
-                            Approve
+                            {t('auth.approve')}
                         </AuthSubmit>
                     </form>
 
@@ -103,15 +114,12 @@ export default function Authorize({
                             data-test="oauth-deny"
                         >
                             {submitting === 'deny' && <Spinner />}
-                            Deny
+                            {t('auth.deny')}
                         </Button>
                     </form>
                 </div>
 
-                <AuthFootnote>
-                    You can disconnect it at any time in Settings › Agents &
-                    apps.
-                </AuthFootnote>
+                <AuthFootnote>{t('auth.disconnectAnytime')}</AuthFootnote>
             </FloatingCard>
         </>
     );

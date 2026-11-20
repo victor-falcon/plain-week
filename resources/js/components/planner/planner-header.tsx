@@ -10,6 +10,7 @@ import {
 import { installAppStore, isReachableFromPhone } from '@/lib/install-app';
 import { formatMonthTitle, formatWeekNumber } from '@/lib/planner/format';
 import { isoWeekNumber, weekThursday } from '@/lib/planner/week';
+import { t } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 
 type Props = {
@@ -51,7 +52,7 @@ export function PlannerHeader({
                             aria-label={
                                 isCurrentWeek
                                     ? undefined
-                                    : 'Go to the current week (t)'
+                                    : t('planner.goToCurrentWeek')
                             }
                             className={cn(
                                 'h-auto min-w-0 truncate rounded-md p-0 font-[inherit] text-3xl leading-[inherit] tracking-[inherit] hover:bg-transparent disabled:opacity-100 lg:text-4xl',
@@ -70,7 +71,7 @@ export function PlannerHeader({
                     {!isCurrentWeek && (
                         <TooltipContent side="bottom">
                             <HintedLabel
-                                label="Current week"
+                                label={t('planner.currentWeek')}
                                 action="week.today"
                                 all
                             />
@@ -78,13 +79,16 @@ export function PlannerHeader({
                     )}
                 </Tooltip>
                 <span className="shrink-0 text-muted-foreground/50">
-                    <abbr title={`Week ${week}`} className="no-underline">
+                    <abbr
+                        title={t('planner.weekTitle', { week })}
+                        className="no-underline"
+                    >
                         {formatWeekNumber(week)}
                     </abbr>
                 </span>
             </h1>
             <nav
-                aria-label="Week"
+                aria-label={t('planner.weekNav')}
                 className="flex shrink-0 items-center gap-1.5"
             >
                 {isReachableFromPhone() && (
@@ -95,7 +99,7 @@ export function PlannerHeader({
                         data-test="install-mobile-app"
                     >
                         <Smartphone className="size-4" aria-hidden />
-                        Install mobile app
+                        {t('planner.installMobileApp')}
                     </Button>
                 )}
                 <AccountButton />
@@ -105,14 +109,14 @@ export function PlannerHeader({
                             size="icon-lg"
                             className={navButton}
                             onClick={onPreviousWeek}
-                            aria-label="Previous week"
+                            aria-label={t('planner.previousWeek')}
                         >
                             <ChevronLeft className="size-5 rtl:rotate-180" />
                         </Button>
                     </TooltipTrigger>
                     <TooltipContent side="bottom">
                         <HintedLabel
-                            label="Previous week"
+                            label={t('planner.previousWeek')}
                             action="week.previous"
                             all
                         />
@@ -124,13 +128,17 @@ export function PlannerHeader({
                             size="icon-lg"
                             className={navButton}
                             onClick={onNextWeek}
-                            aria-label="Next week"
+                            aria-label={t('planner.nextWeek')}
                         >
                             <ChevronRight className="size-5 rtl:rotate-180" />
                         </Button>
                     </TooltipTrigger>
                     <TooltipContent side="bottom">
-                        <HintedLabel label="Next week" action="week.next" all />
+                        <HintedLabel
+                            label={t('planner.nextWeek')}
+                            action="week.next"
+                            all
+                        />
                     </TooltipContent>
                 </Tooltip>
             </nav>

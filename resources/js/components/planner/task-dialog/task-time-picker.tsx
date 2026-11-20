@@ -8,6 +8,7 @@ import {
 } from '@/components/ui/popover';
 import { updateTask } from '@/lib/db/tasks';
 import { cn } from '@/lib/utils';
+import { t } from '@/lib/i18n';
 import { useTaskEditor } from './task-editor';
 import { useToolbarPicker } from './toolbar-picker';
 import { TOOLBAR_BUTTON_CLASS, ToolbarTooltip } from './toolbar-tooltip';
@@ -43,14 +44,16 @@ export function TaskTimePicker() {
 
     return (
         <Popover open={open} onOpenChange={onOpenChange}>
-            <ToolbarTooltip label="Time" action="dialog.time">
+            <ToolbarTooltip label={t('task.time')} action="dialog.time">
                 <PopoverTrigger asChild>
                     <Button
                         type="button"
                         variant="ghost"
                         size={task.time ? 'sm' : 'icon-sm'}
                         aria-label={
-                            task.time ? `Time: ${task.time}` : 'Set time'
+                            task.time
+                                ? t('task.timeValue', { time: task.time })
+                                : t('task.setTime')
                         }
                         className={cn(
                             TOOLBAR_BUTTON_CLASS,
@@ -67,7 +70,7 @@ export function TaskTimePicker() {
             <PopoverContent align="start" className="w-auto flex-row gap-2">
                 <Input
                     type="time"
-                    aria-label="Time"
+                    aria-label={t('task.time')}
                     step={60}
                     defaultValue={task.time ?? ''}
                     onChange={(event) => handleChange(event.target)}
@@ -79,7 +82,7 @@ export function TaskTimePicker() {
                     onClick={handleClear}
                     disabled={!task.time}
                 >
-                    Clear
+                    {t('task.clear')}
                 </Button>
             </PopoverContent>
         </Popover>

@@ -6,6 +6,7 @@ import {
 } from '@/components/planner/keyboard-cursor';
 import { ShortcutHint } from '@/components/planner/shortcut-hint';
 import { Input } from '@/components/ui/input';
+import { t } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 
 type Props = {
@@ -80,7 +81,7 @@ export function NewTaskRow({
             data-cursor={isCursor || undefined}
             tabIndex={-1}
             role="group"
-            aria-label={`${label}. Press Enter to type.`}
+            aria-label={t('planner.newTaskRowLabel', { label })}
             className={cn(
                 'group/new relative h-row border-b border-border outline-none max-lg:scroll-mt-20',
                 CURSOR_ROW_CLASS,

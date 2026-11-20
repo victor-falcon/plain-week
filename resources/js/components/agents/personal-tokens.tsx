@@ -13,6 +13,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
+import { t } from '@/lib/i18n';
 import { destroy, store } from '@/routes/agents/tokens';
 import { AgentAccessList } from './agent-access-list';
 import type { AgentAccess } from './agent-access-list';
@@ -36,11 +37,9 @@ export function PersonalTokens({
     return (
         <Card data-test="agents-tokens">
             <CardHeader>
-                <CardTitle>Personal tokens</CardTitle>
+                <CardTitle>{t('settings.agents.tokens.title')}</CardTitle>
                 <CardDescription>
-                    For agents and apps that send a token instead of signing in.
-                    Keep it secret: it gives full access to your planner until
-                    you revoke it.
+                    {t('settings.agents.tokens.description')}
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -48,13 +47,15 @@ export function PersonalTokens({
                     <Alert data-test="agents-new-token">
                         <KeyRound />
                         <AlertTitle>
-                            Copy the token for “{newToken.name}” now
+                            {t('settings.agents.tokens.newTokenTitle', {
+                                name: newToken.name,
+                            })}
                         </AlertTitle>
                         <AlertDescription className="w-full space-y-2">
-                            <p>You won't be able to see it again.</p>
+                            <p>{t('settings.agents.tokens.newTokenHint')}</p>
                             <CopyField
                                 value={newToken.token}
-                                label="Copy token"
+                                label={t('settings.agents.tokens.copy')}
                                 multiline
                                 data-test="agents-new-token-value"
                             />
@@ -70,14 +71,18 @@ export function PersonalTokens({
                 >
                     {({ processing, errors }) => (
                         <>
-                            <Label htmlFor="token-name">New token</Label>
+                            <Label htmlFor="token-name">
+                                {t('settings.agents.tokens.new')}
+                            </Label>
                             <div className="flex gap-2">
                                 <Input
                                     id="token-name"
                                     name="name"
                                     required
                                     maxLength={100}
-                                    placeholder="e.g. Claude Code on my laptop"
+                                    placeholder={t(
+                                        'settings.agents.tokens.placeholder',
+                                    )}
                                     aria-invalid={!!errors.name}
                                     data-test="agents-token-name"
                                 />
@@ -87,7 +92,7 @@ export function PersonalTokens({
                                     data-test="agents-token-create"
                                 >
                                     {processing && <Spinner />}
-                                    Create
+                                    {t('settings.agents.tokens.create')}
                                 </Button>
                             </div>
                             <InputError message={errors.name} />
@@ -97,15 +102,19 @@ export function PersonalTokens({
 
                 <AgentAccessList
                     items={tokens}
-                    created="Created"
-                    empty="No personal tokens yet."
+                    created="settings.agents.created"
+                    empty="settings.agents.tokens.empty"
                     data-test="agents-token-list"
                     action={(token) => (
                         <RevokeButton
                             action={destroy(token.id)}
-                            label="Revoke"
-                            title={`Revoke “${token.name}”?`}
-                            description="Agents and apps using this token lose access to your planner at once. This can't be undone."
+                            label={t('settings.agents.tokens.revoke')}
+                            title={t('settings.agents.tokens.revokeTitle', {
+                                name: token.name,
+                            })}
+                            description={t(
+                                'settings.agents.tokens.revokeDescription',
+                            )}
                             data-test="agents-token-revoke"
                         />
                     )}

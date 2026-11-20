@@ -22,6 +22,8 @@ import { useLogout } from '@/hooks/use-logout';
 import { chosenPlan, forgetChosenPlan } from '@/lib/landing';
 import { edit as editData } from '@/routes/data';
 import type { Plan } from '@/types';
+import { t } from '@/lib/i18n';
+import { tRich } from '@/lib/i18n/rich';
 
 type Props = {
     plans: Offers;
@@ -49,18 +51,17 @@ function ProcessingNotice() {
 
     return timedOut ? (
         <Alert>
-            <AlertTitle>Your payment is still being confirmed</AlertTitle>
+            <AlertTitle>{t('billing.paymentStillConfirming')}</AlertTitle>
             <AlertDescription>
-                Some payment methods take a while. Sync starts on its own once
-                it is confirmed; reload this page later to check.
+                {t('billing.paymentStillConfirmingDescription')}
             </AlertDescription>
         </Alert>
     ) : (
         <Alert>
             <Spinner />
-            <AlertTitle>Confirming your payment…</AlertTitle>
+            <AlertTitle>{t('billing.confirmingPayment')}</AlertTitle>
             <AlertDescription>
-                This page continues on its own once Stripe confirms it.
+                {t('billing.confirmingPaymentDescription')}
             </AlertDescription>
         </Alert>
     );
@@ -175,11 +176,11 @@ export default function Plans({ plans, processing }: Props) {
 
     return (
         <>
-            <Head title="Choose a plan" />
+            <Head title={t('billing.choosePlanTitle')} />
 
             <FloatingCard
-                title="Choose your plan"
-                description="Sync on every device and a backup on our server."
+                title={t('billing.chooseYourPlan')}
+                description={t('billing.chooseYourPlanDescription')}
                 // Start on the chosen plan, not on "Log out".
                 onOpenAutoFocus={(event) => {
                     event.preventDefault();
@@ -187,7 +188,7 @@ export default function Plans({ plans, processing }: Props) {
                 }}
                 toolbar={
                     <>
-                        <span>Step 2 of 2</span>
+                        <span>{t('billing.stepTwoOfTwo')}</span>
                         <Button
                             variant="link"
                             size="sm"
@@ -195,7 +196,7 @@ export default function Plans({ plans, processing }: Props) {
                             onClick={logOut}
                             data-test="logout-button"
                         >
-                            Log out
+                            {t('auth.logOut')}
                         </Button>
                     </>
                 }
@@ -205,19 +206,19 @@ export default function Plans({ plans, processing }: Props) {
                 <RadioGroup
                     value={plan}
                     onValueChange={(value) => choose(value as Plan)}
-                    aria-label="Plan"
+                    aria-label={t('billing.plan')}
                     className="gap-4 pt-1"
                 >
                     <PlanOption
                         value="lifetime"
-                        name="Lifetime"
-                        note="Pay once, sync forever."
+                        name={t('billing.lifetime')}
+                        note={t('billing.lifetimeNote')}
                         price={lifetime.price}
                         priceNote={
                             lifetime.regularPrice && (
                                 <span className="line-through">
                                     <span className="sr-only">
-                                        Regular price:{' '}
+                                        {t('billing.regularPrice')}{' '}
                                     </span>
                                     {lifetime.regularPrice}
                                 </span>
@@ -227,10 +228,10 @@ export default function Plans({ plans, processing }: Props) {
                     />
                     <PlanOption
                         value="weekly"
-                        name="Weekly"
-                        note="Cancel anytime."
+                        name={t('billing.weekly')}
+                        note={t('billing.weeklyNote')}
                         price={weekly.price}
-                        priceNote="per week"
+                        priceNote={t('billing.perWeek')}
                     />
                 </RadioGroup>
 
@@ -238,13 +239,13 @@ export default function Plans({ plans, processing }: Props) {
 
                 <div className="flex justify-between gap-3 px-0.5 text-sm">
                     <span className="text-muted-foreground">
-                        Due today, VAT included
+                        {t('billing.dueToday')}
                     </span>
                     <span className="flex items-baseline gap-2">
                         {applied && (
                             <span className="text-muted-foreground line-through">
                                 <span className="sr-only">
-                                    Without the code:{' '}
+                                    {t('billing.withoutTheCode')}{' '}
                                 </span>
                                 {plans[plan].price}
                             </span>
@@ -262,32 +263,35 @@ export default function Plans({ plans, processing }: Props) {
                         onClick={continueToPayment}
                         data-test="checkout-button"
                     >
-                        {applied?.free ? 'Continue' : 'Continue to payment'}
+                        {applied?.free
+                            ? t('common.continue')
+                            : t('billing.continueToPayment')}
                     </AuthSubmit>
                     <AuthFootnote className="flex items-center justify-center gap-1.5 text-xs">
                         <Lock className="size-3" aria-hidden />
                         {applied?.free
-                            ? 'Nothing to pay and no card needed. Stripe confirms the order.'
-                            : 'Secure payment with Stripe. No trial, no hidden fees.'}
+                            ? t('billing.nothingToPay')
+                            : t('billing.securePayment')}
                     </AuthFootnote>
                 </div>
 
                 {/* Logging out wipes this account's local data, so the way back to free local use says so. */}
                 <AuthFootnote className="text-xs">
-                    Not now?{' '}
-                    <Button
-                        variant="link"
-                        className="inline h-auto p-0 text-start text-xs whitespace-normal text-muted-foreground underline"
-                        onClick={logOut}
-                        data-test="not-now-logout"
-                    >
-                        Log out and keep using Plain Week for free in this
-                        browser.
-                    </Button>{' '}
-                    <TextLink href={editData()}>
-                        Export your tasks first
-                    </TextLink>
-                    .
+                    {tRich('billing.notNow', {
+                        logout: (text) => (
+                            <Button
+                                variant="link"
+                                className="inline h-auto p-0 text-start text-xs whitespace-normal text-muted-foreground underline"
+                                onClick={logOut}
+                                data-test="not-now-logout"
+                            >
+                                {text}
+                            </Button>
+                        ),
+                        export: (text) => (
+                            <TextLink href={editData()}>{text}</TextLink>
+                        ),
+                    })}
                 </AuthFootnote>
 
                 <LegalLinks />

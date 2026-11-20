@@ -49,8 +49,8 @@ a token does not already cover the case.
 
 ## RTL
 
-The `<html>` element gets `dir="rtl"` for the locales listed in `config('app.rtl_locales')` (`ar`, `fa`, `he`, `ur`)
-and `dir="ltr"` otherwise. `resources/js/app.tsx` reads that attribute and passes it to shadcn's `DirectionProvider`,
+The `<html>` element gets `dir="rtl"` when the active locale's language is listed in `config('app.rtl_locales')`
+(`ar`, `fa`, `he`, `ur`; `ar-EG` counts as `ar`) and `dir="ltr"` otherwise. `resources/js/app.tsx` reads that attribute and passes it to shadcn's `DirectionProvider`,
 which hands the direction to Radix components.
 
 Always use logical utilities so layouts mirror correctly:
@@ -604,6 +604,12 @@ holds a row per preference: a `Label` with a short `text-muted-foreground` expla
 "Move unfinished tasks to today", on by default; it applies at once, with no save button. When it moves tasks the
 planner shows one plain toast ("Moved 3 unfinished tasks to today"). Behaviour is in
 [architecture.md](./architecture.md#carry-over-unfinished-tasks).
+
+A second section, "Language", shows only when the instance offers more than English (translation files, see
+[self-hosting.md](./self-hosting.md#translations)): one row with the `Label`, a hint and a shadcn `Select`
+(`components/language-select.tsx`) listing "Browser default" and each language by its own name ("Deutsch", via
+`Intl.DisplayNames`). Unlike the planner preferences it belongs to the account (`PATCH /settings/language`); once saved,
+the page reloads in the new language.
 
 ## Settings › Notifications
 

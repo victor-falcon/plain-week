@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { toast } from 'sonner';
 import { useCarryOverSetting } from '@/hooks/use-carry-over-setting';
+import { t } from '@/lib/i18n';
 import { carryOverTasks } from '@/lib/db/tasks';
 import { syncEngine } from '@/lib/sync';
 
@@ -35,11 +36,7 @@ export function useCarryOver(today: string): void {
             // One quiet note per run (never per task), so a backlog moving at
             // once is not a surprise. Only the tab that moved them shows it.
             if (moved > 0) {
-                toast(
-                    moved === 1
-                        ? 'Moved 1 unfinished task to today'
-                        : `Moved ${moved} unfinished tasks to today`,
-                );
+                toast(t('planner.carriedOver', { count: moved }));
             }
         };
 

@@ -8,6 +8,8 @@
  * `SEQUENCE_TIMEOUT_MS`.
  */
 
+import { t } from '@/lib/i18n';
+
 export const SHORTCUT_GROUPS = [
     'Navigation',
     'Tasks',
@@ -17,6 +19,22 @@ export const SHORTCUT_GROUPS = [
 ] as const;
 
 export type ShortcutGroup = (typeof SHORTCUT_GROUPS)[number];
+
+/** A group's heading in the active language. */
+export function groupLabel(group: ShortcutGroup): string {
+    switch (group) {
+        case 'Navigation':
+            return t('planner.shortcutGroupNavigation');
+        case 'Tasks':
+            return t('planner.shortcutGroupTasks');
+        case 'Weeks':
+            return t('planner.shortcutGroupWeeks');
+        case 'General':
+            return t('planner.shortcutGroupGeneral');
+        case 'Task dialog':
+            return t('planner.shortcutGroupTaskDialog');
+    }
+}
 
 export type ShortcutId =
     | 'cursor.previousDay'
@@ -82,7 +100,9 @@ export const SHORTCUTS: ShortcutDefinition[] = [
     {
         id: 'cursor.previousDay',
         keys: [['h']],
-        label: 'Previous day',
+        get label() {
+            return t('planner.shortcutCursorPreviousDay');
+        },
         group: 'Navigation',
         mirror: 'cursor.nextDay',
         repeats: true,
@@ -90,7 +110,9 @@ export const SHORTCUTS: ShortcutDefinition[] = [
     {
         id: 'cursor.nextDay',
         keys: [['l']],
-        label: 'Next day',
+        get label() {
+            return t('planner.shortcutCursorNextDay');
+        },
         group: 'Navigation',
         mirror: 'cursor.previousDay',
         repeats: true,
@@ -98,223 +120,314 @@ export const SHORTCUTS: ShortcutDefinition[] = [
     {
         id: 'cursor.down',
         keys: [['j'], ['ArrowDown']],
-        label: 'Next task',
+        get label() {
+            return t('planner.shortcutCursorDown');
+        },
         group: 'Navigation',
         repeats: true,
     },
     {
         id: 'cursor.up',
         keys: [['k'], ['ArrowUp']],
-        label: 'Previous task',
+        get label() {
+            return t('planner.shortcutCursorUp');
+        },
         group: 'Navigation',
         repeats: true,
     },
     {
         id: 'cursor.first',
         keys: [['g', 'g']],
-        label: 'First task of the day',
+        get label() {
+            return t('planner.shortcutCursorFirst');
+        },
         group: 'Navigation',
     },
     {
         id: 'cursor.last',
         keys: [['G']],
-        label: 'Last task of the day',
+        get label() {
+            return t('planner.shortcutCursorLast');
+        },
         group: 'Navigation',
     },
     {
         id: 'cursor.clear',
         keys: [['Escape']],
-        label: 'Hide the cursor',
+        get label() {
+            return t('planner.shortcutCursorClear');
+        },
         group: 'Navigation',
     },
     {
         id: 'task.open',
         // On a new-task row, Enter starts typing (the row's hint shows it).
         keys: [['Enter']],
-        label: 'Open',
+        get label() {
+            return t('planner.shortcutTaskOpen');
+        },
         group: 'Tasks',
     },
     {
         id: 'task.toggleDone',
         keys: [['x'], ['Space']],
-        label: 'Mark as done or not done',
+        get label() {
+            return t('planner.shortcutTaskToggleDone');
+        },
         group: 'Tasks',
     },
     {
         id: 'task.new',
         keys: [['a'], ['i']],
-        label: 'New task in this day',
+        get label() {
+            return t('planner.shortcutTaskNew');
+        },
         group: 'Tasks',
     },
     {
         id: 'task.moveDown',
         keys: [['J']],
-        label: 'Move down',
+        get label() {
+            return t('planner.shortcutTaskMoveDown');
+        },
         group: 'Tasks',
     },
     {
         id: 'task.moveUp',
         keys: [['K']],
-        label: 'Move up',
+        get label() {
+            return t('planner.shortcutTaskMoveUp');
+        },
         group: 'Tasks',
     },
     {
         id: 'task.nextDay',
         keys: [['>']],
-        label: 'Move to the next day',
+        get label() {
+            return t('planner.shortcutTaskNextDay');
+        },
         group: 'Tasks',
     },
     {
         id: 'task.previousDay',
         keys: [['<']],
-        label: 'Move to the previous day',
+        get label() {
+            return t('planner.shortcutTaskPreviousDay');
+        },
         group: 'Tasks',
     },
     {
         id: 'task.nextWeek',
         keys: [['w']],
-        label: 'Move to next week',
+        get label() {
+            return t('planner.shortcutTaskNextWeek');
+        },
         group: 'Tasks',
     },
     {
         id: 'task.someday',
         keys: [['s']],
-        label: 'Move to Someday',
+        get label() {
+            return t('planner.shortcutTaskSomeday');
+        },
         group: 'Tasks',
     },
     {
         id: 'task.duplicate',
         keys: [['y']],
-        label: 'Duplicate',
+        get label() {
+            return t('planner.shortcutTaskDuplicate');
+        },
         group: 'Tasks',
     },
     {
         id: 'task.delete',
         keys: [['d', 'd'], ['Delete'], ['Backspace']],
-        label: 'Delete',
+        get label() {
+            return t('planner.shortcutTaskDelete');
+        },
         group: 'Tasks',
     },
     {
         id: 'task.menu',
         keys: [['m'], ['Shift+F10'], ['ContextMenu']],
-        label: 'Task menu',
+        get label() {
+            return t('planner.shortcutTaskMenu');
+        },
         group: 'Tasks',
     },
     {
         id: 'week.previous',
         keys: [['H'], ['ArrowLeft']],
-        label: 'Previous week',
+        get label() {
+            return t('planner.shortcutWeekPrevious');
+        },
         group: 'Weeks',
         mirror: 'week.next',
     },
     {
         id: 'week.next',
         keys: [['L'], ['ArrowRight']],
-        label: 'Next week',
+        get label() {
+            return t('planner.shortcutWeekNext');
+        },
         group: 'Weeks',
         mirror: 'week.previous',
     },
     {
         id: 'week.today',
         keys: [['t']],
-        label: 'This week, on today',
+        get label() {
+            return t('planner.shortcutWeekToday');
+        },
         group: 'Weeks',
     },
     {
         id: 'general.undo',
         keys: [['u']],
-        label: 'Undo what the latest toast offers',
+        get label() {
+            return t('planner.shortcutGeneralUndo');
+        },
         group: 'General',
     },
     {
         id: 'general.settings',
         keys: [[',']],
-        label: 'Settings',
+        get label() {
+            return t('planner.shortcutGeneralSettings');
+        },
         group: 'General',
     },
     {
         id: 'general.help',
         keys: [['?']],
-        label: 'Keyboard shortcuts',
+        get label() {
+            return t('planner.shortcutGeneralHelp');
+        },
         group: 'General',
     },
     // The task dialog's own keys: plain keys, so they only run when focus is
     // not in one of its text fields (Tab leaves a field).
-    { id: 'dialog.date', keys: [['d']], label: 'Date', group: 'Task dialog' },
-    { id: 'dialog.time', keys: [['t']], label: 'Time', group: 'Task dialog' },
+    {
+        id: 'dialog.date',
+        keys: [['d']],
+        get label() {
+            return t('planner.shortcutDialogDate');
+        },
+        group: 'Task dialog',
+    },
+    {
+        id: 'dialog.time',
+        keys: [['t']],
+        get label() {
+            return t('planner.shortcutDialogTime');
+        },
+        group: 'Task dialog',
+    },
     {
         id: 'dialog.repeat',
         keys: [['r']],
-        label: 'Repeat',
+        get label() {
+            return t('planner.shortcutDialogRepeat');
+        },
         group: 'Task dialog',
     },
-    { id: 'dialog.color', keys: [['c']], label: 'Color', group: 'Task dialog' },
+    {
+        id: 'dialog.color',
+        keys: [['c']],
+        get label() {
+            return t('planner.shortcutDialogColor');
+        },
+        group: 'Task dialog',
+    },
     {
         id: 'dialog.more',
         keys: [['m']],
-        label: 'More actions',
+        get label() {
+            return t('planner.shortcutDialogMore');
+        },
         group: 'Task dialog',
     },
     {
         id: 'dialog.title',
         keys: [['e']],
-        label: 'Edit the title',
+        get label() {
+            return t('planner.shortcutDialogTitle');
+        },
         group: 'Task dialog',
     },
     {
         id: 'dialog.notes',
         keys: [['n']],
-        label: 'Edit the notes',
+        get label() {
+            return t('planner.shortcutDialogNotes');
+        },
         group: 'Task dialog',
     },
     {
         id: 'dialog.subtask',
         keys: [['a']],
-        label: 'Add a subtask',
+        get label() {
+            return t('planner.shortcutDialogSubtask');
+        },
         group: 'Task dialog',
     },
     {
         id: 'dialog.toggleDone',
         keys: [['x']],
-        label: 'Mark as done or not done',
+        get label() {
+            return t('planner.shortcutDialogToggleDone');
+        },
         group: 'Task dialog',
     },
     {
         id: 'dialog.nextDay',
         keys: [['>']],
-        label: 'Move to the next day',
+        get label() {
+            return t('planner.shortcutDialogNextDay');
+        },
         group: 'Task dialog',
     },
     {
         id: 'dialog.nextWeek',
         keys: [['w']],
-        label: 'Move to next week',
+        get label() {
+            return t('planner.shortcutDialogNextWeek');
+        },
         group: 'Task dialog',
     },
     {
         id: 'dialog.someday',
         keys: [['s']],
-        label: 'Move to Someday',
+        get label() {
+            return t('planner.shortcutDialogSomeday');
+        },
         group: 'Task dialog',
     },
     {
         id: 'dialog.duplicate',
         keys: [['y']],
-        label: 'Duplicate',
+        get label() {
+            return t('planner.shortcutDialogDuplicate');
+        },
         group: 'Task dialog',
     },
     {
         id: 'dialog.delete',
         // Not Backspace: easy to press by reflex after typing.
         keys: [['Delete']],
-        label: 'Delete',
+        get label() {
+            return t('planner.shortcutDialogDelete');
+        },
         group: 'Task dialog',
     },
     // Radix closes the dialog; listed for the dialog and the hints.
     {
         id: 'dialog.close',
         keys: [['Escape']],
-        label: 'Close',
+        get label() {
+            return t('planner.shortcutDialogClose');
+        },
         group: 'Task dialog',
     },
 ];
@@ -372,33 +485,50 @@ export function keyLabel(key: string): string {
         case 'Enter':
             return '⏎';
         case 'Escape':
-            return 'Esc';
+            return t('planner.keyEscape');
         case 'Backspace':
             return '⌫';
         case 'Delete':
-            return 'Del';
+            return t('planner.keyDelete');
         case 'ContextMenu':
-            return 'Menu';
+            return t('planner.keyMenu');
+        case 'Space':
+            return t('planner.keySpace');
         default:
-            return key.replace('+', ' ');
+            return shiftedLabel(key);
     }
+}
+
+/** "Shift+F10" as "Shift F10", with "Shift" in the active language. */
+function shiftedLabel(key: string): string {
+    return key.startsWith('Shift+')
+        ? t('planner.keyShift', { key: key.slice('Shift+'.length) })
+        : key.replace('+', ' ');
 }
 
 /** Accessible name of a key ("Left arrow", "Shift G"), for screen readers. */
 export function keyName(key: string): string {
     switch (key) {
         case 'ArrowLeft':
-            return 'Left arrow';
+            return t('planner.keyNameArrowLeft');
         case 'ArrowRight':
-            return 'Right arrow';
+            return t('planner.keyNameArrowRight');
         case 'ArrowUp':
-            return 'Up arrow';
+            return t('planner.keyNameArrowUp');
         case 'ArrowDown':
-            return 'Down arrow';
+            return t('planner.keyNameArrowDown');
         case 'ContextMenu':
-            return 'Context menu key';
+            return t('planner.keyNameContextMenu');
+        case 'Enter':
+            return t('planner.keyNameEnter');
+        case 'Escape':
+            return t('planner.keyNameEscape');
+        case 'Space':
+            return t('planner.keySpace');
         default:
-            return /^[A-Z]$/.test(key) ? `Shift ${key}` : key.replace('+', ' ');
+            return /^[A-Z]$/.test(key)
+                ? t('planner.keyShift', { key })
+                : shiftedLabel(key);
     }
 }
 

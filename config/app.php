@@ -107,6 +107,20 @@ return [
 
     'fallback_locale' => env('APP_FALLBACK_LOCALE', 'en'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Translations
+    |--------------------------------------------------------------------------
+    |
+    | English is the only bundled language. A directory of `<locale>.json`
+    | files (for example `de.json`, `pt-BR.json`) adds languages or
+    | overrides English (`en.json`) for both the React app and the server.
+    | See docs/self-hosting.md#translations.
+    |
+    */
+
+    'translations_path' => env('TRANSLATIONS_PATH', storage_path('translations')),
+
     'faker_locale' => env('APP_FAKER_LOCALE', 'en_US'),
 
     /*

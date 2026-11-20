@@ -5,6 +5,8 @@ import type { ReactNode } from 'react';
 import { encode } from 'uqr';
 import { FloatingCard } from '@/components/floating-card';
 import { Button } from '@/components/ui/button';
+import { t } from '@/lib/i18n';
+import { tRich } from '@/lib/i18n/rich';
 import { installAppStore } from '@/lib/install-app';
 
 /** The planner's address as a QR code, drawn as one SVG path (black on white in both themes). */
@@ -28,7 +30,7 @@ function QrCode({ value }: { value: string }) {
         <svg
             viewBox={`0 0 ${size} ${size}`}
             role="img"
-            aria-label={`QR code for ${value}`}
+            aria-label={t('pwa.qrLabel', { value })}
             shapeRendering="crispEdges"
             className="size-36 shrink-0 rounded-xl bg-white ring-1 ring-border"
             data-test="install-app-qr"
@@ -59,6 +61,11 @@ function Steps({ title, steps }: { title: string; steps: ReactNode[] }) {
     );
 }
 
+/** A highlighted menu item name inside a step. */
+const strong = (text: ReactNode) => (
+    <span className="font-medium text-foreground">{text}</span>
+);
+
 /** An inline icon matching the one the browser shows. */
 function StepIcon({ children }: { children: ReactNode }) {
     return (
@@ -82,11 +89,11 @@ export function InstallAppCard() {
 
     return (
         <FloatingCard
-            title="Plain Week on your phone"
+            title={t('pwa.installTitle')}
             description={
                 signedIn
-                    ? 'Install it as an app: it opens from your home screen and works offline. Log in there to see the same week.'
-                    : 'Install it as an app: it opens from your home screen and works offline. Without an account, your phone keeps its own planner.'
+                    ? t('pwa.installDescriptionSignedIn')
+                    : t('pwa.installDescriptionGuest')
             }
             onClose={installAppStore.close}
             onOpenAutoFocus={(event) => {
@@ -97,56 +104,54 @@ export function InstallAppCard() {
             <div className="flex items-center gap-4">
                 <QrCode value={url} />
                 <p className="text-sm leading-normal text-muted-foreground">
-                    Scan the code with your phone&apos;s camera, or open{' '}
-                    <span className="font-semibold break-all text-foreground">
-                        {host}
-                    </span>{' '}
-                    in its browser.
+                    {tRich(
+                        'pwa.scanCode',
+                        {
+                            host: (text) => (
+                                <span className="font-semibold break-all text-foreground">
+                                    {text}
+                                </span>
+                            ),
+                        },
+                        { host },
+                    )}
                 </p>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
                 <Steps
-                    title="iPhone"
+                    title={t('pwa.iphone')}
                     steps={[
-                        'Open it in Safari.',
-                        <>
-                            Tap Share{' '}
-                            <StepIcon>
-                                <Share aria-hidden />
-                            </StepIcon>
-                            .
-                        </>,
-                        <>
-                            Choose{' '}
-                            <span className="font-medium text-foreground">
-                                Add to Home Screen
-                            </span>{' '}
-                            <StepIcon>
-                                <SquarePlus aria-hidden />
-                            </StepIcon>
-                            , then Add.
-                        </>,
+                        t('pwa.iphoneOpenSafari'),
+                        tRich('pwa.iphoneShare', {
+                            shareIcon: () => (
+                                <StepIcon>
+                                    <Share aria-hidden />
+                                </StepIcon>
+                            ),
+                        }),
+                        tRich('pwa.iphoneAddToHome', {
+                            action: strong,
+                            addIcon: () => (
+                                <StepIcon>
+                                    <SquarePlus aria-hidden />
+                                </StepIcon>
+                            ),
+                        }),
                     ]}
                 />
                 <Steps
-                    title="Android"
+                    title={t('pwa.android')}
                     steps={[
-                        'Open it in Chrome.',
-                        <>
-                            Tap the menu{' '}
-                            <StepIcon>
-                                <EllipsisVertical aria-hidden />
-                            </StepIcon>
-                            .
-                        </>,
-                        <>
-                            Choose{' '}
-                            <span className="font-medium text-foreground">
-                                Install app
-                            </span>{' '}
-                            (or Add to Home screen), then Install.
-                        </>,
+                        t('pwa.androidOpenChrome'),
+                        tRich('pwa.androidMenu', {
+                            menuIcon: () => (
+                                <StepIcon>
+                                    <EllipsisVertical aria-hidden />
+                                </StepIcon>
+                            ),
+                        }),
+                        tRich('pwa.androidInstall', { action: strong }),
                     ]}
                 />
             </div>
@@ -157,7 +162,7 @@ export function InstallAppCard() {
                 className="h-12 rounded-full bg-foreground text-base font-semibold text-background hover:bg-foreground/90"
                 data-test="install-app-done"
             >
-                Got it
+                {t('pwa.gotIt')}
             </Button>
         </FloatingCard>
     );

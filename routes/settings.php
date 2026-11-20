@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Settings\AgentsController;
 use App\Http\Controllers\Settings\GoogleCalendarController;
+use App\Http\Controllers\Settings\LanguageController;
 use App\Http\Controllers\Settings\NotificationsController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\SecurityController;
@@ -30,6 +31,8 @@ Route::middleware(['auth'])->group(function () {
 
     // Planner preferences are stored per device in the browser; the server only serves the page.
     Route::inertia('settings/preferences', 'settings/preferences')->name('preferences.edit');
+    // The interface language is the exception: it belongs to the account, so emails and push notifications use it.
+    Route::patch('settings/language', [LanguageController::class, 'update'])->name('language.update');
 
     // Export and import run in the browser against IndexedDB; the server only serves the page.
     Route::inertia('settings/data', 'settings/data')->name('data.edit');

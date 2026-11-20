@@ -1,25 +1,27 @@
+import { t } from '@/lib/i18n';
+
 /** Requests a person could give their agent, written like real prompts (the landing card). */
-export const AGENT_PROMPTS = [
-    'Move everything unfinished to Friday.',
-    'Plan next week from these notes.',
-    "What's left for today?",
-];
+export function agentPrompts(): string[] {
+    return [
+        t('announcement.prompt.move'),
+        t('announcement.prompt.plan'),
+        t('announcement.prompt.today'),
+    ];
+}
 
 /** The two the announcement card shows. */
-export const ANNOUNCEMENT_PROMPTS = [AGENT_PROMPTS[0], AGENT_PROMPTS[2]];
+export function announcementPrompts(): string[] {
+    return [t('announcement.prompt.move'), t('announcement.prompt.today')];
+}
 
 /** The example requests as quoted speech bubbles, the start corner squared. */
-export function AgentPrompts({
-    prompts = AGENT_PROMPTS,
-}: {
-    prompts?: string[];
-}) {
+export function AgentPrompts({ prompts }: { prompts?: string[] }) {
     return (
         <ul
             className="flex flex-col items-start gap-2"
-            aria-label="Things you can ask"
+            aria-label={t('announcement.promptsLabel')}
         >
-            {prompts.map((prompt) => (
+            {(prompts ?? agentPrompts()).map((prompt) => (
                 <li
                     key={prompt}
                     className="rounded-2xl rounded-ss-sm bg-muted px-3.5 py-2 text-sm text-foreground"

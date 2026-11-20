@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import { Switch } from '@/components/ui/switch';
+import { t } from '@/lib/i18n';
 import { deviceState, disable, enable } from '@/lib/notifications/device';
 import type { DeviceState } from '@/lib/notifications/device';
 import { update } from '@/routes/notifications';
@@ -53,12 +54,11 @@ function DeviceNotice({ state }: { state: DeviceState }) {
         return (
             <Alert data-test="notifications-needs-install">
                 <Smartphone />
-                <AlertTitle>Add Plain Week to your Home Screen</AlertTitle>
+                <AlertTitle>
+                    {t('settings.notifications.needsInstallTitle')}
+                </AlertTitle>
                 <AlertDescription>
-                    On iPhone and iPad, notifications only work in the app added
-                    to the Home Screen (iOS 16.4 or later). In Safari, tap
-                    Share, then Add to Home Screen, open Plain Week from there
-                    and turn notifications on.
+                    {t('settings.notifications.needsInstall')}
                 </AlertDescription>
             </Alert>
         );
@@ -68,10 +68,11 @@ function DeviceNotice({ state }: { state: DeviceState }) {
         return (
             <Alert data-test="notifications-unsupported">
                 <BellOff />
-                <AlertTitle>Not available in this browser</AlertTitle>
+                <AlertTitle>
+                    {t('settings.notifications.unsupportedTitle')}
+                </AlertTitle>
                 <AlertDescription>
-                    This browser can't receive notifications from Plain Week.
-                    Recent versions of Chrome, Edge, Firefox and Safari can.
+                    {t('settings.notifications.unsupported')}
                 </AlertDescription>
             </Alert>
         );
@@ -81,11 +82,11 @@ function DeviceNotice({ state }: { state: DeviceState }) {
         return (
             <Alert data-test="notifications-denied">
                 <BellOff />
-                <AlertTitle>Notifications are blocked</AlertTitle>
+                <AlertTitle>
+                    {t('settings.notifications.deniedTitle')}
+                </AlertTitle>
                 <AlertDescription>
-                    This browser blocks notifications from Plain Week. Allow
-                    them in its settings for this site (usually behind the icon
-                    next to the address), then come back here and turn them on.
+                    {t('settings.notifications.denied')}
                 </AlertDescription>
             </Alert>
         );
@@ -104,24 +105,22 @@ function DeviceSwitch({ vapidPublicKey }: { vapidPublicKey: string }) {
         const done = on
             ? enable(vapidPublicKey).then((granted) => {
                   if (granted) {
-                      toast.success('Notifications are on for this device.');
+                      toast.success(t('settings.notifications.turnedOn'));
                   } else if (Notification.permission === 'default') {
-                      toast.info(
-                          'Notifications stay off: allow them when the browser asks.',
-                      );
+                      toast.info(t('settings.notifications.stayOff'));
                   }
               })
             : disable().then(() => {
-                  toast.success('Notifications are off for this device.');
+                  toast.success(t('settings.notifications.turnedOff'));
               });
 
         done.catch(() => {
             toast.error(
                 !on
-                    ? 'Could not turn off notifications. Try again.'
+                    ? t('settings.notifications.turnOffFailed')
                     : navigator.onLine
-                      ? 'Could not turn on notifications. Reload the page and try again.'
-                      : "You're offline. Turn notifications on once you're back online.",
+                      ? t('settings.notifications.turnOnFailed')
+                      : t('settings.notifications.offline'),
             );
         }).finally(() => {
             void deviceState().then((next) => {
@@ -141,14 +140,13 @@ function DeviceSwitch({ vapidPublicKey }: { vapidPublicKey: string }) {
             <div className="flex items-start justify-between gap-4">
                 <div className="space-y-1">
                     <Label htmlFor="notifications-device">
-                        Notifications on this device
+                        {t('settings.notifications.deviceLabel')}
                     </Label>
                     <p
                         id="notifications-device-hint"
                         className="text-sm text-muted-foreground"
                     >
-                        Turn them on on each phone or computer where you want
-                        them. Signing out turns them off here.
+                        {t('settings.notifications.deviceHint')}
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -180,7 +178,7 @@ function MorningTimeForm({ morningTime, timezone }: Props) {
                 <>
                     <div className="grid gap-2">
                         <Label htmlFor="morning-time">
-                            Morning notifications
+                            {t('settings.notifications.morningLabel')}
                         </Label>
                         <Input
                             id="morning-time"
@@ -194,8 +192,10 @@ function MorningTimeForm({ morningTime, timezone }: Props) {
                         />
                         <p className="text-sm text-muted-foreground">
                             {timezone
-                                ? `In your time zone, ${timezone}, taken from the last device that synced.`
-                                : 'In your time zone once one of your devices has synced. Until then, in the time zone of this Plain Week server.'}
+                                ? t('settings.notifications.timezone', {
+                                      timezone,
+                                  })
+                                : t('settings.notifications.timezoneUnknown')}
                         </p>
                         <InputError message={errors.morning_time} />
                     </div>
@@ -204,7 +204,7 @@ function MorningTimeForm({ morningTime, timezone }: Props) {
                         disabled={processing}
                         data-test="notifications-save"
                     >
-                        Save
+                        {t('common.save')}
                     </Button>
                 </>
             )}
@@ -222,23 +222,19 @@ export default function Notifications({ morningTime, timezone }: Props) {
 
     return (
         <>
-            <Head title="Notifications" />
+            <Head title={t('settings.notifications.title')} />
 
-            <h1 className="sr-only">Notifications</h1>
+            <h1 className="sr-only">{t('settings.notifications.title')}</h1>
 
             <div className="space-y-6">
                 <Heading
                     variant="small"
-                    title="Notifications"
-                    description="Reminders for the tasks you plan"
+                    title={t('settings.notifications.title')}
+                    description={t('settings.notifications.description')}
                 />
 
                 <p className="text-sm text-muted-foreground">
-                    Every morning you get one notification with the day's tasks
-                    that have no time and aren't done yet. Tasks with a time get
-                    one 5 minutes before they start instead. Opening a
-                    notification opens its task, or the planner when it lists
-                    several.
+                    {t('settings.notifications.explanation')}
                 </p>
 
                 {notifications?.vapidPublicKey && (

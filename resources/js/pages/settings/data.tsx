@@ -5,6 +5,7 @@ import Heading from '@/components/heading';
 import { SyncProvider } from '@/components/sync-provider';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
+import { t } from '@/lib/i18n';
 import { prepareLocalData } from '@/lib/sync';
 
 /**
@@ -22,15 +23,15 @@ export default function Data() {
 
     return (
         <SyncProvider>
-            <Head title="Data settings" />
+            <Head title={t('settings.data.title')} />
 
-            <h1 className="sr-only">Data settings</h1>
+            <h1 className="sr-only">{t('settings.data.title')}</h1>
 
             <div className="space-y-6">
                 <Heading
                     variant="small"
-                    title="Export data"
-                    description="Download all your tasks, recurring ones included, as a JSON file. Keep it as a backup or move your planner to another Plain Week instance."
+                    title={t('settings.data.export.title')}
+                    description={t('settings.data.export.description')}
                 />
                 <Button
                     onClick={transfer.exportData}
@@ -38,15 +39,15 @@ export default function Data() {
                     data-test="export-data"
                 >
                     {transfer.exporting ? <Spinner /> : <FileDown />}
-                    Export data
+                    {t('settings.data.export.button')}
                 </Button>
             </div>
 
             <div className="space-y-6">
                 <Heading
                     variant="small"
-                    title="Import data"
-                    description="Add the tasks of an export file to your planner. Your existing tasks stay unchanged; importing the same file twice adds its tasks twice."
+                    title={t('settings.data.import.title')}
+                    description={t('settings.data.import.description')}
                 />
                 <Button
                     variant="outline"
@@ -55,15 +56,15 @@ export default function Data() {
                     data-test="import-data"
                 >
                     {transfer.reading ? <Spinner /> : <FileUp />}
-                    Import data…
+                    {t('settings.data.import.button')}
                 </Button>
                 {transfer.element}
             </div>
 
             <Heading
                 variant="small"
-                title="File format"
-                description="A plain-week-export-YYYY-MM-DD.json file with a format marker, a version and the list of tasks: text, date or Someday column, position, done state, color, time, notes, subtasks and repeat rules. Deleted tasks are left out."
+                title={t('settings.data.format.title')}
+                description={t('settings.data.format.description')}
             />
         </SyncProvider>
     );

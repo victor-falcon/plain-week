@@ -29,6 +29,7 @@ import {
     tomorrowMove,
 } from '@/lib/planner/task-actions';
 import { TASK_COLOR_STYLES } from '@/lib/planner/task-colors';
+import { t } from '@/lib/i18n';
 import { isRecurring } from '@/lib/recurrence/expand';
 import type { PlannerTask } from '@/lib/recurrence/expand';
 import { cn } from '@/lib/utils';
@@ -172,8 +173,8 @@ export function TaskRow({
     const label = [
         task.time,
         task.text,
-        repeat.repeats ? '(repeats)' : null,
-        task.done ? '(done)' : null,
+        repeat.repeats ? t('planner.taskRepeats') : null,
+        task.done ? t('planner.taskDone') : null,
     ]
         .filter(Boolean)
         .join(' ');
@@ -186,7 +187,7 @@ export function TaskRow({
                 placement,
                 tasks,
             } satisfies TaskDragData,
-            attributes: { roleDescription: 'movable task' },
+            attributes: { roleDescription: t('planner.movableTask') },
         });
     // Dimmed while dragged, and until the drop has been written.
     const isDragging = usePlannerDnd().activeId === task.id;
@@ -265,7 +266,7 @@ export function TaskRow({
                     variant="ghost"
                     size="icon-sm"
                     {...attributes}
-                    aria-label={`Move ${task.text}`}
+                    aria-label={t('planner.moveTask', { text: task.text })}
                     className="sr-only mt-1 shrink-0 rounded-full hover:bg-transparent focus-visible:not-sr-only"
                 >
                     <GripVertical className="size-5" />
@@ -274,7 +275,11 @@ export function TaskRow({
                     type="button"
                     variant="ghost"
                     size="icon-sm"
-                    aria-label={task.done ? 'Mark as not done' : 'Mark as done'}
+                    aria-label={
+                        task.done
+                            ? t('planner.markNotDone')
+                            : t('planner.markDone')
+                    }
                     aria-pressed={task.done}
                     onClick={() => onToggleDone(task.id)}
                     className={cn(

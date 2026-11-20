@@ -1,4 +1,5 @@
 import type { Plan } from '@/types';
+import { t } from '@/lib/i18n';
 
 /** Prices of the plans as the server formats them from Stripe. */
 export type Offers = {
@@ -45,15 +46,15 @@ export function lifetimeBadge(offers: Offers): string | undefined {
 
     if (featured?.plan === 'lifetime') {
         if (featured.free) {
-            return 'Founder offer';
+            return t('billing.founderOffer');
         }
 
         return featured.percentOff
-            ? `Launch −${featured.percentOff}%`
-            : 'Launch offer';
+            ? t('billing.launchPercent', { percent: featured.percentOff })
+            : t('billing.launchOffer');
     }
 
     return lifetime.discountPercent
-        ? `Launch −${lifetime.discountPercent}%`
+        ? t('billing.launchPercent', { percent: lifetime.discountPercent })
         : undefined;
 }

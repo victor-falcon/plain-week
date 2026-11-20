@@ -1,5 +1,6 @@
 import type { LifetimeOffer } from '@/components/billing/offers';
 import { Badge } from '@/components/ui/badge';
+import { t } from '@/lib/i18n';
 
 /** The lifetime price, with the regular price struck through during the launch offer. */
 export function LifetimePrice({ offer }: { offer: LifetimeOffer }) {
@@ -15,7 +16,9 @@ export function LifetimePrice({ offer }: { offer: LifetimeOffer }) {
             )}
             {offer.discountPercent && (
                 <Badge variant="secondary">
-                    −{offer.discountPercent}% launch offer
+                    {t('billing.launchOfferPercent', {
+                        percent: offer.discountPercent,
+                    })}
                 </Badge>
             )}
         </div>

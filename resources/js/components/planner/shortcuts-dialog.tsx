@@ -8,7 +8,12 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import { SHORTCUTS, SHORTCUT_GROUPS } from '@/lib/planner/shortcuts';
+import { t } from '@/lib/i18n';
+import {
+    SHORTCUTS,
+    SHORTCUT_GROUPS,
+    groupLabel,
+} from '@/lib/planner/shortcuts';
 import { shortcutsDialogStore } from '@/lib/planner/shortcuts-dialog';
 
 /**
@@ -45,10 +50,9 @@ export function ShortcutsDialog({
                 className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-2xl"
             >
                 <DialogHeader>
-                    <DialogTitle>Keyboard shortcuts</DialogTitle>
+                    <DialogTitle>{t('planner.keyboardShortcuts')}</DialogTitle>
                     <DialogDescription>
-                        They work when you are not typing in a field. Press any
-                        of them to show the cursor on a task.
+                        {t('planner.shortcutsDescription')}
                     </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-x-8 gap-y-6 sm:grid-cols-2">
@@ -61,7 +65,7 @@ export function ShortcutsDialog({
                                 id={`shortcuts-${group}`}
                                 className="mb-1 text-sm font-semibold"
                             >
-                                {group}
+                                {groupLabel(group)}
                             </h3>
                             <dl className="flex flex-col">
                                 {shown

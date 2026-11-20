@@ -24,6 +24,7 @@ import {
     nextWeekMove,
     tomorrowMove,
 } from '@/lib/planner/task-actions';
+import { t } from '@/lib/i18n';
 import { useTaskEditor } from './task-editor';
 import { useToolbarPicker } from './toolbar-picker';
 import { TOOLBAR_BUTTON_CLASS, ToolbarTooltip } from './toolbar-tooltip';
@@ -87,13 +88,13 @@ export function TaskMoreMenu() {
 
     return (
         <DropdownMenu {...picker}>
-            <ToolbarTooltip label="More" action="dialog.more">
+            <ToolbarTooltip label={t('task.more')} action="dialog.more">
                 <DropdownMenuTrigger asChild>
                     <Button
                         type="button"
                         variant="ghost"
                         size="icon-sm"
-                        aria-label="More"
+                        aria-label={t('task.more')}
                         className={TOOLBAR_BUTTON_CLASS}
                     >
                         <Ellipsis />
@@ -106,7 +107,7 @@ export function TaskMoreMenu() {
                     disabled={!actions.canMove}
                     onSelect={actions.tomorrow}
                 >
-                    Tomorrow
+                    {t('task.tomorrow')}
                     <MenuShortcut action="dialog.nextDay" />
                     <ArrowRight className="rtl:rotate-180" />
                 </DropdownMenuItem>
@@ -115,7 +116,7 @@ export function TaskMoreMenu() {
                     disabled={!actions.canMove}
                     onSelect={actions.nextWeek}
                 >
-                    Next week
+                    {t('task.nextWeek')}
                     <MenuShortcut action="dialog.nextWeek" />
                     <CalendarArrowUp />
                 </DropdownMenuItem>
@@ -124,7 +125,7 @@ export function TaskMoreMenu() {
                     disabled={!actions.canMoveToSomeday}
                     onSelect={actions.someday}
                 >
-                    Someday
+                    {t('task.someday')}
                     <MenuShortcut action="dialog.someday" />
                     <ArrowDownToLine />
                 </DropdownMenuItem>
@@ -132,7 +133,7 @@ export function TaskMoreMenu() {
                     data-shortcut="dialog.duplicate"
                     onSelect={actions.duplicate}
                 >
-                    Duplicate
+                    {t('task.duplicate')}
                     <MenuShortcut action="dialog.duplicate" />
                     <Copy />
                 </DropdownMenuItem>

@@ -20,6 +20,7 @@ import {
     ContextMenuTrigger,
 } from '@/components/ui/context-menu';
 import { useMenuShortcuts } from '@/hooks/use-menu-shortcuts';
+import { t } from '@/lib/i18n';
 import { TASK_COLORS } from '@/lib/db/types';
 import type { Task, TaskColor } from '@/lib/db/types';
 import type { ShortcutId } from '@/lib/planner/shortcuts';
@@ -137,7 +138,7 @@ export function TaskContextMenu({
                 {children}
             </ContextMenuTrigger>
             <ContextMenuContent
-                aria-label={`Task: ${task.text}`}
+                aria-label={t('planner.taskMenu', { text: task.text })}
                 onKeyDown={handleShortcut}
                 onInteractOutside={() => {
                     closedFromOutside.current = true;
@@ -158,7 +159,7 @@ export function TaskContextMenu({
                 className="min-w-0"
             >
                 <ContextMenuRadioGroup
-                    aria-label="Task color"
+                    aria-label={t('planner.taskColor')}
                     value={task.color}
                     onValueChange={(value) => {
                         if (isTaskColor(value)) {
@@ -188,7 +189,7 @@ export function TaskContextMenu({
                     data-shortcut="task.nextDay"
                     onSelect={onMoveToTomorrow}
                 >
-                    Tomorrow
+                    {t('planner.tomorrow')}
                     <MenuShortcut action="task.nextDay" />
                     <ArrowRight className="rtl:rotate-180" />
                 </ContextMenuItem>
@@ -196,7 +197,7 @@ export function TaskContextMenu({
                     data-shortcut="task.nextWeek"
                     onSelect={onMoveToNextWeek}
                 >
-                    Next week
+                    {t('planner.nextWeekMove')}
                     <MenuShortcut action="task.nextWeek" />
                     <CalendarArrowUp />
                 </ContextMenuItem>
@@ -205,7 +206,7 @@ export function TaskContextMenu({
                         data-shortcut="task.someday"
                         onSelect={onMoveToSomeday}
                     >
-                        Someday
+                        {t('planner.someday')}
                         <MenuShortcut action="task.someday" />
                         <ArrowDownToLine />
                     </ContextMenuItem>
@@ -214,7 +215,7 @@ export function TaskContextMenu({
                     data-shortcut="task.duplicate"
                     onSelect={onDuplicate}
                 >
-                    Duplicate
+                    {t('planner.duplicate')}
                     <MenuShortcut action="task.duplicate" />
                     <Copy />
                 </ContextMenuItem>
@@ -224,7 +225,7 @@ export function TaskContextMenu({
                     data-shortcut="task.delete"
                     onSelect={onDelete}
                 >
-                    Delete
+                    {t('common.delete')}
                     <MenuShortcut action="task.delete" />
                     <Trash2 />
                 </ContextMenuItem>

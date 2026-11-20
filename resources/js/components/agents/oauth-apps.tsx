@@ -5,6 +5,7 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
+import { t } from '@/lib/i18n';
 import { destroy } from '@/routes/agents/apps';
 import { AgentAccessList } from './agent-access-list';
 import type { AgentAccess } from './agent-access-list';
@@ -15,24 +16,28 @@ export function OAuthApps({ apps }: { apps: AgentAccess[] }) {
     return (
         <Card data-test="agents-apps">
             <CardHeader>
-                <CardTitle>Connected apps</CardTitle>
+                <CardTitle>{t('settings.agents.apps.title')}</CardTitle>
                 <CardDescription>
-                    Agents and apps you approved when they asked to connect to
-                    Plain Week.
+                    {t('settings.agents.apps.description')}
                 </CardDescription>
             </CardHeader>
             <CardContent>
                 <AgentAccessList
                     items={apps}
-                    created="Connected"
-                    empty="No apps connected yet."
+                    created="settings.agents.connected"
+                    empty="settings.agents.apps.empty"
                     data-test="agents-app-list"
                     action={(app) => (
                         <RevokeButton
                             action={destroy(app.id)}
-                            label="Disconnect"
-                            title={`Disconnect ${app.name}?`}
-                            description={`${app.name} loses access to your planner at once. To use it again, connect it again and approve it.`}
+                            label={t('settings.agents.apps.disconnect')}
+                            title={t('settings.agents.apps.disconnectTitle', {
+                                name: app.name,
+                            })}
+                            description={t(
+                                'settings.agents.apps.disconnectDescription',
+                                { name: app.name },
+                            )}
                             data-test="agents-app-revoke"
                         />
                     )}

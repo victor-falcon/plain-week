@@ -18,6 +18,8 @@ import { Label } from '@/components/ui/label';
 import { register } from '@/routes';
 import { store } from '@/routes/login';
 import { request } from '@/routes/password';
+import { t } from '@/lib/i18n';
+import { tRich } from '@/lib/i18n/rich';
 
 type Props = {
     status?: string;
@@ -30,11 +32,11 @@ export default function Login({ status, canResetPassword }: Props) {
 
     return (
         <>
-            <Head title="Log in" />
+            <Head title={t('auth.logIn')} />
 
             <FloatingCard
-                title="Welcome back"
-                description="Log in to sync your week."
+                title={t('auth.welcomeBack')}
+                description={t('auth.logInDescription')}
                 onClose={closeToPlanner}
                 toolbar={<AppLogoIcon className="size-9" aria-hidden />}
             >
@@ -51,7 +53,7 @@ export default function Login({ status, canResetPassword }: Props) {
                         <>
                             <AuthField
                                 id="email"
-                                label="Email"
+                                label={t('auth.email')}
                                 error={errors.email}
                             >
                                 <Input
@@ -61,7 +63,7 @@ export default function Login({ status, canResetPassword }: Props) {
                                     required
                                     autoFocus
                                     autoComplete="email"
-                                    placeholder="you@example.com"
+                                    placeholder={t('auth.emailPlaceholder')}
                                     aria-invalid={!!errors.email}
                                     className={authInputClass}
                                 />
@@ -69,7 +71,7 @@ export default function Login({ status, canResetPassword }: Props) {
 
                             <AuthField
                                 id="password"
-                                label="Password"
+                                label={t('auth.password')}
                                 error={errors.password}
                                 aside={
                                     canResetPassword && (
@@ -77,7 +79,7 @@ export default function Login({ status, canResetPassword }: Props) {
                                             href={request()}
                                             className="text-sm text-muted-foreground"
                                         >
-                                            Forgot it?
+                                            {t('auth.forgotIt')}
                                         </TextLink>
                                     )
                                 }
@@ -87,7 +89,7 @@ export default function Login({ status, canResetPassword }: Props) {
                                     name="password"
                                     required
                                     autoComplete="current-password"
-                                    placeholder="Your password"
+                                    placeholder={t('auth.passwordPlaceholder')}
                                     aria-invalid={!!errors.password}
                                     className={authInputClass}
                                 />
@@ -99,14 +101,16 @@ export default function Login({ status, canResetPassword }: Props) {
                                     name="remember"
                                     defaultChecked
                                 />
-                                <Label htmlFor="remember">Remember me</Label>
+                                <Label htmlFor="remember">
+                                    {t('auth.rememberMe')}
+                                </Label>
                             </div>
 
                             <AuthSubmit
                                 processing={processing}
                                 data-test="login-button"
                             >
-                                Log in
+                                {t('auth.logIn')}
                             </AuthSubmit>
                         </>
                     )}
@@ -114,10 +118,16 @@ export default function Login({ status, canResetPassword }: Props) {
 
                 {canRegister && (
                     <AuthFootnote>
-                        No account yet?{' '}
-                        <TextLink href={register()}>
-                            {saasEnabled ? 'Sync your week' : 'Sign up'}
-                        </TextLink>
+                        {tRich(
+                            saasEnabled
+                                ? 'auth.noAccountSyncWeek'
+                                : 'auth.noAccountSignUp',
+                            {
+                                link: (text) => (
+                                    <TextLink href={register()}>{text}</TextLink>
+                                ),
+                            },
+                        )}
                     </AuthFootnote>
                 )}
             </FloatingCard>

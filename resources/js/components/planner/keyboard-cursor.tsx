@@ -11,6 +11,7 @@ import {
 } from 'react';
 import type { ReactNode, RefObject } from 'react';
 import { toast } from 'sonner';
+import { t } from '@/lib/i18n';
 import { useScopePrompt } from '@/components/planner/scope-prompt';
 import { openContextMenuAt } from '@/components/planner/task-context-menu';
 import { usePlannerShortcuts } from '@/hooks/use-planner-shortcuts';
@@ -420,7 +421,7 @@ export function KeyboardCursorProvider({
                         taskId: moved.id,
                         index: 0,
                     }),
-                () => toast.error('Could not move the task.'),
+                () => toast.error(t('planner.moveTaskFailed')),
             ),
         );
 
@@ -518,7 +519,7 @@ export function KeyboardCursorProvider({
         'task.toggleDone': onTask((task) => {
             toggleDone(task.id).then(
                 (toggled) => follow(task.id, toggled.id),
-                () => toast.error('Could not update the task.'),
+                () => toast.error(t('planner.updateTaskFailed')),
             );
         }),
         'task.moveDown': reorder(1),

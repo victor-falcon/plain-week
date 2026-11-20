@@ -7,6 +7,7 @@ import {
     isDesktopBrowser,
     isReachableFromPhone,
 } from '@/lib/install-app';
+import { t } from '@/lib/i18n';
 import { landingStore } from '@/lib/landing';
 import { mcpAnnouncementStore } from '@/lib/mcp-announcement';
 
@@ -61,7 +62,7 @@ export default function Planner() {
 
     return (
         <>
-            <Head title="Planner" />
+            <Head title={t('planner.pageTitle')} />
             {showLanding && <LandingCard />}
             <McpAnnouncementDialog />
         </>
