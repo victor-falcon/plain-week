@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Smartphone } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { AccountButton } from '@/components/planner/account-button';
 import { HintedLabel } from '@/components/planner/shortcut-hint';
 import { Button } from '@/components/ui/button';
@@ -7,7 +7,6 @@ import {
     TooltipContent,
     TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { installAppStore, isReachableFromPhone } from '@/lib/install-app';
 import { formatMonthTitle, formatWeekNumber } from '@/lib/planner/format';
 import { isoWeekNumber, weekThursday } from '@/lib/planner/week';
 import { t } from '@/lib/i18n';
@@ -25,8 +24,7 @@ const navButton =
     'size-10 rounded-full bg-foreground text-background hover:bg-foreground/80';
 
 /**
- * "October 2026 W42" with "Install mobile app" (desktop), the account button
- * and week navigation. The title turns the planner accent when another week is
+ * "October 2026 W42" with the account button and week navigation. The title turns the planner accent when another week is
  * shown; clicking it returns to today.
  */
 export function PlannerHeader({
@@ -91,17 +89,6 @@ export function PlannerHeader({
                 aria-label={t('planner.weekNav')}
                 className="flex shrink-0 items-center gap-1.5"
             >
-                {isReachableFromPhone() && (
-                    <Button
-                        variant="ghost"
-                        className="h-10 gap-2 rounded-full px-4 text-sm font-semibold max-lg:hidden pointer-coarse:hidden"
-                        onClick={installAppStore.open}
-                        data-test="install-mobile-app"
-                    >
-                        <Smartphone className="size-4" aria-hidden />
-                        {t('planner.installMobileApp')}
-                    </Button>
-                )}
                 <AccountButton />
                 <Tooltip>
                     <TooltipTrigger asChild>

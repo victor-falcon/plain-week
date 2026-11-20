@@ -78,7 +78,7 @@ function StepIcon({ children }: { children: ReactNode }) {
 /**
  * How to install Plain Week on a phone (the PWA): a QR code with this
  * instance's address and the steps for iPhone (Safari) and Android (Chrome).
- * Opened from "Install mobile app" in the header, and once by itself on a
+ * Opened from "Install mobile app" in the account menu, and once by itself on a
  * desktop's first visit (`installAppStore`).
  */
 export function InstallAppCard() {

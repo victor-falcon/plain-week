@@ -50,7 +50,17 @@ const renderMenu = () =>
 const feedbackItem = () =>
     screen.getByRole('menuitem', { name: 'Send feedback' });
 
-afterEach(cleanup);
+/** Moves the test page to `url` (happy-dom starts on localhost). */
+function setUrl(url: string) {
+    (
+        window as unknown as { happyDOM: { setURL: (url: string) => void } }
+    ).happyDOM.setURL(url);
+}
+
+afterEach(() => {
+    cleanup();
+    setUrl('http://localhost:3000/');
+});
 
 describe('UserMenuContent', () => {
     it('opens GitHub Discussions in a new tab on a self-hosted instance', () => {
@@ -79,5 +89,20 @@ describe('UserMenuContent', () => {
         expect(
             screen.queryByRole('menuitem', { name: 'Send feedback' }),
         ).toBeNull();
+    });
+
+    it('offers the mobile app right below Send feedback', () => {
+        feedbackUrl = 'https://github.com/victor-falcon/plain-week/discussions';
+        setUrl('https://plainweek.example/');
+        renderMenu();
+
+        expect(
+            screen.getAllByRole('menuitem').map((item) => item.textContent),
+        ).toEqual([
+            'Settings',
+            'Send feedback',
+            'Install mobile app',
+            'Log out',
+        ]);
     });
 });

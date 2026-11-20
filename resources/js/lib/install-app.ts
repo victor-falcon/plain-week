@@ -2,7 +2,7 @@ import { createOnceCardStore } from '@/lib/once-card';
 
 /**
  * Whether the "Install the mobile app" card is open: "Install mobile app" in
- * the header opens it (`open`), the planner page's first-visit prompt once
+ * the account menu opens it (`open`), the planner page's first-visit prompt once
  * (`openOnce`); closing it sets `plain-week.install-app-seen`.
  */
 export const installAppStore = createOnceCardStore(

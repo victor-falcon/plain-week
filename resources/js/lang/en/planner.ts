@@ -107,7 +107,6 @@ export const planner = {
     'planner.currentWeek': 'Current week',
     'planner.weekTitle': 'Week {week}',
     'planner.weekNav': 'Week',
-    'planner.installMobileApp': 'Install mobile app',
     'planner.previousWeek': 'Previous week',
     'planner.nextWeek': 'Next week',
     'planner.addedTo': 'Added to {weekday} {date}',

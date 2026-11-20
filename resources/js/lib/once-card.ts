@@ -26,7 +26,7 @@ export function createOnceCardStore(seenKey: string) {
             };
         },
         isOpen: () => open,
-        /** Opens it on demand (a header button), seen or not. */
+        /** Opens it on demand (a menu item), seen or not. */
         open: () => {
             open = true;
             notify();

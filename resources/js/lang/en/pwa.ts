@@ -4,6 +4,7 @@ export const pwa = {
     'pwa.updateAvailable': 'Update available',
     'pwa.reload': 'Reload',
     'pwa.sendFeedback': 'Send feedback',
+    'pwa.installMobileApp': 'Install mobile app',
     'pwa.installTitle': 'Plain Week on your phone',
     'pwa.installDescriptionSignedIn':
         'Install it as an app: it opens from your home screen and works offline. Log in there to see the same week.',
