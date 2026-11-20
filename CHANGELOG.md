@@ -22,6 +22,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   it off, and the Docker image creates the key pair that signs tokens in its storage volume.
 - **Agent activity.** Settings › Agents now lists what agents changed in your planner, newest first: which agent,
   when, and a short summary such as "Created 3 tasks on Mon 23 Nov". Entries are kept for 90 days.
+- **AI agents, announced.** The landing page shows what an AI agent can do with your planner, with an FAQ item, and
+  signed-in users see a one-time "New" card that leads to Settings › Agents & apps (or to the plans without one).
 
 ## [0.3.19] - 2026-11-19
 

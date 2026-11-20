@@ -1,4 +1,4 @@
-import { Link } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import { Check, Code, Copy } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
@@ -10,6 +10,7 @@ import type {
     SoldOutCode,
 } from '@/components/billing/offers';
 import { FloatingCard } from '@/components/floating-card';
+import { AgentPrompts } from '@/components/mcp-announcement/agent-prompts';
 import {
     Accordion,
     AccordionContent,
@@ -65,6 +66,11 @@ const QUESTIONS = [
     {
         question: 'Where is my data stored?',
         answer: 'On your device first. With an account, also on our server in the EU. Export it as JSON whenever you like.',
+    },
+    {
+        question: 'Can I use it with Claude or ChatGPT?',
+        answer: 'Yes, with a sync plan. Connect Claude, ChatGPT or any MCP client from Settings › Agents & apps. It reads and changes your planner only after you approve it, and you can revoke it any time.',
+        mcp: true,
     },
     {
         question: 'Is there a free trial?',
@@ -127,6 +133,33 @@ function ProductShots() {
             {shot('mobile', 'light', phone)}
             {shot('mobile', 'dark', phone)}
         </figure>
+    );
+}
+
+/** The MCP connector: AI agents that read and change the planner. */
+function AgentBlock() {
+    return (
+        <section
+            className="flex flex-col gap-4 rounded-2xl border-[1.5px] border-border p-5"
+            data-test="landing-agents"
+        >
+            <div className="flex flex-col gap-2">
+                <Badge className="self-start bg-foreground text-background">
+                    New
+                </Badge>
+                <SectionTitle>Your AI agent can plan your week</SectionTitle>
+                <p className="text-sm leading-normal text-muted-foreground">
+                    Connect Claude, ChatGPT or any MCP client. It reads and
+                    changes your planner like you do, only after you approve it,
+                    and you can revoke it any time.
+                </p>
+            </div>
+            <AgentPrompts />
+            <p className="text-[0.8125rem] leading-normal text-muted-foreground">
+                Works with Claude, ChatGPT and other MCP clients. Comes with the
+                sync plan.
+            </p>
+        </section>
     );
 }
 
@@ -433,7 +466,7 @@ function SelfHosting() {
     );
 }
 
-function Questions() {
+function Questions({ mcp }: { mcp: boolean }) {
     return (
         <section className="flex flex-col gap-2">
             <SectionTitle>Questions</SectionTitle>
@@ -442,20 +475,22 @@ function Questions() {
                 collapsible
                 className="rounded-none border-0"
             >
-                {QUESTIONS.map(({ question, answer }) => (
-                    <AccordionItem
-                        key={question}
-                        value={question}
-                        className="border-b last:border-b data-open:bg-transparent"
-                    >
-                        <AccordionTrigger className="px-0 py-3.5 text-[0.9375rem] font-semibold hover:no-underline">
-                            {question}
-                        </AccordionTrigger>
-                        <AccordionContent className="px-0 pb-3.5 text-sm leading-normal text-muted-foreground">
-                            {answer}
-                        </AccordionContent>
-                    </AccordionItem>
-                ))}
+                {QUESTIONS.filter((item) => mcp || !item.mcp).map(
+                    ({ question, answer }) => (
+                        <AccordionItem
+                            key={question}
+                            value={question}
+                            className="border-b last:border-b data-open:bg-transparent"
+                        >
+                            <AccordionTrigger className="px-0 py-3.5 text-[0.9375rem] font-semibold hover:no-underline">
+                                {question}
+                            </AccordionTrigger>
+                            <AccordionContent className="px-0 pb-3.5 text-sm leading-normal text-muted-foreground">
+                                {answer}
+                            </AccordionContent>
+                        </AccordionItem>
+                    ),
+                )}
             </Accordion>
         </section>
     );
@@ -487,12 +522,14 @@ function Footer() {
 
 /**
  * The landing card (SaaS mode, guests): what Plain Week is, the prices and
- * the way to self-host it, floating over the guest planner on a first visit.
+ * the way to self-host it (and, while the instance has the MCP server on, the
+ * AI agent block and its FAQ item), floating over the guest planner on a first visit.
  * "Start now" (or Esc) closes it for good on this device; "Log in" and the
  * plan buttons open their cards, and a plan picked here is preselected on the
  * plan choice after signing up.
  */
 export function LandingCard() {
+    const mcp = usePage().props.mcp?.enabled ?? false;
     const offers = usePlanPrices();
     const startButton = useRef<HTMLButtonElement>(null);
 
@@ -551,10 +588,11 @@ export function LandingCard() {
             </div>
 
             <ProductShots />
+            {mcp && <AgentBlock />}
             <WhyItWorks />
             <Pricing offers={offers} />
             <SelfHosting />
-            <Questions />
+            <Questions mcp={mcp} />
             <Footer />
         </FloatingCard>
     );

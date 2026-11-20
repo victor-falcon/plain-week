@@ -1,33 +1,39 @@
 import { Head, usePage } from '@inertiajs/react';
 import { useEffect, useSyncExternalStore } from 'react';
 import { LandingCard } from '@/components/landing/landing-card';
+import { McpAnnouncementDialog } from '@/components/mcp-announcement/mcp-announcement-card';
 import {
     installAppStore,
     isDesktopBrowser,
     isReachableFromPhone,
 } from '@/lib/install-app';
 import { landingStore } from '@/lib/landing';
+import { mcpAnnouncementStore } from '@/lib/mcp-announcement';
 
 /**
  * The planner itself is the persistent `PlannerLayout` (see `app.tsx`), so
  * the sign-in, sign-up and plan pages can float over it without remounting
  * it; this page sets the title and, in SaaS mode, floats the landing card
- * over a guest's planner until they press "Start now". On a desktop's first
- * visit it opens the "Install the mobile app" card once, but never in a page
- * load that showed the landing card (that waits for the next visit) nor over
- * a task opened from a `?task=` link.
+ * over a guest's planner until they press "Start now". At most one card opens
+ * by itself per page load, in this order: the landing card (guests, SaaS),
+ * then the one-time MCP announcement (signed in, MCP on), then the "Install
+ * the mobile app" card (a desktop's first visit). A card that loses its turn
+ * waits for the next load, and none opens over a task from a `?task=` link.
  */
 export default function Planner() {
-    const { auth, saas } = usePage().props;
+    const { auth, saas, mcp } = usePage().props;
     const dismissed = useSyncExternalStore(
         landingStore.subscribe,
         landingStore.isDismissed,
         landingStore.isDismissed,
     );
-    const showLanding = (saas?.enabled ?? false) && !auth.user && !dismissed;
+    const signedIn = Boolean(auth.user);
+    const mcpEnabled = mcp?.enabled ?? false;
+    const showLanding = (saas?.enabled ?? false) && !signedIn && !dismissed;
 
     useEffect(() => {
         if (showLanding) {
+            mcpAnnouncementStore.deferToNextLoad();
             installAppStore.deferToNextLoad();
 
             return;
@@ -38,15 +44,27 @@ export default function Planner() {
             'task',
         );
 
-        if (!opensTask && isDesktopBrowser() && isReachableFromPhone()) {
+        if (opensTask) {
+            return;
+        }
+
+        if (signedIn && mcpEnabled && mcpAnnouncementStore.isPending()) {
+            mcpAnnouncementStore.openOnce();
+            installAppStore.deferToNextLoad();
+
+            return;
+        }
+
+        if (isDesktopBrowser() && isReachableFromPhone()) {
             installAppStore.openOnce();
         }
-    }, [showLanding]);
+    }, [showLanding, signedIn, mcpEnabled]);
 
     return (
         <>
             <Head title="Planner" />
             {showLanding && <LandingCard />}
+            <McpAnnouncementDialog />
         </>
     );
 }

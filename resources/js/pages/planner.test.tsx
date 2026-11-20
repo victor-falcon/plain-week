@@ -13,12 +13,15 @@ import type { Offers } from '@/components/billing/offers';
 import { InstallAppDialog } from '@/components/install-app/install-app-card';
 import { installAppStore } from '@/lib/install-app';
 import { landingStore } from '@/lib/landing';
+import { mcpAnnouncementStore } from '@/lib/mcp-announcement';
 import { memoryStorage } from '@/test/storage';
 import Planner from './planner';
 
 let props: {
     auth: { user: { id: number } | null };
     saas: { enabled: boolean };
+    mcp: { enabled: boolean };
+    account: { hasAccess: boolean; plan: string | null } | null;
 };
 
 vi.mock('@inertiajs/react', () => ({
@@ -30,11 +33,11 @@ vi.mock('@inertiajs/react', () => ({
         ...rest
     }: {
         children: React.ReactNode;
-        href: string;
+        href: string | { url: string };
         onClick?: () => void;
     }) => (
         <a
-            href={href}
+            href={typeof href === 'string' ? href : href.url}
             {...rest}
             onClick={(event) => {
                 event.preventDefault();
@@ -53,11 +56,17 @@ const offers: Offers = {
 };
 
 beforeEach(() => {
-    props = { auth: { user: null }, saas: { enabled: true } };
+    props = {
+        auth: { user: null },
+        saas: { enabled: true },
+        mcp: { enabled: false },
+        account: null,
+    };
     vi.stubGlobal('localStorage', memoryStorage());
     sessionStorage.clear();
     act(() => landingStore.reopen());
     act(() => installAppStore.reset());
+    act(() => mcpAnnouncementStore.reset());
     vi.stubGlobal(
         'fetch',
         vi.fn(() =>
@@ -331,5 +340,172 @@ describe('Install mobile app card', () => {
         renderPlanner();
 
         expect(installCard()).toBeNull();
+    });
+});
+
+const announcement = () =>
+    screen.queryByRole('dialog', { name: 'Your AI agent can plan your week' });
+
+describe('MCP announcement card', () => {
+    beforeEach(() => {
+        props.auth.user = { id: 7 };
+        props.mcp.enabled = true;
+        props.account = { hasAccess: true, plan: 'lifetime' };
+        stubScreen(true);
+        setUrl('https://plainweek.example/');
+    });
+
+    afterEach(() => setUrl('http://localhost:3000/'));
+
+    it('opens once for a signed-in user, pointing at Settings › Agents & apps', () => {
+        renderPlanner();
+
+        expect(announcement()).not.toBeNull();
+        expect(screen.queryByText('New')).not.toBeNull();
+        expect(
+            screen.queryByText('“Move everything unfinished to Friday.”'),
+        ).not.toBeNull();
+        expect(
+            screen.queryByText('Set it up in Settings › Agents & apps.'),
+        ).not.toBeNull();
+
+        const connect = screen.getByRole('link', { name: 'Connect an agent' });
+
+        expect(connect.getAttribute('href')).toBe('/settings/agents');
+        expect(document.activeElement).toBe(connect);
+    });
+
+    it('never opens again once closed with Not now', async () => {
+        const user = userEvent.setup();
+        const { unmount } = renderPlanner();
+
+        await user.click(screen.getByRole('button', { name: 'Not now' }));
+
+        expect(announcement()).toBeNull();
+        expect(
+            window.localStorage.getItem('plain-week.mcp-announcement-seen'),
+        ).toBe('1');
+
+        unmount();
+        act(() => mcpAnnouncementStore.reset());
+        renderPlanner();
+
+        expect(announcement()).toBeNull();
+    });
+
+    it('is remembered when closed with Escape or the connect button', async () => {
+        const user = userEvent.setup();
+
+        renderPlanner();
+        await user.keyboard('{Escape}');
+
+        expect(announcement()).toBeNull();
+        expect(
+            window.localStorage.getItem('plain-week.mcp-announcement-seen'),
+        ).toBe('1');
+
+        cleanup();
+        window.localStorage.clear();
+        act(() => mcpAnnouncementStore.reset());
+        renderPlanner();
+        await user.click(
+            screen.getByRole('link', { name: 'Connect an agent' }),
+        );
+
+        expect(announcement()).toBeNull();
+        expect(
+            window.localStorage.getItem('plain-week.mcp-announcement-seen'),
+        ).toBe('1');
+    });
+
+    it('sends a SaaS user without a plan to the plans', () => {
+        props.account = { hasAccess: false, plan: null };
+        renderPlanner();
+
+        expect(
+            screen.queryByText(/It comes with the sync plan/),
+        ).not.toBeNull();
+        expect(
+            screen
+                .getByRole('link', { name: 'See plans' })
+                .getAttribute('href'),
+        ).toBe('/plans');
+        expect(
+            screen.queryByRole('link', { name: 'Connect an agent' }),
+        ).toBeNull();
+    });
+
+    it('is never shown to guests', () => {
+        props.auth.user = null;
+        props.saas.enabled = false;
+        renderPlanner();
+
+        expect(announcement()).toBeNull();
+    });
+
+    it('is never shown when the instance has the MCP server off', () => {
+        props.mcp.enabled = false;
+        renderPlanner();
+
+        expect(announcement()).toBeNull();
+        // Its turn passes to the install card.
+        expect(installCard()).not.toBeNull();
+    });
+
+    it('opens before the install card, which waits for the next load', async () => {
+        const user = userEvent.setup();
+        const { unmount } = renderPlanner();
+
+        expect(announcement()).not.toBeNull();
+        expect(installCard()).toBeNull();
+
+        await user.click(screen.getByRole('button', { name: 'Not now' }));
+        // Same load: the planner page remounts (a visit to /login and back).
+        unmount();
+        renderPlanner();
+
+        expect(announcement()).toBeNull();
+        expect(installCard()).toBeNull();
+        expect(window.localStorage.getItem('plain-week.install-app-seen')).toBe(
+            null,
+        );
+    });
+
+    it('lets the install card open on a later load once seen', () => {
+        window.localStorage.setItem('plain-week.mcp-announcement-seen', '1');
+        act(() => mcpAnnouncementStore.reset());
+        renderPlanner();
+
+        expect(announcement()).toBeNull();
+        expect(installCard()).not.toBeNull();
+    });
+
+    it('waits for the next load when the landing card was shown in this one', async () => {
+        const user = userEvent.setup();
+
+        props.auth.user = null;
+        const { unmount } = renderPlanner();
+
+        await user.click(screen.getByRole('button', { name: 'Start now' }));
+        // The guest logs in: the planner page remounts in the same load.
+        unmount();
+        props.auth.user = { id: 7 };
+        renderPlanner();
+
+        expect(announcement()).toBeNull();
+        expect(installCard()).toBeNull();
+        expect(
+            window.localStorage.getItem('plain-week.mcp-announcement-seen'),
+        ).toBe(null);
+    });
+
+    it('does not open over a task opened from a link', () => {
+        setUrl('https://plainweek.example/?task=abc');
+        renderPlanner();
+
+        expect(announcement()).toBeNull();
+        expect(
+            window.localStorage.getItem('plain-week.mcp-announcement-seen'),
+        ).toBe(null);
     });
 });
