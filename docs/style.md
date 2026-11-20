@@ -264,9 +264,8 @@ on that plan.
 `components/install-app/install-app-card.tsx`: how to install Plain Week on a phone (the PWA). "Install mobile app" in
 the planner's account menu opens it (`components/install-app/install-app-menu-item.tsx`, `Smartphone` icon): right
 below Send feedback for users and guests, and left out on touch screens (`(pointer: coarse)`), where you are already on
-the phone. It also opens by itself once on a desktop's
-first visit (a 1024px+ window with a fine pointer, not the installed app; `isDesktopBrowser()`), for guests and
-signed-in users alike, except:
+the phone (`canOfferInstall()`). It also opens by itself once on a desktop's first visit (a 1024px+ window with a fine
+pointer, not the installed app; `isDesktopBrowser()`), for guests and signed-in users alike, except:
 
 - in a page load that showed the landing card or the MCP announcement card (`installAppStore.deferToNextLoad()`): it
   waits for the next visit, so two cards never chain, even when the planner page remounts after a visit to `/login`;

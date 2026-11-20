@@ -24,8 +24,9 @@ const navButton =
     'size-10 rounded-full bg-foreground text-background hover:bg-foreground/80';
 
 /**
- * "October 2026 W42" with the account button and week navigation. The title turns the planner accent when another week is
- * shown; clicking it returns to today.
+ * "October 2026 W42" with the account button and week navigation. The title
+ * turns the planner accent when another week is shown; clicking it returns to
+ * today.
  */
 export function PlannerHeader({
     weekStart,

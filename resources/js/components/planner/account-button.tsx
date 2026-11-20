@@ -228,8 +228,9 @@ function GuestMenuItems({ withSignUp }: { withSignUp: boolean }) {
  * Guests: "Sync your week" (to sign-up, or to log in while sign-up is closed;
  * in SaaS mode the plan choice follows)
  * with a grey dot, joined to a small menu with Log in, in SaaS mode the
- * landing card again, Send feedback and Install mobile app. Phones have no room for the pill next
- * to the title: a round button with the dot opens the same menu, sign-up first.
+ * landing card again, Send feedback and Install mobile app. Phones have no
+ * room for the pill next to the title: a round button with the dot opens the
+ * same menu, sign-up first.
  */
 function GuestSyncButton() {
     // With sign-up closed, syncing starts by logging in to an existing account.

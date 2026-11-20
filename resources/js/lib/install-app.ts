@@ -2,8 +2,8 @@ import { createOnceCardStore } from '@/lib/once-card';
 
 /**
  * Whether the "Install the mobile app" card is open: "Install mobile app" in
- * the account menu opens it (`open`), the planner page's first-visit prompt once
- * (`openOnce`); closing it sets `plain-week.install-app-seen`.
+ * the account menu opens it (`open`), the planner page's first-visit prompt
+ * once (`openOnce`); closing it sets `plain-week.install-app-seen`.
  */
 export const installAppStore = createOnceCardStore(
     'plain-week.install-app-seen',
@@ -37,4 +37,16 @@ export function isReachableFromPhone(): boolean {
         host === '[::1]' ||
         host.startsWith('127.')
     );
+}
+
+/**
+ * Whether the account menu offers "Install mobile app": a phone can open this
+ * address and this is not a touch screen (there you are already on the phone).
+ */
+export function canOfferInstall(): boolean {
+    const coarse =
+        typeof window.matchMedia === 'function' &&
+        window.matchMedia('(pointer: coarse)').matches;
+
+    return isReachableFromPhone() && !coarse;
 }
