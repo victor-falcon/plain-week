@@ -6,7 +6,6 @@ import { SyncProvider } from '@/components/sync-provider';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { prepareLocalData } from '@/lib/sync';
-import { edit as editData } from '@/routes/data';
 
 /**
  * Settings › Data: export and import a JSON backup. The page comes from the
@@ -69,12 +68,3 @@ export default function Data() {
         </SyncProvider>
     );
 }
-
-Data.layout = {
-    breadcrumbs: [
-        {
-            title: 'Data settings',
-            href: editData(),
-        },
-    ],
-};

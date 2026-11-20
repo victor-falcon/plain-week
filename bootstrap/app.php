@@ -37,7 +37,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // It wraps `auth:api` to add the WWW-Authenticate header to its 401, so it must run before it.
         $middleware->prependToPriorityList(before: AuthenticatesRequests::class, prepend: AddResourceMetadataHeader::class);
 
-        $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
+        $middleware->encryptCookies(except: ['appearance']);
 
         // Sync payloads (web and app API) must round-trip byte for byte (empty notes, leading spaces).
         $isSync = fn (Request $request) => $request->is('sync/*', 'api/*/sync/*');

@@ -12,7 +12,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { Switch } from '@/components/ui/switch';
 import { deviceState, disable, enable } from '@/lib/notifications/device';
 import type { DeviceState } from '@/lib/notifications/device';
-import { edit, update } from '@/routes/notifications';
+import { update } from '@/routes/notifications';
 
 type Props = {
     /** 'HH:mm' in the user's time zone. */
@@ -255,12 +255,3 @@ export default function Notifications({ morningTime, timezone }: Props) {
         </>
     );
 }
-
-Notifications.layout = {
-    breadcrumbs: [
-        {
-            title: 'Notifications',
-            href: edit(),
-        },
-    ],
-};

@@ -82,35 +82,36 @@ Use `rtl:` variants (for example `rtl:rotate-180` on directional icons) when a l
 
 Installed in `resources/js/components/ui/` and where they are used:
 
-| Component                                                          | Used in                                                                                |
-| ------------------------------------------------------------------ | -------------------------------------------------------------------------------------- |
-| `button`                                                           | Everywhere: planner header, task rows, task dialog toolbar, auth and settings pages    |
-| `input`                                                            | Empty task rows (`new-task-row.tsx`), subtasks, time picker, auth and settings forms   |
-| `textarea`                                                         | Task dialog title and notes                                                            |
-| `checkbox`                                                         | Subtasks, "Remember me" on login                                                       |
-| `dialog`                                                           | Task dialog, shortcuts dialog, `FloatingCard`; account deletion, passkeys, 2FA setup   |
-| `kbd`                                                              | Shortcuts dialog keys and every key hint (`ShortcutHint`): rows, tooltips, menus       |
-| `radio-group`                                                      | Plan choice (`/plans`)                                                                 |
-| `accordion`                                                        | Landing card FAQ                                                                       |
-| `alert-dialog`                                                     | Scope prompt (`scope-prompt.tsx`), import preview (Settings › Data), Google disconnect |
-| `progress`                                                         | Import progress (Settings › Data)                                                      |
-| `popover`                                                          | Task dialog date, time, repeat and color pickers                                       |
-| `calendar`                                                         | Task dialog date picker, repeat end date                                               |
-| `toggle-group` (+ `toggle`)                                        | Task color picker, repeat picker (kind and weekdays)                                   |
-| `select`                                                           | Repeat picker (day of the month)                                                       |
-| `input`                                                            | Repeat picker ("every N days"), settings forms                                         |
-| `dropdown-menu`                                                    | Task dialog "More" menu, planner account menu, app header user menu                    |
-| `context-menu`                                                     | Task row context menu (`task-context-menu.tsx`)                                        |
-| `tooltip`                                                          | Planner header buttons, account button, task dialog toolbar (`toolbar-tooltip.tsx`)    |
-| `sonner`                                                           | `AppToaster`; planner code calls `toast` from the `sonner` package                     |
-| `avatar`                                                           | Account button, app header, user info                                                  |
-| `direction`                                                        | `app.tsx` (RTL)                                                                        |
-| `alert`, `card`, `label`, `spinner`, `input-otp`, `separator`      | Auth cards and settings pages (from the Laravel starter kit)                           |
-| `sidebar` (+ `skeleton`), `sheet`, `navigation-menu`, `breadcrumb` | Starter kit app shell around the settings pages                                        |
-| `badge`                                                            | Launch discount (plan choice, landing card, Settings › Billing), "Needs reconnecting"  |
-| `switch`                                                           | Settings › Preferences ("Move unfinished tasks to today")                              |
-| `tabs`                                                             | Settings › Agents & apps (setup snippets per client)                                   |
-| `collapsible`                                                      | Installed, not used yet                                                                |
+| Component                                                     | Used in                                                                                |
+| ------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `button`                                                      | Everywhere: planner header, task rows, task dialog toolbar, auth and settings pages    |
+| `input`                                                       | Empty task rows (`new-task-row.tsx`), subtasks, time picker, auth and settings forms   |
+| `textarea`                                                    | Task dialog title and notes                                                            |
+| `checkbox`                                                    | Subtasks, "Remember me" on login                                                       |
+| `dialog`                                                      | Task dialog, shortcuts dialog, `FloatingCard`; account deletion, passkeys, 2FA setup   |
+| `kbd`                                                         | Shortcuts dialog keys and every key hint (`ShortcutHint`): rows, tooltips, menus       |
+| `radio-group`                                                 | Plan choice (`/plans`)                                                                 |
+| `accordion`                                                   | Landing card FAQ                                                                       |
+| `alert-dialog`                                                | Scope prompt (`scope-prompt.tsx`), import preview (Settings › Data), Google disconnect |
+| `progress`                                                    | Import progress (Settings › Data)                                                      |
+| `popover`                                                     | Task dialog date, time, repeat and color pickers                                       |
+| `calendar`                                                    | Task dialog date picker, repeat end date                                               |
+| `toggle-group` (+ `toggle`)                                   | Task color picker, repeat picker (kind and weekdays)                                   |
+| `select`                                                      | Repeat picker (day of the month)                                                       |
+| `input`                                                       | Repeat picker ("every N days"), settings forms                                         |
+| `dropdown-menu`                                               | Task dialog "More" menu, planner account menu                                          |
+| `context-menu`                                                | Task row context menu (`task-context-menu.tsx`)                                        |
+| `tooltip`                                                     | Planner header buttons, account button, task dialog toolbar (`toolbar-tooltip.tsx`)    |
+| `sonner`                                                      | `AppToaster`; planner code calls `toast` from the `sonner` package                     |
+| `avatar`                                                      | Account button, user info                                                              |
+| `direction`                                                   | `app.tsx` (RTL)                                                                        |
+| `alert`, `card`, `label`, `spinner`, `input-otp`, `separator` | Auth cards and settings pages (from the Laravel starter kit)                           |
+| `skeleton`                                                    | Landing card prices while loading                                                      |
+| `sidebar`, `sheet`, `navigation-menu`, `breadcrumb`           | Installed, not used (left from the starter kit app shell)                              |
+| `badge`                                                       | Launch discount (plan choice, landing card, Settings › Billing), "Needs reconnecting"  |
+| `switch`                                                      | Settings › Preferences ("Move unfinished tasks to today")                              |
+| `tabs`                                                        | Settings › Agents & apps (setup snippets per client)                                   |
+| `collapsible`                                                 | Installed, not used yet                                                                |
 
 `icon.tsx` and `placeholder-pattern.tsx` in the same folder are starter kit helpers, not shadcn components.
 
@@ -199,7 +200,7 @@ The planner is a persistent Inertia layout (`layouts/planner-layout.tsx`, chosen
 Moving between `/`, `/login`, `/register` and `/plans` keeps the planner mounted (same week, no reload), and every page
 keeps its own URL, so Fortify redirects, validation errors and the intended URL work as before. Closing a card visits
 `/`, replacing the card's history entry. Password confirmation is the exception: it is reached from Settings ›
-Security, so its card floats over the settings layout and closing it opens Settings › Profile.
+Security, so its card floats over the [settings layout](#settings-layout) and closing it opens Settings › Profile.
 
 | Page               | Top bar                           | Copy and fields                                                                                                                                                                                                                                                     |
 | ------------------ | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -557,6 +558,24 @@ still until 500 ms cancels that drag and dispatches a `contextmenu` event at the
 menu like a right click. Releasing a held task before it moved does nothing. Radix's own touch long press (700 ms,
 cancelled by any movement) stays as a fallback and only ever reopens the same menu; the row ignores `contextmenu` while
 it is being dragged, so a browser long-press event cannot open the menu mid-drag.
+
+## Settings layout
+
+`layouts/settings/layout.tsx` wraps every `settings/*` page (and the password confirmation card, which floats over it):
+a plain full-screen page on `bg-background`, with no app sidebar, header bar or breadcrumbs. The planner is the only
+way in and out.
+
+| Part        | Desktop (≥1024px, `lg:`)                                                                                                                                  | Phone and tablet                                                                                   |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Frame       | Centered column, at most 1024px (`max-w-5xl`), 32px side padding; the page scrolls as a whole                                                             | 16px side padding                                                                                  |
+| Top         | "Back to planner": ghost `sm` `Button` with `ArrowLeft` (`rtl:rotate-180`), links to `/`                                                                  | Same                                                                                               |
+| Heading     | `Heading` "Settings" with "Manage your profile and account settings"                                                                                      | Same                                                                                               |
+| Section nav | A 192px column of ghost `sm` buttons, the current one `bg-muted` and `aria-current="page"`                                                                | One row of the same buttons that scrolls sideways, scrolled to the current one, then a `Separator` |
+| Content     | The page, at most 576px wide (`max-w-xl`), sections 48px apart                                                                                            | Full width                                                                                         |
+| Footer      | After a `Separator`: "Back to planner" (outline) at the start; Send feedback, Repository, Documentation and Log out (muted ghost `sm` buttons) at the end | Wraps onto two lines                                                                               |
+
+Hooks for browser checks: `[data-test="settings-back"]` (top), `[data-test="settings-back-bottom"]` (footer),
+`[data-test="send-feedback"]` and `[data-test="logout-button"]`.
 
 ## Settings › Data
 

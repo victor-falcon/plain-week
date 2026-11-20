@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/card';
 import { Spinner } from '@/components/ui/spinner';
 import { useCheckout } from '@/hooks/use-checkout';
-import { edit as editBilling, plans, portal } from '@/routes/billing';
+import { plans, portal } from '@/routes/billing';
 import type { Plan } from '@/types';
 
 type Props = {
@@ -179,12 +179,3 @@ export default function Billing({
         </>
     );
 }
-
-Billing.layout = {
-    breadcrumbs: [
-        {
-            title: 'Billing',
-            href: editBilling(),
-        },
-    ],
-};

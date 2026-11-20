@@ -4,7 +4,6 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { useCarryOverSetting } from '@/hooks/use-carry-over-setting';
 import { carryOverSetting } from '@/lib/planner/preferences';
-import { edit as editPreferences } from '@/routes/preferences';
 
 /**
  * Settings › Preferences: planner behaviour. The values live in this
@@ -48,12 +47,3 @@ export default function Preferences() {
         </>
     );
 }
-
-Preferences.layout = {
-    breadcrumbs: [
-        {
-            title: 'Preferences',
-            href: editPreferences(),
-        },
-    ],
-};

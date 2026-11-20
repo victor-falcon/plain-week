@@ -22,12 +22,12 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { usePlanPrices } from '@/hooks/use-plan-prices';
 import { landingStore, rememberChosenPlan } from '@/lib/landing';
+import { REPOSITORY_URL } from '@/lib/project';
 import { cn } from '@/lib/utils';
 import { login, register } from '@/routes';
 import { privacy, terms } from '@/routes/legal';
 import type { Plan } from '@/types';
 
-const REPOSITORY_URL = 'https://github.com/victor-falcon/plain-week';
 const SELF_HOSTING_URL = `${REPOSITORY_URL}/blob/main/docs/self-hosting.md`;
 const CHANGELOG_URL = `${REPOSITORY_URL}/blob/main/CHANGELOG.md`;
 

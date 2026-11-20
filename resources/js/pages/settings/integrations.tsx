@@ -26,7 +26,6 @@ import {
 } from '@/components/ui/card';
 import { Spinner } from '@/components/ui/spinner';
 import { formatTimeAgo } from '@/lib/settings/relative-time';
-import { edit as editIntegrations } from '@/routes/integrations';
 import { connect, destroy } from '@/routes/integrations/google';
 
 type GoogleCalendarConnection = {
@@ -203,12 +202,3 @@ export default function Integrations({ googleCalendar }: Props) {
         </>
     );
 }
-
-Integrations.layout = {
-    breadcrumbs: [
-        {
-            title: 'Integrations',
-            href: editIntegrations(),
-        },
-    ],
-};

@@ -25,7 +25,6 @@ declare module '@inertiajs/core' {
             notifications: Notifications;
             mcp: Mcp;
             account: Account | null;
-            sidebarOpen: boolean;
             [key: string]: unknown;
         };
     }

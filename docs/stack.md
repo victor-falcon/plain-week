@@ -173,7 +173,7 @@ resources/js/
   app.tsx                 Inertia entry point: providers, layout resolution, service worker registration
   sw.ts                   Service worker source (offline app shell), built to public/sw.js
   pages/                  Inertia pages (one file per page component)
-  layouts/                App, auth and settings layouts
+  layouts/                Planner and settings layouts
   components/             App components (composed from shadcn components)
   components/planner/     Week view: header, week grid, day columns, task rows, Someday, drag and drop
   components/planner/task-dialog/  The task dialog and its toolbar pickers
@@ -328,8 +328,8 @@ existing file such as `button.tsx`, answer no.
 
 Laravel controllers return `Inertia::render('<page>', $props)`; the page component lives in
 `resources/js/pages/<page>.tsx`. Layouts are assigned in `resources/js/app.tsx` by page name (`planner`, `auth/*` and
-`billing/plans` → the persistent planner layout, under the auth cards; `legal/*` → no layout; `settings/*` → app +
-settings layouts; everything else → app layout). Shared props (for
+`billing/plans` → the persistent planner layout, under the auth cards; `settings/*` and `auth/confirm-password` → the
+full-screen settings layout; everything else, such as `legal/*`, → no layout). Shared props (for
 example `auth.user`, `name`, `feedbackUrl`) come from `app/Http/Middleware/HandleInertiaRequests.php`.
 
 ## Wayfinder

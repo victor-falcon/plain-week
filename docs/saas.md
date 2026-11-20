@@ -209,7 +209,7 @@ php artisan plainweek:grant-lifetime owner@example.com --revoke # remove it
 
 The webhook endpoint must send the events in the table above.
 
-**Send feedback.** The account menu (users and guests) and the settings sidebar link to the shared `feedbackUrl` prop
+**Send feedback.** The account menu (users and guests) and the settings footer link to the shared `feedbackUrl` prop
 (`App\Support\Feedback`). In SaaS mode it is a `mailto:` to `SAAS_CONTACT_EMAIL` with the subject "Plain Week
 feedback"; with SaaS mode off, or while the address is empty or still an `example.com` placeholder, it is the project's
 GitHub Discussions. Set `SAAS_CONTACT_EMAIL` on plainweek.eu.

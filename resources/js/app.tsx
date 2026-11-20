@@ -3,7 +3,6 @@ import { AppToaster } from '@/components/app-toaster';
 import { DirectionProvider } from '@/components/ui/direction';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { initializeTheme } from '@/hooks/use-appearance';
-import AppLayout from '@/layouts/app-layout';
 import SettingsLayout from '@/layouts/settings/layout';
 import PlannerLayout from '@/layouts/planner-layout';
 import { syncSubscriptionWithSession } from '@/lib/notifications/session';
@@ -17,7 +16,8 @@ void createInertiaApp({
         switch (true) {
             // Reached from Settings › Security: its card floats over the settings.
             case name === 'auth/confirm-password':
-                return [AppLayout, SettingsLayout];
+            case name.startsWith('settings/'):
+                return SettingsLayout;
             // The same layout instance stays mounted between these pages,
             // so the planner keeps running under their floating cards.
             case name === 'planner':
@@ -26,12 +26,10 @@ void createInertiaApp({
             // The OAuth consent card for AI agents, like the auth cards.
             case name.startsWith('oauth/'):
                 return PlannerLayout;
+            // The legal pages render their own page (LegalPage).
             case name.startsWith('legal/'):
-                return null;
-            case name.startsWith('settings/'):
-                return [AppLayout, SettingsLayout];
             default:
-                return AppLayout;
+                return null;
         }
     },
     strictMode: true,

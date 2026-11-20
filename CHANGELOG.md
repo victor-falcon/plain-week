@@ -44,6 +44,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Rate-limited sync.** `/sync/push` and `/sync/pull` (and the API's) allow 120 requests a minute per account
   instead of being unlimited.
 
+### Changed
+
+- **Settings is a plain full-screen page.** The collapsible sidebar and the header bar around Settings are gone. A
+  "Back to planner" button sits at the top and another at the end of the page, the sections are a column on desktop
+  and a row that scrolls sideways on phones, and Send feedback, Repository, Documentation and Log out moved to the
+  footer.
+
 ## [0.3.19] - 2026-11-19
 
 ### Security

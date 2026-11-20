@@ -18,7 +18,6 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
-import { edit as editAgents } from '@/routes/agents';
 import { plans } from '@/routes/billing';
 
 type Props = {
@@ -126,12 +125,3 @@ export default function Agents({
         </>
     );
 }
-
-Agents.layout = {
-    breadcrumbs: [
-        {
-            title: 'Agents & apps',
-            href: editAgents(),
-        },
-    ],
-};
