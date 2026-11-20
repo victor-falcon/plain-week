@@ -14,6 +14,7 @@ use Illuminate\Foundation\DevCommands;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
@@ -59,6 +60,9 @@ class AppServiceProvider extends ServiceProvider
         $this->configureOAuth();
 
         $this->configureRateLimits();
+
+        // The queue worker is long-lived: re-read translation files (TRANSLATIONS_PATH) for each job.
+        Queue::before(fn () => $this->app->make('translator')->setLoaded([]));
 
         // `composer dev` also runs the scheduler (routes/console.php), like the Docker image does.
         DevCommands::artisan('schedule:work', 'scheduler');

@@ -144,7 +144,7 @@ function interpolate(text: string, params?: MessageParams): string {
     }
 
     return text.replace(/\{(\w+)\}/g, (match, name: string) =>
-        name in params ? String(params[name]) : match,
+        Object.hasOwn(params, name) ? String(params[name]) : match,
     );
 }
 

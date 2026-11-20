@@ -191,24 +191,42 @@ final class Translations
             return [];
         }
 
-        if (! is_array($decoded) || array_is_list($decoded) && $decoded !== []) {
+        if (! is_array($decoded) || (array_is_list($decoded) && $decoded !== [])) {
             Log::warning("Ignoring the translation file {$file}: it must be a JSON object of keys and texts.");
 
             return [];
         }
 
         $messages = [];
+        $skipped = [];
 
         foreach ($decoded as $key => $value) {
             if (is_string($value)) {
                 $messages[(string) $key] = $value;
-            } elseif (is_array($value) && $value !== [] && array_filter($value, 'is_string') === $value && ! array_is_list($value)) {
+            } elseif (self::isPlural($value)) {
                 /** @var array<string, string> $value */
                 $messages[(string) $key] = $value;
+            } else {
+                $skipped[] = (string) $key;
             }
         }
 
+        if ($skipped !== []) {
+            Log::warning("Ignoring entries of the translation file {$file} that are neither a text nor a plural with an \"other\" text: ".implode(', ', $skipped));
+        }
+
         return $messages;
+    }
+
+    /**
+     * A plural: `{"one": "…", "other": "…"}`, texts keyed by plural category, `other` required.
+     */
+    private static function isPlural(mixed $value): bool
+    {
+        return is_array($value)
+            && isset($value['other'])
+            && array_filter($value, is_string(...)) === $value
+            && array_diff(array_keys($value), ['zero', 'one', 'two', 'few', 'many', 'other']) === [];
     }
 
     private static function normalize(string $locale): string

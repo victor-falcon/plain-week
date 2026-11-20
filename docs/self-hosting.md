@@ -272,7 +272,8 @@ they need to sign up.
 
 Plain Week ships in English only. You can add languages, or reword the English text, without rebuilding the image: put
 one JSON file per language in the translations directory (`TRANSLATIONS_PATH`, by default `translations/` in the
-storage volume, so `/app/storage/translations`) and reload the page. No restart is needed.
+storage volume, so `/app/storage/translations`) and reload the page. No restart is needed, for emails and push
+notifications either.
 
 ```text
 /app/storage/translations/
@@ -282,8 +283,9 @@ storage volume, so `/app/storage/translations`) and reload the page. No restart 
 ```
 
 The file name is the language: a two- or three-letter code (`de`, `fil`), optionally with a region or script (`pt-BR`,
-`zh_Hant`). Each file is a JSON object of keys and texts. A key you leave out shows in English, so a file can start with
-a few keys and grow.
+`zh_Hant`). Each file is a flat JSON object of keys and texts (`"planner.someday": "…"`, not nested objects). A key you leave out
+shows in English, so a file can start with a few keys and grow. Entries that are neither a text nor a plural are
+skipped and logged.
 
 ```json
 {
@@ -307,7 +309,8 @@ a few keys and grow.
   ":count tasks today"), the password reset and verification emails ("Reset your password", …) and the page's
   link preview description. Laravel's own messages use its keys (`validation.required`, `auth.failed`,
   `passwords.reset`, …; see [Laravel's `lang/en`](https://github.com/laravel/framework/tree/13.x/src/Illuminate/Translation/lang/en)).
-  `:name` is a placeholder there. Grouped Laravel keys work one by one (`validation.required`), not as nested
+  `:name` is a placeholder there (the app's keys use `{name}`). A server plural is one string with the forms separated
+  by `|` (`":count tasks today": ":count Aufgabe heute|:count Aufgaben heute"`, Laravel's `trans_choice`). Grouped Laravel keys work one by one (`validation.required`), not as nested
   objects, so `validation.attributes.*` and `validation.custom.*` can't be overridden.
 
 **Which language is used.** Settings › Preferences shows a **Language** picker as soon as the instance offers more

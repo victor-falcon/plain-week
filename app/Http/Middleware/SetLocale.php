@@ -29,7 +29,7 @@ class SetLocale
         $response = $next($request);
 
         // The page depends on the browser's languages (guests, and accounts on "Browser default").
-        $response->headers->set('Vary', trim($response->headers->get('Vary', '').', Accept-Language', ', '));
+        $response->setVary('Accept-Language', false);
 
         return $response;
     }

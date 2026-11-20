@@ -754,7 +754,9 @@ translate.
 **Dates.** `lib/planner/format.ts` formats with `Intl` in the active locale (`dateLocale()`, `dateFormat(options)`,
 cached formatters); English stays `en-GB` ("12 Oct", weeks start on Monday). The shadcn `Calendar` gets `Intl`
 captions, weekday names and labels for other languages (`lib/i18n/calendar.ts`), so no date-fns locale is bundled.
-Typed dates in the task input (`lib/planner/smart-date.ts`) are English words in every language.
+Typed dates in the task input (`lib/planner/smart-date.ts`) are English words in every language. The guest demo
+tasks are written to IndexedDB in the language active when they are seeded and stay so. The hosted service's terms and
+privacy pages (`pages/legal/*`) stay English on purpose.
 
 **Server.** `App\Support\Translations` lists the offered locales (`en`, then each `<locale>.json` in
 `config('app.translations_path')`) and reads the files (a file that is not a JSON object is logged and ignored).
@@ -763,8 +765,10 @@ best match for `Accept-Language` (exact, then same language), else `APP_LOCALE` 
 `Vary: Accept-Language`. `<html lang dir>` follow it (`dir="rtl"` by language, see [style.md](./style.md#rtl)).
 `App\Support\TranslationOverridesLoader` lays the same files over Laravel's JSON translations, so `__('English text')`
 and framework keys (`validation.required`) are translated with no `lang/` directory in the repository. Mail and
-notifications use `User::preferredLocale()` (`language`, else the sign-up `locale`, when offered); the push
-notification job sets it, or `APP_LOCALE`, around its sends.
+notifications use `User::preferredLocale()` (`language` while offered; null keeps the request's locale); the push
+notification job sets it, or `APP_LOCALE`, around its sends. The queue worker forgets loaded translations before each
+job, so edited files reach queued mail and pushes without a restart. (`users.locale`, the sign-up language, only picks
+the SaaS welcome email.)
 
 **Delivery and offline.** The shared Inertia prop `i18n` is `{ locale, locales, messages }`: `messages` is the English
 overrides plus the active locale's, sent as a once prop keyed by locale and content hash, so visits do not resend it

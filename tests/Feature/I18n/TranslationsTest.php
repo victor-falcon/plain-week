@@ -8,6 +8,7 @@ use App\Support\Translations;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Log;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\Support\FakePushSender;
 
@@ -94,6 +95,8 @@ describe('the request locale', function () {
             ->assertSee('<html lang="pt-BR" dir="ltr"', false)
             ->assertHeader('Vary');
 
+        expect($this->get('/')->headers->all('vary'))->toContain('Accept-Language');
+
         expect($this->get('/', ['Accept-Language' => 'ar-EG'])->getContent())
             ->toContain('<html lang="ar" dir="rtl"');
     });
@@ -154,9 +157,11 @@ describe('the i18n page props', function () {
     ]);
 
     test('drop values that are neither texts nor plurals', function () {
-        translationFile('de', ['a' => 'ok', 'b' => 3, 'c' => ['x', 'y'], 'd' => ['one' => 'x', 'other' => ['y']], 'e' => null]);
+        translationFile('de', ['a' => 'ok', 'b' => 3, 'c' => ['x', 'y'], 'd' => ['one' => 'x', 'other' => ['y']], 'e' => null, 'f' => ['one' => 'x'], 'planner' => ['someday' => 'x'], 'g' => ['one' => 'x', 'other' => 'y']]);
+        Log::spy();
 
-        expect(app(Translations::class)->overrides('de'))->toBe(['a' => 'ok']);
+        expect(app(Translations::class)->overrides('de'))->toBe(['a' => 'ok', 'g' => ['one' => 'x', 'other' => 'y']]);
+        Log::shouldHaveReceived('warning')->once()->withArgs(fn (string $message) => str_ends_with($message, 'b, c, d, e, f, planner'));
     });
 });
 
@@ -216,15 +221,15 @@ describe('the account language', function () {
         $this->patch(route('language.update'), ['language' => 'de'])->assertRedirect(route('login'));
     });
 
-    test('is the preferred locale for emails and notifications, else the sign-up language', function () {
+    test('is the preferred locale for emails and notifications while the instance offers it', function () {
         expect(User::factory()->make(['language' => 'de', 'locale' => 'es'])->preferredLocale())->toBe('de')
-            ->and(User::factory()->make(['language' => null, 'locale' => 'en'])->preferredLocale())->toBe('en')
-            ->and(User::factory()->make(['language' => 'it', 'locale' => 'es'])->preferredLocale())->toBeNull();
+            ->and(User::factory()->make(['language' => null, 'locale' => 'en'])->preferredLocale())->toBeNull()
+            ->and(User::factory()->make(['language' => 'it'])->preferredLocale())->toBeNull();
     });
 });
 
 test('push notifications speak the account language', function () {
-    translationFile('de', ['Today' => 'Heute']);
+    translationFile('de', ['Today' => 'Heute', ':count tasks today' => ':count Aufgabe heute|:count Aufgaben heute']);
     config([
         'services.webpush.public_key' => 'public-key',
         'services.webpush.private_key' => 'private-key',
@@ -245,4 +250,11 @@ test('push notifications speak the account language', function () {
 
     expect($sender->messages()[0]['body'])->toBe('Heute')
         ->and(app()->getLocale())->toBe('en');
+
+    Task::factory()->for($user)->create(['text' => 'Buy bread', 'date' => '2026-10-28']);
+    Task::factory()->for($user)->create(['text' => 'Gym', 'date' => '2026-10-28']);
+    $this->travelTo(CarbonImmutable::parse('2026-10-28 08:00:00', 'Europe/Madrid'));
+    $this->artisan('notifications:send')->assertSuccessful();
+
+    expect($sender->messages()[1]['title'])->toBe('2 Aufgaben heute');
 });

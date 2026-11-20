@@ -87,7 +87,7 @@ final readonly class DueNotification
         );
 
         return new PushMessage(
-            title: $count === 1 ? self::cut($first->text, self::MAX_TITLE_LENGTH) : __(':count tasks today', ['count' => $count]),
+            title: $count === 1 ? self::cut($first->text, self::MAX_TITLE_LENGTH) : trans_choice(':count tasks today', $count, ['count' => $count]),
             body: $count === 1 ? __('Today') : self::cut(implode(' · ', $titles), self::MAX_BODY_LENGTH),
             url: $count === 1 ? self::taskUrl($first) : '/',
             tag: "morning:{$this->date}",

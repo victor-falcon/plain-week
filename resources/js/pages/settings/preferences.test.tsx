@@ -49,7 +49,7 @@ describe('the language setting', () => {
         expect(patch).toHaveBeenCalledWith(
             '/settings/language',
             { language: 'de' },
-            { preserveScroll: true },
+            expect.objectContaining({ preserveScroll: true }),
         );
     });
 
@@ -70,7 +70,17 @@ describe('the language setting', () => {
         expect(patch).toHaveBeenCalledWith(
             '/settings/language',
             { language: null },
-            { preserveScroll: true },
+            expect.objectContaining({ preserveScroll: true }),
         );
+    });
+
+    it('shows a language the instance no longer offers as the browser default', () => {
+        configureI18n({ locale: 'en', locales: ['en', 'de'], messages: {} });
+        language = 'it';
+        render(<Preferences />);
+
+        expect(
+            screen.getByRole('combobox', { name: 'Language' }).textContent,
+        ).toContain('Browser default');
     });
 });

@@ -9,7 +9,7 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
-import { t } from '@/lib/i18n';
+import { t, intlLocale } from '@/lib/i18n';
 import type { TextKey } from '@/lib/i18n';
 import { formatTimeAgo } from '@/lib/settings/relative-time';
 
@@ -109,7 +109,7 @@ export function ActivityLog({ activity }: { activity: ActivityPage }) {
                                         dateTime={entry.createdAt}
                                         title={new Date(
                                             entry.createdAt,
-                                        ).toLocaleString()}
+                                        ).toLocaleString(intlLocale())}
                                     >
                                         {formatTimeAgo(entry.createdAt)}
                                     </time>

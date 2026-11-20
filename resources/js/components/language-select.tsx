@@ -1,4 +1,5 @@
 import { router, usePage } from '@inertiajs/react';
+import { toast } from 'sonner';
 import { Label } from '@/components/ui/label';
 import {
     Select,
@@ -20,13 +21,21 @@ const BROWSER = 'browser';
  */
 export function LanguageSelect() {
     const { auth } = usePage().props;
-    const current = auth.user.language ?? BROWSER;
+    const language = auth.user.language;
+    // A language the instance no longer offers is served as the browser's.
+    const current =
+        language && availableLocales().includes(language) ? language : BROWSER;
 
     const change = (value: string) => {
         router.patch(
             update().url,
             { language: value === BROWSER ? null : value },
-            { preserveScroll: true },
+            {
+                preserveScroll: true,
+                onNetworkError: () => {
+                    toast.error(t('preferences.languageOffline'));
+                },
+            },
         );
     };
 

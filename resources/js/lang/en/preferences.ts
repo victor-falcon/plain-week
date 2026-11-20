@@ -13,4 +13,6 @@ export const preferences = {
     'preferences.languageHint':
         'Browser default follows the language set in your browser.',
     'preferences.languageBrowser': 'Browser default',
+    'preferences.languageOffline':
+        'Connect to the internet to change the language.',
 } as const;

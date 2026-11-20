@@ -25,7 +25,7 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import { Spinner } from '@/components/ui/spinner';
-import { t } from '@/lib/i18n';
+import { t, intlLocale } from '@/lib/i18n';
 import { tRich } from '@/lib/i18n/rich';
 import { formatTimeAgo } from '@/lib/settings/relative-time';
 import { connect, destroy } from '@/routes/integrations/google';
@@ -125,7 +125,7 @@ function SyncState({ connection }: { connection: GoogleCalendarConnection }) {
                                       dateTime={connection.lastSyncedAt ?? ''}
                                       title={new Date(
                                           connection.lastSyncedAt ?? '',
-                                      ).toLocaleString()}
+                                      ).toLocaleString(intlLocale())}
                                   >
                                       {text}
                                   </time>

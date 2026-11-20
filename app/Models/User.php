@@ -79,20 +79,12 @@ class User extends Authenticatable implements HasLocalePreference, MustVerifyEma
     }
 
     /**
-     * The language for emails and push notifications sent outside a request: the one picked in Settings ›
-     * Preferences, else the browser language recorded at sign-up, when the instance still offers it.
+     * The language picked in Settings › Preferences, when the instance still offers it. Mail and notifications use
+     * it; null ("Browser default") leaves the request's language, or APP_LOCALE outside a request.
      */
     public function preferredLocale(): ?string
     {
-        $translations = app(Translations::class);
-
-        foreach ([$this->language, $this->locale] as $locale) {
-            if ($translations->isAvailable($locale)) {
-                return $locale;
-            }
-        }
-
-        return null;
+        return app(Translations::class)->isAvailable($this->language) ? $this->language : null;
     }
 
     /**
