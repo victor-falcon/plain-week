@@ -1,4 +1,4 @@
-import { Form, Head } from '@inertiajs/react';
+import { Form, Head, usePage } from '@inertiajs/react';
 import { useRef } from 'react';
 import SecurityController from '@/actions/App/Http/Controllers/Settings/SecurityController';
 import Heading from '@/components/heading';
@@ -15,12 +15,16 @@ import ManageTwoFactor from '@/components/manage-two-factor';
 // oxfmt-ignore
 type Props = {
     passwordRules: string;
+    /** False with OIDC_ONLY: there is no password login, so no password to set. */
+    canManagePassword: boolean;
 } & ManagePasskeysProps &
     ManageTwoFactorProps;
 
 export default function Security(props: Props) {
     const passwordInput = useRef<HTMLInputElement>(null);
     const currentPasswordInput = useRef<HTMLInputElement>(null);
+    // An account created through single sign-on sets its first password, without a current one.
+    const hasPassword = usePage().props.auth.hasPassword ?? true;
 
     return (
         <>
@@ -28,109 +32,125 @@ export default function Security(props: Props) {
 
             <h1 className="sr-only">{t('settings.security.title')}</h1>
 
-            <div className="space-y-6">
-                <Heading
-                    variant="small"
-                    title={t('settings.security.passwordTitle')}
-                    description={t('settings.security.passwordDescription')}
-                />
-
-                <Form
-                    {...SecurityController.update.form()}
-                    options={{
-                        preserveScroll: true,
-                    }}
-                    resetOnError={[
-                        'password',
-                        'password_confirmation',
-                        'current_password',
-                    ]}
-                    resetOnSuccess
-                    onError={(errors) => {
-                        if (errors.password) {
-                            passwordInput.current?.focus();
+            {props.canManagePassword !== false && (
+                <div className="space-y-6">
+                    <Heading
+                        variant="small"
+                        title={
+                            hasPassword
+                                ? t('settings.security.passwordTitle')
+                                : t('settings.security.setPasswordTitle')
                         }
-
-                        if (errors.current_password) {
-                            currentPasswordInput.current?.focus();
+                        description={
+                            hasPassword
+                                ? t('settings.security.passwordDescription')
+                                : t('settings.security.setPasswordDescription')
                         }
-                    }}
-                    className="space-y-6"
-                >
-                    {({ errors, processing }) => (
-                        <>
-                            <div className="grid gap-2">
-                                <Label htmlFor="current_password">
-                                    {t('settings.security.currentPassword')}
-                                </Label>
+                    />
 
-                                <PasswordInput
-                                    id="current_password"
-                                    ref={currentPasswordInput}
-                                    name="current_password"
-                                    className="mt-1 block w-full"
-                                    autoComplete="current-password"
-                                    placeholder={t(
-                                        'settings.security.currentPassword',
-                                    )}
-                                />
+                    <Form
+                        {...SecurityController.update.form()}
+                        options={{
+                            preserveScroll: true,
+                        }}
+                        resetOnError={[
+                            'password',
+                            'password_confirmation',
+                            'current_password',
+                        ]}
+                        resetOnSuccess
+                        onError={(errors) => {
+                            if (errors.password) {
+                                passwordInput.current?.focus();
+                            }
 
-                                <InputError message={errors.current_password} />
-                            </div>
+                            if (errors.current_password) {
+                                currentPasswordInput.current?.focus();
+                            }
+                        }}
+                        className="space-y-6"
+                    >
+                        {({ errors, processing }) => (
+                            <>
+                                {hasPassword && (
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="current_password">
+                                            {t(
+                                                'settings.security.currentPassword',
+                                            )}
+                                        </Label>
 
-                            <div className="grid gap-2">
-                                <Label htmlFor="password">
-                                    {t('settings.security.newPassword')}
-                                </Label>
+                                        <PasswordInput
+                                            id="current_password"
+                                            ref={currentPasswordInput}
+                                            name="current_password"
+                                            className="mt-1 block w-full"
+                                            autoComplete="current-password"
+                                            placeholder={t(
+                                                'settings.security.currentPassword',
+                                            )}
+                                        />
 
-                                <PasswordInput
-                                    id="password"
-                                    ref={passwordInput}
-                                    name="password"
-                                    className="mt-1 block w-full"
-                                    autoComplete="new-password"
-                                    placeholder={t(
-                                        'settings.security.newPassword',
-                                    )}
-                                    passwordrules={props.passwordRules}
-                                />
+                                        <InputError
+                                            message={errors.current_password}
+                                        />
+                                    </div>
+                                )}
 
-                                <InputError message={errors.password} />
-                            </div>
+                                <div className="grid gap-2">
+                                    <Label htmlFor="password">
+                                        {t('settings.security.newPassword')}
+                                    </Label>
 
-                            <div className="grid gap-2">
-                                <Label htmlFor="password_confirmation">
-                                    {t('settings.security.confirmPassword')}
-                                </Label>
+                                    <PasswordInput
+                                        id="password"
+                                        ref={passwordInput}
+                                        name="password"
+                                        className="mt-1 block w-full"
+                                        autoComplete="new-password"
+                                        placeholder={t(
+                                            'settings.security.newPassword',
+                                        )}
+                                        passwordrules={props.passwordRules}
+                                    />
 
-                                <PasswordInput
-                                    id="password_confirmation"
-                                    name="password_confirmation"
-                                    className="mt-1 block w-full"
-                                    autoComplete="new-password"
-                                    placeholder={t(
-                                        'settings.security.confirmPassword',
-                                    )}
-                                    passwordrules={props.passwordRules}
-                                />
+                                    <InputError message={errors.password} />
+                                </div>
 
-                                <InputError
-                                    message={errors.password_confirmation}
-                                />
-                            </div>
+                                <div className="grid gap-2">
+                                    <Label htmlFor="password_confirmation">
+                                        {t('settings.security.confirmPassword')}
+                                    </Label>
 
-                            <div className="flex items-center gap-4">
-                                <Button
-                                    disabled={processing}
-                                    data-test="update-password-button"
-                                >
-                                    {t('common.save')}
-                                </Button>
-                            </div>
-                        </>
-                    )}
-                </Form>
-            </div>
+                                    <PasswordInput
+                                        id="password_confirmation"
+                                        name="password_confirmation"
+                                        className="mt-1 block w-full"
+                                        autoComplete="new-password"
+                                        placeholder={t(
+                                            'settings.security.confirmPassword',
+                                        )}
+                                        passwordrules={props.passwordRules}
+                                    />
+
+                                    <InputError
+                                        message={errors.password_confirmation}
+                                    />
+                                </div>
+
+                                <div className="flex items-center gap-4">
+                                    <Button
+                                        disabled={processing}
+                                        data-test="update-password-button"
+                                    >
+                                        {t('common.save')}
+                                    </Button>
+                                </div>
+                            </>
+                        )}
+                    </Form>
+                </div>
+            )}
 
             <ManageTwoFactor
                 canManageTwoFactor={props.canManageTwoFactor}

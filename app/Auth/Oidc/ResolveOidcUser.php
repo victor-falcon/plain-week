@@ -1,0 +1,105 @@
+<?php
+
+namespace App\Auth\Oidc;
+
+use App\Auth\Registration;
+use App\Models\User;
+use Illuminate\Auth\Events\Registered;
+use Illuminate\Http\Request;
+use Illuminate\Support\Str;
+use Laravel\Socialite\Contracts\User as IdentityUser;
+
+/**
+ * Finds the local account for an identity the IdP vouched for, linking or creating it when allowed:
+ *
+ * 1. The account already linked to this issuer and `sub`.
+ * 2. Otherwise the account with the same email, only when the IdP says `email_verified` is true (an unverified
+ *    address could belong to anyone). It is then linked to this `sub`, unless it is already linked to another one
+ *    at the same issuer.
+ * 3. Otherwise a new password-less account, only while sign-up is open (`App\Auth\Registration`).
+ */
+final class ResolveOidcUser
+{
+    /** The languages an account can get emails in; the first is the fallback (like CreateNewUser). */
+    private const array LOCALES = ['en', 'es'];
+
+    public function __construct(private readonly Request $request) {}
+
+    public function __invoke(IdentityUser $identity): User
+    {
+        $issuer = Oidc::issuer();
+        $sub = (string) $identity->getId();
+
+        $linked = User::query()->where('oidc_issuer', $issuer)->where('oidc_sub', $sub)->first();
+
+        if ($linked !== null) {
+            return $linked;
+        }
+
+        $email = Str::lower(trim((string) $identity->getEmail()));
+
+        if ($email === '' || ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            throw new OidcLoginRefused(OidcLoginRefused::MISSING_EMAIL);
+        }
+
+        $verified = self::emailVerified($identity);
+        $existing = User::query()->whereRaw('lower(email) = ?', [$email])->first();
+
+        if ($existing !== null) {
+            if (! $verified) {
+                throw new OidcLoginRefused(OidcLoginRefused::UNVERIFIED_EMAIL);
+            }
+
+            if ($existing->oidc_issuer === $issuer && $existing->oidc_sub !== null) {
+                throw new OidcLoginRefused(OidcLoginRefused::LINKED_ELSEWHERE);
+            }
+
+            // A link to a previous IdP (another issuer) is replaced: the instance moved to this one.
+            $existing->forceFill([
+                'oidc_issuer' => $issuer,
+                'oidc_sub' => $sub,
+                'email_verified_at' => $existing->email_verified_at ?? now(),
+            ])->save();
+
+            return $existing;
+        }
+
+        if (! Registration::open()) {
+            throw new OidcLoginRefused(OidcLoginRefused::REGISTRATION_CLOSED);
+        }
+
+        $user = new User;
+        $user->forceFill([
+            'name' => Str::limit(self::name($identity, $email), 255, ''),
+            'email' => $email,
+            'password' => null,
+            'email_verified_at' => $verified ? now() : null,
+            'oidc_issuer' => $issuer,
+            'oidc_sub' => $sub,
+            'locale' => $this->request->getPreferredLanguage(self::LOCALES),
+        ])->save();
+
+        // Like a sign-up: an unverified address gets the verification email.
+        event(new Registered($user));
+
+        return $user;
+    }
+
+    /**
+     * Only a real `true` counts (some IdPs send the string "true").
+     */
+    private static function emailVerified(IdentityUser $identity): bool
+    {
+        $raw = method_exists($identity, 'getRaw') ? $identity->getRaw() : [];
+        $value = $raw['email_verified'] ?? false;
+
+        return $value === true || (is_string($value) && strtolower($value) === 'true');
+    }
+
+    private static function name(IdentityUser $identity, string $email): string
+    {
+        $name = trim((string) ($identity->getName() ?? $identity->getNickname() ?? ''));
+
+        return $name !== '' ? $name : Str::before($email, '@');
+    }
+}

@@ -6,6 +6,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
+use Laravel\Socialite\Facades\Socialite;
 use Tests\Support\FakeStripe;
 use Tests\TestCase;
 
@@ -290,4 +291,53 @@ function toolResult(string $token, string $name, array $arguments = []): array
     expect($response->json('result.isError'))->toBeFalse($response->json('result.content.0.text') ?? '');
 
     return $response->json('result.structuredContent');
+}
+
+/**
+ * Single sign-on configured with a test IdP (https://idp.test), optionally as the only way in.
+ */
+function useOidc(bool $only = false): void
+{
+    config([
+        'oidc.enabled' => true,
+        'oidc.issuer' => 'https://idp.test',
+        'oidc.client_id' => 'plain-week',
+        'oidc.client_secret' => 'client-secret',
+        'oidc.label' => null,
+        'oidc.only' => $only,
+    ]);
+}
+
+/**
+ * An identity the IdP vouched for, as the `oidc` Socialite driver returns it (claims in `getRaw()`).
+ *
+ * @param  array<string, mixed>  $claims
+ */
+function oidcIdentity(array $claims = []): Laravel\Socialite\Two\User
+{
+    $claims = [
+        'sub' => 'idp-user-1',
+        'email' => 'ada@example.com',
+        'email_verified' => true,
+        'name' => 'Ada Lovelace',
+        ...$claims,
+    ];
+
+    return (new Laravel\Socialite\Two\User)->setRaw($claims)->map([
+        'id' => $claims['sub'],
+        'email' => $claims['email'],
+        'name' => $claims['name'],
+    ]);
+}
+
+/**
+ * Comes back from the IdP as `$identity` (Socialite faked), for a login or, with `$confirm`, a re-authentication.
+ */
+function oidcCallback(Laravel\Socialite\Two\User $identity, bool $confirm = false): TestResponse
+{
+    Socialite::fake('oidc', $identity);
+
+    return test()
+        ->withSession(['oidc.intent' => $confirm ? 'confirm' : 'login'])
+        ->get(route('oidc.callback', ['code' => 'code', 'state' => 'state']));
 }

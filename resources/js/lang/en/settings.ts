@@ -41,6 +41,10 @@ export const settings = {
     'settings.deleteUser.dialogDescription':
         'Once your account is deleted, all of its resources and data will also be permanently deleted. Please enter your password to confirm you would like to permanently delete your account.',
     'settings.deleteUser.password': 'Password',
+    'settings.deleteUser.dialogDescriptionNoPassword':
+        'Once your account is deleted, all of its resources and data will also be permanently deleted.',
+    'settings.deleteUser.confirmFirst':
+        'Confirm it is you with single sign-on before deleting your account.',
 
     // Security
     'settings.security.title': 'Security settings',
@@ -50,6 +54,9 @@ export const settings = {
     'settings.security.currentPassword': 'Current password',
     'settings.security.newPassword': 'New password',
     'settings.security.confirmPassword': 'Confirm password',
+    'settings.security.setPasswordTitle': 'Set a password',
+    'settings.security.setPasswordDescription':
+        'You log in with single sign-on. Set a password to also log in with your email.',
 
     // Two-factor authentication
     'settings.twoFactor.title': 'Two-factor authentication',

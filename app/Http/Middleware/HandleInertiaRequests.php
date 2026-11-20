@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Auth\Oidc\Oidc;
 use App\Auth\Registration;
 use App\Integrations\GoogleCalendar\GoogleOAuth;
 use App\Mcp\McpConfig;
@@ -55,10 +56,15 @@ class HandleInertiaRequests extends Middleware
             'name' => config('app.name'),
             'auth' => [
                 'user' => $request->user(),
+                // A password-less account (created through the IdP) sets a password instead of changing it.
+                'hasPassword' => $user instanceof User && $user->password !== null,
             ],
-            // Sign-up links show only while registration is open (REGISTRATION_ENABLED).
-            // Lazy: the "no users yet" check queries only when it is turned off.
-            'canRegister' => fn () => Registration::open(),
+            // Sign-up links show only while registration is open (REGISTRATION_ENABLED) and the sign-up form
+            // exists (not with OIDC_ONLY). Lazy: the "no users yet" check queries only when it is turned off.
+            'canRegister' => fn () => ! Oidc::only() && Registration::open(),
+            // Single sign-on through an OpenID Connect IdP (OIDC_*): the button and its label, and whether it is the
+            // only way in.
+            'oidc' => Oidc::props(),
             'saas' => [
                 'enabled' => (bool) config('saas.enabled'),
             ],

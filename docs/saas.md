@@ -7,6 +7,10 @@ accounts that sync, no billing UI, and every route below answers `404`.
 `REGISTRATION_ENABLED=false` ([self-hosting.md](./self-hosting.md#closing-sign-up)) also works in SaaS mode: existing
 subscribers keep logging in, and the landing card shows the plans without their sign-up buttons.
 
+Single sign-on with an external OIDC IdP ([self-hosting.md](./self-hosting.md#oidc--single-sign-on)) is off in SaaS
+mode: `OIDC_ENABLED` defaults to `false` when `SAAS_ENABLED=true`, so plainweek.eu needs no extra variable, and
+`/auth/oidc/*` answer `404` there. Only an explicit `OIDC_ENABLED=true` would turn it on.
+
 ## Product rules
 
 - No free accounts and no trials: an account exists to sync, and syncing needs a paid plan. Guests still use the

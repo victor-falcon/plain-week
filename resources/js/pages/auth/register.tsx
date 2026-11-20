@@ -3,10 +3,12 @@ import AppLogoIcon from '@/components/app-logo-icon';
 import {
     AuthField,
     AuthFootnote,
+    AuthSeparator,
     AuthSubmit,
     authInputClass,
     closeToPlanner,
 } from '@/components/auth/auth-form';
+import OidcButton from '@/components/auth/oidc-button';
 import { FloatingCard } from '@/components/floating-card';
 import PasswordInput from '@/components/password-input';
 import TextLink from '@/components/text-link';
@@ -45,7 +47,8 @@ function referralSources() {
  * account to the plan choice (`/plans`).
  */
 export default function Register({ passwordRules }: Props) {
-    const saasEnabled = usePage().props.saas?.enabled ?? false;
+    const { saas, oidc } = usePage().props;
+    const saasEnabled = saas?.enabled ?? false;
 
     return (
         <>
@@ -67,6 +70,15 @@ export default function Register({ passwordRules }: Props) {
                     )
                 }
             >
+                {oidc?.enabled && (
+                    <>
+                        <OidcButton />
+                        <AuthSeparator>
+                            {t('auth.orSignUpWithEmail')}
+                        </AuthSeparator>
+                    </>
+                )}
+
                 <Form
                     {...store.form()}
                     resetOnSuccess={['password']}

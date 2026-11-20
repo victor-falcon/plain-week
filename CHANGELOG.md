@@ -7,6 +7,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **Log in with your identity provider (OIDC).** Self-hosted instances can let users log in with an existing account at
+  an OpenID Connect IdP (Pocket ID, Authentik, Keycloak...) by setting `OIDC_ISSUER`, `OIDC_CLIENT_ID` and
+  `OIDC_CLIENT_SECRET` (redirect URI `APP_URL/auth/oidc/callback`); `OIDC_LABEL` sets the button text. Existing accounts
+  are linked by email only when the IdP has verified it, new accounts are created while sign-up is open, and two-factor
+  still applies. Accounts created this way have no password: they confirm sensitive settings by logging in at the IdP
+  again, and can set a password in Settings › Security. `OIDC_ONLY=true` makes the IdP the only way in, and
+  `OIDC_ENABLED=false` turns it off (off by default in SaaS mode). See docs/self-hosting.md.
+
 ## [0.4.2] - 2026-11-20
 
 ### Added

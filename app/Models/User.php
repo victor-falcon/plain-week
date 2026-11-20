@@ -28,7 +28,7 @@ use Laravel\Passport\HasApiTokens;
  * @property string $name
  * @property string $email
  * @property Carbon|null $email_verified_at
- * @property string $password
+ * @property string|null $password
  * @property string|null $two_factor_secret
  * @property string|null $two_factor_recovery_codes
  * @property Carbon|null $two_factor_confirmed_at
@@ -44,9 +44,11 @@ use Laravel\Passport\HasApiTokens;
  * @property string|null $locale
  * @property string|null $language
  * @property Carbon|null $welcomed_at
+ * @property string|null $oidc_issuer
+ * @property string|null $oidc_sub
  */
 #[Fillable(['name', 'email', 'password', 'referral_source', 'locale'])]
-#[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token', 'stripe_id', 'pm_type', 'pm_last_four', 'lifetime_payment_id'])]
+#[Hidden(['password', 'oidc_issuer', 'oidc_sub', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token', 'stripe_id', 'pm_type', 'pm_last_four', 'lifetime_payment_id'])]
 class User extends Authenticatable implements HasLocalePreference, MustVerifyEmail, OAuthenticatable, PasskeyUser
 {
     /** @use HasFactory<UserFactory> */

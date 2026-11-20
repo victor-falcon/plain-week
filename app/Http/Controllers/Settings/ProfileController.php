@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Settings;
 
+use App\Auth\PasswordConfirmation;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\ProfileDeleteRequest;
 use App\Http\Requests\Settings\ProfileUpdateRequest;
@@ -24,6 +25,8 @@ class ProfileController extends Controller
         return Inertia::render('settings/profile', [
             'mustVerifyEmail' => $request->user() instanceof MustVerifyEmail,
             'status' => $request->session()->get('status'),
+            // A password-less account deletes itself without a password field, once it confirmed at the IdP.
+            'passwordConfirmed' => PasswordConfirmation::recent($request),
         ]);
     }
 

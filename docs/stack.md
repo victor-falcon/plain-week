@@ -9,6 +9,7 @@
 | Runtime  | Node.js                     | 24+ (used by some tooling; CI runs 24)                       |
 | Backend  | Laravel                     | 13                                                           |
 | Backend  | Laravel Fortify             | 1.x (authentication, 2FA, passkeys)                          |
+| Backend  | Laravel Socialite           | 5.x (the OpenID Connect single sign-on driver)               |
 | Backend  | Inertia (Laravel adapter)   | 3.x                                                          |
 | Backend  | Laravel Wayfinder           | 0.1.x                                                        |
 | Backend  | Laravel Cashier (Stripe)    | 16.x, billing in SaaS mode only ([saas.md](./saas.md))       |
@@ -373,6 +374,7 @@ one database file, no external services (the queue is a table in it). Deploy it 
     | `TRUSTED_PROXIES`               | The reverse proxy's IPs (or `*`) when it terminates TLS, so URLs use `https`. Sessions are secure when `APP_URL` is `https://`    |
     | `APP_NOINDEX`                   | `true` to keep search engines out (`X-Robots-Tag`, robots meta and `/robots.txt`)                                                 |
     | `REGISTRATION_ENABLED`          | `false` to close sign-up to new users (default `true`, see [self-hosting.md](./self-hosting.md#closing-sign-up))                  |
+    | `OIDC_*`                        | Optional single sign-on with an OpenID Connect IdP (see [self-hosting.md](./self-hosting.md#oidc--single-sign-on))                |
     | `MCP_ENABLED`                   | `false` to turn off the MCP server for AI agents (default `true`, see [self-hosting.md](./self-hosting.md#ai-agents-mcp))         |
 
 3. Create the key pair that signs agent tokens once, on persistent storage: `php artisan passport:keys` (writes

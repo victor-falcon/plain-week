@@ -1,6 +1,7 @@
-import { Form } from '@inertiajs/react';
+import { Form, usePage } from '@inertiajs/react';
 import { useRef } from 'react';
 import ProfileController from '@/actions/App/Http/Controllers/Settings/ProfileController';
+import OidcButton from '@/components/auth/oidc-button';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
 import PasswordInput from '@/components/password-input';
@@ -17,8 +18,18 @@ import {
 import { Label } from '@/components/ui/label';
 import { t } from '@/lib/i18n';
 
-export default function DeleteUser() {
+type Props = {
+    /** Confirmed recently (password, passkey or single sign-on): a password-less account needs it to delete itself. */
+    passwordConfirmed?: boolean;
+};
+
+export default function DeleteUser({ passwordConfirmed = false }: Props) {
     const passwordInput = useRef<HTMLInputElement>(null);
+    const { auth, oidc } = usePage().props;
+    // An account created through single sign-on has no password to type: it confirms at the IdP first.
+    const hasPassword = auth.hasPassword ?? true;
+    const mustConfirmWithOidc =
+        !hasPassword && !passwordConfirmed && (oidc?.enabled ?? false);
 
     return (
         <div className="space-y-6">
@@ -51,71 +62,98 @@ export default function DeleteUser() {
                             {t('settings.deleteUser.dialogTitle')}
                         </DialogTitle>
                         <DialogDescription>
-                            {t('settings.deleteUser.dialogDescription')}
+                            {hasPassword
+                                ? t('settings.deleteUser.dialogDescription')
+                                : t(
+                                      'settings.deleteUser.dialogDescriptionNoPassword',
+                                  )}
                         </DialogDescription>
 
-                        <Form
-                            {...ProfileController.destroy.form()}
-                            options={{
-                                preserveScroll: true,
-                            }}
-                            onError={() => passwordInput.current?.focus()}
-                            resetOnSuccess
-                            className="space-y-6"
-                        >
-                            {({ resetAndClearErrors, processing, errors }) => (
-                                <>
-                                    <div className="grid gap-2">
-                                        <Label
-                                            htmlFor="password"
-                                            className="sr-only"
-                                        >
-                                            {t('settings.deleteUser.password')}
-                                        </Label>
+                        {mustConfirmWithOidc ? (
+                            <div className="space-y-4">
+                                <p className="text-sm text-muted-foreground">
+                                    {t('settings.deleteUser.confirmFirst')}
+                                </p>
+                                <OidcButton confirm />
+                            </div>
+                        ) : (
+                            <Form
+                                {...ProfileController.destroy.form()}
+                                options={{
+                                    preserveScroll: true,
+                                }}
+                                onError={() => passwordInput.current?.focus()}
+                                resetOnSuccess
+                                className="space-y-6"
+                            >
+                                {({
+                                    resetAndClearErrors,
+                                    processing,
+                                    errors,
+                                }) => (
+                                    <>
+                                        {hasPassword ? (
+                                            <div className="grid gap-2">
+                                                <Label
+                                                    htmlFor="password"
+                                                    className="sr-only"
+                                                >
+                                                    {t(
+                                                        'settings.deleteUser.password',
+                                                    )}
+                                                </Label>
 
-                                        <PasswordInput
-                                            id="password"
-                                            name="password"
-                                            ref={passwordInput}
-                                            placeholder={t(
-                                                'settings.deleteUser.password',
-                                            )}
-                                            autoComplete="current-password"
-                                        />
+                                                <PasswordInput
+                                                    id="password"
+                                                    name="password"
+                                                    ref={passwordInput}
+                                                    placeholder={t(
+                                                        'settings.deleteUser.password',
+                                                    )}
+                                                    autoComplete="current-password"
+                                                />
 
-                                        <InputError message={errors.password} />
-                                    </div>
+                                                <InputError
+                                                    message={errors.password}
+                                                />
+                                            </div>
+                                        ) : (
+                                            <InputError
+                                                message={errors.password}
+                                            />
+                                        )}
 
-                                    <DialogFooter className="gap-2">
-                                        <DialogClose asChild>
+                                        <DialogFooter className="gap-2">
+                                            <DialogClose asChild>
+                                                <Button
+                                                    variant="secondary"
+                                                    onClick={() =>
+                                                        resetAndClearErrors()
+                                                    }
+                                                >
+                                                    {t('common.cancel')}
+                                                </Button>
+                                            </DialogClose>
+
                                             <Button
-                                                variant="secondary"
-                                                onClick={() =>
-                                                    resetAndClearErrors()
-                                                }
+                                                variant="destructive"
+                                                disabled={processing}
+                                                asChild
                                             >
-                                                {t('common.cancel')}
+                                                <button
+                                                    type="submit"
+                                                    data-test="confirm-delete-user-button"
+                                                >
+                                                    {t(
+                                                        'settings.deleteUser.button',
+                                                    )}
+                                                </button>
                                             </Button>
-                                        </DialogClose>
-
-                                        <Button
-                                            variant="destructive"
-                                            disabled={processing}
-                                            asChild
-                                        >
-                                            <button
-                                                type="submit"
-                                                data-test="confirm-delete-user-button"
-                                            >
-                                                {t(
-                                                    'settings.deleteUser.button',
-                                                )}
-                                            </button>
-                                        </Button>
-                                    </DialogFooter>
-                                </>
-                            )}
-                        </Form>
+                                        </DialogFooter>
+                                    </>
+                                )}
+                            </Form>
+                        )}
                     </DialogContent>
                 </Dialog>
             </div>

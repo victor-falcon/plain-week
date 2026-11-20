@@ -841,6 +841,40 @@ closes it: `App\Http\Middleware\EnsureRegistrationOpen`, in Fortify's route midd
 is the rule (on, or no users yet, so a fresh instance can create its first account) and is shared with every page as
 `canRegister`, which hides the login page's sign-up link and points the planner's "Sync your week" at the login page.
 
+**Single sign-on (OIDC).** An external OpenID Connect IdP can log users in (`config/oidc.php`, `OIDC_*`; operator
+guide in [self-hosting.md](./self-hosting.md#oidc--single-sign-on)). `App\Auth\Oidc\Oidc::enabled()` needs the issuer,
+the client id and the kill switch `OIDC_ENABLED` (default on, off when `SAAS_ENABLED=true`, an explicit value wins);
+otherwise `App\Http\Middleware\EnsureOidcEnabled` answers `404` on `/auth/oidc/redirect` and `/auth/oidc/callback`
+(both `throttle:oidc`, 20 a minute per IP), and the shared `oidc` prop (`enabled`, `only`, `label`) hides the button.
+
+- **Protocol.** `App\Auth\Oidc\OidcProvider` is a first-party Socialite driver (`oidc`, registered in
+  `FortifyServiceProvider`): the authorization code flow with PKCE (S256), Socialite's `state` and a `nonce`, endpoints
+  from the discovery document (`OidcDiscovery`, cached an hour; it must name the configured issuer). The ID token is
+  verified against the IdP's JWKS (refetched once for an unknown `kid`; `none` and HMAC algorithms are never accepted):
+  `iss`, `aud` (and `azp` with several audiences), `exp`/`iat`/`nbf` with a minute of leeway, and the session's `nonce`.
+  Its `sub` is authoritative; the userinfo response, when the IdP has the endpoint, adds the profile claims and must
+  carry the same `sub`. The token request uses `client_secret_basic` (or `client_secret_post` when it is the only one
+  the IdP lists), or no secret for a public client.
+- **Accounts.** `users.oidc_issuer` + `users.oidc_sub` (unique together) link an account; `users.password` is nullable.
+  `App\Auth\Oidc\ResolveOidcUser` finds the account by issuer and `sub`, else links the account with the same email
+  only when `email_verified` is `true` (and it is not linked to another `sub` at the same issuer; a link to another
+  issuer is replaced), else creates a password-less account while `Registration::open()`. Each refusal is an
+  `OidcLoginRefused` reason flashed as `oidcError` and explained on the login page (`auth.oidcError.*`).
+- **Two-factor.** An account with confirmed two-factor goes through Fortify's challenge after the IdP
+  (`login.id`/`login.remember` in the session, like a password login): the IdP replaces the password, not the second
+  factor.
+- **Password-less accounts.** They never pass a password check (`EloquentUserProvider` refuses a null hash). Where
+  Laravel asks to confirm the password (`password.confirm`: Settings › Security, two-factor and passkey setup), the
+  confirm page offers "Confirm with single sign-on": `/auth/oidc/redirect?confirm=1` asks the IdP for `prompt=login`
+  and `max_age=600`, and the callback marks the password confirmed (`auth.password_confirmed_at`) only for the same
+  issuer and `sub`, and not when the IdP's `auth_time` is older than ten minutes. Deleting the account and setting a
+  password (no current password for them) need that recent confirmation instead of a password field
+  (`App\Auth\PasswordConfirmation`).
+- **`OIDC_ONLY`.** `App\Http\Middleware\EnsurePasswordLoginAllowed` (Fortify's route middleware, and on
+  `user-password.update`) answers `404` on password login, sign-up, password reset, passkey login and setting a
+  password; `canRegister` is false and the login page shows only the IdP button.
+- Logout is local; the IdP session is left alone (no RP-initiated logout).
+
 **Email verification never blocks the app.** Self-hosted instances often have no mail server, so no route uses the
 `verified` middleware. The verify-email flow (notice page, resend link, signed verification URL) still works for
 instances that do send mail: the "unverified" notice and resend link live on the profile settings page. Keep

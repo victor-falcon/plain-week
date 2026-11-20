@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Settings;
 
+use App\Auth\Oidc\Oidc;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\PasswordUpdateRequest;
 use App\Http\Requests\Settings\TwoFactorAuthenticationRequest;
@@ -38,6 +39,8 @@ class SecurityController extends Controller
                     ->all()
                 : [],
             'passwordRules' => Password::defaults()->toPasswordRulesString(),
+            // With OIDC_ONLY there is no password login, so no password to set or change.
+            'canManagePassword' => ! Oidc::only(),
         ];
 
         if (Features::canManageTwoFactorAuthentication()) {
@@ -55,11 +58,13 @@ class SecurityController extends Controller
      */
     public function update(PasswordUpdateRequest $request): RedirectResponse
     {
+        $set = $request->user()->password === null;
+
         $request->user()->update([
             'password' => $request->password,
         ]);
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => __('Password updated.')]);
+        Inertia::flash('toast', ['type' => 'success', 'message' => $set ? __('Password set.') : __('Password updated.')]);
 
         return back();
     }

@@ -20,6 +20,7 @@
         "laravel/framework": "^13.17",
         "laravel/mcp": "^1.2",
         "laravel/passport": "^13.12",
+        "laravel/socialite": "^5.33",
         "laravel/tinker": "^3.0",
         "laravel/wayfinder": "^0.1.14",
         "minishlink/web-push": "^11.0"

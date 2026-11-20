@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsurePasswordLoginAllowed;
 use App\Http\Middleware\EnsureRegistrationOpen;
 use Laravel\Fortify\Features;
 
@@ -105,7 +106,7 @@ return [
     |
     */
 
-    'middleware' => ['web', EnsureRegistrationOpen::class],
+    'middleware' => ['web', EnsureRegistrationOpen::class, EnsurePasswordLoginAllowed::class],
 
     /*
     |--------------------------------------------------------------------------

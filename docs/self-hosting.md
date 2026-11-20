@@ -71,6 +71,12 @@ echo "base64:$(openssl rand -base64 32)"
 | `LOG_CHANNEL`           | `stderr`                                | Logs go to the container output (`docker logs`)                                                                                                                                                                                                                             |
 | `LOG_LEVEL`             | `debug`                                 | `warning` keeps the logs quiet                                                                                                                                                                                                                                              |
 | `REGISTRATION_ENABLED`  | `true`                                  | `false` closes sign-up on a private instance: only existing users can log in; see [Closing sign-up](#closing-sign-up). Stays open while the instance has no users, for the first account                                                                                    |
+| `OIDC_ISSUER`           | (empty)                                 | Single sign-on: the issuer URL of your OpenID Connect IdP (Pocket ID, Authentik, Keycloak...); see [OIDC / single sign-on](#oidc--single-sign-on). Empty hides it                                                                                                           |
+| `OIDC_CLIENT_ID`        | (empty)                                 | The client id of Plain Week at the IdP. Empty hides single sign-on                                                                                                                                                                                                          |
+| `OIDC_CLIENT_SECRET`    | (empty)                                 | The client secret that goes with it; empty for a public client (PKCE only). Keep it secret                                                                                                                                                                                  |
+| `OIDC_LABEL`            | (empty)                                 | The button text, e.g. `Log in with Authentik`. Empty shows "Log in with SSO" (translated)                                                                                                                                                                                   |
+| `OIDC_ENABLED`          | on, off with `SAAS_ENABLED=true`        | Kill switch for single sign-on. `false` turns it off (`/auth/oidc/*` answer `404`, no button) even when configured; empty means the default                                                                                                                                 |
+| `OIDC_ONLY`             | `false`                                 | `true` makes the IdP the only way in: no password login, sign-up form, password reset or passkey login. Only with an IdP configured                                                                                                                                         |
 | `SAAS_ENABLED`          | `false`                                 | Leave it `false`. `true` turns the instance into the paid hosted service (accounts need a Stripe plan to sync); see [saas.md](./saas.md) for it and its `STRIPE_*` and `SAAS_*` variables                                                                                   |
 | `GOOGLE_CLIENT_ID`      | (empty)                                 | OAuth client id for the optional Google Calendar sync; see [Google Calendar](#google-calendar). Empty hides the integration                                                                                                                                                 |
 | `GOOGLE_CLIENT_SECRET`  | (empty)                                 | OAuth client secret that goes with `GOOGLE_CLIENT_ID`                                                                                                                                                                                                                       |
@@ -267,6 +273,85 @@ resetting their password and using everything else as before.
 While the instance has no users at all, sign-up stays open anyway, so a fresh instance can still create its first
 account; it closes as soon as that account exists. To add someone later, set `REGISTRATION_ENABLED=true` for as long as
 they need to sign up.
+
+## OIDC / single sign-on
+
+Users can log in with an account they already have at an OpenID Connect identity provider (Pocket ID, Authentik,
+Keycloak, or any IdP with a discovery document at `<issuer>/.well-known/openid-configuration`), instead of keeping a
+separate password. Register Plain Week at the IdP as a web application (authorization code flow) with:
+
+- **Redirect URI:** `APP_URL/auth/oidc/callback`, for example `https://plan.example.com/auth/oidc/callback`.
+- **Scopes:** `openid email profile`.
+- PKCE (S256) is always used. A client secret is optional (a public client works too).
+
+Then set `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` and optionally `OIDC_LABEL`, and restart. The login page
+(and the sign-up page, while sign-up is open) shows the button; nothing shows until the issuer and the client id are set.
+
+What happens when someone logs in through the IdP:
+
+1. The account already linked to that IdP identity (its issuer and `sub`) logs in.
+2. Otherwise, an existing account with the same email is linked to it, **only if the IdP says the email is verified**
+   (`email_verified: true`). An unverified address could belong to anyone, so the login is refused with an explanation;
+   the user can still log in with their password. An account already linked to another identity at the same IdP is
+   never relinked.
+3. Otherwise a new account is created (name and email from the IdP, the email marked verified when the IdP verified
+   it), only while sign-up is open (`REGISTRATION_ENABLED`, see [Closing sign-up](#closing-sign-up)). Accounts created
+   this way have no password.
+
+Two-factor authentication still applies: an account with two-factor on gets its code prompt after the IdP. Before
+sensitive settings (two-factor, passkeys, deleting the account), an account without a password confirms by logging in
+at the IdP again instead of typing a password. In Settings › Security it can set a password, to also log in with its
+email (unless `OIDC_ONLY` is on). Logging out of Plain Week does not log out of the IdP.
+
+`OIDC_ONLY=true` makes the IdP the only way in: the login page shows only its button, and password login, the sign-up
+form, password reset, passkey login and setting a password answer `404`. Existing users log in through the IdP and are
+linked by their verified email, so make sure their address is the same and verified there.
+
+`OIDC_ENABLED=false` turns single sign-on off without removing the other variables. It defaults to on, and to off when
+`SAAS_ENABLED=true`. When it is off, accounts created through the IdP log in again with "Forgot it?" (a password reset
+by email).
+
+Changing to another IdP (another issuer) is fine: users are linked again by their verified email on their first login.
+
+### Pocket ID
+
+In Pocket ID, open **OIDC Clients › Add OIDC Client**, name it Plain Week and set the callback URL to
+`https://plan.example.com/auth/oidc/callback`. Pocket ID shows the client id and secret once:
+
+```dotenv
+OIDC_ISSUER=https://id.example.com
+OIDC_CLIENT_ID=0f1e2d3c-...
+OIDC_CLIENT_SECRET=...
+OIDC_LABEL="Log in with Pocket ID"
+```
+
+### Authentik
+
+In Authentik, create an **OAuth2/OpenID Provider** (client type confidential, redirect URI
+`https://plan.example.com/auth/oidc/callback`, the default `openid`, `email` and `profile` scopes) and an
+**Application** with the slug `plain-week` that uses it. The issuer is the application's "OpenID Configuration Issuer":
+
+```dotenv
+OIDC_ISSUER=https://authentik.example.com/application/o/plain-week/
+OIDC_CLIENT_ID=...
+OIDC_CLIENT_SECRET=...
+OIDC_LABEL="Log in with Authentik"
+```
+
+Linking existing accounts by email needs the IdP to send `email_verified: true`. If yours sends `false` (check the
+user's claims at the IdP, e.g. Authentik's email scope mapping), existing users get "has not verified the address" until
+it does.
+
+### Keycloak
+
+Create an OpenID Connect client with client authentication on and the valid redirect URI above. The issuer is the
+realm URL:
+
+```dotenv
+OIDC_ISSUER=https://keycloak.example.com/realms/home
+OIDC_CLIENT_ID=plain-week
+OIDC_CLIENT_SECRET=...
+```
 
 ## Translations
 

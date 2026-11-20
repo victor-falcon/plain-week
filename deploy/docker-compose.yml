@@ -21,6 +21,13 @@ services:
             APP_URL: ${APP_URL:-http://localhost:8080}
             APP_NOINDEX: ${APP_NOINDEX:-false}
             REGISTRATION_ENABLED: ${REGISTRATION_ENABLED:-true}
+            # Single sign-on (OpenID Connect); see docs/self-hosting.md#oidc--single-sign-on.
+            OIDC_ISSUER: ${OIDC_ISSUER:-}
+            OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
+            OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+            OIDC_LABEL: ${OIDC_LABEL:-}
+            OIDC_ENABLED: ${OIDC_ENABLED:-}
+            OIDC_ONLY: ${OIDC_ONLY:-false}
             TRUSTED_PROXIES: ${TRUSTED_PROXIES:-127.0.0.0/8,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,::1,fc00::/7}
             MAIL_MAILER: ${MAIL_MAILER:-log}
             MAIL_SCHEME: ${MAIL_SCHEME:-}

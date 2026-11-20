@@ -4,6 +4,7 @@ import type {
     Integrations,
     Mcp,
     Notifications,
+    Oidc,
     Saas,
 } from '@/types/auth';
 
@@ -23,6 +24,7 @@ declare module '@inertiajs/core' {
             /** Sign-up is open (REGISTRATION_ENABLED, or an instance with no users yet). */
             canRegister: boolean;
             saas: Saas;
+            oidc: Oidc;
             /** "Send feedback" target: a mailto: in SaaS mode, GitHub Discussions otherwise. */
             feedbackUrl: string;
             integrations: Integrations;

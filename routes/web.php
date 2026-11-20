@@ -1,8 +1,10 @@
 <?php
 
+use App\Http\Controllers\Auth\OidcController;
 use App\Http\Controllers\PushSubscriptionController;
 use App\Http\Controllers\SyncController;
 use App\Http\Middleware\EnsureHasAccess;
+use App\Http\Middleware\EnsureOidcEnabled;
 use App\Http\Middleware\EnsureWebPushConfigured;
 use App\Http\Middleware\RememberTimezone;
 use Illuminate\Support\Facades\Route;
@@ -28,6 +30,13 @@ Route::middleware(['auth', EnsureWebPushConfigured::class, RememberTimezone::cla
             ->name('store');
         Route::delete('/', [PushSubscriptionController::class, 'destroy'])->name('destroy');
     });
+
+// Logging in through an OpenID Connect IdP (config/oidc.php), and re-authenticating there instead of typing a
+// password (`?confirm=1`). 404 while it is not configured or OIDC_ENABLED is off.
+Route::middleware([EnsureOidcEnabled::class, 'throttle:oidc'])->prefix('auth/oidc')->name('oidc.')->group(function () {
+    Route::get('redirect', [OidcController::class, 'redirect'])->name('redirect');
+    Route::get('callback', [OidcController::class, 'callback'])->name('callback');
+});
 
 require __DIR__.'/settings.php';
 require __DIR__.'/billing.php';

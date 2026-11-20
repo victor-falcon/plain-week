@@ -4,6 +4,9 @@ namespace App\Providers;
 
 use App\Actions\Fortify\CreateNewUser;
 use App\Actions\Fortify\ResetUserPassword;
+use App\Auth\Oidc\Oidc;
+use App\Auth\Oidc\OidcDiscovery;
+use App\Auth\Oidc\OidcProvider;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -13,6 +16,8 @@ use Illuminate\Validation\Rules\Password;
 use Inertia\Inertia;
 use Laravel\Fortify\Features;
 use Laravel\Fortify\Fortify;
+use Laravel\Socialite\Contracts\Factory as Socialite;
+use Laravel\Socialite\SocialiteManager;
 
 class FortifyServiceProvider extends ServiceProvider
 {
@@ -32,6 +37,26 @@ class FortifyServiceProvider extends ServiceProvider
         $this->configureActions();
         $this->configureViews();
         $this->configureRateLimiting();
+        $this->configureOidc();
+    }
+
+    /**
+     * The `oidc` Socialite driver: the OpenID Connect IdP from config/oidc.php.
+     */
+    private function configureOidc(): void
+    {
+        $this->app->afterResolving(Socialite::class, function (SocialiteManager $socialite): void {
+            $socialite->extend('oidc', function () use ($socialite) {
+                /** @var OidcProvider $provider */
+                $provider = $socialite->buildProvider(OidcProvider::class, [
+                    'client_id' => config('oidc.client_id'),
+                    'client_secret' => config('oidc.client_secret'),
+                    'redirect' => route('oidc.callback'),
+                ]);
+
+                return $provider->setDiscovery(new OidcDiscovery(Oidc::issuer()));
+            });
+        });
     }
 
     /**
@@ -49,8 +74,10 @@ class FortifyServiceProvider extends ServiceProvider
     private function configureViews(): void
     {
         Fortify::loginView(fn (Request $request) => Inertia::render('auth/login', [
-            'canResetPassword' => Features::enabled(Features::resetPasswords()),
+            'canResetPassword' => Features::enabled(Features::resetPasswords()) && ! Oidc::only(),
             'status' => $request->session()->get('status'),
+            // Why a login through the IdP was turned down (OidcLoginRefused::*).
+            'oidcError' => $request->session()->get('oidcError'),
         ]));
 
         Fortify::resetPasswordView(fn (Request $request) => Inertia::render('auth/reset-password', [
@@ -73,7 +100,12 @@ class FortifyServiceProvider extends ServiceProvider
 
         Fortify::twoFactorChallengeView(fn () => Inertia::render('auth/two-factor-challenge'));
 
-        Fortify::confirmPasswordView(fn () => Inertia::render('auth/confirm-password'));
+        // A password-less account (created through the IdP) confirms by logging in at the IdP again instead.
+        Fortify::confirmPasswordView(fn (Request $request) => Inertia::render('auth/confirm-password', [
+            'hasPassword' => $request->user()->password !== null,
+            'canConfirmWithOidc' => Oidc::linked($request->user()),
+            'oidcError' => $request->session()->get('oidcError'),
+        ]));
     }
 
     /**
@@ -89,6 +121,10 @@ class FortifyServiceProvider extends ServiceProvider
             $throttleKey = Str::transliterate(Str::lower($request->input(Fortify::username())).'|'.$request->ip());
 
             return Limit::perMinute(5)->by($throttleKey);
+        });
+
+        RateLimiter::for('oidc', function (Request $request) {
+            return Limit::perMinute(20)->by($request->ip());
         });
 
         RateLimiter::for('passkeys', function (Request $request) {

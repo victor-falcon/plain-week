@@ -39,5 +39,9 @@
         <env name="STRIPE_KEY" value="" force="true"/>
         <env name="STRIPE_SECRET" value="" force="true"/>
         <env name="STRIPE_WEBHOOK_SECRET" value="" force="true"/>
+        <!-- No single sign-on unless a test configures it with useOidc(). -->
+        <env name="OIDC_ISSUER" value="" force="true"/>
+        <env name="OIDC_CLIENT_ID" value="" force="true"/>
+        <env name="OIDC_ONLY" value="false" force="true"/>
     </php>
 </phpunit>

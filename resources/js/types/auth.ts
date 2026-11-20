@@ -14,6 +14,17 @@ export type User = {
 
 export type Auth = {
     user: User;
+    /** False for an account created through single sign-on that never set a password. */
+    hasPassword: boolean;
+};
+
+/** Single sign-on through an OpenID Connect IdP (`OIDC_*`). */
+export type Oidc = {
+    enabled: boolean;
+    /** `OIDC_ONLY`: the IdP is the only way in (no password login, sign-up form or reset). */
+    only: boolean;
+    /** The button text (`OIDC_LABEL`); null shows the translated default. */
+    label: string | null;
 };
 
 /** SaaS mode (`SAAS_ENABLED`): accounts need a paid plan to sync. */

@@ -8,6 +8,7 @@ use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\SecurityController;
 use App\Http\Middleware\EnsureGoogleCalendarConfigured;
 use App\Http\Middleware\EnsureHasAccess;
+use App\Http\Middleware\EnsurePasswordLoginAllowed;
 use App\Http\Middleware\EnsureWebPushConfigured;
 use Illuminate\Auth\Middleware\RequirePassword;
 use Illuminate\Support\Facades\Route;
@@ -24,7 +25,7 @@ Route::middleware(['auth'])->group(function () {
         ->name('security.edit');
 
     Route::put('settings/password', [SecurityController::class, 'update'])
-        ->middleware('throttle:6,1')
+        ->middleware(['throttle:6,1', EnsurePasswordLoginAllowed::class])
         ->name('user-password.update');
 
     Route::inertia('settings/appearance', 'settings/appearance')->name('appearance.edit');

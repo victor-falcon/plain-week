@@ -89,4 +89,26 @@ export const auth = {
         other: '{count} changes have not been synced yet and will be lost. Log out anyway?',
     },
     'auth.logOutFailed': 'Could not log out. Check your connection.',
+    /** The single sign-on button when the instance sets no `OIDC_LABEL`. */
+    'auth.logInWithSso': 'Log in with SSO',
+    'auth.orLogInWithEmail': 'Or log in with email',
+    'auth.orSignUpWithEmail': 'Or sign up with email',
+    'auth.logInWithSsoDescription': 'Log in with your organization account.',
+    'auth.confirmItIsYou': 'Confirm it is you',
+    'auth.confirmWithSso': 'Confirm with single sign-on',
+    'auth.confirmWithSsoDescription':
+        'This is a secure area. Log in again with your identity provider before continuing.',
+    'auth.oidcError.failed':
+        'Single sign-on did not work. Try again, or ask the administrator of this instance.',
+    'auth.oidcError.cancelled': 'Single sign-on was cancelled.',
+    'auth.oidcError.missing_email':
+        'Your identity provider did not share an email address, so no account could be found.',
+    'auth.oidcError.unverified_email':
+        'An account with this email already exists, but your identity provider has not verified the address. Verify it there, or log in with your password.',
+    'auth.oidcError.linked_elsewhere':
+        'The account with this email is already linked to another identity at your identity provider.',
+    'auth.oidcError.registration_closed':
+        'There is no account with this email, and sign-up is closed on this instance.',
+    'auth.oidcError.wrong_account':
+        'You logged in at your identity provider as someone else. Log in with the identity linked to this account.',
 } as const;
