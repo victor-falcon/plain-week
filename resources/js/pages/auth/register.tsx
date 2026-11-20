@@ -72,7 +72,7 @@ export default function Register({ passwordRules }: Props) {
             >
                 {oidc?.enabled && (
                     <>
-                        <OidcButton />
+                        <OidcButton signUp />
                         <AuthSeparator>
                             {t('auth.orSignUpWithEmail')}
                         </AuthSeparator>

@@ -9,6 +9,8 @@ import { redirect } from '@/routes/oidc';
 type Props = {
     /** Re-authenticate the signed-in account at the IdP instead of typing its password. */
     confirm?: boolean;
+    /** On the sign-up page: "Sign up with SSO" unless the instance sets its own label. */
+    signUp?: boolean;
     /** The card's main action (with `OIDC_ONLY`), styled like `AuthSubmit`. */
     primary?: boolean;
     className?: string;
@@ -20,6 +22,7 @@ type Props = {
  */
 export default function OidcButton({
     confirm = false,
+    signUp = false,
     primary = false,
     className,
 }: Props) {
@@ -31,7 +34,8 @@ export default function OidcButton({
 
     const label = confirm
         ? t('auth.confirmWithSso')
-        : (oidc.label ?? t('auth.logInWithSso'));
+        : (oidc.label ??
+          (signUp ? t('auth.signUpWithSso') : t('auth.logInWithSso')));
 
     return (
         <Button
@@ -41,7 +45,7 @@ export default function OidcButton({
                 'w-full',
                 primary
                     ? 'h-12 rounded-full bg-foreground text-base font-semibold text-background hover:bg-foreground/90'
-                    : 'h-11',
+                    : '',
                 className,
             )}
         >

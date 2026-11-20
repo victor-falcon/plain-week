@@ -76,7 +76,7 @@ final class ResolveOidcUser
                 $existing->forceFill([
                     'oidc_issuer' => $issuer,
                     'oidc_sub' => $sub,
-                    'email_verified_at' => now(),
+                    'email_verified_at' => $existing->email_verified_at ?? now(),
                 ])->save();
 
                 return $existing;

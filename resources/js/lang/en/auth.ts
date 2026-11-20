@@ -91,6 +91,7 @@ export const auth = {
     'auth.logOutFailed': 'Could not log out. Check your connection.',
     /** The single sign-on button when the instance sets no `OIDC_LABEL`. */
     'auth.logInWithSso': 'Log in with SSO',
+    'auth.signUpWithSso': 'Sign up with SSO',
     'auth.orLogInWithEmail': 'Or log in with email',
     'auth.orSignUpWithEmail': 'Or sign up with email',
     'auth.logInWithSsoDescription': 'Log in with your organization account.',
