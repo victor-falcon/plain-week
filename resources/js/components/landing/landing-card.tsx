@@ -289,6 +289,8 @@ function PlanCard({
     soldOut?: SoldOutCode;
 }) {
     const highlighted = plan === 'lifetime';
+    // Sign-up closed (REGISTRATION_ENABLED=false): the plans are shown without a way in.
+    const { canRegister } = usePage().props;
 
     return (
         <div
@@ -327,21 +329,23 @@ function PlanCard({
             </span>
             {featured && <FeaturedCodeLine featured={featured} />}
             {soldOut && <SoldOutLine soldOut={soldOut} />}
-            <Button
-                asChild
-                className={cn(
-                    pill,
-                    'mt-auto h-11',
-                    highlighted ? solidPill : outlinePill,
-                )}
-            >
-                <Link
-                    href={register()}
-                    onClick={() => rememberChosenPlan(plan)}
+            {canRegister && (
+                <Button
+                    asChild
+                    className={cn(
+                        pill,
+                        'mt-auto h-11',
+                        highlighted ? solidPill : outlinePill,
+                    )}
                 >
-                    {action}
-                </Link>
-            </Button>
+                    <Link
+                        href={register()}
+                        onClick={() => rememberChosenPlan(plan)}
+                    >
+                        {action}
+                    </Link>
+                </Button>
+            )}
         </div>
     );
 }

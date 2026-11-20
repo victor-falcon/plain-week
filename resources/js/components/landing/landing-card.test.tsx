@@ -7,13 +7,16 @@ import { LandingCard } from './landing-card';
 
 let offers: Offers | null | 'unavailable' = null;
 let mcpEnabled = true;
+let canRegister = true;
 
 vi.mock('@/hooks/use-plan-prices', () => ({
     usePlanPrices: () => offers,
 }));
 
 vi.mock('@inertiajs/react', () => ({
-    usePage: () => ({ props: { mcp: { enabled: mcpEnabled } } }),
+    usePage: () => ({
+        props: { mcp: { enabled: mcpEnabled }, canRegister },
+    }),
     Link: ({
         children,
         href,
@@ -65,9 +68,35 @@ afterEach(() => {
     cleanup();
     offers = null;
     mcpEnabled = true;
+    canRegister = true;
 });
 
 describe('LandingCard pricing', () => {
+    it('leads each plan to sign-up', () => {
+        offers = launchOffers;
+
+        render(<LandingCard />);
+
+        expect(
+            screen
+                .getByRole('link', { name: 'Get lifetime' })
+                .getAttribute('href'),
+        ).toBe('/register');
+    });
+
+    it('shows the plans without sign-up buttons while sign-up is closed', () => {
+        offers = launchOffers;
+        canRegister = false;
+
+        render(<LandingCard />);
+
+        expect(lifetimeCard().queryByText('€16')).not.toBeNull();
+        expect(screen.queryByRole('link', { name: 'Get lifetime' })).toBeNull();
+        expect(
+            screen.queryByRole('link', { name: 'Choose weekly' }),
+        ).toBeNull();
+    });
+
     it('shows the launch price without a featured code', () => {
         offers = launchOffers;
 

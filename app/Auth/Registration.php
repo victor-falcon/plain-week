@@ -11,7 +11,7 @@ use App\Models\User;
  */
 final class Registration
 {
-    public static function enabled(): bool
+    private static function enabled(): bool
     {
         return (bool) config('auth.registration.enabled');
     }

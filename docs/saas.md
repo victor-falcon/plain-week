@@ -4,6 +4,9 @@ Plain Week is also offered as a paid hosted service at plainweek.eu. Everything 
 `SAAS_ENABLED=true`. The default is `false` (repository, `.env.example`, Docker image): a self-hosted instance has free
 accounts that sync, no billing UI, and every route below answers `404`.
 
+`REGISTRATION_ENABLED=false` ([self-hosting.md](./self-hosting.md#closing-sign-up)) also works in SaaS mode: existing
+subscribers keep logging in, and the landing card shows the plans without their sign-up buttons.
+
 ## Product rules
 
 - No free accounts and no trials: an account exists to sync, and syncing needs a paid plan. Guests still use the

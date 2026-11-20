@@ -22,6 +22,7 @@ let props: {
     saas: { enabled: boolean };
     mcp: { enabled: boolean };
     account: { hasAccess: boolean; plan: string | null } | null;
+    canRegister: boolean;
 };
 
 vi.mock('@inertiajs/react', () => ({
@@ -61,6 +62,7 @@ beforeEach(() => {
         saas: { enabled: true },
         mcp: { enabled: false },
         account: null,
+        canRegister: true,
     };
     vi.stubGlobal('localStorage', memoryStorage());
     sessionStorage.clear();
