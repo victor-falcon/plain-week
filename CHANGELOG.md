@@ -7,6 +7,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-11-20
+
 ### Added
 
 - **Translations.** Every text of the app can now be translated. Plain Week still ships in English, and self-hosted
@@ -26,8 +28,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Moving tasks on a phone is easier** ([#85](https://github.com/victor-falcon/plain-week/issues/85)). Press and
   hold a task and it lifts at once; then move it, however long you held it. A long press no longer opens the task
   menu instead, and a little jitter while holding no longer turns the press into a scroll.
-
-### Changed
 
 - **"Install mobile app" moved to the account menu.** It now sits right below "Send feedback" in the account menu
   (signed in or not) instead of in the planner header, which keeps the header for the week. It still shows the QR code
@@ -527,7 +527,8 @@ between devices.
   app, so an instance without mail works.
 - **Documentation** for contributors and coding agents in `docs/` and `AGENTS.md`.
 
-[Unreleased]: https://github.com/victor-falcon/plain-week/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/victor-falcon/plain-week/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/victor-falcon/plain-week/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/victor-falcon/plain-week/compare/v0.3.19...v0.4.0
 [0.3.19]: https://github.com/victor-falcon/plain-week/compare/v0.3.18...v0.3.19
 [0.3.18]: https://github.com/victor-falcon/plain-week/compare/v0.3.17...v0.3.18
