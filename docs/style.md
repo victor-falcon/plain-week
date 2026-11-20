@@ -637,7 +637,7 @@ are hidden. One small `Heading` ("Agents & apps", "Let AI agents like Claude and
 - **Agents and apps need a paid plan** (SaaS mode, account without a plan): an `Alert` with a lucide icon and a link to
   `/plans`. Everything below still works; agents get the paywall error and apps a `402` until there is a plan.
 - **MCP server URL**: a `Card` with the URL in a `CopyField`.
-- **Connect an agent or app**: a `Card` with `Tabs` (the list wraps on narrow screens). "Claude" lists the custom
+- **Connect an agent or app**: a `Card` with `Tabs` (the list scrolls sideways on narrow screens). "Claude" lists the custom
   connector steps for claude.ai and Claude Desktop (OAuth, no token); "Claude Code" is the
   `claude mcp add --transport http plain-week <url> --header "Authorization: Bearer …"` command; "Other clients" a
   JSON `mcpServers` entry; "Apps" the app API: its base URL, the `Authorization: Bearer …` header, a `curl …/me` to try
