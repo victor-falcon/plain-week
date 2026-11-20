@@ -25,8 +25,9 @@ class EnsureHasAccess
             return $next($request);
         }
 
-        // Inertia visits also expect JSON, but they follow redirects. The app API never redirects, whatever it accepts.
-        if (($request->expectsJson() && ! $request->inertia()) || $request->is('api/*')) {
+        // Inertia visits also expect JSON, but they follow redirects. A token client (the app API, no session) is never
+        // redirected, whatever it accepts.
+        if (($request->expectsJson() && ! $request->inertia()) || ! $request->hasSession()) {
             abort(402, 'A paid plan is required to sync.');
         }
 

@@ -117,6 +117,21 @@ class User extends Authenticatable implements MustVerifyEmail, OAuthenticatable,
     }
 
     /**
+     * The entitlement the clients show (the web's shared `account` prop, the app API's `/me`).
+     *
+     * @return array{hasAccess: bool, plan: string|null}
+     */
+    public function accountSummary(): array
+    {
+        $plan = $this->plan();
+
+        return [
+            'hasAccess' => ! config('saas.enabled') || $plan !== null,
+            'plan' => $plan?->value,
+        ];
+    }
+
+    /**
      * The plan that gives access in SaaS mode (null when it is off): lifetime
      * wins over a subscription that is active or cancelled but still in its
      * paid period.

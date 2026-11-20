@@ -20,10 +20,7 @@ class MeController extends Controller
 
         return response()->json([
             'user' => $user,
-            'account' => [
-                'hasAccess' => $user->hasAccess(),
-                'plan' => $user->plan()?->value,
-            ],
+            'account' => $user->accountSummary(),
         ]);
     }
 }

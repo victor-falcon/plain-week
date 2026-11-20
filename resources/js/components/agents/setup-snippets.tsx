@@ -54,10 +54,14 @@ function AppsSetup({ api, bearer }: { api: ApiInfo; bearer: string }) {
     return (
         <div className="space-y-4" data-test="agents-apps-setup">
             <p className="text-sm text-muted-foreground">
-                Apps sync your planner through the app API. They sign in with
-                OAuth (authorization code with PKCE), or you paste a personal
-                token into them. Every request sends the token as a Bearer
-                header.
+                In a Plain Week app, choose Sign in and approve it in the window
+                that opens; no token is needed. Apps that can't sign in take a
+                personal token instead.
+            </p>
+            <p className="text-sm text-muted-foreground">
+                Building your own? Apps sync through the app API, signing in
+                with OAuth (authorization code with PKCE) or sending a personal
+                token as a Bearer header.
             </p>
             <div className="space-y-2">
                 <p className="text-sm font-medium">API base URL</p>
@@ -101,6 +105,30 @@ function AppsSetup({ api, bearer }: { api: ApiInfo; bearer: string }) {
     );
 }
 
+function SetupCard({
+    title,
+    subject,
+    children,
+}: {
+    title: string;
+    /** Who gets access, for the description ("Apps", "Agents and apps"). */
+    subject: string;
+    children: React.ReactNode;
+}) {
+    return (
+        <Card data-test="agents-setup">
+            <CardHeader>
+                <CardTitle>{title}</CardTitle>
+                <CardDescription>
+                    {subject} get the same access to your planner as you: they
+                    can read, add, change and delete tasks.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>{children}</CardContent>
+        </Card>
+    );
+}
+
 /**
  * How to connect the common MCP clients and apps. claude.ai and Claude Desktop
  * sign in with OAuth (the consent card); Claude Code and generic clients send
@@ -119,92 +147,74 @@ export function SetupSnippets({
 }) {
     const bearer = token ?? TOKEN_PLACEHOLDER;
 
-    const subject = mcpUrl === null ? 'Apps' : 'Agents and apps';
+    if (mcpUrl === null) {
+        return (
+            <SetupCard title="Connect an app" subject="Apps">
+                <AppsSetup api={api} bearer={bearer} />
+            </SetupCard>
+        );
+    }
 
     return (
-        <Card data-test="agents-setup">
-            <CardHeader>
-                <CardTitle>
-                    {mcpUrl === null
-                        ? 'Connect an app'
-                        : 'Connect an agent or app'}
-                </CardTitle>
-                <CardDescription>
-                    {subject} get the same access to your planner as you: they
-                    can read, add, change and delete tasks.
-                </CardDescription>
-            </CardHeader>
-            <CardContent>
-                {mcpUrl === null ? (
+        <SetupCard title="Connect an agent or app" subject="Agents and apps">
+            <Tabs defaultValue="claude">
+                <TabsList className="h-auto flex-wrap">
+                    <TabsTrigger value="claude">Claude</TabsTrigger>
+                    <TabsTrigger value="claude-code">Claude Code</TabsTrigger>
+                    <TabsTrigger value="other">Other clients</TabsTrigger>
+                    <TabsTrigger value="apps">Apps</TabsTrigger>
+                </TabsList>
+                <TabsContent value="claude" className="space-y-3 pt-2">
+                    <ol className="list-decimal space-y-2 ps-5 text-sm text-muted-foreground">
+                        <li>
+                            In claude.ai or Claude Desktop, open Settings ›
+                            Connectors and choose{' '}
+                            <span className="font-medium text-foreground">
+                                Add custom connector
+                            </span>
+                            .
+                        </li>
+                        <li>
+                            Name it “Plain Week” and paste the MCP server URL
+                            above.
+                        </li>
+                        <li>
+                            Choose Connect, then Approve in the Plain Week
+                            window that opens. No token is needed.
+                        </li>
+                    </ol>
+                </TabsContent>
+
+                <TabsContent value="claude-code" className="space-y-3 pt-2">
+                    <p className="text-sm text-muted-foreground">
+                        Create a personal token below, then run:
+                    </p>
+                    <CopyField
+                        value={claudeCodeCommand(mcpUrl, bearer)}
+                        label="Copy command"
+                        multiline
+                        data-test="agents-claude-code"
+                    />
+                </TabsContent>
+
+                <TabsContent value="other" className="space-y-3 pt-2">
+                    <p className="text-sm text-muted-foreground">
+                        For clients that support remote MCP servers (Streamable
+                        HTTP). Those that support OAuth only need the URL; the
+                        others send a personal token:
+                    </p>
+                    <CopyField
+                        value={jsonConfig(mcpUrl, bearer)}
+                        label="Copy configuration"
+                        multiline
+                        data-test="agents-json"
+                    />
+                </TabsContent>
+
+                <TabsContent value="apps" className="pt-2">
                     <AppsSetup api={api} bearer={bearer} />
-                ) : (
-                    <Tabs defaultValue="claude">
-                        <TabsList className="h-auto flex-wrap">
-                            <TabsTrigger value="claude">Claude</TabsTrigger>
-                            <TabsTrigger value="claude-code">
-                                Claude Code
-                            </TabsTrigger>
-                            <TabsTrigger value="other">
-                                Other clients
-                            </TabsTrigger>
-                            <TabsTrigger value="apps">Apps</TabsTrigger>
-                        </TabsList>
-                        <TabsContent value="claude" className="space-y-3 pt-2">
-                            <ol className="list-decimal space-y-2 ps-5 text-sm text-muted-foreground">
-                                <li>
-                                    In claude.ai or Claude Desktop, open
-                                    Settings › Connectors and choose{' '}
-                                    <span className="font-medium text-foreground">
-                                        Add custom connector
-                                    </span>
-                                    .
-                                </li>
-                                <li>
-                                    Name it “Plain Week” and paste the MCP
-                                    server URL above.
-                                </li>
-                                <li>
-                                    Choose Connect, then Approve in the Plain
-                                    Week window that opens. No token is needed.
-                                </li>
-                            </ol>
-                        </TabsContent>
-
-                        <TabsContent
-                            value="claude-code"
-                            className="space-y-3 pt-2"
-                        >
-                            <p className="text-sm text-muted-foreground">
-                                Create a personal token below, then run:
-                            </p>
-                            <CopyField
-                                value={claudeCodeCommand(mcpUrl, bearer)}
-                                label="Copy command"
-                                multiline
-                                data-test="agents-claude-code"
-                            />
-                        </TabsContent>
-
-                        <TabsContent value="other" className="space-y-3 pt-2">
-                            <p className="text-sm text-muted-foreground">
-                                For clients that support remote MCP servers
-                                (Streamable HTTP). Those that support OAuth only
-                                need the URL; the others send a personal token:
-                            </p>
-                            <CopyField
-                                value={jsonConfig(mcpUrl, bearer)}
-                                label="Copy configuration"
-                                multiline
-                                data-test="agents-json"
-                            />
-                        </TabsContent>
-
-                        <TabsContent value="apps" className="pt-2">
-                            <AppsSetup api={api} bearer={bearer} />
-                        </TabsContent>
-                    </Tabs>
-                )}
-            </CardContent>
-        </Card>
+                </TabsContent>
+            </Tabs>
+        </SetupCard>
     );
 }

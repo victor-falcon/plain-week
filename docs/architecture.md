@@ -1219,11 +1219,15 @@ Passport Bearer tokens as the [MCP server](#mcp-server) through `auth:api` and s
   `plainweek://<host>`. The only scope is `mcp:use` (full access); the API does not check scopes.
 - **Sync.** The exact web contract: validation, last-write-wins, cursor, `X-Sync-Format`, `X-Timezone`
   (`RememberTimezone`), the 500-record batches and the raw strings (no trimming, no empty-to-null). In SaaS mode an
-  account without a plan gets `402` (`EnsureHasAccess`, which never redirects under `api/*`).
+  account without a plan gets `402` (`EnsureHasAccess`, which never redirects a request without a session).
 - **Errors** are always JSON. Without a valid token the answer is `401` with
   `WWW-Authenticate: Bearer realm="plain-week", resource_metadata="<APP_URL>/.well-known/oauth-protected-resource/api/v1"`
   (`AddResourceMetadataHeader`); that metadata names `<APP_URL>/api/v1` as the resource and the instance as its
-  authorization server. A revoked token or a disconnected app gets `401` at once.
+  authorization server. When a token was sent but refused (invalid, expired, revoked, or its app disconnected) the
+  header adds `error="invalid_token"` (RFC 6750), so the app refreshes or signs in again; that happens at once.
+- **CORS** (`config/cors.php`): `api/*`, `oauth/token`, `oauth/register` and the `.well-known/oauth-*` metadata answer
+  any origin (no credentials; `WWW-Authenticate` exposed), so an app calling from a webview works. Pages, the web sync
+  and the consent card stay same-origin.
 - **Rate limits** (per user, `AppServiceProvider`): `throttle:sync` 120 a minute for the sync routes, shared with the
   web sync; `throttle:api` 120 a minute for the rest.
 - **Last used.** `TouchAccessToken` runs on these routes too, so Settings › Agents & apps shows when an app last

@@ -47,6 +47,9 @@ export default function Agents({
     const { props, flash } = usePage();
     const needsPlan = props.account?.hasAccess === false;
     const newToken = (flash?.newToken as NewToken | undefined) ?? null;
+    const mcpOn = mcpUrl !== null;
+    // Only MCP tool calls are logged; without the server, only past entries are worth showing.
+    const showActivity = mcpOn || activity.entries.length > 0;
 
     return (
         <>
@@ -58,19 +61,25 @@ export default function Agents({
                 <Heading
                     variant="small"
                     title="Agents & apps"
-                    description="Let AI agents like Claude and apps read and plan your week"
+                    description={
+                        mcpOn
+                            ? 'Let AI agents like Claude and apps read and plan your week'
+                            : 'Let apps read and plan your week'
+                    }
                 />
 
                 {needsPlan && (
                     <Alert data-test="agents-needs-plan">
                         <CircleAlert />
                         <AlertTitle>
-                            Agents and apps need a paid plan
+                            {mcpOn ? 'Agents and apps need' : 'Apps need'} a
+                            paid plan
                         </AlertTitle>
                         <AlertDescription>
                             <p>
-                                You can set up a connection now; agents and apps
-                                can use your planner once you{' '}
+                                You can set up a connection now;{' '}
+                                {mcpOn ? 'agents and apps' : 'apps'} can use
+                                your planner once you{' '}
                                 <Link
                                     href={plans()}
                                     className="font-medium text-foreground underline underline-offset-4"
@@ -83,7 +92,7 @@ export default function Agents({
                     </Alert>
                 )}
 
-                {mcpUrl !== null && (
+                {mcpOn && (
                     <Card data-test="agents-url">
                         <CardHeader>
                             <CardTitle>MCP server URL</CardTitle>
@@ -112,10 +121,7 @@ export default function Agents({
 
                 <OAuthApps apps={oauthApps} />
 
-                {/* Only MCP tool calls are logged; without the server, only past entries. */}
-                {(mcpUrl !== null || activity.entries.length > 0) && (
-                    <ActivityLog activity={activity} />
-                )}
+                {showActivity && <ActivityLog activity={activity} />}
             </div>
         </>
     );

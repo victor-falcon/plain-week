@@ -35,7 +35,7 @@ final class AuthorizationPage
                 'name' => $client->name,
             ],
             // Where the browser goes after Approve or Deny, so the user can tell a look-alike app.
-            'redirectHost' => is_string($redirectUri) ? self::redirectTarget($redirectUri) : null,
+            'redirectHost' => is_string($redirectUri) ? self::redirectHost($redirectUri) : null,
             'account' => [
                 'name' => $user->name,
                 'email' => $user->email,
@@ -48,18 +48,19 @@ final class AuthorizationPage
     }
 
     /**
-     * The host of a web or loopback redirect (`claude.ai`, `127.0.0.1`); a native app's private-use scheme keeps its
+     * The host of a web or loopback redirect (`claude.ai`, `127.0.0.1`). A native app's private-use scheme keeps its
      * scheme (`plainweek://oauth`), since the host alone (`oauth`) says nothing.
      */
-    private static function redirectTarget(string $redirectUri): ?string
+    private static function redirectHost(string $redirectUri): ?string
     {
         $scheme = parse_url($redirectUri, PHP_URL_SCHEME);
         $host = parse_url($redirectUri, PHP_URL_HOST);
+        $host = is_string($host) ? $host : '';
 
-        if (! is_string($host) || $host === '') {
-            return null;
+        if (in_array($scheme, ['http', 'https'], true)) {
+            return $host !== '' ? $host : null;
         }
 
-        return in_array($scheme, ['http', 'https'], true) ? $host : $scheme.'://'.$host;
+        return is_string($scheme) ? $scheme.'://'.$host : null;
     }
 }

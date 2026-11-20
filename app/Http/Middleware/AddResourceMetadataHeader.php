@@ -20,12 +20,18 @@ class AddResourceMetadataHeader
      */
     public function handle(Request $request, Closure $next): Response
     {
+        // Read before the guard runs: Passport blanks the Authorization header of a token it refuses.
+        $sentToken = $request->bearerToken() !== null;
+
         $response = $next($request);
 
         if ($response->getStatusCode() === 401) {
+            // A token was sent but is invalid, revoked or expired (RFC 6750 §3.1): refresh it or sign in again.
+            $error = $sentToken ? ', error="invalid_token"' : '';
+
             $response->headers->set(
                 'WWW-Authenticate',
-                'Bearer realm="plain-week", resource_metadata="'.self::metadataUrl().'"',
+                'Bearer realm="plain-week", resource_metadata="'.self::metadataUrl().'"'.$error,
             );
         }
 

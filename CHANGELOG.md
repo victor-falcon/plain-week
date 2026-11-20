@@ -36,7 +36,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Settings › Agents & apps.** Settings › Agents is now Settings › Agents & apps (same address): it explains that
   tokens work for apps too, has an "Apps" setup tab (API URL, Bearer header, OAuth metadata) and lists apps next to
   agents, with when each was last used, to revoke them. OAuth and the app API no longer depend on the MCP server:
-  with `MCP_ENABLED=false` only `/mcp` goes, and the page stays without its MCP part.
+  with `MCP_ENABLED=false` only `/mcp` goes. Self-hosted instances that turned MCP off now keep `/oauth/*`, the
+  `.well-known/oauth-*` metadata and client registration reachable, and the page stays without its MCP part.
 
 ### Fixed
 

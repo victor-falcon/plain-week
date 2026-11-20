@@ -184,10 +184,11 @@ test('the X-Timezone header is stored on the user, like on the web sync', functi
 
 test('without a valid token the API answers 401 with the resource metadata', function (string $method, string $route, ?string $token) {
     $headers = $token === null ? [] : ['Authorization' => "Bearer {$token}"];
+    $error = $token === null ? '' : ', error="invalid_token"';
 
     $this->json($method, route($route), [], $headers)
         ->assertUnauthorized()
-        ->assertHeader('WWW-Authenticate', 'Bearer realm="plain-week", resource_metadata="'.url('/.well-known/oauth-protected-resource/api/v1').'"');
+        ->assertHeader('WWW-Authenticate', 'Bearer realm="plain-week", resource_metadata="'.url('/.well-known/oauth-protected-resource/api/v1').'"'.$error);
 })->with([
     ['GET', 'api.me'],
     ['POST', 'api.sync.push'],
@@ -315,4 +316,35 @@ test('apps may register a plainweek:// or loopback redirect, other schemes are r
     [APP_CALLBACK, 201],
     ['http://127.0.0.1:53682/callback', 201],
     ['otherapp://oauth/callback', 400],
+]);
+
+test('a webview app may call the API and the token endpoint from its own origin', function () {
+    $this->options(route('api.me'), [], ['Origin' => 'tauri://localhost', 'Access-Control-Request-Method' => 'GET'])
+        ->assertNoContent()
+        ->assertHeader('Access-Control-Allow-Origin', '*');
+    $this->options('/oauth/token', [], ['Origin' => 'tauri://localhost', 'Access-Control-Request-Method' => 'POST'])
+        ->assertHeader('Access-Control-Allow-Origin', '*');
+
+    // Pages and the web sync stay same-origin.
+    $this->options('/sync/pull', [], ['Origin' => 'tauri://localhost', 'Access-Control-Request-Method' => 'GET'])
+        ->assertHeaderMissing('Access-Control-Allow-Origin');
+});
+
+test('the consent card shows a native redirect with its scheme', function (string $redirect, ?string $shown) {
+    $user = User::factory()->create();
+    $clientId = $this->postJson('/oauth/register', ['client_name' => 'App', 'redirect_uris' => [$redirect]])->json('client_id');
+
+    $this->actingAs($user)
+        ->get('/oauth/authorize?'.http_build_query([
+            'response_type' => 'code',
+            'client_id' => $clientId,
+            'redirect_uri' => $redirect,
+            'state' => 's',
+            'code_challenge' => str_repeat('a', 43),
+            'code_challenge_method' => 'S256',
+        ]))
+        ->assertInertia(fn (Assert $page) => $page->where('redirectHost', $shown));
+})->with([
+    ['plainweek://oauth/callback', 'plainweek://oauth'],
+    ['http://127.0.0.1:53682/callback', '127.0.0.1'],
 ]);
