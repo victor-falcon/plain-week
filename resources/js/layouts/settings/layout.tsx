@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { useCurrentUrl } from '@/hooks/use-current-url';
 import { cn, toUrl } from '@/lib/utils';
+import { edit as editAgents } from '@/routes/agents';
 import { edit as editAppearance } from '@/routes/appearance';
 import { edit as editBilling } from '@/routes/billing';
 import { edit as editData } from '@/routes/data';
@@ -56,6 +57,12 @@ const sidebarNavItems: SettingsNavItem[] = [
         href: editIntegrations(),
         icon: null,
         visible: (props) => props.integrations?.googleCalendar ?? false,
+    },
+    {
+        title: 'Agents',
+        href: editAgents(),
+        icon: null,
+        visible: (props) => props.mcp?.enabled ?? false,
     },
     {
         title: 'Data',

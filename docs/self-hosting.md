@@ -74,13 +74,19 @@ echo "base64:$(openssl rand -base64 32)"
 | `VAPID_PUBLIC_KEY`      | (empty)                                 | VAPID public key (base64url) for the optional push notifications; see [Notifications](#notifications). Empty turns them off                                                                                                                                                 |
 | `VAPID_PRIVATE_KEY`     | (empty)                                 | VAPID private key that goes with `VAPID_PUBLIC_KEY`. Keep it secret                                                                                                                                                                                                         |
 | `VAPID_SUBJECT`         | (empty)                                 | Contact for the push services, `mailto:you@example.com` or an `https://` URL                                                                                                                                                                                                |
+| `MCP_ENABLED`           | `true`                                  | The MCP server for AI agents (`/mcp`, its OAuth routes and Settings › Agents); see [AI agents (MCP)](#ai-agents-mcp). `false` turns it all off (`404`)                                                                                                                      |
+| `MCP_RATE_LIMIT`        | `120`                                   | Requests a minute one user's agents may send to `/mcp`                                                                                                                                                                                                                      |
+| `PASSPORT_PRIVATE_KEY`  | (empty)                                 | Optional: the RSA private key (PEM) that signs agent tokens, instead of the file the container creates in the volume. Keep it secret                                                                                                                                        |
+| `PASSPORT_PUBLIC_KEY`   | (empty)                                 | The public key (PEM) that goes with `PASSPORT_PRIVATE_KEY`                                                                                                                                                                                                                  |
 
 With `SAAS_ENABLED=false` (the default) accounts are free and sync without limits, there is no billing anywhere and the
 billing, terms and privacy routes are `404`; no Stripe variable is needed. Any other Laravel setting (`config/*.php`)
 can be set the same way. Email verification never blocks the app, so an
 instance without mail works.
 
-On start, the container creates the storage layout and the SQLite file if they are missing, runs the migrations and
+On start, the container creates the storage layout and the SQLite file if they are missing, creates the key pair that
+signs agent tokens (`storage/oauth-private.key` and `storage/oauth-public.key`, unless `PASSPORT_PRIVATE_KEY` is set),
+runs the migrations and
 caches the configuration, routes and views. Then FrankenPHP serves the app on port 8080 as the unprivileged user
 `plainweek` (uid 1000). `/up` is the health check (the image's `HEALTHCHECK` uses it).
 
@@ -216,6 +222,30 @@ Set the two keys and `VAPID_SUBJECT=mailto:<your email>`, and redeploy. Browsers
 (or `localhost`). Delivery failures are logged as warnings in the container output; a browser that unsubscribed is
 forgotten the next time a notification is sent to it.
 
+## AI agents (MCP)
+
+On by default, nothing to configure. Plain Week is a remote [MCP](https://modelcontextprotocol.io) server at
+`APP_URL/mcp`, so AI agents can read and plan a user's week. Each user connects their agents in **Settings › Agents**:
+
+- **claude.ai and Claude Desktop**: add a custom connector with the URL. The connector registers itself and the user
+  approves it on a Plain Week consent page (OAuth 2.1 with dynamic client registration); the app is then listed under
+  Connected apps, where it can be disconnected.
+- **Claude Code and other headless agents**: create a personal token there and send it as
+  `Authorization: Bearer <token>`, for example
+  `claude mcp add --transport http plain-week https://plan.example.com/mcp --header "Authorization: Bearer <token>"`.
+
+Agents have the same access as the user. Their changes reach the user's devices on the next sync. Each user may send
+`MCP_RATE_LIMIT` requests a minute (120 by default). `APP_URL` must be the public URL: the OAuth metadata and the URL
+shown in Settings › Agents come from it, and clients like claude.ai need it on `https://`.
+
+Tokens are signed with an RSA key pair. The container creates it in the storage volume on first start
+(`storage/oauth-private.key`, `storage/oauth-public.key`; it is never part of the image) and keeps it across updates.
+To manage it yourself instead, set `PASSPORT_PRIVATE_KEY` and `PASSPORT_PUBLIC_KEY` to the PEM keys (with their line
+breaks). A new key pair invalidates every token: users then reconnect their apps and create new tokens.
+
+`MCP_ENABLED=false` removes it: `/mcp`, the `/oauth` and `.well-known/oauth-*` routes answer `404` and Settings › Agents
+is hidden. Tokens stay in the database and work again if it is turned back on.
+
 ## Noindex
 
 With `APP_NOINDEX=true`, every response carries `X-Robots-Tag: noindex, nofollow`, the page has
@@ -224,7 +254,9 @@ With `APP_NOINDEX=true`, every response carries `X-Robots-Tag: noindex, nofollow
 
 ## Backups
 
-Everything the server stores (accounts and synced tasks) is in the SQLite file on the volume. Guest data only lives in
+Everything the server stores (accounts, synced tasks and agent tokens) is in the SQLite file on the volume; the key
+pair that signs agent tokens is next to it (`storage/oauth-*.key`), so back up the whole volume to keep agents
+connected after a restore. Guest data only lives in
 each browser. Back up while the app runs with SQLite's online backup:
 
 ```sh

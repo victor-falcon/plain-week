@@ -1,11 +1,13 @@
 <?php
 
+use App\Http\Controllers\Settings\AgentsController;
 use App\Http\Controllers\Settings\GoogleCalendarController;
 use App\Http\Controllers\Settings\NotificationsController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\SecurityController;
 use App\Http\Middleware\EnsureGoogleCalendarConfigured;
 use App\Http\Middleware\EnsureHasAccess;
+use App\Http\Middleware\EnsureMcpEnabled;
 use App\Http\Middleware\EnsureWebPushConfigured;
 use Illuminate\Auth\Middleware\RequirePassword;
 use Illuminate\Support\Facades\Route;
@@ -55,6 +57,20 @@ Route::middleware(['auth'])->group(function () {
                     ->name('google.connect');
                 Route::get('google/callback', [GoogleCalendarController::class, 'callback'])->name('google.callback');
             });
+        });
+
+    // AI agents (MCP server): only while MCP_ENABLED. Tokens and apps can be managed without a plan in SaaS mode;
+    // the MCP server itself answers tool calls with the paywall error then.
+    Route::middleware(EnsureMcpEnabled::class)
+        ->prefix('settings/agents')
+        ->name('agents.')
+        ->group(function () {
+            Route::get('/', [AgentsController::class, 'edit'])->name('edit');
+            Route::post('tokens', [AgentsController::class, 'storeToken'])
+                ->middleware('throttle:10,1')
+                ->name('tokens.store');
+            Route::delete('tokens/{token}', [AgentsController::class, 'destroyToken'])->name('tokens.destroy');
+            Route::delete('apps/{client}', [AgentsController::class, 'destroyApp'])->name('apps.destroy');
         });
 });
 

@@ -43,6 +43,13 @@ if [ "${DB_CONNECTION:-sqlite}" = "sqlite" ]; then
     [ -f "$DB_DATABASE" ] || touch "$DB_DATABASE"
 fi
 
+# The key pair that signs the MCP server's OAuth and personal access tokens. It lives in the storage volume so tokens
+# survive updates; never in the image. PASSPORT_PRIVATE_KEY / PASSPORT_PUBLIC_KEY, when set, are used instead.
+if [ -z "${PASSPORT_PRIVATE_KEY:-}" ] && { [ ! -f storage/oauth-private.key ] || [ ! -f storage/oauth-public.key ]; }; then
+    php artisan passport:keys --force --no-interaction > /dev/null
+    chmod 600 storage/oauth-private.key
+fi
+
 php artisan migrate --force --no-interaction
 php artisan optimize --no-interaction
 

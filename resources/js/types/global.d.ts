@@ -2,6 +2,7 @@ import type {
     Account,
     Auth,
     Integrations,
+    Mcp,
     Notifications,
     Saas,
 } from '@/types/auth';
@@ -22,6 +23,7 @@ declare module '@inertiajs/core' {
             feedbackUrl: string;
             integrations: Integrations;
             notifications: Notifications;
+            mcp: Mcp;
             account: Account | null;
             sidebarOpen: boolean;
             [key: string]: unknown;

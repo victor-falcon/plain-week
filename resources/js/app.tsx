@@ -23,6 +23,8 @@ void createInertiaApp({
             case name === 'planner':
             case name === 'billing/plans':
             case name.startsWith('auth/'):
+            // The OAuth consent card for AI agents, like the auth cards.
+            case name.startsWith('oauth/'):
                 return PlannerLayout;
             case name.startsWith('legal/'):
                 return null;

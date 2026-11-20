@@ -80,6 +80,12 @@ Settings › Integrations is hidden and its routes are `404`. To turn it on, cre
 host so the session survives the round trip), add your Google account as a test user, put both values in `.env` (never
 commit them) and run `php artisan config:clear`. Tests never call Google: they use `Http::fake()`.
 
+The MCP server for AI agents is on (`MCP_ENABLED=true`). `composer setup` creates the key pair that signs its tokens
+(`storage/oauth-*.key`, gitignored); on an older checkout run `php artisan passport:keys` once. Create a personal token
+in Settings › Agents and try it with `bunx @modelcontextprotocol/inspector`, or connect Claude Code with the command
+shown there. claude.ai needs a public `https://` URL, so try OAuth clients against a tunnel or a deployed instance. Tests
+never read the key files: `usePassportKeys()` (tests/Pest.php) sets a key pair made in memory.
+
 Push notifications are off by default too: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` and `VAPID_SUBJECT` are empty in
 `.env.example`, so Settings › Notifications is hidden and its routes are `404`. To turn them on, generate a key pair
 (`bunx web-push generate-vapid-keys`, or
@@ -146,7 +152,9 @@ keeps the GitHub Actions up to date (`.github/dependabot.yml`).
 
 ```
 app/                      Laravel application code (controllers, models, actions, middleware)
+  Agents/                 AI agent access: personal tokens, connected OAuth apps, the OAuth consent page
   Integrations/           Optional server-side integrations with other services (Google Calendar)
+  Mcp/                    The MCP server (laravel/mcp): server, tools and the paywalled tools/call
   Push/                   Web Push notifications: what is due when, and sending it (minishlink/web-push)
   Tasks/                  Server ports of the planner's task logic: occurrences, mutations, import, positions
 bootstrap/                Framework bootstrap
@@ -181,7 +189,7 @@ resources/js/
 resources/images/pwa/     Source SVGs of the PWA icons (PNGs live in public/)
 resources/images/marketing/  Source of the og:image and the README header (PNGs in public/ and docs/images/)
 resources/views/app.blade.php  Root HTML document
-routes/                   web.php, settings.php, console.php
+routes/                   web.php, settings.php, billing.php, ai.php (MCP server), console.php
 scripts/                  Image scripts run with bun: marketing images and README screenshots (not in the app build)
 tests/                    Pest tests (Feature and Unit); fixtures/ holds data shared with the JS tests
 video/                    Remotion promo video, its own bun project outside the app build (video/README.md)
@@ -359,18 +367,21 @@ one database file, no external services (the queue is a table in it). Deploy it 
     | `MAIL_MAILER`                   | `log` (default) without a mail server; set SMTP variables to send verification and password reset emails                          |
     | `TRUSTED_PROXIES`               | The reverse proxy's IPs (or `*`) when it terminates TLS, so URLs use `https`. Sessions are secure when `APP_URL` is `https://`    |
     | `APP_NOINDEX`                   | `true` to keep search engines out (`X-Robots-Tag`, robots meta and `/robots.txt`)                                                 |
+    | `MCP_ENABLED`                   | `false` to turn off the MCP server for AI agents (default `true`, see [self-hosting.md](./self-hosting.md#ai-agents-mcp))         |
 
-3. Migrate on every deploy: `php artisan migrate --force` (creates the SQLite file's tables; `touch` the file first if
+3. Create the key pair that signs agent tokens once, on persistent storage: `php artisan passport:keys` (writes
+   `storage/oauth-*.key`; or set `PASSPORT_PRIVATE_KEY` and `PASSPORT_PUBLIC_KEY`). Keep it across deploys.
+4. Migrate on every deploy: `php artisan migrate --force` (creates the SQLite file's tables; `touch` the file first if
    it does not exist). Optionally cache config and routes (`php artisan optimize`).
-4. Serve `public/` from the domain root with PHP-FPM (nginx, Caddy) or `php artisan serve` behind a proxy, over HTTPS
+5. Serve `public/` from the domain root with PHP-FPM (nginx, Caddy) or `php artisan serve` behind a proxy, over HTTPS
    (service workers require it outside localhost). Keep `sw.js` uncached (see [PWA](#pwa-offline-shell)). `/up` is a
    health check.
-5. Scheduler and queue worker (background work such as notifications): add the scheduler to cron,
+6. Scheduler and queue worker (background work such as notifications): add the scheduler to cron,
    `* * * * * cd /path/to/plain-week && php artisan schedule:run >> /dev/null 2>&1`, and keep one
    `php artisan queue:work --max-time=3600` running under a supervisor (systemd, Supervisor) that restarts it when it
    exits. The Docker image runs both itself.
-6. Backups: back up the SQLite file (for example `sqlite3 database.sqlite ".backup backup.sqlite"`). It holds accounts
-   and synced tasks; guest data only lives in the browser.
+7. Backups: back up the SQLite file (for example `sqlite3 database.sqlite ".backup backup.sqlite"`) and the
+   `storage/oauth-*.key` files. It holds accounts, synced tasks and agent tokens; guest data only lives in the browser.
 
 Email verification never blocks the app, so an instance without mail works (see
 [architecture.md](./architecture.md#routes-and-access)).

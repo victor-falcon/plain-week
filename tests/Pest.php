@@ -208,3 +208,39 @@ function weeklySubscriber(string $status = 'active', ?DateTimeInterface $endsAt 
 
     return $user;
 }
+
+/**
+ * An RSA key pair for Passport (signing OAuth and personal access tokens), made once per test run so tests never
+ * depend on storage/oauth-*.key.
+ */
+function usePassportKeys(): void
+{
+    static $keys = null;
+
+    if ($keys === null) {
+        $key = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
+        openssl_pkey_export($key, $private);
+        $keys = ['private' => $private, 'public' => openssl_pkey_get_details($key)['key']];
+    }
+
+    config(['passport.private_key' => $keys['private'], 'passport.public_key' => $keys['public']]);
+}
+
+/**
+ * Sends one JSON-RPC request to the MCP server like a Streamable HTTP client after the 2025-06-18 handshake.
+ *
+ * @param  array<string, mixed>  $params
+ */
+function mcp(?string $token, string $method, array $params = []): TestResponse
+{
+    $headers = ['Accept' => 'application/json, text/event-stream', 'MCP-Protocol-Version' => '2025-06-18'];
+
+    if ($token !== null) {
+        $headers['Authorization'] = 'Bearer '.$token;
+    }
+
+    // Each call authenticates from its own headers, as a separate HTTP request would.
+    app('auth')->forgetGuards();
+
+    return test()->postJson('/mcp', ['jsonrpc' => '2.0', 'id' => 1, 'method' => $method, 'params' => $params], $headers);
+}

@@ -109,6 +109,7 @@ Installed in `resources/js/components/ui/` and where they are used:
 | `sidebar` (+ `skeleton`), `sheet`, `navigation-menu`, `breadcrumb` | Starter kit app shell around the settings pages                                        |
 | `badge`                                                            | Launch discount (plan choice, landing card, Settings › Billing), "Needs reconnecting"  |
 | `switch`                                                           | Settings › Preferences ("Move unfinished tasks to today")                              |
+| `tabs`                                                             | Settings › Agents (setup snippets per client)                                          |
 | `collapsible`                                                      | Installed, not used yet                                                                |
 
 `icon.tsx` and `placeholder-pattern.tsx` in the same folder are starter kit helpers, not shadcn components.
@@ -216,6 +217,22 @@ button) reveals a promotion code `Input` with an outline "Apply" button; a valid
 the amount due today with the price without the code struck through, an invalid one an inline error (see
 [saas.md](./saas.md#promotion-codes)). The plan card cannot be
 dismissed (no close button, Esc does nothing): an account without a plan pays or logs out.
+
+### OAuth consent card
+
+`/oauth/authorize` (`pages/oauth/authorize.tsx`), where an AI agent's OAuth flow (claude.ai, Claude Desktop) sends the
+user, is a `FloatingCard` over the planner like the auth cards (same persistent layout). A guest logs in first and
+comes back to it. It cannot be dismissed: the choice is Approve or Deny.
+
+| Part    | Content                                                                                                            |
+| ------- | ------------------------------------------------------------------------------------------------------------------ |
+| Top bar | Logo                                                                                                               |
+| Title   | "Connect Claude to Plain Week?" (the name the client registered with)                                              |
+| Text    | "Claude will be able to see, add, change and delete the tasks in your planner, as me@example.com."                 |
+| Actions | Approve: the 48px `AuthSubmit` pill; Deny: a 48px ghost pill under it. A `Spinner` on the one pressed, both off    |
+| Footer  | "You'll go back to claude.ai." (the redirect URI's host) "You can disconnect it at any time in Settings › Agents." |
+
+Both buttons are plain HTML form posts, not Inertia visits: the answer is a redirect to the other site.
 
 ### Landing card
 
@@ -583,6 +600,35 @@ One small `Heading` ("Integrations"), then a `Card` per integration. Google Cale
 
 Errors from the OAuth round trip (expired sign-in, missing permission, Google down) come back as `toast.error`; a
 cancelled consent screen comes back silently.
+
+## Settings › Agents
+
+Connecting AI agents to the MCP server at `/settings/agents` (`pages/settings/agents.tsx`, components in
+`components/agents/`, between Integrations and Data in the settings nav). The nav entry and the page exist only while
+the shared prop `mcp.enabled` is true (`MCP_ENABLED`). One small `Heading` ("Agents", "Let AI agents like Claude read and
+plan your week"), then:
+
+- **Agents need a paid plan** (SaaS mode, account without a plan): an `Alert` with a lucide icon and a link to `/plans`.
+  Everything below still works; the agent gets the paywall error until there is a plan.
+- **MCP server URL**: a `Card` with the URL in a `CopyField`.
+- **Connect an agent**: a `Card` with `Tabs`. "Claude" lists the custom connector steps for claude.ai and Claude
+  Desktop (OAuth, no token); "Claude Code" is the `claude mcp add --transport http plain-week <url> --header
+"Authorization: Bearer …"` command; "Other clients" a JSON `mcpServers` entry. Both snippets carry `<your token>`
+  until a token was just created, then that token.
+- **Personal tokens**: a `Card` with the "New token" `Form` (`Label`, `Input` for the name, "Create" `Button` with a
+  `Spinner`), then the list. A token just created is shown once in an `Alert` ("Copy the token for “Laptop” now",
+  "You won't be able to see it again.") with a `CopyField`; it is a flash prop, so reloading or leaving the page drops it.
+- **Connected apps**: a `Card` listing the apps the user approved on the [consent card](#oauth-consent-card).
+- The token and app rows (`AgentAccessList`): name, then "Created/Connected 3 days ago · Last used 5 minutes ago"
+  (`<time>` with the full date as its title; "Never used" before the first call), and an outline `sm` "Revoke" /
+  "Disconnect" `Button` at the end. It opens an `AlertDialog` (Cancel / destructive confirm with a `Spinner`) because
+  the agent loses access at once; the server's flash toast confirms. Empty lists say "No personal tokens yet." / "No
+  apps connected yet.".
+- An activity section (what agents did lately) comes last, after the connections.
+
+`CopyField` is a `pre` (`font-mono text-xs`, `bg-muted/50`, `dir="ltr"`, wrapping for multi-line snippets) with a
+`CopyButton` at its end: a ghost `icon-sm` `Button` with a `Tooltip`, whose copy icon turns into a check once copied
+(`useClipboard`); a failed copy is a `toast.error`.
 
 ## Planner accent
 

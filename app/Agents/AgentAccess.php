@@ -1,0 +1,150 @@
+<?php
+
+namespace App\Agents;
+
+use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Date;
+use Illuminate\Support\Facades\DB;
+use Laravel\Mcp\Server\Registrar;
+use Laravel\Passport\Client;
+use Laravel\Passport\ClientRepository;
+use Laravel\Passport\Passport;
+use Laravel\Passport\Token;
+use RuntimeException;
+
+/**
+ * What can reach a user's planner through the MCP server: personal access
+ * tokens (headless agents, Bearer) and OAuth apps (claude.ai, Claude
+ * Desktop, …). Both are Passport access tokens; a personal token belongs to
+ * the instance's personal access client, an OAuth app is the client a
+ * connector registered for itself.
+ */
+final class AgentAccess
+{
+    /** The Passport client personal access tokens are issued by (created on first use). */
+    private const string PERSONAL_CLIENT_NAME = 'Plain Week personal access tokens';
+
+    public function __construct(private readonly ClientRepository $clients) {}
+
+    /**
+     * Issues a personal access token. The plain token exists only in the
+     * return value: Passport stores its id, never the token.
+     */
+    public function createPersonalToken(User $user, string $name): string
+    {
+        $this->ensurePersonalAccessClient();
+
+        return $user->createToken($name, [Registrar::OAUTH_SCOPE])->accessToken;
+    }
+
+    /**
+     * @return Collection<int, array{id: string, name: string, createdAt: string|null, lastUsedAt: string|null}>
+     */
+    public function personalTokens(User $user): Collection
+    {
+        return $this->liveTokens($user)
+            ->whereHas('client', fn (Builder $query) => $query->whereJsonContains('grant_types', 'personal_access'))
+            ->latest()
+            ->get()
+            ->map(fn (Token $token): array => [
+                'id' => (string) $token->getKey(),
+                'name' => (string) $token->name,
+                'createdAt' => $token->created_at?->toIso8601String(),
+                'lastUsedAt' => self::iso($token->getAttribute('last_used_at')),
+            ])
+            ->values();
+    }
+
+    public function revokePersonalToken(User $user, string $tokenId): bool
+    {
+        return $this->liveTokens($user)
+            ->whereKey($tokenId)
+            ->whereHas('client', fn (Builder $query) => $query->whereJsonContains('grant_types', 'personal_access'))
+            ->delete() > 0;
+    }
+
+    /**
+     * The OAuth apps that can still act for the user: an access token that
+     * has not expired, or a refresh token that can get a new one.
+     *
+     * @return Collection<int, array{id: string, name: string, createdAt: string|null, lastUsedAt: string|null}>
+     */
+    public function oauthApps(User $user): Collection
+    {
+        $now = Date::now();
+
+        return Passport::token()->newQuery()
+            ->where('user_id', $user->getKey())
+            ->where('revoked', false)
+            ->whereHas('client', fn (Builder $query) => $query->whereJsonDoesntContain('grant_types', 'personal_access'))
+            ->where(fn (Builder $query) => $query
+                ->where('expires_at', '>', $now)
+                ->orWhereHas('refreshToken', fn (Builder $refresh) => $refresh->where('revoked', false)->where('expires_at', '>', $now)))
+            ->with('client')
+            ->get()
+            ->groupBy('client_id')
+            ->map(function (Collection $tokens): array {
+                /** @var Token $first */
+                $first = $tokens->sortBy('created_at')->first();
+                /** @var Client $client */
+                $client = $first->client;
+
+                return [
+                    'id' => (string) $client->getKey(),
+                    'name' => $client->name,
+                    'createdAt' => $first->created_at?->toIso8601String(),
+                    'lastUsedAt' => self::iso($tokens->max(fn (Token $token) => $token->getAttribute('last_used_at'))),
+                ];
+            })
+            ->sortByDesc('createdAt')
+            ->values();
+    }
+
+    /**
+     * Disconnects an OAuth app: its access tokens (and with them their
+     * refresh tokens) and pending authorization codes are deleted, so the app
+     * has to ask for consent again.
+     */
+    public function revokeOAuthApp(User $user, string $clientId): bool
+    {
+        return DB::transaction(function () use ($user, $clientId): bool {
+            Passport::authCode()->newQuery()
+                ->where('user_id', $user->getKey())
+                ->where('client_id', $clientId)
+                ->delete();
+
+            return Passport::token()->newQuery()
+                ->where('user_id', $user->getKey())
+                ->where('client_id', $clientId)
+                ->whereHas('client', fn (Builder $query) => $query->whereJsonDoesntContain('grant_types', 'personal_access'))
+                ->delete() > 0;
+        });
+    }
+
+    /**
+     * @return Builder<Token>
+     */
+    private function liveTokens(User $user): Builder
+    {
+        return Passport::token()->newQuery()
+            ->where('user_id', $user->getKey())
+            ->where('revoked', false)
+            ->where('expires_at', '>', Date::now());
+    }
+
+    private function ensurePersonalAccessClient(): void
+    {
+        try {
+            $this->clients->personalAccessClient(config()->string('auth.guards.api.provider'));
+        } catch (RuntimeException) {
+            $this->clients->createPersonalAccessGrantClient(self::PERSONAL_CLIENT_NAME, config()->string('auth.guards.api.provider'));
+        }
+    }
+
+    private static function iso(mixed $value): ?string
+    {
+        return $value === null ? null : Date::parse($value)->toIso8601String();
+    }
+}

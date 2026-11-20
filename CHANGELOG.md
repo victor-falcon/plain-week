@@ -12,6 +12,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Task changes on the server.** The server can now change a user's tasks exactly like the planner does (create,
   edit, move, repeat, delete, restore, carry over and import), groundwork for letting AI agents manage your planner.
   Your browsers pick the changes up on their next sync.
+- **Connect AI agents.** Plain Week is now an MCP server at `/mcp`, so an AI agent such as Claude can work with your
+  planner. Add it to claude.ai or Claude Desktop as a custom connector and approve it on a Plain Week page (OAuth), or
+  create a personal token for Claude Code and other headless agents. **Settings › Agents** has the URL, setup steps for
+  each client, your tokens and the connected apps, each of which you can revoke. Agents can read your profile for now;
+  more tools follow. On plainweek.eu it needs a paid plan. Self-hosted it is on by default: `MCP_ENABLED=false` turns
+  it off, and the Docker image creates the key pair that signs tokens in its storage volume.
 
 ## [0.3.19] - 2026-11-19
 

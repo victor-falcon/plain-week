@@ -766,6 +766,11 @@ Laravel provides:
 | `PATCH /settings/notifications`              | `notifications.update`                | `auth`.¹ ³ `{ morning_time: 'HH:mm' }`; redirects back.                              |
 | `POST /notifications/subscriptions`          | `notifications.subscriptions.store`   | `auth`.¹ ³ This browser's `PushSubscription.toJSON()`; `204`.                        |
 | `DELETE /notifications/subscriptions`        | `notifications.subscriptions.destroy` | `auth`.³ `{ endpoint }`; `204`.                                                      |
+| `GET /settings/agents`                       | `agents.edit`                         | `auth`.⁴ Inertia page `settings/agents` (`mcpUrl`, `personalTokens`, `oauthApps`).   |
+| `POST /settings/agents/tokens`               | `agents.tokens.store`                 | `auth`.⁴ `{ name }`; flashes `newToken: { name, token }` once (`throttle:10,1`).     |
+| `DELETE /settings/agents/tokens/{token}`     | `agents.tokens.destroy`               | `auth`.⁴ Revokes one of the user's personal tokens (`404` otherwise).                |
+| `DELETE /settings/agents/apps/{client}`      | `agents.apps.destroy`                 | `auth`.⁴ Disconnects an OAuth app: deletes the user's tokens and codes for it.       |
+| `POST /mcp` and the `/oauth`, `.well-known`  |                                       | See [MCP server](#mcp-server).                                                       |
 
 ¹ Plus `EnsureHasAccess`: in SaaS mode a signed-in account without a paid plan is redirected to the paywall (pages) or
 gets `402` (sync). Billing and legal routes are listed in [saas.md](./saas.md).
@@ -775,6 +780,9 @@ connecting needs a plan in SaaS mode, so an account whose plan lapsed can still 
 
 ³ Plus `EnsureWebPushConfigured`: `404` unless `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` and `VAPID_SUBJECT` are set.
 Unsubscribing needs no plan in SaaS mode, so a browser can always be removed.
+
+⁴ Plus `EnsureMcpEnabled`: `404` when `MCP_ENABLED=false`. No plan is needed in SaaS mode: tokens and apps can always
+be managed, and the MCP server itself answers tool calls with the paywall error.
 
 After login, registration and email verification Fortify redirects to `/` (`config/fortify.php` → `home`).
 
@@ -1060,6 +1068,66 @@ shared Inertia prop `notifications` is `{ enabled: false, vapidPublicKey: null }
       characters, the whole at 400, so the encrypted payload stays well under the ~4 KB push services accept), `url`
       is `/`. The `tag` is `morning:<date>` either way.
     - A notification with the same tag replaces the shown one.
+
+### MCP server
+
+A remote [MCP](https://modelcontextprotocol.io) server so AI agents (claude.ai, Claude Desktop, Claude Code, any
+Streamable HTTP client) can use the signed-in user's planner. It is `laravel/mcp`, registered in `routes/ai.php`
+(loaded by the package, outside the `web` group: no session, no CSRF). It writes to the server database like a sync
+push; browsers pick changes up on their next pull. The offline-first rule is untouched: the UI never waits on it.
+
+| Route                                                  | What                                                                                   |
+| ------------------------------------------------------ | -------------------------------------------------------------------------------------- |
+| `POST /mcp` (`mcp`)                                    | JSON-RPC over Streamable HTTP. `GET`/`DELETE` answer `405` (no server-sent stream)     |
+| `GET /.well-known/oauth-protected-resource[/mcp]`      | Protected resource metadata (RFC 9728): `resource`, `authorization_servers`, scopes    |
+| `GET /.well-known/oauth-authorization-server[/{path}]` | Authorization server metadata (RFC 8414): endpoints, PKCE `S256`, grant types          |
+| `POST /oauth/register`                                 | Dynamic client registration (RFC 7591): a public client (no secret), `201`             |
+| `GET /oauth/authorize`                                 | Passport: the consent card (`oauth/authorize`); guests log in first and come back      |
+| `POST`/`DELETE /oauth/authorize`                       | Passport: Approve / Deny, a redirect back to the client with a code or `access_denied` |
+| `POST /oauth/token`                                    | Passport: authorization code (PKCE) and refresh token grants                           |
+
+- **Auth.** `/mcp` uses `auth:api`, a Passport guard (`config/auth.php`). It takes both kinds of Bearer token: OAuth
+  access tokens (an MCP client that registered itself and that the user approved) and personal access tokens (created
+  in Settings › Agents for headless agents). Both are Passport tokens signed with the instance's RSA key pair
+  (`storage/oauth-*.key` or `PASSPORT_PRIVATE_KEY`/`PASSPORT_PUBLIC_KEY`), so one guard, one table
+  (`oauth_access_tokens`) and one revoke path cover them; Sanctum would have added a second guard and token table for
+  the same behaviour. Every token has full access (the single scope `mcp:use`; there is no scopes UI). OAuth access
+  tokens last a day and refresh tokens a year; personal tokens ten years. A session cookie never authenticates `/mcp`.
+  Without a valid token the answer is `401` with
+  `WWW-Authenticate: Bearer realm="mcp", resource_metadata="<APP_URL>/.well-known/oauth-protected-resource/mcp"`, which
+  is how a client discovers the OAuth flow.
+- **Consent.** Passport's authorization view is `App\Agents\AuthorizationPage`: the Inertia page `oauth/authorize`, a
+  floating card over the planner (see [style.md](./style.md#oauth-consent-card)). Approve and Deny are plain form posts
+  (with the CSRF token) because Passport answers them with a redirect to the client. An app the user already approved
+  skips the card; when that happens on an Inertia visit (right after logging in), `LeaveForOAuthClient` turns the
+  redirect into an Inertia location visit. The page is sent with `X-Frame-Options: DENY`.
+- **Tokens and apps** (`App\Agents\AgentAccess`): personal tokens are the user's tokens of the personal access
+  client (created on first use); OAuth apps are the user's other tokens grouped by client, listed while an access token
+  is valid or its refresh token can get a new one. Revoking a personal token deletes it; disconnecting an app deletes
+  the user's access tokens (and, by foreign key, their refresh tokens) and authorization codes for that client.
+  Deleting an account deletes its tokens the same way, so a reused user id can never inherit one.
+  `oauth_access_tokens.last_used_at` is set by `TouchAccessToken` on `/mcp`, at most once a minute per token.
+  `passport:purge` runs daily (revoked tokens, and expired ones whose refresh token is dead too).
+- **Gating.** `MCP_ENABLED` (`config/mcp.php`, default `true`). When `false`, `routes/ai.php` registers nothing,
+  `AppServiceProvider` drops Passport's `/oauth` routes (all `404`), Settings › Agents is `404` and the shared Inertia
+  prop `mcp.enabled` is `false`, which hides its nav entry.
+- **Paywall.** In SaaS mode a tool call needs the same entitlement as sync (`User::hasAccess()`, the check behind
+  `EnsureHasAccess`). `App\Mcp\Methods\CallToolWithAccess` replaces `tools/call`: without a plan it answers a tool
+  error (`isError: true`) whose text says a paid plan is needed and gives the `/plans` URL, which MCP clients show to
+  the model and the user. Connecting, `tools/list` and tools marked `AvailableWithoutPlan` (`get_profile`, which reports
+  `sync_access: false` and `plans_url`) still work, so an agent can explain what is missing. Self-hosted, never.
+- **Rate limit.** `throttle:mcp`: `MCP_RATE_LIMIT` requests a minute (default 120) per user.
+- **Server** (`App\Mcp\Servers\PlainWeekServer`): name `Plain Week`, version from `package.json`, tools only. Its
+  instructions tell agents what Plain Week is, that ids are UUIDs, that a `null` date is Someday, that a recurring
+  occurrence is `<series id>:<YYYY-MM-DD>`, and that every date is a calendar date in the user's time zone.
+- **Tools** (`app/Mcp/Tools`):
+
+    | Tool          | Annotations           | Returns (structured content)                                                                                                      |
+    | ------------- | --------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+    | `get_profile` | read-only, idempotent | `name`, `email`, `timezone` (`User::timezoneOrDefault()`), `today` and `weekday` in it, `app_version`, `sync_access`, `plans_url` |
+
+Test a running instance with a personal token, for example
+`bunx @modelcontextprotocol/inspector --cli <APP_URL>/mcp --transport http --header "Authorization: Bearer <token>" --method tools/list`.
 
 ### Versioning
 
