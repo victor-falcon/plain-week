@@ -7,6 +7,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-11-20
+
+### Added
+
+- **Today button.** When the planner shows another week, a "Today" pill next to the week number brings you back to the
+  current week (same as pressing `t`). On phones, opening the planner (or going back to the current week) scrolls
+  straight to today instead of starting on Monday.
+
 ## [0.4.1] - 2026-11-20
 
 ### Added
@@ -22,9 +30,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   and reset their password as before. A fresh instance with no users stays open until its first account is created.
 - **A ⋮ button on task rows on touch screens.** It opens the task menu (colors, Tomorrow, Next week, Someday,
   Duplicate, Delete) that a right click opens on desktop.
-- **Today button.** When the planner shows another week, a "Today" pill next to the week number brings you back to the
-  current week (same as pressing `t`). On phones, opening the planner (or going back to the current week) scrolls
-  straight to today instead of starting on Monday.
 
 ### Changed
 
@@ -530,7 +535,8 @@ between devices.
   app, so an instance without mail works.
 - **Documentation** for contributors and coding agents in `docs/` and `AGENTS.md`.
 
-[Unreleased]: https://github.com/victor-falcon/plain-week/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/victor-falcon/plain-week/compare/v0.4.2...HEAD
+[0.4.2]: https://github.com/victor-falcon/plain-week/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/victor-falcon/plain-week/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/victor-falcon/plain-week/compare/v0.3.19...v0.4.0
 [0.3.19]: https://github.com/victor-falcon/plain-week/compare/v0.3.18...v0.3.19
