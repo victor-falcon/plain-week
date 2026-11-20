@@ -59,7 +59,7 @@ class ImportTasks extends WriteTool
 
         return new WriteResult(
             ['added' => $result->taskCount, 'recurring' => $result->recurringCount, 'task_ids' => $ids],
-            'Imported '.Describe::count($result->taskCount, 'task').($result->recurringCount > 0 ? " ({$result->recurringCount} repeating)" : ''),
+            $result->tasks === [] ? null : 'Imported '.Describe::count($result->taskCount, 'task').($result->recurringCount > 0 ? " ({$result->recurringCount} repeating)" : ''),
             $ids,
         );
     }

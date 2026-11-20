@@ -13,7 +13,7 @@ use Laravel\Passport\AccessToken;
 
 /**
  * A planner tool that changes tasks. It runs in one transaction with its activity log entry ({@see McpActivity}), so
- * a refused call changes nothing and logs nothing.
+ * a refused call changes nothing and logs nothing (nor does a call that had nothing to change).
  */
 abstract class WriteTool extends PlannerTool
 {
@@ -31,7 +31,7 @@ abstract class WriteTool extends PlannerTool
             $token = $planner->user->token();
 
             // Always a Passport token on /mcp (auth:api).
-            if ($token instanceof AccessToken) {
+            if ($result->summary !== null && $token instanceof AccessToken) {
                 McpActivity::record($planner->user, app(AgentAccess::class)->clientOf($token), $this->name(), $result->summary, $result->taskIds);
             }
 

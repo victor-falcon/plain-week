@@ -4,7 +4,7 @@ namespace App\Mcp\Support;
 
 /**
  * What a write tool returns: the result for the agent, plus the activity log entry (a readable summary and the ids of
- * the tasks it touched).
+ * the tasks it touched). A null summary means nothing changed, and nothing is logged.
  */
 final readonly class WriteResult
 {
@@ -21,7 +21,7 @@ final readonly class WriteResult
      */
     public function __construct(
         public array $data,
-        public string $summary,
+        public ?string $summary,
         array $taskIds,
     ) {
         $this->taskIds = array_values(array_unique(array_filter($taskIds, fn (?string $id) => $id !== null)));

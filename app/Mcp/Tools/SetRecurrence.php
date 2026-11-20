@@ -38,7 +38,7 @@ class SetRecurrence extends WriteTool
             'id' => ['required', 'string'],
             ...Schemas::recurrenceRules('recurrence', present: true),
             ...Schemas::scopeRules(),
-        ]);
+        ], Schemas::recurrenceMessages('recurrence'));
         $before = $planner->tasks->findTask($validated['id']) ?? throw TaskNotFound::withId($validated['id']);
         $item = $planner->tasks->setRecurrence($validated['id'], $validated['recurrence'], Schemas::scopeFrom($validated, Scope::Future));
         $seriesId = $item->seriesId();

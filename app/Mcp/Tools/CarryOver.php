@@ -52,7 +52,7 @@ class CarryOver extends WriteTool
         return new WriteResult(
             ['today' => $today, 'moved' => $count, 'tasks' => TaskOutput::items($moved)],
             $count === 0
-                ? 'Found no unfinished tasks to move to today'
+                ? null
                 : 'Moved '.Describe::count($count, 'unfinished task').' to today ('.$planner->dateLabel($today).')',
             array_values($ids),
         );

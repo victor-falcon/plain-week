@@ -1176,7 +1176,8 @@ Every tool also says `openWorldHint: false`.
 
 #### MCP activity log
 
-`mcp_activities` (`App\Models\McpActivity`): one row per successful write tool call, never for reads or errors.
+`mcp_activities` (`App\Models\McpActivity`): one row per successful write tool call, never for reads, errors or a
+call that changed nothing (`carry_over` with nothing to move, an empty import).
 Columns: `user_id`, `tool`, `client_type` (`token` or `oauth`), `client_id` (the personal token's id or the OAuth
 client's id) and `client_name` (its name at the time of the call, so entries stay readable after a revoke; from
 `AgentAccess::clientOf()`), `task_ids` (JSON: the ids the call touched, occurrence ids and series ids included, at

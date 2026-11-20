@@ -64,7 +64,7 @@ class CreateTasks extends WriteTool
             'tasks.*.subtasks.*.text' => ['required', 'string'],
             'tasks.*.subtasks.*.done' => ['sometimes', 'boolean:strict'],
             ...Schemas::recurrenceRules('tasks.*.recurrence'),
-        ]);
+        ], Schemas::recurrenceMessages('tasks.*.recurrence'));
 
         $created = [];
         // The last task of the batch placed at each anchor (date, after_id, before_id).

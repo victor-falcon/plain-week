@@ -292,8 +292,8 @@ describe('set_recurrence', function () {
             ->toBe('A Someday task cannot repeat.')
             ->and(toolError($this->token, 'set_recurrence', ['id' => $task['id'], 'recurrence' => ['type' => 'monthly', 'day' => 40]]))
             ->toBe('A monthly rule needs a day from 1 to 31.')
-            ->and(toolError($this->token, 'set_recurrence', ['id' => $task['id'], 'recurrence' => ['type' => 'yearly', 'month' => 1]]))
-            ->toContain('recurrence')
+            ->and(toolError($this->token, 'set_recurrence', ['id' => $task['id'], 'recurrence' => ['frequency' => 'weekly']]))
+            ->toBe('A repeat rule is an object with only type, every, weekdays, day and until.')
             ->and(toolError($this->token, 'set_recurrence', ['id' => $task['id']]))->toContain('recurrence');
     });
 });
@@ -387,7 +387,9 @@ describe('carry_over', function () {
                 'task_ids' => [$old['id'], $yesterday['id']],
             ]);
 
-        expect(toolResult($this->token, 'carry_over')['moved'])->toBe(0);
+        // Nothing to move: nothing logged.
+        expect(toolResult($this->token, 'carry_over')['moved'])->toBe(0)
+            ->and(McpActivity::count())->toBe(1);
     });
 });
 

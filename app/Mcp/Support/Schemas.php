@@ -71,6 +71,16 @@ final class Schemas
     }
 
     /**
+     * A clearer message than "must be an array" for a rule with keys it does not know.
+     *
+     * @return array<string, string>
+     */
+    public static function recurrenceMessages(string $key): array
+    {
+        return [$key.'.array' => 'A repeat rule is an object with only type, every, weekdays, day and until.'];
+    }
+
+    /**
      * The validated `scope`, or `$default`.
      *
      * @param  array<string, mixed>  $validated
