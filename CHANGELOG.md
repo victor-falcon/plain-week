@@ -7,6 +7,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **Task changes on the server.** The server can now change a user's tasks exactly like the planner does (create,
+  edit, move, repeat, delete, restore, carry over and import), groundwork for letting AI agents manage your planner.
+  Your browsers pick the changes up on their next sync.
+
 ## [0.3.19] - 2026-11-19
 
 ### Security

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Casts\UtcMillisDateTime;
 use App\Enums\TaskColor;
+use App\Tasks\PlannerItem;
 use Carbon\CarbonImmutable;
 use Database\Factories\TaskFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -34,6 +35,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property CarbonImmutable $updated_at
  * @property CarbonImmutable|null $deleted_at
  * @property int $version
+ *
+ * @phpstan-import-type TaskRecord from PlannerItem
  */
 #[Fillable([
     'id', 'text', 'date', 'someday_column', 'position', 'done', 'done_at', 'color', 'time', 'notes', 'subtasks',
@@ -78,5 +81,33 @@ class Task extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * The sync wire shape of the row (snake_case, ISO-8601 UTC timestamps with milliseconds), as pushed and pulled.
+     *
+     * @return TaskRecord
+     */
+    public function toRecord(): array
+    {
+        return [
+            'id' => $this->id,
+            'text' => $this->text,
+            'date' => $this->date,
+            'someday_column' => $this->someday_column,
+            'position' => $this->position,
+            'done' => $this->done,
+            'done_at' => $this->done_at?->format(UtcMillisDateTime::WIRE_FORMAT),
+            'color' => $this->color->value,
+            'time' => $this->time,
+            'notes' => $this->notes,
+            'subtasks' => $this->subtasks,
+            'recurrence' => $this->recurrence,
+            'series_id' => $this->series_id,
+            'occurrence_date' => $this->occurrence_date,
+            'created_at' => $this->created_at->format(UtcMillisDateTime::WIRE_FORMAT),
+            'updated_at' => $this->updated_at->format(UtcMillisDateTime::WIRE_FORMAT),
+            'deleted_at' => $this->deleted_at?->format(UtcMillisDateTime::WIRE_FORMAT),
+        ];
     }
 }

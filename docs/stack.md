@@ -148,6 +148,7 @@ keeps the GitHub Actions up to date (`.github/dependabot.yml`).
 app/                      Laravel application code (controllers, models, actions, middleware)
   Integrations/           Optional server-side integrations with other services (Google Calendar)
   Push/                   Web Push notifications: what is due when, and sending it (minishlink/web-push)
+  Tasks/                  Server ports of the planner's task logic: occurrences, mutations, import, positions
 bootstrap/                Framework bootstrap
 config/                   Configuration
 deploy/                   Coolify service template and a docker-compose.yml example (docs/self-hosting.md)
@@ -182,7 +183,7 @@ resources/images/marketing/  Source of the og:image and the README header (PNGs 
 resources/views/app.blade.php  Root HTML document
 routes/                   web.php, settings.php, console.php
 scripts/                  Image scripts run with bun: marketing images and README screenshots (not in the app build)
-tests/                    Pest tests (Feature and Unit)
+tests/                    Pest tests (Feature and Unit); fixtures/ holds data shared with the JS tests
 video/                    Remotion promo video, its own bun project outside the app build (video/README.md)
 ```
 
