@@ -18,6 +18,7 @@ services:
             - APP_URL=${SERVICE_URL_PLAINWEEK}
             - APP_KEY=base64:${SERVICE_REALBASE64_32_APPKEY}
             - APP_NOINDEX=${APP_NOINDEX:-false}
+            - REGISTRATION_ENABLED=${REGISTRATION_ENABLED:-true}
             - DB_CONNECTION=sqlite
             - LOG_CHANNEL=stderr
             - MAIL_MAILER=${MAIL_MAILER:-log}

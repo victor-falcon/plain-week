@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsureRegistrationOpen;
 use Laravel\Fortify\Features;
 
 return [
@@ -99,9 +100,12 @@ return [
     | that it registers with the application. If necessary, you may change
     | these middleware but typically this provided default is preferred.
     |
+    | EnsureRegistrationOpen answers `404` on the sign-up routes while
+    | registration is closed (REGISTRATION_ENABLED, see config/auth.php).
+    |
     */
 
-    'middleware' => ['web'],
+    'middleware' => ['web', EnsureRegistrationOpen::class],
 
     /*
     |--------------------------------------------------------------------------

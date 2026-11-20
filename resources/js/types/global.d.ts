@@ -18,6 +18,8 @@ declare module '@inertiajs/core' {
         sharedPageProps: {
             name: string;
             auth: Auth;
+            /** Sign-up is open (REGISTRATION_ENABLED, or an instance with no users yet). */
+            canRegister: boolean;
             saas: Saas;
             /** "Send feedback" target: a mailto: in SaaS mode, GitHub Discussions otherwise. */
             feedbackUrl: string;

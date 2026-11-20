@@ -25,7 +25,8 @@ type Props = {
 };
 
 export default function Login({ status, canResetPassword }: Props) {
-    const saasEnabled = usePage().props.saas?.enabled ?? false;
+    const { saas, canRegister } = usePage().props;
+    const saasEnabled = saas?.enabled ?? false;
 
     return (
         <>
@@ -111,12 +112,14 @@ export default function Login({ status, canResetPassword }: Props) {
                     )}
                 </Form>
 
-                <AuthFootnote>
-                    No account yet?{' '}
-                    <TextLink href={register()}>
-                        {saasEnabled ? 'Sync your week' : 'Sign up'}
-                    </TextLink>
-                </AuthFootnote>
+                {canRegister && (
+                    <AuthFootnote>
+                        No account yet?{' '}
+                        <TextLink href={register()}>
+                            {saasEnabled ? 'Sync your week' : 'Sign up'}
+                        </TextLink>
+                    </AuthFootnote>
+                )}
             </FloatingCard>
         </>
     );

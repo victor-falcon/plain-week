@@ -184,11 +184,12 @@ function GuestDot({ className }: { className?: string }) {
 }
 
 function GuestMenuItems({ withSignUp }: { withSignUp: boolean }) {
-    const saasEnabled = usePage().props.saas?.enabled ?? false;
+    const { saas, canRegister } = usePage().props;
+    const saasEnabled = saas?.enabled ?? false;
 
     return (
         <>
-            {withSignUp && (
+            {withSignUp && canRegister && (
                 <DropdownMenuItem asChild>
                     <Link href={register()} className="cursor-pointer">
                         <CloudUpload className="me-2" />
@@ -219,12 +220,16 @@ function GuestMenuItems({ withSignUp }: { withSignUp: boolean }) {
 }
 
 /**
- * Guests: "Sync your week" (to sign-up; in SaaS mode the plan choice follows)
+ * Guests: "Sync your week" (to sign-up, or to log in while sign-up is closed;
+ * in SaaS mode the plan choice follows)
  * with a grey dot, joined to a small menu with Log in, in SaaS mode the
  * landing card again, and Send feedback. Phones have no room for the pill next
  * to the title: a round button with the dot opens the same menu, sign-up first.
  */
 function GuestSyncButton() {
+    // With sign-up closed, syncing starts by logging in to an existing account.
+    const { canRegister } = usePage().props;
+
     return (
         <>
             <div className="flex items-center max-sm:hidden">
@@ -236,7 +241,10 @@ function GuestSyncButton() {
                             'gap-2 rounded-s-full rounded-e-none ps-3 pe-4',
                         )}
                     >
-                        <Link href={register()} data-test="sync-your-week">
+                        <Link
+                            href={canRegister ? register() : login()}
+                            data-test="sync-your-week"
+                        >
                             <GuestDot className="ring-2 ring-background/25" />
                             Sync your week
                         </Link>

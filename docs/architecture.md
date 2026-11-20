@@ -791,6 +791,12 @@ paywall.
 
 After login, registration and email verification Fortify redirects to `/` (`config/fortify.php` → `home`).
 
+**Sign-up can be closed.** `REGISTRATION_ENABLED=false` (`config/auth.php` → `registration.enabled`, default `true`)
+closes it: `App\Http\Middleware\EnsureRegistrationOpen`, in Fortify's route middleware, answers `404` on `register` and
+`register.store`. The routes stay registered so the Wayfinder helpers keep building. `App\Auth\Registration::open()`
+is the rule (on, or no users yet, so a fresh instance can create its first account) and is shared with every page as
+`canRegister`, which hides the login page's sign-up link and points the planner's "Sync your week" at the login page.
+
 **Email verification never blocks the app.** Self-hosted instances often have no mail server, so no route uses the
 `verified` middleware. The verify-email flow (notice page, resend link, signed verification URL) still works for
 instances that do send mail: the "unverified" notice and resend link live on the profile settings page. Keep

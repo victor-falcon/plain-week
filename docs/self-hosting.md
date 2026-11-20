@@ -68,6 +68,7 @@ echo "base64:$(openssl rand -base64 32)"
 | `MAIL_FROM_NAME`        | `Plain Week`                            | Sender name                                                                                                                                                                                                                                                                 |
 | `LOG_CHANNEL`           | `stderr`                                | Logs go to the container output (`docker logs`)                                                                                                                                                                                                                             |
 | `LOG_LEVEL`             | `debug`                                 | `warning` keeps the logs quiet                                                                                                                                                                                                                                              |
+| `REGISTRATION_ENABLED`  | `true`                                  | `false` closes sign-up on a private instance: only existing users can log in; see [Closing sign-up](#closing-sign-up). Stays open while the instance has no users, for the first account                                                                                    |
 | `SAAS_ENABLED`          | `false`                                 | Leave it `false`. `true` turns the instance into the paid hosted service (accounts need a Stripe plan to sync); see [saas.md](./saas.md) for it and its `STRIPE_*` and `SAAS_*` variables                                                                                   |
 | `GOOGLE_CLIENT_ID`      | (empty)                                 | OAuth client id for the optional Google Calendar sync; see [Google Calendar](#google-calendar). Empty hides the integration                                                                                                                                                 |
 | `GOOGLE_CLIENT_SECRET`  | (empty)                                 | OAuth client secret that goes with `GOOGLE_CLIENT_ID`                                                                                                                                                                                                                       |
@@ -253,6 +254,17 @@ The Plain Week apps (and any other token client) sync through the app API at `AP
 (OAuth 2.1 with PKCE; the app registers itself and redirects to a loopback address or a `plainweek://` URL) or pastes
 a personal token created in Settings › Agents & apps, where every connected app can be disconnected. There is no
 email-and-password login for apps. Details in [architecture.md](./architecture.md#app-api).
+
+## Closing sign-up
+
+By default anyone who reaches the instance can create an account. For a private instance, set
+`REGISTRATION_ENABLED=false`: `/register` (the page and the form) answers `404` and the sign-up links are gone (the login
+page has no "Sign up", and the planner's "Sync your week" leads to the login page). Existing users keep logging in,
+resetting their password and using everything else as before.
+
+While the instance has no users at all, sign-up stays open anyway, so a fresh instance can still create its first
+account; it closes as soon as that account exists. To add someone later, set `REGISTRATION_ENABLED=true` for as long as
+they need to sign up.
 
 ## Noindex
 

@@ -7,6 +7,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **Close sign-up on private instances.** `REGISTRATION_ENABLED=false` turns off sign-up: the sign-up page answers `404`,
+  the login page has no "Sign up" link and the planner's "Sync your week" leads to the login page. Existing users log in
+  and reset their password as before. A fresh instance with no users stays open until its first account is created.
+
 ## [0.4.0] - 2026-11-20
 
 ### Added

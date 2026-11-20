@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Auth\Registration;
 use App\Integrations\GoogleCalendar\GoogleOAuth;
 use App\Mcp\McpConfig;
 use App\Models\User;
@@ -49,6 +50,9 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $request->user(),
             ],
+            // Sign-up links show only while registration is open (REGISTRATION_ENABLED).
+            // Lazy: the "no users yet" check queries only when it is turned off.
+            'canRegister' => fn () => Registration::open(),
             'saas' => [
                 'enabled' => (bool) config('saas.enabled'),
             ],

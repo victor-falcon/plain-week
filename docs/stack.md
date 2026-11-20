@@ -370,6 +370,7 @@ one database file, no external services (the queue is a table in it). Deploy it 
     | `MAIL_MAILER`                   | `log` (default) without a mail server; set SMTP variables to send verification and password reset emails                          |
     | `TRUSTED_PROXIES`               | The reverse proxy's IPs (or `*`) when it terminates TLS, so URLs use `https`. Sessions are secure when `APP_URL` is `https://`    |
     | `APP_NOINDEX`                   | `true` to keep search engines out (`X-Robots-Tag`, robots meta and `/robots.txt`)                                                 |
+    | `REGISTRATION_ENABLED`          | `false` to close sign-up to new users (default `true`, see [self-hosting.md](./self-hosting.md#closing-sign-up))                  |
     | `MCP_ENABLED`                   | `false` to turn off the MCP server for AI agents (default `true`, see [self-hosting.md](./self-hosting.md#ai-agents-mcp))         |
 
 3. Create the key pair that signs agent tokens once, on persistent storage: `php artisan passport:keys` (writes
