@@ -36,7 +36,7 @@ class CallToolWithAccess extends CallTool
         return parent::handle($request, $context);
     }
 
-    public static function planRequiredMessage(): string
+    private static function planRequiredMessage(): string
     {
         return 'Plain Week needs a paid plan to use your planner from an AI agent. Choose a plan at '
             .route('billing.plans').' and try again.';

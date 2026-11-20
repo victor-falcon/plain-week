@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Integrations\GoogleCalendar\GoogleOAuth;
+use App\Mcp\McpConfig;
 use App\Models\User;
 use App\Push\PushConfig;
 use App\Support\Feedback;
@@ -64,7 +65,7 @@ class HandleInertiaRequests extends Middleware
             ],
             // The MCP server for AI agents (MCP_ENABLED): Settings › Agents exists only while it is on.
             'mcp' => [
-                'enabled' => (bool) config('mcp.enabled'),
+                'enabled' => McpConfig::enabled(),
             ],
             // Lazy: computed per request only for signed-in users (it may query the subscription).
             'account' => fn () => $user instanceof User ? [

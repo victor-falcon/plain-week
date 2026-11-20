@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Agents\AuthorizationPage;
+use App\Mcp\McpConfig;
 use App\Push\PushSender;
 use App\Push\WebPushSender;
 use Carbon\CarbonImmutable;
@@ -30,7 +31,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(PushSender::class, WebPushSender::class);
 
         // Passport registers its /oauth routes while booting, so this must be decided here.
-        if (! config('mcp.enabled')) {
+        if (! McpConfig::enabled()) {
             Passport::ignoreRoutes();
         }
 

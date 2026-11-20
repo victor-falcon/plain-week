@@ -227,6 +227,14 @@ test('refreshing gives a new access token', function () {
     mcp($refreshed['access_token'], 'tools/call', ['name' => 'get_profile'])->assertOk();
 });
 
+test('registration is throttled per IP', function () {
+    for ($i = 0; $i < 30; $i++) {
+        $this->postJson('/oauth/register', ['client_name' => 'Nope'])->assertStatus(400);
+    }
+
+    $this->postJson('/oauth/register', ['client_name' => 'Nope'])->assertTooManyRequests();
+});
+
 test('registration refuses a client without redirect URIs', function () {
     $this->postJson('/oauth/register', ['client_name' => 'Nope'])
         ->assertStatus(400)

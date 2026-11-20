@@ -768,7 +768,7 @@ Laravel provides:
 | `DELETE /notifications/subscriptions`        | `notifications.subscriptions.destroy` | `auth`.³ `{ endpoint }`; `204`.                                                      |
 | `GET /settings/agents`                       | `agents.edit`                         | `auth`.⁴ Inertia page `settings/agents` (`mcpUrl`, `personalTokens`, `oauthApps`).   |
 | `POST /settings/agents/tokens`               | `agents.tokens.store`                 | `auth`.⁴ `{ name }`; flashes `newToken: { name, token }` once (`throttle:10,1`).     |
-| `DELETE /settings/agents/tokens/{token}`     | `agents.tokens.destroy`               | `auth`.⁴ Revokes one of the user's personal tokens (`404` otherwise).                |
+| `DELETE /settings/agents/tokens/{token}`     | `agents.tokens.destroy`               | `auth`.⁴ Revokes one of the user's personal tokens (idempotent; never another's).    |
 | `DELETE /settings/agents/apps/{client}`      | `agents.apps.destroy`                 | `auth`.⁴ Disconnects an OAuth app: deletes the user's tokens and codes for it.       |
 | `POST /mcp` and the `/oauth`, `.well-known`  |                                       | See [MCP server](#mcp-server).                                                       |
 
@@ -1076,15 +1076,15 @@ Streamable HTTP client) can use the signed-in user's planner. It is `laravel/mcp
 (loaded by the package, outside the `web` group: no session, no CSRF). It writes to the server database like a sync
 push; browsers pick changes up on their next pull. The offline-first rule is untouched: the UI never waits on it.
 
-| Route                                                  | What                                                                                   |
-| ------------------------------------------------------ | -------------------------------------------------------------------------------------- |
-| `POST /mcp` (`mcp`)                                    | JSON-RPC over Streamable HTTP. `GET`/`DELETE` answer `405` (no server-sent stream)     |
-| `GET /.well-known/oauth-protected-resource[/mcp]`      | Protected resource metadata (RFC 9728): `resource`, `authorization_servers`, scopes    |
-| `GET /.well-known/oauth-authorization-server[/{path}]` | Authorization server metadata (RFC 8414): endpoints, PKCE `S256`, grant types          |
-| `POST /oauth/register`                                 | Dynamic client registration (RFC 7591): a public client (no secret), `201`             |
-| `GET /oauth/authorize`                                 | Passport: the consent card (`oauth/authorize`); guests log in first and come back      |
-| `POST`/`DELETE /oauth/authorize`                       | Passport: Approve / Deny, a redirect back to the client with a code or `access_denied` |
-| `POST /oauth/token`                                    | Passport: authorization code (PKCE) and refresh token grants                           |
+| Route                                                  | What                                                                                           |
+| ------------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
+| `POST /mcp` (`mcp`)                                    | JSON-RPC over Streamable HTTP. `GET`/`DELETE` answer `405` (no server-sent stream)             |
+| `GET /.well-known/oauth-protected-resource[/mcp]`      | Protected resource metadata (RFC 9728): `resource`, `authorization_servers`, scopes            |
+| `GET /.well-known/oauth-authorization-server[/{path}]` | Authorization server metadata (RFC 8414): endpoints, PKCE `S256`, grant types                  |
+| `POST /oauth/register`                                 | Dynamic client registration (RFC 7591): a public client (no secret), `201`; 30 a minute per IP |
+| `GET /oauth/authorize`                                 | Passport: the consent card (`oauth/authorize`); guests log in first and come back              |
+| `POST`/`DELETE /oauth/authorize`                       | Passport: Approve / Deny, a redirect back to the client with a code or `access_denied`         |
+| `POST /oauth/token`                                    | Passport: authorization code (PKCE) and refresh token grants                                   |
 
 - **Auth.** `/mcp` uses `auth:api`, a Passport guard (`config/auth.php`). It takes both kinds of Bearer token: OAuth
   access tokens (an MCP client that registered itself and that the user approved) and personal access tokens (created
@@ -1101,6 +1101,9 @@ push; browsers pick changes up on their next pull. The offline-first rule is unt
   (with the CSRF token) because Passport answers them with a redirect to the client. An app the user already approved
   skips the card; when that happens on an Inertia visit (right after logging in), `LeaveForOAuthClient` turns the
   redirect into an Inertia location visit. The page is sent with `X-Frame-Options: DENY`.
+- **Who may register.** Registration is open and any redirect domain is accepted (`config/mcp.php`): connectors live
+  on claude.ai, other hosts and localhost callbacks. The consent card names the client and shows the redirect host
+  prominently, so a look-alike client name gives itself away; the user approves every client.
 - **Tokens and apps** (`App\Agents\AgentAccess`): personal tokens are the user's tokens of the personal access
   client (created on first use); OAuth apps are the user's other tokens grouped by client, listed while an access token
   is valid or its refresh token can get a new one. Revoking a personal token deletes it; disconnecting an app deletes

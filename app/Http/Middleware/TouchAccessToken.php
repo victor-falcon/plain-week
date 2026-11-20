@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use Closure;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Date;
 use Laravel\Passport\AccessToken;
@@ -25,10 +26,11 @@ class TouchAccessToken
 
         if ($token instanceof AccessToken) {
             $now = Date::now();
+            $staleBefore = $now->subMinute();
 
             Passport::token()->newQuery()
                 ->whereKey($token->oauth_access_token_id)
-                ->where(fn ($query) => $query->whereNull('last_used_at')->orWhere('last_used_at', '<', $now->subMinute()))
+                ->where(fn (Builder $query) => $query->whereNull('last_used_at')->orWhere('last_used_at', '<', $staleBefore))
                 ->update(['last_used_at' => $now]);
         }
 

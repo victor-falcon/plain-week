@@ -124,7 +124,7 @@ test('a user cannot revoke someone else\'s token', function () {
 
     $this->actingAs(User::factory()->create())
         ->delete(route('agents.tokens.destroy', $other->tokens()->sole()->getKey()))
-        ->assertNotFound();
+        ->assertRedirect(route('agents.edit'));
 
     $this->assertDatabaseCount('oauth_access_tokens', 1);
 });
@@ -149,7 +149,7 @@ test('a user cannot disconnect someone else\'s app', function () {
 
     $this->actingAs(User::factory()->create())
         ->delete(route('agents.apps.destroy', $clientId))
-        ->assertNotFound();
+        ->assertRedirect(route('agents.edit'));
 
     $this->assertDatabaseHas('oauth_access_tokens', ['client_id' => $clientId]);
 });

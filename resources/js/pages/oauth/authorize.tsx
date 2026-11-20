@@ -61,6 +61,19 @@ export default function Authorize({
                 description={`${client.name} will be able to see, add, change and delete the tasks in your planner, as ${account.email}.`}
                 toolbar={<AppLogoIcon className="size-9" aria-hidden />}
             >
+                {redirectHost !== null && (
+                    <p
+                        className="rounded-2xl bg-muted px-4 py-3 text-sm text-muted-foreground"
+                        data-test="oauth-redirect-host"
+                    >
+                        Approving sends you back to{' '}
+                        <span className="font-semibold break-all text-foreground">
+                            {redirectHost}
+                        </span>
+                        . Only approve if that is the app you are connecting.
+                    </p>
+                )}
+
                 <div className="flex flex-col gap-3">
                     <form
                         method="post"
@@ -96,15 +109,6 @@ export default function Authorize({
                 </div>
 
                 <AuthFootnote>
-                    {redirectHost !== null && (
-                        <>
-                            You'll go back to{' '}
-                            <span className="font-medium text-foreground">
-                                {redirectHost}
-                            </span>
-                            .{' '}
-                        </>
-                    )}
                     You can disconnect it at any time in Settings › Agents.
                 </AuthFootnote>
             </FloatingCard>

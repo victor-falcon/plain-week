@@ -47,7 +47,8 @@ class AgentsController extends Controller
 
     public function destroyToken(Request $request, string $token): RedirectResponse
     {
-        abort_unless($this->access->revokePersonalToken($this->user($request), $token), 404);
+        // Idempotent: a second click or another tab finds it already gone.
+        $this->access->revokePersonalToken($this->user($request), $token);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Token revoked.')]);
 
@@ -56,7 +57,7 @@ class AgentsController extends Controller
 
     public function destroyApp(Request $request, string $client): RedirectResponse
     {
-        abort_unless($this->access->revokeOAuthApp($this->user($request), $client), 404);
+        $this->access->revokeOAuthApp($this->user($request), $client);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('App disconnected.')]);
 

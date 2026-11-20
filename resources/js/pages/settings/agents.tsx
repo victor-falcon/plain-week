@@ -90,7 +90,7 @@ export default function Agents({ mcpUrl, personalTokens, oauthApps }: Props) {
 
                 <OAuthApps apps={oauthApps} />
 
-                {/* Activity: what agents did lately (task t3) goes here, after the connections. */}
+                {/* Activity (what agents did lately) goes here, after the connections. */}
             </div>
         </>
     );

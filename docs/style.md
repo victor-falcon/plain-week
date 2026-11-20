@@ -224,13 +224,14 @@ dismissed (no close button, Esc does nothing): an account without a plan pays or
 user, is a `FloatingCard` over the planner like the auth cards (same persistent layout). A guest logs in first and
 comes back to it. It cannot be dismissed: the choice is Approve or Deny.
 
-| Part    | Content                                                                                                            |
-| ------- | ------------------------------------------------------------------------------------------------------------------ |
-| Top bar | Logo                                                                                                               |
-| Title   | "Connect Claude to Plain Week?" (the name the client registered with)                                              |
-| Text    | "Claude will be able to see, add, change and delete the tasks in your planner, as me@example.com."                 |
-| Actions | Approve: the 48px `AuthSubmit` pill; Deny: a 48px ghost pill under it. A `Spinner` on the one pressed, both off    |
-| Footer  | "You'll go back to claude.ai." (the redirect URI's host) "You can disconnect it at any time in Settings › Agents." |
+| Part    | Content                                                                                                                                                                                      |
+| ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Top bar | Logo                                                                                                                                                                                         |
+| Title   | "Connect Claude to Plain Week?" (the name the client registered with)                                                                                                                        |
+| Text    | "Claude will be able to see, add, change and delete the tasks in your planner, as me@example.com."                                                                                           |
+| Actions | Approve: the 48px `AuthSubmit` pill; Deny: a 48px ghost pill under it. A `Spinner` on the one pressed, both off                                                                              |
+| Notice  | A `bg-muted` rounded box: "Approving sends you back to **claude.ai**. Only approve if that is the app you are connecting." (the redirect URI's host, so a look-alike name gives itself away) |
+| Footer  | "You can disconnect it at any time in Settings › Agents."                                                                                                                                    |
 
 Both buttons are plain HTML form posts, not Inertia visits: the answer is a redirect to the other site.
 

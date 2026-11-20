@@ -44,8 +44,7 @@ final class AgentAccess
      */
     public function personalTokens(User $user): Collection
     {
-        return $this->liveTokens($user)
-            ->whereHas('client', fn (Builder $query) => $query->whereJsonContains('grant_types', 'personal_access'))
+        return $this->personalTokenQuery($user)
             ->latest()
             ->get()
             ->map(fn (Token $token): array => [
@@ -57,11 +56,13 @@ final class AgentAccess
             ->values();
     }
 
+    /**
+     * Only ever one of the user's own tokens; false when there was none.
+     */
     public function revokePersonalToken(User $user, string $tokenId): bool
     {
-        return $this->liveTokens($user)
+        return $this->personalTokenQuery($user)
             ->whereKey($tokenId)
-            ->whereHas('client', fn (Builder $query) => $query->whereJsonContains('grant_types', 'personal_access'))
             ->delete() > 0;
     }
 
@@ -75,10 +76,8 @@ final class AgentAccess
     {
         $now = Date::now();
 
-        return Passport::token()->newQuery()
-            ->where('user_id', $user->getKey())
+        return $this->oauthTokenQuery($user)
             ->where('revoked', false)
-            ->whereHas('client', fn (Builder $query) => $query->whereJsonDoesntContain('grant_types', 'personal_access'))
             ->where(fn (Builder $query) => $query
                 ->where('expires_at', '>', $now)
                 ->orWhereHas('refreshToken', fn (Builder $refresh) => $refresh->where('revoked', false)->where('expires_at', '>', $now)))
@@ -115,23 +114,36 @@ final class AgentAccess
                 ->where('client_id', $clientId)
                 ->delete();
 
-            return Passport::token()->newQuery()
-                ->where('user_id', $user->getKey())
+            return $this->oauthTokenQuery($user)
                 ->where('client_id', $clientId)
-                ->whereHas('client', fn (Builder $query) => $query->whereJsonDoesntContain('grant_types', 'personal_access'))
                 ->delete() > 0;
         });
     }
 
     /**
+     * The user's personal tokens that still work.
+     *
      * @return Builder<Token>
      */
-    private function liveTokens(User $user): Builder
+    private function personalTokenQuery(User $user): Builder
     {
         return Passport::token()->newQuery()
             ->where('user_id', $user->getKey())
             ->where('revoked', false)
-            ->where('expires_at', '>', Date::now());
+            ->where('expires_at', '>', Date::now())
+            ->whereHas('client', fn (Builder $query) => $query->whereJsonContains('grant_types', 'personal_access'));
+    }
+
+    /**
+     * Every token the user's OAuth apps were given, whatever its state.
+     *
+     * @return Builder<Token>
+     */
+    private function oauthTokenQuery(User $user): Builder
+    {
+        return Passport::token()->newQuery()
+            ->where('user_id', $user->getKey())
+            ->whereHas('client', fn (Builder $query) => $query->whereJsonDoesntContain('grant_types', 'personal_access'));
     }
 
     private function ensurePersonalAccessClient(): void
