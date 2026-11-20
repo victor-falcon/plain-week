@@ -62,6 +62,9 @@ test('the page shows the MCP URL, the tokens and the connected apps', function (
         ->assertInertia(fn (Assert $page) => $page
             ->component('settings/agents')
             ->where('mcpUrl', url('/mcp'))
+            ->where('api.baseUrl', url('/api/v1'))
+            ->where('api.resourceMetadataUrl', url('/.well-known/oauth-protected-resource/api/v1'))
+            ->where('api.authorizationServerMetadataUrl', url('/.well-known/oauth-authorization-server'))
             ->has('personalTokens', 1)
             ->where('personalTokens.0.name', 'Laptop')
             ->where('personalTokens.0.lastUsedAt', null)

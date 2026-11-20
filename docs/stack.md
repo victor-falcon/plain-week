@@ -82,7 +82,7 @@ commit them) and run `php artisan config:clear`. Tests never call Google: they u
 
 The MCP server for AI agents is on (`MCP_ENABLED=true`). `composer setup` creates the key pair that signs its tokens
 (`storage/oauth-*.key`, gitignored); on an older checkout run `php artisan passport:keys` once. Create a personal token
-in Settings › Agents and try it with `bunx @modelcontextprotocol/inspector`, or connect Claude Code with the command
+in Settings › Agents & apps and try it with `bunx @modelcontextprotocol/inspector`, or connect Claude Code with the command
 shown there. claude.ai needs a public `https://` URL, so try OAuth clients against a tunnel or a deployed instance. Tests
 never read the key files: `usePassportKeys()` (tests/Pest.php) sets a key pair made in memory.
 
@@ -155,7 +155,7 @@ keeps the GitHub Actions up to date (`.github/dependabot.yml`).
 
 ```
 app/                      Laravel application code (controllers, models, actions, middleware)
-  Agents/                 AI agent access: personal tokens, connected OAuth apps, the OAuth consent page
+  Agents/                 Agent and app access: personal tokens, connected OAuth apps, the OAuth consent page
   Integrations/           Optional server-side integrations with other services (Google Calendar)
   Mcp/                    The MCP server (laravel/mcp): server, tools and the paywalled tools/call
   Push/                   Web Push notifications: what is due when, and sending it (minishlink/web-push)

@@ -11,9 +11,9 @@ use Laravel\Passport\Passport;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Records when the request's Bearer token was last used (Settings › Agents
- * shows it), at most once a minute per token so an agent's burst of calls
- * costs one write.
+ * Records when the request's Bearer token was last used (Settings › Agents &
+ * apps shows it), on `/mcp` and the app API, at most once a minute per token
+ * so a burst of calls costs one write.
  */
 class TouchAccessToken
 {

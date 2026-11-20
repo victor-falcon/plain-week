@@ -91,6 +91,8 @@ The server treats the three fields as plain synced columns (same LWW, same push/
 
 Web routes with session auth and CSRF, JSON in and out. All require authentication; guests get `401`. In SaaS mode an
 account without a paid plan gets `402 Payment Required` ([saas.md](./saas.md)); a self-hosted instance never sends it.
+Each user may send 120 sync requests a minute (`throttle:sync`, shared with the app API), then `429`. Token clients
+(native apps) use the same contract under `/api/v1/sync/*`, see [App API](#app-api).
 
 Both take an optional `X-Sync-Format: <int>` header that says what the client understands: none (or `1`) is a client
 up to v0.0.3; `2` adds daily rules. A missing or malformed header counts as `1`; a higher one as the newest the server
@@ -766,11 +768,12 @@ Laravel provides:
 | `PATCH /settings/notifications`              | `notifications.update`                | `auth`.¹ ³ `{ morning_time: 'HH:mm' }`; redirects back.                              |
 | `POST /notifications/subscriptions`          | `notifications.subscriptions.store`   | `auth`.¹ ³ This browser's `PushSubscription.toJSON()`; `204`.                        |
 | `DELETE /notifications/subscriptions`        | `notifications.subscriptions.destroy` | `auth`.³ `{ endpoint }`; `204`.                                                      |
-| `GET /settings/agents`                       | `agents.edit`                         | `auth`.⁴ Inertia page `settings/agents` (`mcpUrl`, `personalTokens`, `oauthApps`).   |
+| `GET /settings/agents`                       | `agents.edit`                         | `auth`.⁴ Inertia page `settings/agents` (`mcpUrl`, `api`, tokens, apps, activity).   |
 | `POST /settings/agents/tokens`               | `agents.tokens.store`                 | `auth`.⁴ `{ name }`; flashes `newToken: { name, token }` once (`throttle:10,1`).     |
 | `DELETE /settings/agents/tokens/{token}`     | `agents.tokens.destroy`               | `auth`.⁴ Revokes one of the user's personal tokens (idempotent; never another's).    |
 | `DELETE /settings/agents/apps/{client}`      | `agents.apps.destroy`                 | `auth`.⁴ Disconnects an OAuth app: deletes the user's tokens and codes for it.       |
 | `POST /mcp` and the `/oauth`, `.well-known`  |                                       | See [MCP server](#mcp-server).                                                       |
+| `/api/v1/*`                                  | `api.*`                               | Bearer token (`auth:api`). See [App API](#app-api).                                  |
 
 ¹ Plus `EnsureHasAccess`: in SaaS mode a signed-in account without a paid plan is redirected to the paywall (pages) or
 gets `402` (sync). Billing and legal routes are listed in [saas.md](./saas.md).
@@ -781,8 +784,10 @@ connecting needs a plan in SaaS mode, so an account whose plan lapsed can still 
 ³ Plus `EnsureWebPushConfigured`: `404` unless `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` and `VAPID_SUBJECT` are set.
 Unsubscribing needs no plan in SaaS mode, so a browser can always be removed.
 
-⁴ Plus `EnsureMcpEnabled`: `404` when `MCP_ENABLED=false`. No plan is needed in SaaS mode: tokens and apps can always
-be managed, and the MCP server itself answers tool calls with the paywall error.
+⁴ Settings › Agents & apps (the path stays `/settings/agents`). Always there, whatever `MCP_ENABLED` says: with the MCP
+server off, `mcpUrl` is `null` and the page hides the MCP URL, the agent snippets and the empty activity log. No plan
+is needed in SaaS mode: tokens and apps can always be managed, and the MCP server and the API sync answer with the
+paywall.
 
 After login, registration and email verification Fortify redirects to `/` (`config/fortify.php` → `home`).
 
@@ -798,7 +803,7 @@ browser request without the token when it carries `Sec-Fetch-Site: same-origin`;
 browsers work.) Use the Wayfinder helpers
 (`@/actions/App/Http/Controllers/SyncController` or `@/routes/sync`) to build the URLs.
 
-The `TrimStrings` and `ConvertEmptyStringsToNull` middleware are skipped for `sync/*`, so strings (empty `notes`,
+The `TrimStrings` and `ConvertEmptyStringsToNull` middleware are skipped for `sync/*` and `api/*/sync/*`, so strings (empty `notes`,
 leading spaces in `text`) round-trip exactly.
 
 ### Tables
@@ -1079,7 +1084,7 @@ push; browsers pick changes up on their next pull. The offline-first rule is unt
 | Route                                                  | What                                                                                           |
 | ------------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
 | `POST /mcp` (`mcp`)                                    | JSON-RPC over Streamable HTTP. `GET`/`DELETE` answer `405` (no server-sent stream)             |
-| `GET /.well-known/oauth-protected-resource[/mcp]`      | Protected resource metadata (RFC 9728): `resource`, `authorization_servers`, scopes            |
+| `GET /.well-known/oauth-protected-resource[/{path}]`   | Protected resource metadata (RFC 9728) for `/mcp` or `/api/v1`: `resource`, servers, scopes    |
 | `GET /.well-known/oauth-authorization-server[/{path}]` | Authorization server metadata (RFC 8414): endpoints, PKCE `S256`, grant types                  |
 | `POST /oauth/register`                                 | Dynamic client registration (RFC 7591): a public client (no secret), `201`; 30 a minute per IP |
 | `GET /oauth/authorize`                                 | Passport: the consent card (`oauth/authorize`); guests log in first and come back              |
@@ -1088,7 +1093,7 @@ push; browsers pick changes up on their next pull. The offline-first rule is unt
 
 - **Auth.** `/mcp` uses `auth:api`, a Passport guard (`config/auth.php`). It takes both kinds of Bearer token: OAuth
   access tokens (an MCP client that registered itself and that the user approved) and personal access tokens (created
-  in Settings › Agents for headless agents). Both are Passport tokens signed with the instance's RSA key pair
+  in Settings › Agents & apps for headless agents). The same tokens work on the [App API](#app-api). Both are Passport tokens signed with the instance's RSA key pair
   (`storage/oauth-*.key` or `PASSPORT_PRIVATE_KEY`/`PASSPORT_PUBLIC_KEY`), so one guard, one table
   (`oauth_access_tokens`) and one revoke path cover them; Sanctum would have added a second guard and token table for
   the same behaviour. Every token has full access (the single scope `mcp:use`; there is no scopes UI). OAuth access
@@ -1109,11 +1114,12 @@ push; browsers pick changes up on their next pull. The offline-first rule is unt
   is valid or its refresh token can get a new one. Revoking a personal token deletes it; disconnecting an app deletes
   the user's access tokens (and, by foreign key, their refresh tokens) and authorization codes for that client.
   Deleting an account deletes its tokens the same way, so a reused user id can never inherit one.
-  `oauth_access_tokens.last_used_at` is set by `TouchAccessToken` on `/mcp`, at most once a minute per token.
+  `oauth_access_tokens.last_used_at` is set by `TouchAccessToken` on `/mcp` and `/api/v1`, at most once a minute per
+  token.
   `passport:purge` runs daily (revoked tokens, and expired ones whose refresh token is dead too).
-- **Gating.** `MCP_ENABLED` (`config/mcp.php`, default `true`). When `false`, `routes/ai.php` registers nothing,
-  `AppServiceProvider` drops Passport's `/oauth` routes (all `404`), Settings › Agents is `404` and the shared Inertia
-  prop `mcp.enabled` is `false`, which hides its nav entry.
+- **Gating.** `MCP_ENABLED` (`config/mcp.php`, default `true`). When `false`, `routes/ai.php` registers no `/mcp`
+  (`404`) and the shared Inertia prop `mcp.enabled` is `false`. OAuth (Passport's `/oauth` routes, the metadata and
+  registration) and the App API stay, and so does Settings › Agents & apps, without its MCP part.
 - **Paywall.** In SaaS mode a tool call needs the same entitlement as sync (`User::hasAccess()`, the check behind
   `EnsureHasAccess`). `App\Mcp\Methods\CallToolWithAccess` replaces `tools/call`: without a plan it answers a tool
   error (`isError: true`) whose text says a paid plan is needed and gives the `/plans` URL, which MCP clients show to
@@ -1124,9 +1130,9 @@ push; browsers pick changes up on their next pull. The offline-first rule is unt
   instructions tell agents what Plain Week is, that ids are UUIDs, that a `null` date is Someday, that a recurring
   occurrence is `<series id>:<YYYY-MM-DD>`, that every date is a calendar date in the user's time zone, which tools
   read, how to place a task (`before_id` / `after_id`), that `delete_task` returns a `restore_id`, and that the user
-  sees their changes in Settings › Agents › Activity.
+  sees their changes in Settings › Agents & apps › Activity.
 - **Tools** (`app/Mcp/Tools`, [catalogue below](#mcp-tools)).
-- **Activity log** ([below](#mcp-activity-log)): every successful write, for Settings › Agents.
+- **Activity log** ([below](#mcp-activity-log)): every successful write, for Settings › Agents & apps.
 
 #### MCP tools
 
@@ -1185,12 +1191,52 @@ most 200),
 `summary` (readable English built by the tool, for example "Created 3 tasks on Mon 23 Nov", "Completed “Buy milk”",
 "Moved “Call Ana” to Someday", "Set “Gym” to repeat every Mon, Wed") and `created_at`. It is read-only: there is no
 revert. Rows older than 90 days go with the daily `model:prune --model=App\Models\McpActivity`
-(`routes/console.php`); Settings › Agents also hides them before that. The page lists the user's rows newest first,
-20 per page (`?activity_page=`, a simple paginator), see [style.md](./style.md#settings--agents).
+(`routes/console.php`); Settings › Agents & apps also hides them before that. The page lists the user's rows newest first,
+20 per page (`?activity_page=`, a simple paginator), see [style.md](./style.md#settings--agents--apps).
 
 Test a running instance with a personal token, for example
 `bunx @modelcontextprotocol/inspector --cli <APP_URL>/mcp --transport http --header "Authorization: Bearer <token>" --method tools/list`
 (`--method tools/call --tool-name create_tasks --tool-arg 'tasks=[{"text":"Try it"}]'` to call one).
+
+### App API
+
+REST routes for native apps (the Tauri apps, [#98](https://github.com/victor-falcon/plain-week/issues/98)) and other
+token clients, in `routes/api.php` (the `api` group under `/api`: no session, cookies or CSRF). They take the same
+Passport Bearer tokens as the [MCP server](#mcp-server) through `auth:api` and stay on when `MCP_ENABLED=false`.
+
+| Route                    | Name            | What                                                                                                           |
+| ------------------------ | --------------- | -------------------------------------------------------------------------------------------------------------- |
+| `GET /api/v1/me`         | `api.me`        | `{ user, account: { hasAccess, plan } }`, also without a plan, so an app can show a paywall                    |
+| `POST /api/v1/sync/push` | `api.sync.push` | [`POST /sync/push`](#post-syncpush), the same `SyncController@push`                                            |
+| `GET /api/v1/sync/pull`  | `api.sync.pull` | [`GET /sync/pull`](#get-syncpullcursorint-default-0limitint-11000-default-500), the same `SyncController@pull` |
+
+- **Getting a token.** Never with email and password. Either the user creates a personal token in Settings › Agents &
+  apps and pastes it into the app, or the app runs OAuth 2.1 as a public client: it registers itself
+  (`POST /oauth/register`, dynamic client registration) with a loopback redirect (`http://127.0.0.1:<port>/…`) or a
+  `plainweek://…` one (`config/mcp.php` `custom_schemes`), sends the user to `/oauth/authorize` with PKCE (`S256`),
+  and exchanges the code at `/oauth/token`; it refreshes the day-long access token with the refresh token. The
+  endpoints are in `/.well-known/oauth-authorization-server`. The consent card shows a custom-scheme redirect as
+  `plainweek://<host>`. The only scope is `mcp:use` (full access); the API does not check scopes.
+- **Sync.** The exact web contract: validation, last-write-wins, cursor, `X-Sync-Format`, `X-Timezone`
+  (`RememberTimezone`), the 500-record batches and the raw strings (no trimming, no empty-to-null). In SaaS mode an
+  account without a plan gets `402` (`EnsureHasAccess`, which never redirects under `api/*`).
+- **Errors** are always JSON. Without a valid token the answer is `401` with
+  `WWW-Authenticate: Bearer realm="plain-week", resource_metadata="<APP_URL>/.well-known/oauth-protected-resource/api/v1"`
+  (`AddResourceMetadataHeader`); that metadata names `<APP_URL>/api/v1` as the resource and the instance as its
+  authorization server. A revoked token or a disconnected app gets `401` at once.
+- **Rate limits** (per user, `AppServiceProvider`): `throttle:sync` 120 a minute for the sync routes, shared with the
+  web sync; `throttle:api` 120 a minute for the rest.
+- **Last used.** `TouchAccessToken` runs on these routes too, so Settings › Agents & apps shows when an app last
+  synced; apps appear there (OAuth apps by the name they registered, personal tokens by theirs) and are revoked there.
+
+Try it with a personal token:
+
+```sh
+curl -H "Authorization: Bearer $TOKEN" "$APP_URL/api/v1/me"
+curl -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -H 'X-Sync-Format: 2' \
+  -d '{"tasks":[]}' "$APP_URL/api/v1/sync/push"
+curl -H "Authorization: Bearer $TOKEN" -H 'X-Sync-Format: 2' "$APP_URL/api/v1/sync/pull?cursor=0"
+```
 
 ### Versioning
 

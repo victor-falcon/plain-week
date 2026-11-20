@@ -8,6 +8,7 @@ import { OAuthApps } from '@/components/agents/oauth-apps';
 import { PersonalTokens } from '@/components/agents/personal-tokens';
 import type { NewToken } from '@/components/agents/personal-tokens';
 import { SetupSnippets } from '@/components/agents/setup-snippets';
+import type { ApiInfo } from '@/components/agents/setup-snippets';
 import Heading from '@/components/heading';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
@@ -21,20 +22,24 @@ import { edit as editAgents } from '@/routes/agents';
 import { plans } from '@/routes/billing';
 
 type Props = {
-    mcpUrl: string;
+    /** Null while the instance has the MCP server off (`MCP_ENABLED=false`). */
+    mcpUrl: string | null;
+    api: ApiInfo;
     personalTokens: AgentAccess[];
     oauthApps: AgentAccess[];
     activity: ActivityPage;
 };
 
 /**
- * Settings › Agents: connect AI agents to the planner through the MCP server
- * (`/mcp`), with OAuth (claude.ai, Claude Desktop) or a personal token, and
- * see what they changed.
- * Shown only while the instance has it on (`mcp.enabled`).
+ * Settings › Agents & apps: connect AI agents to the planner through the MCP
+ * server (`/mcp`) and apps through the app API (`/api/v1`), with OAuth
+ * (claude.ai, Claude Desktop, native apps) or a personal token, revoke them
+ * and see what agents changed. The MCP part is hidden while the instance has
+ * the MCP server off (`mcpUrl` null).
  */
 export default function Agents({
     mcpUrl,
+    api,
     personalTokens,
     oauthApps,
     activity,
@@ -45,25 +50,27 @@ export default function Agents({
 
     return (
         <>
-            <Head title="Agents" />
+            <Head title="Agents & apps" />
 
-            <h1 className="sr-only">Agents</h1>
+            <h1 className="sr-only">Agents & apps</h1>
 
             <div className="space-y-6">
                 <Heading
                     variant="small"
-                    title="Agents"
-                    description="Let AI agents like Claude read and plan your week"
+                    title="Agents & apps"
+                    description="Let AI agents like Claude and apps read and plan your week"
                 />
 
                 {needsPlan && (
                     <Alert data-test="agents-needs-plan">
                         <CircleAlert />
-                        <AlertTitle>Agents need a paid plan</AlertTitle>
+                        <AlertTitle>
+                            Agents and apps need a paid plan
+                        </AlertTitle>
                         <AlertDescription>
                             <p>
-                                You can set up a connection now; agents can use
-                                your planner once you{' '}
+                                You can set up a connection now; agents and apps
+                                can use your planner once you{' '}
                                 <Link
                                     href={plans()}
                                     className="font-medium text-foreground underline underline-offset-4"
@@ -76,30 +83,39 @@ export default function Agents({
                     </Alert>
                 )}
 
-                <Card data-test="agents-url">
-                    <CardHeader>
-                        <CardTitle>MCP server URL</CardTitle>
-                        <CardDescription>
-                            Plain Week is an MCP server: add this URL to any
-                            agent that supports remote MCP servers.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <CopyField
-                            value={mcpUrl}
-                            label="Copy URL"
-                            data-test="agents-mcp-url"
-                        />
-                    </CardContent>
-                </Card>
+                {mcpUrl !== null && (
+                    <Card data-test="agents-url">
+                        <CardHeader>
+                            <CardTitle>MCP server URL</CardTitle>
+                            <CardDescription>
+                                Plain Week is an MCP server: add this URL to any
+                                agent that supports remote MCP servers.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <CopyField
+                                value={mcpUrl}
+                                label="Copy URL"
+                                data-test="agents-mcp-url"
+                            />
+                        </CardContent>
+                    </Card>
+                )}
 
-                <SetupSnippets url={mcpUrl} token={newToken?.token ?? null} />
+                <SetupSnippets
+                    mcpUrl={mcpUrl}
+                    api={api}
+                    token={newToken?.token ?? null}
+                />
 
                 <PersonalTokens tokens={personalTokens} newToken={newToken} />
 
                 <OAuthApps apps={oauthApps} />
 
-                <ActivityLog activity={activity} />
+                {/* Only MCP tool calls are logged; without the server, only past entries. */}
+                {(mcpUrl !== null || activity.entries.length > 0) && (
+                    <ActivityLog activity={activity} />
+                )}
             </div>
         </>
     );
@@ -108,7 +124,7 @@ export default function Agents({
 Agents.layout = {
     breadcrumbs: [
         {
-            title: 'Agents',
+            title: 'Agents & apps',
             href: editAgents(),
         },
     ],

@@ -3,7 +3,6 @@
 namespace App\Providers;
 
 use App\Agents\AuthorizationPage;
-use App\Mcp\McpConfig;
 use App\Push\PushSender;
 use App\Push\WebPushSender;
 use Carbon\CarbonImmutable;
@@ -20,6 +19,12 @@ use Laravel\Passport\Passport;
 
 class AppServiceProvider extends ServiceProvider
 {
+    /** Sync requests (`throttle:sync`) a user may send per minute, web and app API together. */
+    public const int SYNC_RATE_LIMIT = 120;
+
+    /** Other app API requests (`throttle:api`) a user may send per minute. */
+    public const int API_RATE_LIMIT = 120;
+
     /**
      * Register any application services.
      */
@@ -30,12 +35,7 @@ class AppServiceProvider extends ServiceProvider
 
         $this->app->bind(PushSender::class, WebPushSender::class);
 
-        // Passport registers its /oauth routes while booting, so this must be decided here.
-        if (! McpConfig::enabled()) {
-            Passport::ignoreRoutes();
-        }
-
-        // Only the authorization code grant (MCP clients) and personal access tokens are used.
+        // Only the authorization code grant (MCP clients, native apps) and personal access tokens are used.
         Passport::$deviceCodeGrantEnabled = false;
     }
 
@@ -49,16 +49,18 @@ class AppServiceProvider extends ServiceProvider
         // Prices are VAT-inclusive; Stripe Tax computes the tax part in Checkout.
         Cashier::calculateTaxes();
 
-        $this->configureMcp();
+        $this->configureOAuth();
+
+        $this->configureRateLimits();
 
         // `composer dev` also runs the scheduler (routes/console.php), like the Docker image does.
         DevCommands::artisan('schedule:work', 'scheduler');
     }
 
     /**
-     * The MCP server's OAuth server (Passport) and rate limit; see docs/architecture.md#mcp-server.
+     * The OAuth server (Passport) behind `/mcp` and the app API; see docs/architecture.md#mcp-server.
      */
-    protected function configureMcp(): void
+    protected function configureOAuth(): void
     {
         // The consent page is an Inertia card like the auth pages.
         Passport::authorizationView(AuthorizationPage::render(...));
@@ -66,11 +68,24 @@ class AppServiceProvider extends ServiceProvider
         // OAuth clients refresh short-lived access tokens; the refresh token lasts a year (Passport's default).
         Passport::tokensExpireIn(Date::now()->addDay());
 
-        // Headless agents keep a personal token until it is revoked in Settings › Agents.
+        // Headless agents and apps keep a personal token until it is revoked in Settings › Agents & apps.
         Passport::personalAccessTokensExpireIn(Date::now()->addYears(10));
+    }
 
-        RateLimiter::for('mcp', fn (Request $request) => Limit::perMinute(config()->integer('mcp.rate_limit'))
-            ->by($request->user()?->getAuthIdentifier() ?? $request->ip()));
+    /**
+     * Per-user limits for the token clients and sync (per IP before signing in).
+     */
+    protected function configureRateLimits(): void
+    {
+        $byUser = fn (Request $request): string => (string) ($request->user()?->getAuthIdentifier() ?? $request->ip());
+
+        RateLimiter::for('mcp', fn (Request $request) => Limit::perMinute(config()->integer('mcp.rate_limit'))->by($byUser($request)));
+
+        // `/sync/*` and `/api/v1/sync/*`: up to 500 records a request, so the requests are capped too.
+        RateLimiter::for('sync', fn (Request $request) => Limit::perMinute(self::SYNC_RATE_LIMIT)->by($byUser($request)));
+
+        // The rest of the app API (`/api/v1/me`).
+        RateLimiter::for('api', fn (Request $request) => Limit::perMinute(self::API_RATE_LIMIT)->by($byUser($request)));
     }
 
     /**

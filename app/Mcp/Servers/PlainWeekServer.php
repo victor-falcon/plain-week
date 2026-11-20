@@ -39,7 +39,7 @@ use Laravel\Mcp\Server\Attributes\Name;
     - Read with `list_tasks` (a range of days), `list_someday`, `get_task` and `search_tasks`. Each write tool returns the tasks it changed with their ids; prefer them over listing again.
     - A day's order matters: use `before_id` / `after_id` (ids of tasks in the target list) to place a task, otherwise it goes to the end.
     - `delete_task` returns a `restore_id`; `restore_task` brings the task back. Ask before deleting anything the user did not name.
-    - The user sees what you changed in Settings › Agents › Activity.
+    - The user sees what you changed in Settings › Agents & apps › Activity.
     - Tool errors are written for the user: when one says a paid plan is needed, tell the user and give them the link it contains.
     MARKDOWN)]
 class PlainWeekServer extends Server

@@ -24,6 +24,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   when, and a short summary such as "Created 3 tasks on Mon 23 Nov". Entries are kept for 90 days.
 - **AI agents, announced.** The landing page shows what an AI agent can do with your planner, with an FAQ item, and
   signed-in users see a one-time "New" card that leads to Settings › Agents & apps (or to the plans without one).
+- **API for native apps.** `GET /api/v1/me` (the account and its plan, so an app can show the paywall) and
+  `POST /api/v1/sync/push` + `GET /api/v1/sync/pull`, the exact web sync contract (`X-Sync-Format` and `X-Timezone`
+  included) for Bearer tokens; in SaaS mode a planless account gets `402`. Apps use the same tokens as agents: they
+  sign in with OAuth 2.1 and PKCE (redirecting to a loopback address or a `plainweek://` URL), or you paste a personal
+  token. There is no email-and-password login for apps. Groundwork for the desktop and mobile apps (#98); the rate
+  limits, the raw sync strings and the API tests build on #99 by @tuuuniSnowfield.
+
+### Changed
+
+- **Settings › Agents & apps.** Settings › Agents is now Settings › Agents & apps (same address): it explains that
+  tokens work for apps too, has an "Apps" setup tab (API URL, Bearer header, OAuth metadata) and lists apps next to
+  agents, with when each was last used, to revoke them. OAuth and the app API no longer depend on the MCP server:
+  with `MCP_ENABLED=false` only `/mcp` goes, and the page stays without its MCP part.
+
+### Fixed
+
+- **Rate-limited sync.** `/sync/push` and `/sync/pull` (and the API's) allow 120 requests a minute per account
+  instead of being unlimited.
 
 ## [0.3.19] - 2026-11-19
 

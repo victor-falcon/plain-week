@@ -61,7 +61,7 @@ function PageLink({
 }
 
 /**
- * Settings › Agents › Activity: what agents changed in the planner (writes
+ * Settings › Agents & apps › Activity: what agents changed in the planner (writes
  * only), kept 90 days. Read-only.
  */
 export function ActivityLog({ activity }: { activity: ActivityPage }) {

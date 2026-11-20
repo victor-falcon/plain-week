@@ -109,7 +109,7 @@ Installed in `resources/js/components/ui/` and where they are used:
 | `sidebar` (+ `skeleton`), `sheet`, `navigation-menu`, `breadcrumb` | Starter kit app shell around the settings pages                                        |
 | `badge`                                                            | Launch discount (plan choice, landing card, Settings › Billing), "Needs reconnecting"  |
 | `switch`                                                           | Settings › Preferences ("Move unfinished tasks to today")                              |
-| `tabs`                                                             | Settings › Agents (setup snippets per client)                                          |
+| `tabs`                                                             | Settings › Agents & apps (setup snippets per client)                                   |
 | `collapsible`                                                      | Installed, not used yet                                                                |
 
 `icon.tsx` and `placeholder-pattern.tsx` in the same folder are starter kit helpers, not shadcn components.
@@ -231,7 +231,7 @@ comes back to it. It cannot be dismissed: the choice is Approve or Deny.
 | Text    | "Claude will be able to see, add, change and delete the tasks in your planner, as me@example.com."                                                                                           |
 | Actions | Approve: the 48px `AuthSubmit` pill; Deny: a 48px ghost pill under it. A `Spinner` on the one pressed, both off                                                                              |
 | Notice  | A `bg-muted` rounded box: "Approving sends you back to **claude.ai**. Only approve if that is the app you are connecting." (the redirect URI's host, so a look-alike name gives itself away) |
-| Footer  | "You can disconnect it at any time in Settings › Agents."                                                                                                                                    |
+| Footer  | "You can disconnect it at any time in Settings › Agents & apps."                                                                                                                             |
 
 Both buttons are plain HTML form posts, not Inertia visits: the answer is a redirect to the other site.
 
@@ -627,20 +627,23 @@ One small `Heading` ("Integrations"), then a `Card` per integration. Google Cale
 Errors from the OAuth round trip (expired sign-in, missing permission, Google down) come back as `toast.error`; a
 cancelled consent screen comes back silently.
 
-## Settings › Agents
+## Settings › Agents & apps
 
-Connecting AI agents to the MCP server at `/settings/agents` (`pages/settings/agents.tsx`, components in
-`components/agents/`, between Integrations and Data in the settings nav). The nav entry and the page exist only while
-the shared prop `mcp.enabled` is true (`MCP_ENABLED`). One small `Heading` ("Agents", "Let AI agents like Claude read and
-plan your week"), then:
+Connecting AI agents to the MCP server and apps to the app API at `/settings/agents` (`pages/settings/agents.tsx`,
+components in `components/agents/`, "Agents & apps" between Integrations and Data in the settings nav). Always there;
+while the MCP server is off (`MCP_ENABLED=false`, `mcpUrl` null) the MCP URL, the agent tabs and an empty activity log
+are hidden. One small `Heading` ("Agents & apps", "Let AI agents like Claude and apps read and plan your week"), then:
 
-- **Agents need a paid plan** (SaaS mode, account without a plan): an `Alert` with a lucide icon and a link to `/plans`.
-  Everything below still works; the agent gets the paywall error until there is a plan.
+- **Agents and apps need a paid plan** (SaaS mode, account without a plan): an `Alert` with a lucide icon and a link to
+  `/plans`. Everything below still works; agents get the paywall error and apps a `402` until there is a plan.
 - **MCP server URL**: a `Card` with the URL in a `CopyField`.
-- **Connect an agent**: a `Card` with `Tabs`. "Claude" lists the custom connector steps for claude.ai and Claude
-  Desktop (OAuth, no token); "Claude Code" is the `claude mcp add --transport http plain-week <url> --header
-"Authorization: Bearer …"` command; "Other clients" a JSON `mcpServers` entry. Both snippets carry `<your token>`
-  until a token was just created, then that token.
+- **Connect an agent or app**: a `Card` with `Tabs` (the list wraps on narrow screens). "Claude" lists the custom
+  connector steps for claude.ai and Claude Desktop (OAuth, no token); "Claude Code" is the
+  `claude mcp add --transport http plain-week <url> --header "Authorization: Bearer …"` command; "Other clients" a
+  JSON `mcpServers` entry; "Apps" the app API: its base URL, the `Authorization: Bearer …` header, a `curl …/me` to try
+  it and the OAuth server metadata URL, with a line on OAuth (PKCE, loopback or `plainweek://` redirects). The snippets
+  carry `<your token>` until a token was just created, then that token. Without the MCP server the card is "Connect an
+  app" with only the Apps content, no tabs.
 - **Personal tokens**: a `Card` with the "New token" `Form` (`Label`, `Input` for the name, "Create" `Button` with a
   `Spinner`), then the list. A token just created is shown once in an `Alert` ("Copy the token for “Laptop” now",
   "You won't be able to see it again.") with a `CopyField`; it is a flash prop, so reloading or leaving the page drops it.
@@ -648,7 +651,7 @@ plan your week"), then:
 - The token and app rows (`AgentAccessList`): name, then "Created/Connected 3 days ago · Last used 5 minutes ago"
   (`<time>` with the full date as its title; "Never used" before the first call), and an outline `sm` "Revoke" /
   "Disconnect" `Button` at the end. It opens an `AlertDialog` (Cancel / destructive confirm with a `Spinner`) because
-  the agent loses access at once; the server's flash toast confirms. Empty lists say "No personal tokens yet." / "No
+  the agent or app loses access at once; the server's flash toast confirms. Empty lists say "No personal tokens yet." / "No
   apps connected yet.".
 - **Activity** (`components/agents/activity-log.tsx`): a `Card` last, after the connections, "What agents changed in
   your planner over the last 90 days. To undo a change, ask the agent or edit the task in the planner." Each entry is

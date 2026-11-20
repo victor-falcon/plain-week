@@ -10,14 +10,15 @@ import { AgentAccessList } from './agent-access-list';
 import type { AgentAccess } from './agent-access-list';
 import { RevokeButton } from './revoke-button';
 
-/** The apps the user approved on the OAuth consent card (claude.ai, Claude Desktop, …). */
+/** The agents and apps the user approved on the OAuth consent card (claude.ai, Claude Desktop, native apps, …). */
 export function OAuthApps({ apps }: { apps: AgentAccess[] }) {
     return (
         <Card data-test="agents-apps">
             <CardHeader>
                 <CardTitle>Connected apps</CardTitle>
                 <CardDescription>
-                    Apps you approved when they asked to connect to Plain Week.
+                    Agents and apps you approved when they asked to connect to
+                    Plain Week.
                 </CardDescription>
             </CardHeader>
             <CardContent>

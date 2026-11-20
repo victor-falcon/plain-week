@@ -22,8 +22,9 @@ import { RevokeButton } from './revoke-button';
 export type NewToken = { name: string; token: string };
 
 /**
- * Personal access tokens for agents that can't sign in with OAuth (Claude
- * Code, scripts): create one (its secret is shown once) and revoke them.
+ * Personal access tokens for agents and apps that don't sign in with OAuth
+ * (Claude Code, scripts, an app you paste it into): create one (its secret is
+ * shown once) and revoke them.
  */
 export function PersonalTokens({
     tokens,
@@ -37,9 +38,9 @@ export function PersonalTokens({
             <CardHeader>
                 <CardTitle>Personal tokens</CardTitle>
                 <CardDescription>
-                    For agents that send a token instead of signing in. Keep it
-                    secret: it gives full access to your planner until you
-                    revoke it.
+                    For agents and apps that send a token instead of signing in.
+                    Keep it secret: it gives full access to your planner until
+                    you revoke it.
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -104,7 +105,7 @@ export function PersonalTokens({
                             action={destroy(token.id)}
                             label="Revoke"
                             title={`Revoke “${token.name}”?`}
-                            description="Agents using this token lose access to your planner at once. This can't be undone."
+                            description="Agents and apps using this token lose access to your planner at once. This can't be undone."
                             data-test="agents-token-revoke"
                         />
                     )}

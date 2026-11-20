@@ -74,7 +74,7 @@ echo "base64:$(openssl rand -base64 32)"
 | `VAPID_PUBLIC_KEY`      | (empty)                                 | VAPID public key (base64url) for the optional push notifications; see [Notifications](#notifications). Empty turns them off                                                                                                                                                 |
 | `VAPID_PRIVATE_KEY`     | (empty)                                 | VAPID private key that goes with `VAPID_PUBLIC_KEY`. Keep it secret                                                                                                                                                                                                         |
 | `VAPID_SUBJECT`         | (empty)                                 | Contact for the push services, `mailto:you@example.com` or an `https://` URL                                                                                                                                                                                                |
-| `MCP_ENABLED`           | `true`                                  | The MCP server for AI agents (`/mcp`, its OAuth routes and Settings › Agents); see [AI agents (MCP)](#ai-agents-mcp). `false` turns it all off (`404`)                                                                                                                      |
+| `MCP_ENABLED`           | `true`                                  | The MCP server for AI agents (`/mcp`); see [AI agents (MCP)](#ai-agents-mcp). `false` removes `/mcp` (`404`); OAuth, the app API and Settings › Agents & apps stay                                                                                                          |
 | `MCP_RATE_LIMIT`        | `120`                                   | Requests a minute one user's agents may send to `/mcp`                                                                                                                                                                                                                      |
 | `PASSPORT_PRIVATE_KEY`  | (empty)                                 | Optional: the RSA private key (PEM) that signs agent tokens, instead of the file the container creates in the volume. Keep it secret                                                                                                                                        |
 | `PASSPORT_PUBLIC_KEY`   | (empty)                                 | The public key (PEM) that goes with `PASSPORT_PRIVATE_KEY`                                                                                                                                                                                                                  |
@@ -225,7 +225,7 @@ forgotten the next time a notification is sent to it.
 ## AI agents (MCP)
 
 On by default, nothing to configure. Plain Week is a remote [MCP](https://modelcontextprotocol.io) server at
-`APP_URL/mcp`, so AI agents can read and plan a user's week. Each user connects their agents in **Settings › Agents**:
+`APP_URL/mcp`, so AI agents can read and plan a user's week. Each user connects their agents in **Settings › Agents & apps**:
 
 - **claude.ai and Claude Desktop**: add a custom connector with the URL. The connector registers itself and the user
   approves it on a Plain Week consent page (OAuth 2.1 with dynamic client registration); the app is then listed under
@@ -236,15 +236,23 @@ On by default, nothing to configure. Plain Week is a remote [MCP](https://modelc
 
 Agents have the same access as the user. Their changes reach the user's devices on the next sync. Each user may send
 `MCP_RATE_LIMIT` requests a minute (120 by default). `APP_URL` must be the public URL: the OAuth metadata and the URL
-shown in Settings › Agents come from it, and clients like claude.ai need it on `https://`.
+shown in Settings › Agents & apps come from it, and clients like claude.ai need it on `https://`.
 
 Tokens are signed with an RSA key pair. The container creates it in the storage volume on first start
 (`storage/oauth-private.key`, `storage/oauth-public.key`; it is never part of the image) and keeps it across updates.
 To manage it yourself instead, set `PASSPORT_PRIVATE_KEY` and `PASSPORT_PUBLIC_KEY` to the PEM keys (with their line
 breaks). A new key pair invalidates every token: users then reconnect their apps and create new tokens.
 
-`MCP_ENABLED=false` removes it: `/mcp`, the `/oauth` and `.well-known/oauth-*` routes answer `404` and Settings › Agents
-is hidden. Tokens stay in the database and work again if it is turned back on.
+`MCP_ENABLED=false` removes it: `/mcp` answers `404` and Settings › Agents & apps hides the MCP part. OAuth (`/oauth`,
+`.well-known/oauth-*`) and the [app API](#native-apps) stay, and so do the tokens.
+
+## Native apps
+
+The Plain Week apps (and any other token client) sync through the app API at `APP_URL/api/v1` (`/me`, `/sync/push`,
+`/sync/pull`), always on, nothing to configure. They use the same tokens as agents: the user signs in from the app
+(OAuth 2.1 with PKCE; the app registers itself and redirects to a loopback address or a `plainweek://` URL) or pastes
+a personal token created in Settings › Agents & apps, where every connected app can be disconnected. There is no
+email-and-password login for apps. Details in [architecture.md](./architecture.md#app-api).
 
 ## Noindex
 

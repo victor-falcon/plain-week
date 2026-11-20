@@ -35,8 +35,8 @@ function HiddenFields({
 }
 
 /**
- * The OAuth consent card an AI agent (an MCP client such as claude.ai) sends
- * the user to before it can use their planner. Approve and Deny are plain
+ * The OAuth consent card an AI agent (an MCP client such as claude.ai) or a
+ * native app sends the user to before it can use their planner. Approve and Deny are plain
  * form posts: Passport answers them with a redirect back to the app.
  */
 export default function Authorize({
@@ -109,7 +109,8 @@ export default function Authorize({
                 </div>
 
                 <AuthFootnote>
-                    You can disconnect it at any time in Settings › Agents.
+                    You can disconnect it at any time in Settings › Agents &
+                    apps.
                 </AuthFootnote>
             </FloatingCard>
         </>

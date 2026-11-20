@@ -59,10 +59,9 @@ const sidebarNavItems: SettingsNavItem[] = [
         visible: (props) => props.integrations?.googleCalendar ?? false,
     },
     {
-        title: 'Agents',
+        title: 'Agents & apps',
         href: editAgents(),
         icon: null,
-        visible: (props) => props.mcp?.enabled ?? false,
     },
     {
         title: 'Data',

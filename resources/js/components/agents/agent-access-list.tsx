@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { formatTimeAgo } from '@/lib/settings/relative-time';
 
-/** A personal token or a connected OAuth app, as Settings › Agents lists them. */
+/** A personal token or a connected OAuth app, as Settings › Agents & apps lists them. */
 export type AgentAccess = {
     id: string;
     name: string;

@@ -7,7 +7,6 @@ use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\SecurityController;
 use App\Http\Middleware\EnsureGoogleCalendarConfigured;
 use App\Http\Middleware\EnsureHasAccess;
-use App\Http\Middleware\EnsureMcpEnabled;
 use App\Http\Middleware\EnsureWebPushConfigured;
 use Illuminate\Auth\Middleware\RequirePassword;
 use Illuminate\Support\Facades\Route;
@@ -59,10 +58,10 @@ Route::middleware(['auth'])->group(function () {
             });
         });
 
-    // AI agents (MCP server): only while MCP_ENABLED. Tokens and apps can be managed without a plan in SaaS mode;
-    // the MCP server itself answers tool calls with the paywall error then.
-    Route::middleware(EnsureMcpEnabled::class)
-        ->prefix('settings/agents')
+    // Settings › Agents & apps: the personal tokens and OAuth apps behind the MCP server and the app API. Always on
+    // (MCP_ENABLED only hides the MCP part). Tokens and apps can be managed without a plan in SaaS mode; the MCP
+    // server and the API sync answer with the paywall then.
+    Route::prefix('settings/agents')
         ->name('agents.')
         ->group(function () {
             Route::get('/', [AgentsController::class, 'edit'])->name('edit');

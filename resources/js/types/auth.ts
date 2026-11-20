@@ -30,7 +30,7 @@ export type Notifications = {
     vapidPublicKey: string | null;
 };
 
-/** The MCP server for AI agents (`MCP_ENABLED`); Settings › Agents exists only while it is on. */
+/** The MCP server for AI agents (`MCP_ENABLED`); Settings › Agents & apps shows its MCP part only while it is on. */
 export type Mcp = {
     enabled: boolean;
 };

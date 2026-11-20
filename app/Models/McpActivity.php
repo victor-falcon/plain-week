@@ -14,7 +14,7 @@ use Illuminate\Support\Carbon;
 
 /**
  * One successful write an AI agent made through the MCP server: which tool, which client (personal token or OAuth
- * app), the tasks it touched and a readable summary. Settings › Agents lists them; reads are not logged. Pruned after
+ * app), the tasks it touched and a readable summary. Settings › Agents & apps lists them; reads are not logged. Pruned after
  * {@see self::RETENTION_DAYS} days.
  *
  * @property int $id

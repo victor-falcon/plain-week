@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Settings;
 
 use App\Agents\AgentAccess;
 use App\Http\Controllers\Controller;
+use App\Http\Middleware\AddResourceMetadataHeader;
+use App\Mcp\McpConfig;
 use App\Models\McpActivity;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
@@ -18,7 +20,8 @@ class AgentsController extends Controller
     public function __construct(private readonly AgentAccess $access) {}
 
     /**
-     * Settings › Agents: how to connect an AI agent to the MCP server, the
+     * Settings › Agents & apps: how to connect an AI agent to the MCP server
+     * (null `mcpUrl` while MCP_ENABLED is off) or an app to the app API, the
      * personal access tokens, the connected OAuth apps and what agents changed
      * lately (newest first, ACTIVITY_PER_PAGE per page).
      */
@@ -27,7 +30,12 @@ class AgentsController extends Controller
         $user = $this->user($request);
 
         return Inertia::render('settings/agents', [
-            'mcpUrl' => route('mcp'),
+            'mcpUrl' => McpConfig::enabled() ? route('mcp') : null,
+            'api' => [
+                'baseUrl' => url('/api/v1'),
+                'resourceMetadataUrl' => AddResourceMetadataHeader::metadataUrl(),
+                'authorizationServerMetadataUrl' => route('mcp.oauth.authorization-server'),
+            ],
             'personalTokens' => $this->access->personalTokens($user),
             'oauthApps' => $this->access->oauthApps($user),
             'activity' => $this->activity($user),

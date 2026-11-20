@@ -63,7 +63,7 @@ class HandleInertiaRequests extends Middleware
                 'enabled' => $pushEnabled,
                 'vapidPublicKey' => $pushEnabled ? PushConfig::publicKey() : null,
             ],
-            // The MCP server for AI agents (MCP_ENABLED): Settings › Agents exists only while it is on.
+            // The MCP server for AI agents (MCP_ENABLED): Settings › Agents & apps shows its MCP part only while it is on.
             'mcp' => [
                 'enabled' => McpConfig::enabled(),
             ],

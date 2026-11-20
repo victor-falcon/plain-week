@@ -35,6 +35,13 @@ vi.mock('@inertiajs/react', () => ({
 }));
 
 const URL = 'https://plainweek.test/mcp';
+const API = {
+    baseUrl: 'https://plainweek.test/api/v1',
+    resourceMetadataUrl:
+        'https://plainweek.test/.well-known/oauth-protected-resource/api/v1',
+    authorizationServerMetadataUrl:
+        'https://plainweek.test/.well-known/oauth-authorization-server',
+};
 
 function renderPage(
     props: Partial<Parameters<typeof Agents>[0]> = {},
@@ -45,6 +52,7 @@ function renderPage(
         <TooltipProvider>
             <Agents
                 mcpUrl={URL}
+                api={API}
                 personalTokens={[]}
                 oauthApps={[]}
                 activity={{
@@ -66,7 +74,7 @@ afterEach(() => {
     page.flash = {};
 });
 
-describe('Settings › Agents', () => {
+describe('Settings › Agents & apps', () => {
     it('shows the MCP URL with a copy button and empty lists', () => {
         renderPage();
 
@@ -76,7 +84,9 @@ describe('Settings › Agents', () => {
         expect(screen.getByRole('button', { name: 'Copy URL' })).toBeTruthy();
         expect(screen.getByText('No personal tokens yet.')).toBeTruthy();
         expect(screen.getByText('No apps connected yet.')).toBeTruthy();
-        expect(screen.queryByText('Agents need a paid plan')).toBeNull();
+        expect(
+            screen.queryByText('Agents and apps need a paid plan'),
+        ).toBeNull();
     });
 
     it('shows a new token once and fills it into the Claude Code command', async () => {
@@ -195,6 +205,46 @@ describe('Settings › Agents', () => {
         page.props = { account: { hasAccess: false, plan: null } };
         renderPage();
 
-        expect(screen.getByText('Agents need a paid plan')).toBeTruthy();
+        expect(
+            screen.getByText('Agents and apps need a paid plan'),
+        ).toBeTruthy();
+    });
+
+    it('shows the app API setup with the new token in the header', async () => {
+        page.flash = { newToken: { name: 'Desktop', token: 'secret-token' } };
+        const user = renderPage();
+
+        await user.click(screen.getByRole('tab', { name: 'Apps' }));
+
+        expect(
+            screen.getByText(API.baseUrl, {
+                selector: '[data-test="agents-api-url"]',
+            }),
+        ).toBeTruthy();
+        expect(
+            screen.getByText('Authorization: Bearer secret-token', {
+                selector: '[data-test="agents-api-header"]',
+            }),
+        ).toBeTruthy();
+        expect(
+            screen.getByText(API.authorizationServerMetadataUrl, {
+                selector: '[data-test="agents-oauth-metadata"]',
+            }),
+        ).toBeTruthy();
+    });
+
+    it('shows only the app setup without the MCP server', () => {
+        renderPage({ mcpUrl: null });
+
+        expect(screen.queryByText('MCP server URL')).toBeNull();
+        expect(screen.queryByRole('tab', { name: 'Claude Code' })).toBeNull();
+        expect(screen.getByText('Connect an app')).toBeTruthy();
+        expect(
+            screen.getByText(API.baseUrl, {
+                selector: '[data-test="agents-api-url"]',
+            }),
+        ).toBeTruthy();
+        expect(screen.getByText('No personal tokens yet.')).toBeTruthy();
+        expect(screen.queryByText('No changes by agents yet.')).toBeNull();
     });
 });

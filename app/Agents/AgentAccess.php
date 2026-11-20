@@ -16,9 +16,9 @@ use Laravel\Passport\Token;
 use RuntimeException;
 
 /**
- * What can reach a user's planner through the MCP server: personal access
- * tokens (headless agents, Bearer) and OAuth apps (claude.ai, Claude
- * Desktop, …). Both are Passport access tokens; a personal token belongs to
+ * What can reach a user's planner through the MCP server and the app API:
+ * personal access tokens (headless agents, scripts, Bearer) and OAuth apps
+ * (claude.ai, Claude Desktop, native apps, …). Both are Passport access tokens; a personal token belongs to
  * the instance's personal access client, an OAuth app is the client a
  * connector registered for itself.
  */

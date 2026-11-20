@@ -9,7 +9,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 /**
  * In SaaS mode a signed-in user without a paid plan gets the paywall: JSON
- * requests (sync) a `402 Payment Required`, pages a redirect. Guests and
+ * requests (sync, the app API) a `402 Payment Required`, pages a redirect. Guests and
  * self-hosted instances pass through.
  */
 class EnsureHasAccess
@@ -25,8 +25,8 @@ class EnsureHasAccess
             return $next($request);
         }
 
-        // Inertia visits also expect JSON, but they follow redirects.
-        if ($request->expectsJson() && ! $request->inertia()) {
+        // Inertia visits also expect JSON, but they follow redirects. The app API never redirects, whatever it accepts.
+        if (($request->expectsJson() && ! $request->inertia()) || $request->is('api/*')) {
             abort(402, 'A paid plan is required to sync.');
         }
 

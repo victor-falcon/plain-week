@@ -8,8 +8,8 @@ return [
     |--------------------------------------------------------------------------
     |
     | Plain Week's MCP server (`/mcp`) lets AI agents read and plan the week.
-    | On by default; `MCP_ENABLED=false` removes `/mcp`, the OAuth and
-    | metadata routes (404) and Settings › Agents. See docs/architecture.md.
+    | On by default; `MCP_ENABLED=false` removes `/mcp` (404). OAuth, its
+    | metadata and the app API (`/api/v1`) stay. See docs/architecture.md.
     |
     */
 
@@ -27,7 +27,7 @@ return [
     |--------------------------------------------------------------------------
     |
     | The domains OAuth clients may use for redirect URIs when they register
-    | themselves (dynamic client registration). Agents live anywhere
+    | themselves (dynamic client registration). Agents and apps live anywhere
     | (claude.ai, localhost callbacks of desktop and CLI clients), so any
     | domain is allowed; the user still approves every client.
     |
@@ -42,11 +42,13 @@ return [
     | Allowed Custom Schemes
     |--------------------------------------------------------------------------
     |
-    | Private-use URI schemes (RFC 8252) native clients may redirect to.
+    | Private-use URI schemes (RFC 8252) native clients may redirect to, for
+    | example `plainweek://oauth/callback` for the Plain Week apps. Loopback
+    | redirects (`http://127.0.0.1:<port>/…`) are accepted anyway.
     |
     */
 
-    'custom_schemes' => [],
+    'custom_schemes' => ['plainweek'],
 
     /*
     |--------------------------------------------------------------------------
