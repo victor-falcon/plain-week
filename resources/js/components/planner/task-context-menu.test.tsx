@@ -275,4 +275,63 @@ describe('TaskContextMenu', () => {
             expect((await stored(task.id))?.deleted_at).not.toBeNull(),
         );
     });
+
+    it('does not open on a touch long press', async () => {
+        const { button } = await setup();
+
+        fireEvent.pointerDown(button, { pointerType: 'touch' });
+        fireEvent.contextMenu(button, { clientX: 10, clientY: 10 });
+        fireEvent.pointerUp(button, { pointerType: 'touch' });
+
+        expect(screen.queryByRole('menu')).toBeNull();
+
+        // A right click after the touch still opens it.
+        fireEvent.pointerDown(button, { pointerType: 'mouse', button: 2 });
+        await openMenu(button);
+    });
+});
+
+describe('TaskMenuButton', () => {
+    /** Opens the row's "more" button; resolves with the open menu. */
+    async function openMoreMenu(user: ReturnType<typeof userEvent.setup>) {
+        await user.click(
+            screen.getByRole('button', { name: 'More actions for Plan trip' }),
+        );
+
+        return screen.findByRole('menu', { name: 'Task: Plan trip' });
+    }
+
+    it('opens the same items as the context menu, without opening the task', async () => {
+        const { user, onOpenTask } = await setup();
+
+        await openMoreMenu(user);
+
+        expect(screen.getAllByRole('menuitemradio')).toHaveLength(9);
+        expect(
+            screen.getAllByRole('menuitem').map((item) => item.textContent),
+        ).toEqual([
+            'Tomorrow>',
+            'Next weekw',
+            'Somedays',
+            'Duplicatey',
+            'Deletedd',
+        ]);
+        expect(onOpenTask).not.toHaveBeenCalled();
+    });
+
+    it('runs the picked action', async () => {
+        const { task, user } = await setup();
+
+        await openMoreMenu(user);
+        fireEvent.click(screen.getByRole('menuitemradio', { name: 'Pink' }));
+        await waitFor(async () =>
+            expect((await stored(task.id))?.color).toBe('pink'),
+        );
+
+        await openMoreMenu(user);
+        await user.keyboard('w');
+        await waitFor(async () =>
+            expect((await stored(task.id))?.date).toBe('2026-10-19'),
+        );
+    });
 });

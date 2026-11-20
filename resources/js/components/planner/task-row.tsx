@@ -1,5 +1,7 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CircleCheck, GripVertical, Repeat } from 'lucide-react';
+import { useRef } from 'react';
+import type { PointerEvent } from 'react';
 import {
     CURSOR_ROW_CLASS,
     useCursorFocus,
@@ -8,7 +10,11 @@ import {
 import { usePlannerDnd } from '@/components/planner/planner-dnd';
 import { useScopedAction } from '@/components/planner/scope-prompt';
 import { ShortcutHint } from '@/components/planner/shortcut-hint';
-import { TaskContextMenu } from '@/components/planner/task-context-menu';
+import {
+    TaskContextMenu,
+    TaskMenuButton,
+} from '@/components/planner/task-context-menu';
+import type { TaskContextMenuActions } from '@/components/planner/task-context-menu';
 import { Button } from '@/components/ui/button';
 import {
     Tooltip,
@@ -34,6 +40,11 @@ import { isRecurring } from '@/lib/recurrence/expand';
 import type { PlannerTask } from '@/lib/recurrence/expand';
 import { cn } from '@/lib/utils';
 import { LinkedText } from './linked-text';
+
+/** A finger press, which a long press would turn into a menu. */
+function isTouchPress(event: PointerEvent<HTMLElement>): boolean {
+    return event.pointerType === 'touch';
+}
 
 type Props = {
     task: PlannerTask;
@@ -153,8 +164,9 @@ export function TaskLabel({ task }: { task: PlannerTask }) {
  * opens the task; touch: press, hold and move). For keyboard users a move
  * button, visible only while focused, picks the task up with Space or Enter.
  *
- * Right click, Shift+F10 / the context menu key, or a still touch hold open
- * the task's context menu.
+ * Right click or Shift+F10 / the context menu key open the task's context
+ * menu. On a touch screen a long press only drags: the row's "more" button
+ * (⋮) opens the same items instead.
  */
 export function TaskRow({
     task,
@@ -192,34 +204,52 @@ export function TaskRow({
     // Dimmed while dragged, and until the drop has been written.
     const isDragging = usePlannerDnd().activeId === task.id;
     const scoped = useScopedAction(task);
+    // A finger is pressing the row: a long press must not open the
+    // context menu (it is a drag), however the browser or Radix sends it.
+    const touchPressed = useRef(false);
+    const actions: TaskContextMenuActions = {
+        onColorChange: (color) => {
+            if (color !== task.color) {
+                void scoped('edit', (scope) =>
+                    setTaskColor(task.id, color, scope),
+                );
+            }
+        },
+        onMoveToTomorrow: () => moveWithUndo(task.id, tomorrowMove(task)),
+        onMoveToNextWeek: () => moveWithUndo(task.id, nextWeekMove(task)),
+        onMoveToSomeday: () => moveWithUndo(task.id, SOMEDAY_MOVE),
+        onDuplicate: () => duplicateWithToast(task.id),
+        onDelete: () =>
+            void scoped('delete', (scope) => deleteWithUndo(task.id, scope)),
+    };
 
     return (
-        <TaskContextMenu
-            task={task}
-            onColorChange={(color) => {
-                if (color !== task.color) {
-                    void scoped('edit', (scope) =>
-                        setTaskColor(task.id, color, scope),
-                    );
-                }
-            }}
-            onMoveToTomorrow={() => moveWithUndo(task.id, tomorrowMove(task))}
-            onMoveToNextWeek={() => moveWithUndo(task.id, nextWeekMove(task))}
-            onMoveToSomeday={() => moveWithUndo(task.id, SOMEDAY_MOVE)}
-            onDuplicate={() => duplicateWithToast(task.id)}
-            onDelete={() =>
-                void scoped('delete', (scope) => deleteWithUndo(task.id, scope))
-            }
-        >
+        <TaskContextMenu task={task} {...actions}>
             <div
                 ref={setNodeRef}
                 data-task-id={task.id}
                 data-cursor={isCursor || undefined}
                 {...listeners}
+                onPointerDown={(event) => {
+                    touchPressed.current = isTouchPress(event);
+
+                    // Skips Radix's own 700 ms touch long press, which would
+                    // open the menu under a held drag. Click and focus are
+                    // unaffected; only the emulated mouse events are dropped.
+                    if (touchPressed.current) {
+                        event.preventDefault();
+                    }
+                }}
+                onPointerUp={() => {
+                    touchPressed.current = false;
+                }}
+                onPointerCancel={() => {
+                    touchPressed.current = false;
+                }}
                 onContextMenu={(event) => {
-                    // No menu for the task being dragged (a touch drag may make
-                    // the browser send a long-press contextmenu).
-                    if (isDragging) {
+                    // No menu from a long press (the browser sends one on
+                    // Android) nor for the task being dragged.
+                    if (touchPressed.current || isDragging) {
                         event.preventDefault();
                     }
                 }}
@@ -297,6 +327,7 @@ export function TaskRow({
                         )}
                     />
                 </Button>
+                <TaskMenuButton task={task} {...actions} />
             </div>
         </TaskContextMenu>
     );
