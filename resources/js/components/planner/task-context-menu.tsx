@@ -334,7 +334,9 @@ export function TaskMenuButton({
                     type="button"
                     variant="ghost"
                     size="icon-sm"
-                    aria-label={t('planner.moreTaskActions', { text: task.text })}
+                    aria-label={t('planner.moreTaskActions', {
+                        text: task.text,
+                    })}
                     onTouchStart={(event) => event.stopPropagation()}
                     onMouseDown={(event) => event.stopPropagation()}
                     className={cn(
