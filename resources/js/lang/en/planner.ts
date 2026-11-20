@@ -105,6 +105,7 @@ export const planner = {
     'planner.newSomedayTask': 'New Someday task',
     'planner.goToCurrentWeek': 'Go to the current week (t)',
     'planner.currentWeek': 'Current week',
+    'planner.today': 'Today',
     'planner.weekTitle': 'Week {week}',
     'planner.weekNav': 'Week',
     'planner.previousWeek': 'Previous week',

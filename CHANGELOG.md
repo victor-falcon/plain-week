@@ -20,6 +20,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   and reset their password as before. A fresh instance with no users stays open until its first account is created.
 - **A ⋮ button on task rows on touch screens.** It opens the task menu (colors, Tomorrow, Next week, Someday,
   Duplicate, Delete) that a right click opens on desktop.
+- **Today button.** When the planner shows another week, a "Today" pill next to the week number brings you back to the
+  current week (same as pressing `t`). On phones, opening the planner (or going back to the current week) scrolls
+  straight to today instead of starting on Monday.
 
 ### Changed
 
