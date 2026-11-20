@@ -158,7 +158,7 @@ export function SetupSnippets({
     return (
         <SetupCard title="Connect an agent or app" subject="Agents and apps">
             <Tabs defaultValue="claude">
-                <TabsList className="h-auto flex-wrap">
+                <TabsList className="max-w-full justify-start overflow-x-auto">
                     <TabsTrigger value="claude">Claude</TabsTrigger>
                     <TabsTrigger value="claude-code">Claude Code</TabsTrigger>
                     <TabsTrigger value="other">Other clients</TabsTrigger>
