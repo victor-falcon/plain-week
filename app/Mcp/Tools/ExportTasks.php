@@ -21,7 +21,7 @@ use Laravel\Mcp\Server\Tools\Annotations\IsReadOnly;
 #[IsReadOnly]
 #[IsIdempotent]
 #[IsOpenWorld(false)]
-class ExportTasks extends PlannerTool
+class ExportTasks extends ReadTool
 {
     public function schema(JsonSchema $schema): array
     {

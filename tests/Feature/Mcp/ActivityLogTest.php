@@ -41,6 +41,15 @@ test('a write logs the tool, the token, the tasks and a summary', function () {
         ->and($activity->created_at->toDateTimeString())->toBe('2026-11-20 09:00:00');
 });
 
+test('an entry keeps at most 200 task ids', function () {
+    $user = User::factory()->create();
+    $ids = array_map(fn (int $i) => "id-{$i}", range(1, 250));
+
+    $activity = McpActivity::record($user, new AgentClient(AgentClient::TOKEN, 't', 'Laptop'), 'import_tasks', 'Imported 250 tasks', $ids);
+
+    expect($activity->fresh()->task_ids)->toBe(array_slice($ids, 0, 200));
+});
+
 test('reads and failed writes are not logged', function () {
     $token = personalToken(User::factory()->create());
 

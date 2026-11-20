@@ -6,6 +6,7 @@ use App\Mcp\Support\Planner;
 use App\Mcp\Support\TaskOutput;
 use App\Tasks\PlannerItem;
 use Carbon\CarbonImmutable;
+use Carbon\Exceptions\InvalidFormatException;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Server\Attributes\Description;
@@ -19,7 +20,7 @@ use Laravel\Mcp\Server\Tools\Annotations\IsReadOnly;
 #[IsReadOnly]
 #[IsIdempotent]
 #[IsOpenWorld(false)]
-class ListSomeday extends PlannerTool
+class ListSomeday extends ReadTool
 {
     public function schema(JsonSchema $schema): array
     {
@@ -53,7 +54,7 @@ class ListSomeday extends PlannerTool
         // Like the client, a done task without a readable done_at counts as archived.
         try {
             return $doneAt === null || CarbonImmutable::parse($doneAt)->lessThan($weekStart);
-        } catch (\Throwable) {
+        } catch (InvalidFormatException) {
             return true;
         }
     }

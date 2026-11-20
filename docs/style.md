@@ -626,9 +626,9 @@ plan your week"), then:
   the agent loses access at once; the server's flash toast confirms. Empty lists say "No personal tokens yet." / "No
   apps connected yet.".
 - **Activity** (`components/agents/activity-log.tsx`): a `Card` last, after the connections, "What agents changed in
-  your planner over the last 90 days." Each entry is the summary (`text-sm`, wrapping), then a muted `text-xs` line
-  with the client name (`font-medium text-foreground`), "·", the relative time (`<time>` with the full date as its
-  title) and the tool name in an outline `Badge` (`font-mono`, `dir="ltr"`). Rows are split by `divide-y`. Empty: "No
+  your planner over the last 90 days. To undo a change, ask the agent or edit the task in the planner." Each entry is
+  the summary (`text-sm`, wrapping), then a muted `text-xs` line: the client name (`font-medium text-foreground`), "·",
+  "Personal token" or "Connected app", "·", the relative time (`<time>` with the full date as its title). Rows are split by `divide-y`. Empty: "No
   changes by agents yet.". With more than one page, a `nav` ("Activity pages") holds outline `sm` "Newer" / "Older"
   `Button`s with chevrons (`rtl:rotate-180`) at either end; each is an Inertia `Link` (`asChild`) that reloads only the
   `activity` prop and keeps the scroll, disabled at the first or last page. Read-only: nothing to undo or revert.

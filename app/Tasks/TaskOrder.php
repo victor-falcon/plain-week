@@ -26,6 +26,26 @@ final class TaskOrder
     }
 
     /**
+     * Display order inside a day (the client's `compareDayOrder`): tasks with a time first, earliest first, then the
+     * rest by position. Only reading a day for display uses it; placement stays by position.
+     *
+     * @param  array{id: string, position: string, time: string|null}  $a
+     * @param  array{id: string, position: string, time: string|null}  $b
+     */
+    public static function compareDayOrder(array $a, array $b): int
+    {
+        if ($a['time'] !== null && $b['time'] !== null && $a['time'] !== $b['time']) {
+            return $a['time'] <=> $b['time'];
+        }
+
+        if (($a['time'] === null) !== ($b['time'] === null)) {
+            return $a['time'] === null ? 1 : -1;
+        }
+
+        return self::compareTaskOrder($a, $b);
+    }
+
+    /**
      * Sort order of the Someday list: (`someday_column`, `position`, `id`), so rows written when Someday had three
      * columns keep the order they were shown in.
      *

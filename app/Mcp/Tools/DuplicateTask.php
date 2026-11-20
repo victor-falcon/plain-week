@@ -17,7 +17,7 @@ use Laravel\Mcp\Server\Tools\Annotations\IsOpenWorld;
 #[Description('Copies a task right after the original, on the same day (or in Someday): same text, color, time, notes, subtasks and done state, with new ids. The copy is always a plain, non-repeating task, also when the original is an occurrence of a recurring task. Returns the copy.')]
 #[IsDestructive(false)]
 #[IsOpenWorld(false)]
-class DuplicateTask extends PlannerTool
+class DuplicateTask extends WriteTool
 {
     public function schema(JsonSchema $schema): array
     {

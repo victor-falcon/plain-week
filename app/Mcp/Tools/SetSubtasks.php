@@ -25,15 +25,17 @@ use Laravel\Mcp\Server\Tools\Annotations\IsOpenWorld;
 #[Description('Changes a task\'s checklist with a list of operations, applied in order and all or none: `{"op":"add","text":"…","done":false}` (appended), `{"op":"edit","id":"…","text":"…"}`, `{"op":"toggle","id":"…","done":true}` (`done` omitted: flips it), `{"op":"remove","id":"…"}`, `{"op":"reorder","ids":[…]}` (every subtask id, in the new order). Subtask ids are in the task\'s `subtasks`. Scope works like `update_task` for occurrences of a recurring task. Returns the task with its new subtasks.')]
 #[IsDestructive(false)]
 #[IsOpenWorld(false)]
-class SetSubtasks extends PlannerTool
+class SetSubtasks extends WriteTool
 {
     public const int MAX_SUBTASKS = 100;
+
+    public const int MAX_OPERATIONS = 100;
 
     public function schema(JsonSchema $schema): array
     {
         return [
             'id' => Schemas::id($schema),
-            'operations' => $schema->array()->min(1)->max(self::MAX_SUBTASKS)->items($schema->object([
+            'operations' => $schema->array()->min(1)->max(self::MAX_OPERATIONS)->items($schema->object([
                 'op' => $schema->string()->enum(['add', 'edit', 'toggle', 'remove', 'reorder'])->required(),
                 'id' => $schema->string()->description('The subtask (edit, toggle, remove).'),
                 'text' => $schema->string()->description('add, edit.'),
@@ -48,7 +50,7 @@ class SetSubtasks extends PlannerTool
     {
         $validated = $request->validate([
             'id' => ['required', 'string'],
-            'operations' => ['required', 'list', 'min:1', 'max:'.self::MAX_SUBTASKS],
+            'operations' => ['required', 'list', 'min:1', 'max:'.self::MAX_OPERATIONS],
             'operations.*' => ['array:op,id,text,done,ids'],
             'operations.*.op' => ['required', 'in:add,edit,toggle,remove,reorder'],
             'operations.*.id' => ['required_if:operations.*.op,edit,toggle,remove', 'string'],
@@ -82,7 +84,7 @@ class SetSubtasks extends PlannerTool
 
                 return $subtasks;
             },
-            Scope::from($validated['scope'] ?? Scope::This->value),
+            Schemas::scopeFrom($validated, Scope::This),
         );
 
         $changes = implode(', ', array_map(
@@ -94,7 +96,7 @@ class SetSubtasks extends PlannerTool
         return new WriteResult(
             ['task' => TaskOutput::item($item)],
             'Changed the subtasks of '.TaskOutput::quote($item->task['text']).": {$changes}",
-            array_values(array_unique(array_filter([$validated['id'], $item->id(), $item->seriesId()]))),
+            [$validated['id'], $item->id(), $item->seriesId()],
         );
     }
 

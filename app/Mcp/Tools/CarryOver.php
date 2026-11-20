@@ -22,7 +22,7 @@ use Laravel\Mcp\Server\Tools\Annotations\IsOpenWorld;
 #[IsDestructive(false)]
 #[IsIdempotent]
 #[IsOpenWorld(false)]
-class CarryOver extends PlannerTool
+class CarryOver extends WriteTool
 {
     public function schema(JsonSchema $schema): array
     {

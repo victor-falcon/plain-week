@@ -37,6 +37,11 @@ class McpActivity extends Model
 
     public const int RETENTION_DAYS = 90;
 
+    /**
+     * The most task ids one entry keeps (an import can touch thousands).
+     */
+    public const int MAX_TASK_IDS = 200;
+
     public const UPDATED_AT = null;
 
     /**
@@ -51,7 +56,7 @@ class McpActivity extends Model
             'client_type' => $client->type,
             'client_id' => $client->id,
             'client_name' => $client->name,
-            'task_ids' => array_values(array_unique($taskIds)),
+            'task_ids' => array_slice(array_values(array_unique($taskIds)), 0, self::MAX_TASK_IDS),
             'summary' => mb_strimwidth($summary, 0, 500, '…'),
         ]);
     }

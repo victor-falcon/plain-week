@@ -17,7 +17,7 @@ use Laravel\Mcp\Server\Tools\Annotations\IsOpenWorld;
 #[Description('Adds the tasks of a Plain Week export file (what `export_tasks` or Settings › Data export) to the planner, like the import in Settings › Data: every task is added with a new id at the end of its day (or Someday), and nothing that exists changes, so importing the same file twice adds its tasks twice. `file` is the export JSON, as an object or as a string. At most 2000 tasks per call.')]
 #[IsDestructive(false)]
 #[IsOpenWorld(false)]
-class ImportTasks extends PlannerTool
+class ImportTasks extends WriteTool
 {
     /**
      * An import holds the sync write lock for its whole transaction, so it stays small.

@@ -7,6 +7,8 @@ use App\Mcp\Support\Planner;
 use App\Mcp\Support\Schemas;
 use App\Mcp\Support\TaskOutput;
 use App\Mcp\Support\WriteResult;
+use App\Tasks\InvalidTaskChange;
+use App\Tasks\ItemKind;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Server\Attributes\Description;
@@ -18,7 +20,7 @@ use Laravel\Mcp\Server\Tools\Annotations\IsOpenWorld;
 #[Description('Moves a task to another day (`date`, `YYYY-MM-DD`) or to Someday (`date: null`), or reorders it within its day: it lands right before `before_id` and/or right after `after_id` (tasks of the target list), or at the end. Moving an occurrence of a recurring task moves only that date: it gets its own id (`kind: "exception"`) and the rest of the series stays. A series itself cannot be moved; move its occurrences, or change its rule with `set_recurrence`.')]
 #[IsDestructive(false)]
 #[IsOpenWorld(false)]
-class MoveTask extends PlannerTool
+class MoveTask extends WriteTool
 {
     public function schema(JsonSchema $schema): array
     {
@@ -39,6 +41,10 @@ class MoveTask extends PlannerTool
             'after_id' => ['sometimes', 'nullable', 'string', 'different:id'],
         ]);
 
+        if ($planner->tasks->findTask($validated['id'])?->kind === ItemKind::Series) {
+            throw new InvalidTaskChange('A recurring series cannot be moved as a whole: move one of its occurrences (the `<series id>:<YYYY-MM-DD>` ids list_tasks shows), or change its rule with set_recurrence.');
+        }
+
         Neighbours::check($planner, $validated['date'], $validated['before_id'] ?? null, $validated['after_id'] ?? null);
 
         $item = $planner->tasks->moveTask($validated['id'], $validated['date'], $validated['before_id'] ?? null, $validated['after_id'] ?? null);
@@ -47,7 +53,7 @@ class MoveTask extends PlannerTool
         return new WriteResult(
             ['task' => TaskOutput::item($item)],
             'Moved '.TaskOutput::quote($item->task['text'])." to {$target}",
-            array_values(array_unique([$validated['id'], $item->id()])),
+            [$validated['id'], $item->id()],
         );
     }
 }

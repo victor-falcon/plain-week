@@ -24,7 +24,7 @@ use Laravel\Mcp\Server\Tools\Annotations\IsReadOnly;
 #[IsReadOnly]
 #[IsIdempotent]
 #[IsOpenWorld(false)]
-class SearchTasks extends PlannerTool
+class SearchTasks extends ReadTool
 {
     public const int DEFAULT_LIMIT = 20;
 

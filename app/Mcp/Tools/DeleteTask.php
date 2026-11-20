@@ -20,7 +20,7 @@ use Laravel\Mcp\Server\Tools\Annotations\IsOpenWorld;
 #[Description('Deletes a task. On an occurrence of a recurring task, scope `this` (default) deletes only that date and `future` ends the series the day before (from its first date: the whole series). A series id deletes the whole series with every changed occurrence. A plain task, a single occurrence or a whole series can be brought back with `restore_task` and the `restore_id` returned (restoring a series does not bring back its changed occurrences); ending a series with `future` is undone by extending its rule with `set_recurrence`.')]
 #[IsDestructive]
 #[IsOpenWorld(false)]
-class DeleteTask extends PlannerTool
+class DeleteTask extends WriteTool
 {
     public function schema(JsonSchema $schema): array
     {
@@ -33,7 +33,7 @@ class DeleteTask extends PlannerTool
     protected function run(Request $request, Planner $planner): WriteResult
     {
         $validated = $request->validate(['id' => ['required', 'string'], ...Schemas::scopeRules()]);
-        $scope = Scope::from($validated['scope'] ?? Scope::This->value);
+        $scope = Schemas::scopeFrom($validated, Scope::This);
         $item = $planner->tasks->findTask($validated['id']) ?? throw TaskNotFound::withId($validated['id']);
         $row = $planner->tasks->deleteTask($validated['id'], $scope);
         $text = TaskOutput::quote($item->task['text']);
@@ -56,7 +56,7 @@ class DeleteTask extends PlannerTool
                 'series' => $ended && $row['deleted_at'] === null ? TaskOutput::row($row) : null,
             ],
             $summary,
-            array_values(array_unique(array_filter([$item->id(), $row['id'], $item->seriesId()]))),
+            [$item->id(), $row['id'], $item->seriesId()],
         );
     }
 }

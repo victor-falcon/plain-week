@@ -61,6 +61,18 @@ describe('create_tasks', function () {
         expect(textsIn($this->tasks, '2026-11-23'))->toBe(['Zero', 'First', 'A', 'B', 'C', 'Last']);
     });
 
+    test('keeps the batch order after the same after_id with other tasks in between', function () {
+        $first = $this->tasks->createTask(['text' => 'First', 'date' => '2026-11-23']);
+
+        toolResult($this->token, 'create_tasks', ['tasks' => [
+            ['text' => 'A', 'date' => '2026-11-23', 'after_id' => $first['id']],
+            ['text' => 'Elsewhere', 'date' => '2026-11-24'],
+            ['text' => 'B', 'date' => '2026-11-23', 'after_id' => $first['id']],
+        ]]);
+
+        expect(textsIn($this->tasks, '2026-11-23'))->toBe(['First', 'A', 'B']);
+    });
+
     test('creates a recurring task and returns its first occurrence', function () {
         $result = toolResult($this->token, 'create_tasks', ['tasks' => [
             ['text' => 'Gym', 'date' => '2026-11-23', 'recurrence' => ['type' => 'weekly', 'weekdays' => [3, 1]]],
@@ -109,11 +121,15 @@ describe('update_task', function () {
         expect($result['task'])->toMatchArray(['id' => $task['id'], 'text' => 'Buy oat milk', 'color' => 'pink', 'time' => '08:15'])
             ->and(McpActivity::sole()->summary)->toBe('Updated “Buy oat milk” (text, color, time)');
 
+        toolResult($this->token, 'update_task', ['id' => $task['id'], 'text' => 'Buy oat milk today']);
+
+        expect(McpActivity::query()->latest('id')->first()->summary)->toBe('Renamed “Buy oat milk” to “Buy oat milk today”');
+
         toolResult($this->token, 'update_task', ['id' => $task['id'], 'done' => true]);
 
         expect(Task::find($task['id'])->done)->toBeTrue()
             ->and(Task::find($task['id'])->done_at)->not->toBeNull()
-            ->and(McpActivity::query()->latest('id')->first()->summary)->toBe('Completed “Buy oat milk”');
+            ->and(McpActivity::query()->latest('id')->first()->summary)->toBe('Completed “Buy oat milk today”');
     });
 
     test('rejects fields it does not change, and an empty patch', function () {
@@ -140,7 +156,7 @@ describe('update_task', function () {
         expect($future['task']['kind'])->toBe('occurrence')
             ->and($future['task']['series_id'])->not->toBe($gym['id'])
             ->and(Task::find($gym['id'])->recurrence['until'])->toBe('2026-11-19')
-            ->and(McpActivity::query()->latest('id')->first()->summary)->toBe('Updated “Run” and its later occurrences (text)')
+            ->and(McpActivity::query()->latest('id')->first()->summary)->toBe('Renamed “Gym” to “Run” and its later occurrences')
             ->and(toolError($this->token, 'update_task', ['id' => "{$future['task']['series_id']}:2026-11-21", 'done' => true, 'scope' => 'future']))
             ->toContain('use scope "this"');
     });
@@ -215,7 +231,7 @@ describe('move_task', function () {
         $moved = toolResult($this->token, 'move_task', ['id' => "{$gym['id']}:2026-11-20", 'date' => '2026-11-21']);
 
         expect($moved['task'])->toMatchArray(['kind' => 'exception', 'date' => '2026-11-21', 'occurrence_date' => '2026-11-20'])
-            ->and(toolError($this->token, 'move_task', ['id' => $gym['id'], 'date' => '2026-11-21']))->toBe('Move an occurrence, not its series.')
+            ->and(toolError($this->token, 'move_task', ['id' => $gym['id'], 'date' => '2026-11-21']))->toStartWith('A recurring series cannot be moved as a whole')
             ->and(toolError($this->token, 'move_task', ['id' => $moved['task']['id'], 'date' => '2026-11-22', 'before_id' => 'elsewhere']))
             ->toStartWith('before_id elsewhere is not a task in 2026-11-22.')
             ->and(toolError($this->token, 'move_task', ['id' => $moved['task']['id']]))->toContain('date');
@@ -300,6 +316,20 @@ describe('delete_task and restore_task', function () {
             ->and(McpActivity::query()->latest('id')->first()->summary)->toBe('Restored “Oops” on Fri 20 Nov')
             ->and(toolError($this->token, 'restore_task', ['id' => $task['id']]))->toBe("Task {$task['id']} is not deleted.")
             ->and(toolError($this->token, 'restore_task', ['id' => 'missing']))->toBe('Task missing does not exist.');
+    });
+
+    test('does not restore one date of a deleted series before the series', function () {
+        $gym = $this->tasks->createTask(['text' => 'Gym', 'date' => '2026-11-16']);
+        $this->tasks->setRecurrence($gym['id'], ['type' => 'daily', 'every' => 1]);
+        $occurrence = "{$gym['id']}:2026-11-18";
+        toolResult($this->token, 'delete_task', ['id' => $occurrence]);
+        toolResult($this->token, 'delete_task', ['id' => $gym['id']]);
+
+        expect(toolError($this->token, 'restore_task', ['id' => $occurrence]))->toContain('Restore the series first');
+
+        toolResult($this->token, 'restore_task', ['id' => $gym['id']]);
+
+        expect(toolResult($this->token, 'restore_task', ['id' => $occurrence])['task']['kind'])->toBe('exception');
     });
 
     test('deletes one occurrence and brings it back by its occurrence id', function () {

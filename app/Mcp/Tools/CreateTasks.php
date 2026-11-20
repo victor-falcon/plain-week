@@ -23,7 +23,7 @@ use Laravel\Mcp\Server\Tools\Annotations\IsOpenWorld;
 #[Description('Creates up to 100 tasks at once, all or none. Each task goes to `date` (`YYYY-MM-DD`; omitted: today in the user\'s time zone; null: Someday), at the end of that list unless `before_id` / `after_id` name a task already there. Tasks of the same batch with the same `after_id` keep the batch order. With `recurrence` the task becomes a recurring series starting on its date (Someday tasks cannot repeat); it is then returned as its first occurrence (`kind: "occurrence"`, id `<series id>:<YYYY-MM-DD>`) with its `series_id`.')]
 #[IsDestructive(false)]
 #[IsOpenWorld(false)]
-class CreateTasks extends PlannerTool
+class CreateTasks extends WriteTool
 {
     public const int MAX_TASKS = 100;
 
@@ -38,7 +38,7 @@ class CreateTasks extends PlannerTool
                 'color' => Schemas::color($schema),
                 'time' => Schemas::time($schema),
                 'notes' => $schema->string()->description('Free-form notes.'),
-                'subtasks' => $schema->array()->max(100)->items($schema->object([
+                'subtasks' => $schema->array()->max(SetSubtasks::MAX_SUBTASKS)->items($schema->object([
                     'text' => $schema->string()->required(),
                     'done' => $schema->boolean(),
                 ])->withoutAdditionalProperties())->description('Checklist items, in order.'),
@@ -59,7 +59,7 @@ class CreateTasks extends PlannerTool
             'tasks.*.color' => ['sometimes', ...Schemas::colorRule()],
             'tasks.*.time' => ['sometimes', 'nullable', 'date_format:H:i'],
             'tasks.*.notes' => ['sometimes', 'string'],
-            'tasks.*.subtasks' => ['sometimes', 'list', 'max:100'],
+            'tasks.*.subtasks' => ['sometimes', 'list', 'max:'.SetSubtasks::MAX_SUBTASKS],
             'tasks.*.subtasks.*' => ['array:text,done'],
             'tasks.*.subtasks.*.text' => ['required', 'string'],
             'tasks.*.subtasks.*.done' => ['sometimes', 'boolean:strict'],
@@ -67,7 +67,8 @@ class CreateTasks extends PlannerTool
         ]);
 
         $created = [];
-        $previous = null;
+        // The last task of the batch placed at each anchor (date, after_id, before_id).
+        $lastAt = [];
 
         foreach ($validated['tasks'] as $index => $input) {
             $date = array_key_exists('date', $input) ? $input['date'] : $planner->today();
@@ -78,11 +79,14 @@ class CreateTasks extends PlannerTool
                 Neighbours::check($planner, $date, $beforeId, $afterId);
 
                 // The repository puts each new task right after `after_id`, so several given the same one would end up
-                // in reverse order: chain them after the previous task of the batch instead.
-                if ($previous !== null && $afterId !== null && $previous['date'] === $date
-                    && $previous['after_id'] === $afterId && $previous['before_id'] === $beforeId) {
-                    $afterId = $previous['item']->id();
+                // in reverse order: chain each after the last task of the batch given the same anchor instead.
+                $anchor = json_encode([$date, $afterId, $beforeId]);
+
+                if ($afterId !== null && isset($lastAt[$anchor])) {
+                    $afterId = $lastAt[$anchor];
                 }
+
+                // One createTask per task (not createTasks) so a recurrence can follow each one and an error names it.
 
                 $row = $planner->tasks->createTask([
                     'text' => $input['text'],
@@ -107,7 +111,7 @@ class CreateTasks extends PlannerTool
             }
 
             $created[] = $item;
-            $previous = ['date' => $date, 'after_id' => $input['after_id'] ?? null, 'before_id' => $beforeId, 'item' => $item];
+            $lastAt[$anchor] = $item->id();
         }
 
         return new WriteResult(

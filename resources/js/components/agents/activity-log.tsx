@@ -1,7 +1,6 @@
 import { Link } from '@inertiajs/react';
 import type { ReactNode } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
     Card,
@@ -20,6 +19,11 @@ export type ActivityEntry = {
     clientType: 'token' | 'oauth';
     clientName: string;
     createdAt: string;
+};
+
+const CLIENT_TYPES: Record<ActivityEntry['clientType'], string> = {
+    token: 'Personal token',
+    oauth: 'Connected app',
 };
 
 /** A page of the activity log, newest first. */
@@ -70,6 +74,8 @@ export function ActivityLog({ activity }: { activity: ActivityPage }) {
                 <CardTitle>Activity</CardTitle>
                 <CardDescription>
                     What agents changed in your planner over the last 90 days.
+                    To undo a change, ask the agent or edit the task in the
+                    planner.
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -95,6 +101,10 @@ export function ActivityLog({ activity }: { activity: ActivityPage }) {
                                         {entry.clientName}
                                     </span>
                                     <span aria-hidden>·</span>
+                                    <span>
+                                        {CLIENT_TYPES[entry.clientType]}
+                                    </span>
+                                    <span aria-hidden>·</span>
                                     <time
                                         dateTime={entry.createdAt}
                                         title={new Date(
@@ -103,13 +113,6 @@ export function ActivityLog({ activity }: { activity: ActivityPage }) {
                                     >
                                         {formatTimeAgo(entry.createdAt)}
                                     </time>
-                                    <Badge
-                                        variant="outline"
-                                        className="font-mono"
-                                        dir="ltr"
-                                    >
-                                        {entry.tool}
-                                    </Badge>
                                 </p>
                             </li>
                         ))}

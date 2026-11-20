@@ -65,9 +65,19 @@ final class Schemas
     /**
      * @return array<string, mixed>
      */
-    public static function recurrenceRules(string $key): array
+    public static function recurrenceRules(string $key, bool $present = false): array
     {
-        return [$key => ['nullable', 'array:type,every,weekdays,day,until']];
+        return [$key => [...($present ? ['present'] : []), 'nullable', 'array:type,every,weekdays,day,until']];
+    }
+
+    /**
+     * The validated `scope`, or `$default`.
+     *
+     * @param  array<string, mixed>  $validated
+     */
+    public static function scopeFrom(array $validated, Scope $default): Scope
+    {
+        return isset($validated['scope']) ? Scope::from($validated['scope']) : $default;
     }
 
     /**

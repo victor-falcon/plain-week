@@ -22,7 +22,7 @@ use Laravel\Mcp\Server\Tools\Annotations\IsReadOnly;
 #[IsReadOnly]
 #[IsIdempotent]
 #[IsOpenWorld(false)]
-class ListTasks extends PlannerTool
+class ListTasks extends ReadTool
 {
     public const int MAX_DAYS = 92;
 
@@ -40,8 +40,8 @@ class ListTasks extends PlannerTool
             'from' => ['required', 'date_format:Y-m-d'],
             'to' => ['required', 'date_format:Y-m-d', 'after_or_equal:from'],
         ]);
-        $from = CarbonImmutable::createFromFormat('!Y-m-d', $validated['from'], 'UTC') ?: CarbonImmutable::now('UTC');
-        $to = CarbonImmutable::createFromFormat('!Y-m-d', $validated['to'], 'UTC') ?: $from;
+        $from = CarbonImmutable::parse($validated['from'], 'UTC');
+        $to = CarbonImmutable::parse($validated['to'], 'UTC');
 
         if ((int) $from->diffInDays($to) + 1 > self::MAX_DAYS) {
             throw new InvalidTaskChange('The range is too long: ask for at most '.self::MAX_DAYS.' days at a time.');
@@ -58,30 +58,10 @@ class ListTasks extends PlannerTool
         for ($day = $from; $day <= $to; $day = $day->addDay()) {
             $date = $day->toDateString();
             $items = $byDate[$date] ?? [];
-            usort($items, self::compareDayOrder(...));
+            usort($items, fn (PlannerItem $a, PlannerItem $b) => TaskOrder::compareDayOrder($a->task, $b->task));
             $days[] = ['date' => $date, 'weekday' => $day->format('l'), 'tasks' => TaskOutput::items($items)];
         }
 
         return ['from' => $validated['from'], 'to' => $validated['to'], 'today' => $planner->today(), 'days' => $days];
-    }
-
-    /**
-     * The planner's display order inside a day (the client's `compareDayOrder`): timed tasks first, earliest first,
-     * then the rest by position.
-     */
-    private static function compareDayOrder(PlannerItem $a, PlannerItem $b): int
-    {
-        $timeA = $a->task['time'];
-        $timeB = $b->task['time'];
-
-        if ($timeA !== null && $timeB !== null && $timeA !== $timeB) {
-            return $timeA <=> $timeB;
-        }
-
-        if (($timeA === null) !== ($timeB === null)) {
-            return $timeA === null ? 1 : -1;
-        }
-
-        return TaskOrder::compareTaskOrder($a->task, $b->task);
     }
 }

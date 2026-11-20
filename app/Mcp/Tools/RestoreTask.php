@@ -7,6 +7,7 @@ use App\Mcp\Support\Schemas;
 use App\Mcp\Support\TaskOutput;
 use App\Mcp\Support\WriteResult;
 use App\Tasks\InvalidTaskChange;
+use App\Tasks\ItemKind;
 use App\Tasks\PlannerItem;
 use App\Tasks\TaskNotFound;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
@@ -14,15 +15,13 @@ use Laravel\Mcp\Request;
 use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Attributes\Name;
 use Laravel\Mcp\Server\Tools\Annotations\IsDestructive;
-use Laravel\Mcp\Server\Tools\Annotations\IsIdempotent;
 use Laravel\Mcp\Server\Tools\Annotations\IsOpenWorld;
 
 #[Name('restore_task')]
-#[Description('Brings back a deleted task: the `restore_id` that `delete_task` returned (a task id, or an occurrence id for one deleted date of a recurring task). Restoring a recurring series brings back the series, but not the changed or deleted occurrences that were deleted with it. Fails when the task is not deleted.')]
+#[Description('Brings back a deleted task: the `restore_id` that `delete_task` returned (a task id, or an occurrence id for one deleted date of a recurring task). Restoring a recurring series brings back the series, but not the changed or deleted occurrences that were deleted with it: those dates show the series content again. A single date of a deleted series cannot be restored before its series. Fails when the task is not deleted.')]
 #[IsDestructive(false)]
-#[IsIdempotent]
 #[IsOpenWorld(false)]
-class RestoreTask extends PlannerTool
+class RestoreTask extends WriteTool
 {
     public function schema(JsonSchema $schema): array
     {
@@ -45,12 +44,18 @@ class RestoreTask extends PlannerTool
             throw new InvalidTaskChange("Task {$id} is not deleted.");
         }
 
+        $seriesId = PlannerItem::fromRow($row)->kind === ItemKind::Exception ? $row['series_id'] : null;
+
+        if ($seriesId !== null && $planner->tasks->queries()->series($seriesId) === null) {
+            throw new InvalidTaskChange("Task {$id} is one date of the recurring task {$seriesId}, which is deleted. Restore the series first (restore_task with {$seriesId}).");
+        }
+
         $item = $planner->tasks->restoreTask($id);
 
         return new WriteResult(
             ['task' => TaskOutput::item($item)],
             'Restored '.TaskOutput::quote($item->task['text']).' '.$planner->placeLabel($item->task['date']),
-            array_values(array_unique([$id, $item->id()])),
+            [$id, $item->id()],
         );
     }
 }

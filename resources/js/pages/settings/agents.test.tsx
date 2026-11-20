@@ -181,7 +181,7 @@ describe('Settings › Agents', () => {
             within(list).getByText('Created 3 tasks on Mon 23 Nov'),
         ).toBeTruthy();
         expect(within(list).getByText('Laptop')).toBeTruthy();
-        expect(within(list).getByText('create_tasks')).toBeTruthy();
+        expect(within(list).getByText('Personal token')).toBeTruthy();
         expect(
             (screen.getByRole('button', { name: /Newer/ }) as HTMLButtonElement)
                 .disabled,
