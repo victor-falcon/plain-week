@@ -1,5 +1,6 @@
 import { Smartphone } from 'lucide-react';
 import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
+import { t } from '@/lib/i18n';
 import { canOfferInstall, installAppStore } from '@/lib/install-app';
 
 /** "Install mobile app" for the account menus: opens the install card. */
