@@ -124,7 +124,9 @@ export default function Login({ status, canResetPassword }: Props) {
                                 : 'auth.noAccountSignUp',
                             {
                                 link: (text) => (
-                                    <TextLink href={register()}>{text}</TextLink>
+                                    <TextLink href={register()}>
+                                        {text}
+                                    </TextLink>
                                 ),
                             },
                         )}
