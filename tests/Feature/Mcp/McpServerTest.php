@@ -14,11 +14,6 @@ beforeEach(function () {
     usePassportKeys();
 });
 
-function personalToken(User $user, string $name = 'Claude Code'): string
-{
-    return app(AgentAccess::class)->createPersonalToken($user, $name);
-}
-
 test('a personal token authenticates the MCP server', function () {
     $user = User::factory()->create();
 
@@ -36,11 +31,10 @@ test('a personal token authenticates the MCP server', function () {
 test('the server lists get_profile as a read-only tool', function () {
     $user = User::factory()->create();
 
-    $tools = mcp(personalToken($user), 'tools/list')->assertOk()->json('result.tools');
+    $tools = collect(mcp(personalToken($user), 'tools/list')->assertOk()->json('result.tools'))->keyBy('name');
 
-    expect($tools)->toHaveCount(1)
-        ->and($tools[0]['name'])->toBe('get_profile')
-        ->and($tools[0]['annotations']['readOnlyHint'])->toBeTrue();
+    expect($tools)->toHaveKey('get_profile')
+        ->and($tools['get_profile']['annotations']['readOnlyHint'])->toBeTrue();
 });
 
 test('get_profile returns the user, their time zone and today there', function () {

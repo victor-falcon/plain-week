@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Settings;
 
 use App\Agents\AgentAccess;
 use App\Http\Controllers\Controller;
+use App\Models\McpActivity;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -12,11 +13,14 @@ use Inertia\Response;
 
 class AgentsController extends Controller
 {
+    public const int ACTIVITY_PER_PAGE = 20;
+
     public function __construct(private readonly AgentAccess $access) {}
 
     /**
      * Settings › Agents: how to connect an AI agent to the MCP server, the
-     * personal access tokens and the connected OAuth apps.
+     * personal access tokens, the connected OAuth apps and what agents changed
+     * lately (newest first, ACTIVITY_PER_PAGE per page).
      */
     public function edit(Request $request): Response
     {
@@ -26,7 +30,35 @@ class AgentsController extends Controller
             'mcpUrl' => route('mcp'),
             'personalTokens' => $this->access->personalTokens($user),
             'oauthApps' => $this->access->oauthApps($user),
+            'activity' => $this->activity($user),
         ]);
+    }
+
+    /**
+     * One page of the activity log (`?activity_page=`). Entries past the retention are hidden even before the daily
+     * prune removes them.
+     *
+     * @return array{entries: list<array{id: int, tool: string, summary: string, clientType: string, clientName: string, createdAt: string}>, previousPageUrl: string|null, nextPageUrl: string|null}
+     */
+    private function activity(User $user): array
+    {
+        $page = $user->mcpActivities()
+            ->where('created_at', '>=', now()->subDays(McpActivity::RETENTION_DAYS))
+            ->orderByDesc('id')
+            ->simplePaginate(self::ACTIVITY_PER_PAGE, pageName: 'activity_page');
+
+        return [
+            'entries' => array_values(array_map(fn (McpActivity $activity): array => [
+                'id' => $activity->id,
+                'tool' => $activity->tool,
+                'summary' => $activity->summary,
+                'clientType' => $activity->client_type,
+                'clientName' => $activity->client_name,
+                'createdAt' => $activity->created_at->toIso8601String(),
+            ], $page->items())),
+            'previousPageUrl' => $page->previousPageUrl(),
+            'nextPageUrl' => $page->nextPageUrl(),
+        ];
     }
 
     /**

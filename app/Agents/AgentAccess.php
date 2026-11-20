@@ -8,6 +8,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Laravel\Mcp\Server\Registrar;
+use Laravel\Passport\AccessToken;
 use Laravel\Passport\Client;
 use Laravel\Passport\ClientRepository;
 use Laravel\Passport\Passport;
@@ -118,6 +119,25 @@ final class AgentAccess
                 ->where('client_id', $clientId)
                 ->delete() > 0;
         });
+    }
+
+    /**
+     * The client behind the access token of the current request: a personal token or an OAuth app.
+     *
+     * @param  AccessToken<mixed>  $token
+     */
+    public function clientOf(AccessToken $token): AgentClient
+    {
+        /** @var Client|null $client */
+        $client = Passport::client()->newQuery()->find($token->oauth_client_id);
+
+        if ($client !== null && $client->hasGrantType('personal_access')) {
+            $name = Passport::token()->newQuery()->whereKey($token->oauth_access_token_id)->value('name');
+
+            return new AgentClient(AgentClient::TOKEN, $token->oauth_access_token_id, is_string($name) ? $name : 'Personal token');
+        }
+
+        return new AgentClient(AgentClient::OAUTH, $token->oauth_client_id, $client->name ?? 'OAuth app');
     }
 
     /**

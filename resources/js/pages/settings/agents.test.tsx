@@ -47,6 +47,11 @@ function renderPage(
                 mcpUrl={URL}
                 personalTokens={[]}
                 oauthApps={[]}
+                activity={{
+                    entries: [],
+                    previousPageUrl: null,
+                    nextPageUrl: null,
+                }}
                 {...props}
             />
         </TooltipProvider>,
@@ -140,6 +145,50 @@ describe('Settings › Agents', () => {
         expect(
             within(apps).getByRole('button', { name: 'Disconnect' }),
         ).toBeTruthy();
+    });
+
+    it('says no agent changed anything yet', () => {
+        renderPage();
+
+        expect(screen.getByText('No changes by agents yet.')).toBeTruthy();
+        expect(
+            screen.queryByRole('navigation', { name: 'Activity pages' }),
+        ).toBeNull();
+    });
+
+    it('lists the activity with its client and tool, and pages through it', () => {
+        renderPage({
+            activity: {
+                entries: [
+                    {
+                        id: 2,
+                        tool: 'create_tasks',
+                        summary: 'Created 3 tasks on Mon 23 Nov',
+                        clientType: 'token',
+                        clientName: 'Laptop',
+                        createdAt: '2026-11-20T10:00:00Z',
+                    },
+                ],
+                previousPageUrl: null,
+                nextPageUrl: '/settings/agents?activity_page=2',
+            },
+        });
+
+        const list = document.querySelector(
+            '[data-test="agents-activity-list"]',
+        ) as HTMLElement;
+        expect(
+            within(list).getByText('Created 3 tasks on Mon 23 Nov'),
+        ).toBeTruthy();
+        expect(within(list).getByText('Laptop')).toBeTruthy();
+        expect(within(list).getByText('create_tasks')).toBeTruthy();
+        expect(
+            (screen.getByRole('button', { name: /Newer/ }) as HTMLButtonElement)
+                .disabled,
+        ).toBe(true);
+        expect(
+            screen.getByRole('link', { name: /Older/ }).getAttribute('href'),
+        ).toBe('/settings/agents?activity_page=2');
     });
 
     it('says a plan is needed in SaaS mode without one', () => {

@@ -1,5 +1,7 @@
 import { Head, Link, usePage } from '@inertiajs/react';
 import { CircleAlert } from 'lucide-react';
+import { ActivityLog } from '@/components/agents/activity-log';
+import type { ActivityPage } from '@/components/agents/activity-log';
 import { CopyField } from '@/components/agents/copy-button';
 import type { AgentAccess } from '@/components/agents/agent-access-list';
 import { OAuthApps } from '@/components/agents/oauth-apps';
@@ -22,14 +24,21 @@ type Props = {
     mcpUrl: string;
     personalTokens: AgentAccess[];
     oauthApps: AgentAccess[];
+    activity: ActivityPage;
 };
 
 /**
  * Settings › Agents: connect AI agents to the planner through the MCP server
- * (`/mcp`), with OAuth (claude.ai, Claude Desktop) or a personal token.
+ * (`/mcp`), with OAuth (claude.ai, Claude Desktop) or a personal token, and
+ * see what they changed.
  * Shown only while the instance has it on (`mcp.enabled`).
  */
-export default function Agents({ mcpUrl, personalTokens, oauthApps }: Props) {
+export default function Agents({
+    mcpUrl,
+    personalTokens,
+    oauthApps,
+    activity,
+}: Props) {
     const { props, flash } = usePage();
     const needsPlan = props.account?.hasAccess === false;
     const newToken = (flash?.newToken as NewToken | undefined) ?? null;
@@ -90,7 +99,7 @@ export default function Agents({ mcpUrl, personalTokens, oauthApps }: Props) {
 
                 <OAuthApps apps={oauthApps} />
 
-                {/* Activity (what agents did lately) goes here, after the connections. */}
+                <ActivityLog activity={activity} />
             </div>
         </>
     );

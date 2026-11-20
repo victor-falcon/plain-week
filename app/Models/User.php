@@ -84,6 +84,14 @@ class User extends Authenticatable implements MustVerifyEmail, OAuthenticatable,
     }
 
     /**
+     * @return HasMany<McpActivity, $this>
+     */
+    public function mcpActivities(): HasMany
+    {
+        return $this->hasMany(McpActivity::class);
+    }
+
+    /**
      * @return HasMany<PushSubscription, $this>
      */
     public function pushSubscriptions(): HasMany

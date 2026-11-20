@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\McpActivity;
 use App\Models\SentNotification;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
@@ -28,3 +29,5 @@ Schedule::command('model:prune', ['--model' => [SentNotification::class]])->dail
 // MCP server: forget revoked tokens and codes, and those expired over a week ago. Passport keeps an access token whose
 // refresh token still works, so an app that has not called in a while stays connected.
 Schedule::command('passport:purge')->daily();
+// The agents' activity log (Settings › Agents) keeps 90 days.
+Schedule::command('model:prune', ['--model' => [McpActivity::class]])->daily();

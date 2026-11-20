@@ -1,6 +1,7 @@
 <?php
 
 use App\Actions\Sync\SyncFormat;
+use App\Agents\AgentAccess;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
@@ -243,4 +244,50 @@ function mcp(?string $token, string $method, array $params = []): TestResponse
     app('auth')->forgetGuards();
 
     return test()->postJson('/mcp', ['jsonrpc' => '2.0', 'id' => 1, 'method' => $method, 'params' => $params], $headers);
+}
+
+/**
+ * A personal access token for the MCP server.
+ */
+function personalToken(User $user, string $name = 'Claude Code'): string
+{
+    return app(AgentAccess::class)->createPersonalToken($user, $name);
+}
+
+/**
+ * Calls one MCP tool and returns the response (`result.structuredContent` holds the tool's data, `result.isError`
+ * tells a tool error).
+ *
+ * @param  array<string, mixed>  $arguments
+ */
+function callTool(string $token, string $name, array $arguments = []): TestResponse
+{
+    return mcp($token, 'tools/call', ['name' => $name, 'arguments' => (object) $arguments]);
+}
+
+/**
+ * The text of a tool error (asserting it is one).
+ *
+ * @param  array<string, mixed>  $arguments
+ */
+function toolError(string $token, string $name, array $arguments = []): string
+{
+    $response = callTool($token, $name, $arguments)->assertOk()->assertJsonPath('result.isError', true);
+
+    return (string) $response->json('result.content.0.text');
+}
+
+/**
+ * The structured result of a tool call (asserting it succeeded).
+ *
+ * @param  array<string, mixed>  $arguments
+ * @return array<string, mixed>
+ */
+function toolResult(string $token, string $name, array $arguments = []): array
+{
+    $response = callTool($token, $name, $arguments)->assertOk();
+
+    expect($response->json('result.isError'))->toBeFalse($response->json('result.content.0.text') ?? '');
+
+    return $response->json('result.structuredContent');
 }

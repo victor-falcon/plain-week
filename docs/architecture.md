@@ -1122,15 +1122,71 @@ push; browsers pick changes up on their next pull. The offline-first rule is unt
 - **Rate limit.** `throttle:mcp`: `MCP_RATE_LIMIT` requests a minute (default 120) per user.
 - **Server** (`App\Mcp\Servers\PlainWeekServer`): name `Plain Week`, version from `package.json`, tools only. Its
   instructions tell agents what Plain Week is, that ids are UUIDs, that a `null` date is Someday, that a recurring
-  occurrence is `<series id>:<YYYY-MM-DD>`, and that every date is a calendar date in the user's time zone.
-- **Tools** (`app/Mcp/Tools`):
+  occurrence is `<series id>:<YYYY-MM-DD>`, that every date is a calendar date in the user's time zone, which tools
+  read, how to place a task (`before_id` / `after_id`), that `delete_task` returns a `restore_id`, and that the user
+  sees their changes in Settings › Agents › Activity.
+- **Tools** (`app/Mcp/Tools`, [catalogue below](#mcp-tools)).
+- **Activity log** ([below](#mcp-activity-log)): every successful write, for Settings › Agents.
 
-    | Tool          | Annotations           | Returns (structured content)                                                                                                      |
-    | ------------- | --------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-    | `get_profile` | read-only, idempotent | `name`, `email`, `timezone` (`User::timezoneOrDefault()`), `today` and `weekday` in it, `app_version`, `sync_access`, `plans_url` |
+#### MCP tools
+
+Every planner tool extends `App\Mcp\Tools\PlannerTool`, on top of the task domain (`App\Tasks\TaskRepository`,
+`TaskQueries`, `TaskImport`; see [Task changes on the server](#task-changes-on-the-server)), so an agent changes tasks exactly like the
+planner would. The base class:
+
+- refuses arguments the schema does not declare (`Unknown argument: date. This tool takes: …`), since the domain
+  silently ignores unknown patch keys; the input schemas say `additionalProperties: false` too, nested objects
+  included;
+- turns the domain's errors (`TaskNotFound`, `InvalidTaskChange`, `ImportError`) and validation errors into tool errors
+  (`isError: true`) with their message, never a `500`;
+- runs a write tool (one without `IsReadOnly`) in one transaction together with its activity entry, so a refused call
+  changes nothing and logs nothing;
+- returns structured content (mirrored as JSON text). Tasks come in a compact shape (`App\Mcp\Support\TaskOutput`):
+  `id`, `kind` (`task`, `series`, `occurrence`, `exception`), `text`, `date` (null: Someday), `done`, `color`, `time`,
+  `notes`, `subtasks`, plus `series_id` and `occurrence_date` for occurrences and exceptions and `recurrence` for a
+  series. No positions, timestamps or versions.
+
+"Today" and every default date are the user's (`User::timezoneOrDefault()`, `App\Mcp\Support\Planner`). Every id
+argument also takes an occurrence id (`<series id>:<YYYY-MM-DD>`); `scope` (`this` / `future`) only matters for
+occurrences. `before_id` / `after_id` must name a task of the target list (the domain would ignore a stray one); the
+tool answers an error instead. `tools/list` returns every tool in one page.
+
+| Tool             | Annotations             | What it does                                                                                                                                                                                                                                                                                                                                                                 |
+| ---------------- | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `get_profile`    | read-only, idempotent   | `name`, `email`, `timezone`, `today` and `weekday` in it, `app_version`, `sync_access`, `plans_url`. The only tool without a plan (`AvailableWithoutPlan`)                                                                                                                                                                                                                   |
+| `list_tasks`     | read-only, idempotent   | `from`–`to` (inclusive, at most 92 days): every day with its tasks in display order (timed first by time, then position), occurrences and done tasks included, plus `today`                                                                                                                                                                                                  |
+| `list_someday`   | read-only, idempotent   | The Someday list in its order. Tasks done before the current week's Monday (user's midnight) are archived and left out unless `include_archived`, like the client's `isArchivedSomeday`; `archived_hidden` counts them                                                                                                                                                       |
+| `get_task`       | read-only, idempotent   | One item by id or occurrence id, and for an occurrence or exception its `series` (with the rule)                                                                                                                                                                                                                                                                             |
+| `search_tasks`   | read-only, idempotent   | `query` in text, notes or subtask texts (case-insensitive) over the live rows: a series is found once as the series, changed occurrences as exceptions, losing duplicates never. Filters `from`/`to` (a series counts while it runs in the range), `done`, `color`, `recurring`. Ordered by date, Someday last; `limit` (20, max 100) and an offset `cursor`                 |
+| `export_tasks`   | read-only, idempotent   | The [export file](#export-format), rows selected by `TaskImport::backupRows` like the client's export                                                                                                                                                                                                                                                                        |
+| `create_tasks`   | not destructive         | Up to 100 tasks, all or none: `text`, `date` (omitted: today; null: Someday), `before_id`/`after_id`, `color`, `time`, `notes`, `subtasks`, `recurrence`. Created one by one in the transaction; tasks of the batch with the same `after_id` are chained after each other so they keep their order (the domain alone would reverse them). Errors name the task (`Task 2: …`) |
+| `update_task`    | not destructive, idemp. | `text`, `done`, `color`, `time`, `notes`, with `scope` (default `this`). `done` with scope `future` on an occurrence is refused (done is per occurrence)                                                                                                                                                                                                                     |
+| `set_subtasks`   | not destructive         | A list of `add` / `edit` / `toggle` / `remove` / `reorder` operations by subtask id, applied in order inside `updateSubtasks` (one transaction); an unknown subtask id fails the whole call                                                                                                                                                                                  |
+| `move_task`      | not destructive         | To a day or Someday (`date: null`, required), between `before_id` / `after_id`. An occurrence moves alone (it becomes an exception); a series cannot move                                                                                                                                                                                                                    |
+| `duplicate_task` | not destructive         | A plain copy right after the original, new ids for it and its subtasks                                                                                                                                                                                                                                                                                                       |
+| `set_recurrence` | not destructive         | `recurrence` (a rule or null, required) with `scope` (default `future`), as `setRecurrence`. Returns what stands for the task and its `series`                                                                                                                                                                                                                               |
+| `delete_task`    | destructive             | `scope` (default `this`). Returns the deleted item and a `restore_id` (the occurrence id for a deleted occurrence, the row id otherwise; null when `future` only ended the series, which then comes back as `series`)                                                                                                                                                        |
+| `restore_task`   | not destructive, idemp. | Restores a tombstone by id or occurrence id; refuses a task that is not deleted. Restoring a series does not restore the exceptions deleted with it (the description says so)                                                                                                                                                                                                |
+| `carry_over`     | not destructive, idemp. | `carryOverTasks` for the user's today; returns `today`, `moved` and the moved tasks                                                                                                                                                                                                                                                                                          |
+| `import_tasks`   | not destructive         | `file`: the export file as an object or a JSON string; adds its tasks like the client's import. At most 2000 tasks per call, because the import holds the sync write lock for its whole transaction. Returns `added`, `recurring` and the new ids                                                                                                                            |
+
+Every tool also says `openWorldHint: false`.
+
+#### MCP activity log
+
+`mcp_activities` (`App\Models\McpActivity`): one row per successful write tool call, never for reads or errors.
+Columns: `user_id`, `tool`, `client_type` (`token` or `oauth`), `client_id` (the personal token's id or the OAuth
+client's id) and `client_name` (its name at the time of the call, so entries stay readable after a revoke; from
+`AgentAccess::clientOf()`), `task_ids` (JSON: the ids the call touched, occurrence ids and series ids included),
+`summary` (readable English built by the tool, for example "Created 3 tasks on Mon 23 Nov", "Completed “Buy milk”",
+"Moved “Call Ana” to Someday", "Set “Gym” to repeat every Mon, Wed") and `created_at`. It is read-only: there is no
+revert. Rows older than 90 days go with the daily `model:prune --model=App\Models\McpActivity`
+(`routes/console.php`); Settings › Agents also hides them before that. The page lists the user's rows newest first,
+20 per page (`?activity_page=`, a simple paginator), see [style.md](./style.md#settings--agents).
 
 Test a running instance with a personal token, for example
-`bunx @modelcontextprotocol/inspector --cli <APP_URL>/mcp --transport http --header "Authorization: Bearer <token>" --method tools/list`.
+`bunx @modelcontextprotocol/inspector --cli <APP_URL>/mcp --transport http --header "Authorization: Bearer <token>" --method tools/list`
+(`--method tools/call --tool-name create_tasks --tool-arg 'tasks=[{"text":"Try it"}]'` to call one).
 
 ### Versioning
 
