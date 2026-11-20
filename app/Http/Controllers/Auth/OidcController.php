@@ -41,18 +41,17 @@ class OidcController extends Controller
 
         $request->session()->put('oidc.intent', $confirm ? 'confirm' : 'login');
 
-        if ($confirm && ! $request->session()->has('url.intended')) {
-            // Back to the page that asked (e.g. "Delete account"); RequirePassword already set it otherwise.
-            $previous = url()->previous(route('profile.edit'));
-            $request->session()->put('url.intended', $previous === route('password.confirm') ? route('profile.edit') : $previous);
+        if ($confirm) {
+            $request->session()->put('url.intended', $this->confirmTarget($request));
         }
 
         try {
             $driver = $this->provider($request);
 
-            if ($confirm && $driver instanceof OidcProvider) {
-                // Ask the IdP to authenticate the user again, not to reuse its session.
-                $driver->with(['prompt' => 'login', 'max_age' => self::REAUTH_MAX_AGE]);
+            if ($driver instanceof OidcProvider) {
+                // A re-authentication asks the IdP to log the user in again, not to reuse its session. Set on every
+                // redirect: the driver instance may serve several requests.
+                $driver->with($confirm ? ['prompt' => 'login', 'max_age' => self::REAUTH_MAX_AGE] : []);
             }
 
             return $driver->redirect();
@@ -66,6 +65,11 @@ class OidcController extends Controller
     public function callback(Request $request, ResolveOidcUser $resolve): RedirectResponse
     {
         $confirm = $request->session()->pull('oidc.intent') === 'confirm' && $request->user() !== null;
+
+        // Only a re-authentication may come back signed in: never switch a signed-in browser to another account.
+        if (! $confirm && $request->user() !== null) {
+            return redirect()->intended(Fortify::redirects('login'));
+        }
 
         if ($request->filled('error')) {
             return $this->refused($confirm, $request->query('error') === 'access_denied'
@@ -131,15 +135,45 @@ class OidcController extends Controller
             return $this->refused(true, OidcLoginRefused::WRONG_ACCOUNT);
         }
 
+        // `max_age` was requested, so the IdP must say when it authenticated the user (OIDC Core 3.1.2.1). Without
+        // a recent `auth_time` the IdP may have reused its session, which proves nothing.
         $authTime = method_exists($identity, 'getRaw') ? ($identity->getRaw()['auth_time'] ?? null) : null;
 
-        if (is_numeric($authTime) && (int) $authTime < now()->getTimestamp() - self::REAUTH_MAX_AGE) {
-            return $this->refused(true, OidcLoginRefused::FAILED);
+        if (! is_numeric($authTime) || (int) $authTime < now()->getTimestamp() - self::REAUTH_MAX_AGE) {
+            return $this->refused(true, OidcLoginRefused::NOT_REAUTHENTICATED);
         }
 
         $request->session()->passwordConfirmed();
 
         return redirect()->intended(route('profile.edit'));
+    }
+
+    /**
+     * Where a re-authentication returns: the page RequirePassword sent to the confirm page, or else the page with the
+     * button (e.g. "Delete account"). Only a URL of this app, never another site the Referer may name.
+     */
+    private function confirmTarget(Request $request): string
+    {
+        $previous = $request->headers->get('referer') ?? $request->session()->previousUrl();
+        $target = $previous !== null && $this->isConfirmPage($previous)
+            ? $request->session()->get('url.intended')
+            : $previous;
+
+        return is_string($target) && $this->isOwnUrl($target) && ! $this->isConfirmPage($target)
+            ? $target
+            : route('profile.edit');
+    }
+
+    private function isOwnUrl(string $url): bool
+    {
+        $root = rtrim(url('/'), '/');
+
+        return $url === $root || str_starts_with($url, $root.'/');
+    }
+
+    private function isConfirmPage(string $url): bool
+    {
+        return strtok($url, '?#') === route('password.confirm');
     }
 
     /**

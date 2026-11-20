@@ -5,6 +5,7 @@ import {
 } from '@/actions/Laravel/Passkeys/Http/Controllers/PasskeyConfirmationController';
 import {
     AuthField,
+    AuthStatus,
     AuthSubmit,
     authInputClass,
 } from '@/components/auth/auth-form';
@@ -68,6 +69,10 @@ export default function ConfirmPassword({
                         role="alert"
                         className="text-center"
                     />
+                )}
+
+                {!hasPassword && !canConfirmWithOidc && (
+                    <AuthStatus>{t('auth.confirmNoWayDescription')}</AuthStatus>
                 )}
 
                 {canConfirmWithOidc && (

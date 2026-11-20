@@ -30,6 +30,9 @@ final class OidcLoginRefused extends RuntimeException
     /** Re-authentication (instead of a password) came back as another identity than the signed-in account's. */
     public const string WRONG_ACCOUNT = 'wrong_account';
 
+    /** The IdP did not log the user in again for a re-authentication (no recent `auth_time`). */
+    public const string NOT_REAUTHENTICATED = 'not_reauthenticated';
+
     public function __construct(public readonly string $reason)
     {
         parent::__construct("OIDC login refused: {$reason}");

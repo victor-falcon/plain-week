@@ -57,7 +57,7 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $request->user(),
                 // A password-less account (created through the IdP) sets a password instead of changing it.
-                'hasPassword' => $user instanceof User && $user->password !== null,
+                'hasPassword' => $user instanceof User && $user->hasPassword(),
             ],
             // Sign-up links show only while registration is open (REGISTRATION_ENABLED) and the sign-up form
             // exists (not with OIDC_ONLY). Lazy: the "no users yet" check queries only when it is turned off.

@@ -164,8 +164,21 @@ test('a bad ID token is refused', function (Closure $idToken) {
     'unsigned (alg none)' => [fn (string $nonce) => base64url('{"alg":"none","typ":"JWT"}').'.'.base64url((string) json_encode([
         'iss' => 'https://idp.test', 'aud' => 'plain-week', 'sub' => 'idp-user-1', 'nonce' => $nonce, 'exp' => time() + 300,
     ])).'.'],
+    'without exp' => [fn (string $nonce) => JWT::encode(['iss' => 'https://idp.test', 'aud' => 'plain-week', 'sub' => 'idp-user-1', 'nonce' => $nonce, 'iat' => time()], idpKey()['private'], 'RS256', 'key-1')],
     'missing' => [fn (string $nonce) => ''],
 ]);
+
+test('a re-authentication does not leak prompt=login into the next login', function () {
+    fakeIdp(fn (string $nonce) => signedIdToken($nonce));
+    $user = User::factory()->create();
+
+    $location = $this->actingAs($user)->get(route('oidc.redirect', ['confirm' => 1]))->headers->get('Location');
+    expect($location)->toContain('prompt=login');
+
+    auth()->logout();
+    $query = startOidcLogin();
+    expect($query)->not->toHaveKey('prompt')->not->toHaveKey('max_age');
+});
 
 test('a userinfo response for another subject is refused', function () {
     fakeIdp(fn (string $nonce) => signedIdToken($nonce), userinfo: ['sub' => 'someone-else']);

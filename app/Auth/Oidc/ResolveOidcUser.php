@@ -2,11 +2,15 @@
 
 namespace App\Auth\Oidc;
 
+use App\Actions\Fortify\CreateNewUser;
 use App\Auth\Registration;
 use App\Models\User;
 use Illuminate\Auth\Events\Registered;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Laravel\Passport\Passport;
 use Laravel\Socialite\Contracts\User as IdentityUser;
 
 /**
@@ -15,17 +19,26 @@ use Laravel\Socialite\Contracts\User as IdentityUser;
  * 1. The account already linked to this issuer and `sub`.
  * 2. Otherwise the account with the same email, only when the IdP says `email_verified` is true (an unverified
  *    address could belong to anyone). It is then linked to this `sub`, unless it is already linked to another one
- *    at the same issuer.
+ *    at the same issuer. An account whose own email was never verified may have been created by someone else
+ *    with the victim's address ("pre-hijacking"): it is linked, but loses every credential set before (password,
+ *    two-factor, passkeys, sessions, app tokens).
  * 3. Otherwise a new password-less account, only while sign-up is open (`App\Auth\Registration`).
  */
 final class ResolveOidcUser
 {
-    /** The languages an account can get emails in; the first is the fallback (like CreateNewUser). */
-    private const array LOCALES = ['en', 'es'];
-
     public function __construct(private readonly Request $request) {}
 
     public function __invoke(IdentityUser $identity): User
+    {
+        try {
+            return $this->resolve($identity);
+        } catch (UniqueConstraintViolationException) {
+            // Two first logins at once (a double click): the other one created or linked the account.
+            return $this->resolve($identity);
+        }
+    }
+
+    private function resolve(IdentityUser $identity): User
     {
         $issuer = Oidc::issuer();
         $sub = (string) $identity->getId();
@@ -54,14 +67,20 @@ final class ResolveOidcUser
                 throw new OidcLoginRefused(OidcLoginRefused::LINKED_ELSEWHERE);
             }
 
-            // A link to a previous IdP (another issuer) is replaced: the instance moved to this one.
-            $existing->forceFill([
-                'oidc_issuer' => $issuer,
-                'oidc_sub' => $sub,
-                'email_verified_at' => $existing->email_verified_at ?? now(),
-            ])->save();
+            return DB::transaction(function () use ($existing, $issuer, $sub): User {
+                if ($existing->email_verified_at === null) {
+                    $this->revokeCredentials($existing);
+                }
 
-            return $existing;
+                // A link to a previous IdP (another issuer) is replaced: the instance moved to this one.
+                $existing->forceFill([
+                    'oidc_issuer' => $issuer,
+                    'oidc_sub' => $sub,
+                    'email_verified_at' => now(),
+                ])->save();
+
+                return $existing;
+            });
         }
 
         if (! Registration::open()) {
@@ -76,13 +95,38 @@ final class ResolveOidcUser
             'email_verified_at' => $verified ? now() : null,
             'oidc_issuer' => $issuer,
             'oidc_sub' => $sub,
-            'locale' => $this->request->getPreferredLanguage(self::LOCALES),
+            'locale' => $this->request->getPreferredLanguage(CreateNewUser::LOCALES),
         ])->save();
 
         // Like a sign-up: an unverified address gets the verification email.
         event(new Registered($user));
 
         return $user;
+    }
+
+    /**
+     * Whoever registered the address without proving it may still hold a way in: drop them all. The owner of the
+     * address logs in through the IdP from now on, and can set a new password.
+     */
+    private function revokeCredentials(User $user): void
+    {
+        $user->forceFill([
+            'password' => null,
+            'remember_token' => Str::random(60),
+            'two_factor_secret' => null,
+            'two_factor_recovery_codes' => null,
+            'two_factor_confirmed_at' => null,
+        ]);
+
+        $user->passkeys()->delete();
+
+        // App and agent tokens (their refresh tokens go with them) and pending authorization codes.
+        Passport::token()->newQuery()->where('user_id', $user->getKey())->delete();
+        Passport::authCode()->newQuery()->where('user_id', $user->getKey())->delete();
+
+        if (config('session.driver') === 'database') {
+            DB::table(config()->string('session.table', 'sessions'))->where('user_id', $user->getKey())->delete();
+        }
     }
 
     /**

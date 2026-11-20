@@ -58,7 +58,7 @@ class SecurityController extends Controller
      */
     public function update(PasswordUpdateRequest $request): RedirectResponse
     {
-        $set = $request->user()->password === null;
+        $set = ! $request->user()->hasPassword();
 
         $request->user()->update([
             'password' => $request->password,

@@ -16,7 +16,7 @@ class CreateNewUser implements CreatesNewUsers
     use PasswordValidationRules, ProfileValidationRules;
 
     /** The languages an account can get emails in; the first is the fallback. */
-    private const LOCALES = ['en', 'es'];
+    public const array LOCALES = ['en', 'es'];
 
     public function __construct(private Request $request) {}
 

@@ -90,6 +90,15 @@ class User extends Authenticatable implements HasLocalePreference, MustVerifyEma
     }
 
     /**
+     * False for an account created through single sign-on that never set a password: it can't log in with one, and
+     * confirms sensitive actions at the IdP instead.
+     */
+    public function hasPassword(): bool
+    {
+        return $this->password !== null;
+    }
+
+    /**
      * @return HasMany<Task, $this>
      */
     public function tasks(): HasMany

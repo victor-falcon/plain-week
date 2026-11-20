@@ -68,7 +68,7 @@ test('the re-authentication asks the IdP to log the user in again', function () 
 test('re-authenticating at the IdP confirms it and returns to the protected page', function () {
     $this->actingAs($this->user)->get(route('security.edit'));
 
-    oidcCallback(oidcIdentity(), confirm: true)->assertRedirect(route('security.edit'));
+    oidcCallback(oidcIdentity(['auth_time' => time()]), confirm: true)->assertRedirect(route('security.edit'));
 
     expect(session('auth.password_confirmed_at'))->toBeInt();
     $this->get(route('security.edit'))->assertOk();
@@ -78,7 +78,7 @@ test('then two-factor can be turned on', function () {
     $this->actingAs($this->user)->post(route('two-factor.enable'))->assertRedirect(route('password.confirm'));
     expect($this->user->fresh()->two_factor_secret)->toBeNull();
 
-    oidcCallback(oidcIdentity(), confirm: true);
+    oidcCallback(oidcIdentity(['auth_time' => time()]), confirm: true);
 
     $this->post(route('two-factor.enable'))->assertRedirect();
     expect($this->user->fresh()->two_factor_secret)->not->toBeNull();
@@ -87,21 +87,47 @@ test('then two-factor can be turned on', function () {
 test('re-authenticating as someone else at the IdP confirms nothing', function () {
     $this->actingAs($this->user);
 
-    oidcCallback(oidcIdentity(['sub' => 'idp-user-2']), confirm: true)
+    oidcCallback(oidcIdentity(['sub' => 'idp-user-2', 'auth_time' => time()]), confirm: true)
         ->assertRedirect(route('password.confirm'))
         ->assertSessionHas('oidcError', 'wrong_account');
 
     expect(session('auth.password_confirmed_at'))->toBeNull();
 });
 
-test('an old IdP login (auth_time) confirms nothing', function () {
+test('an IdP that did not log the user in again (old or missing auth_time) confirms nothing', function (?int $authTime) {
     $this->actingAs($this->user);
 
-    oidcCallback(oidcIdentity(['auth_time' => now()->subHour()->getTimestamp()]), confirm: true)
-        ->assertRedirect(route('password.confirm'));
+    oidcCallback(oidcIdentity(['auth_time' => $authTime]), confirm: true)
+        ->assertRedirect(route('password.confirm'))
+        ->assertSessionHas('oidcError', 'not_reauthenticated');
 
     expect(session('auth.password_confirmed_at'))->toBeNull();
-});
+})->with([
+    'an hour ago' => [fn () => now()->subHour()->getTimestamp()],
+    'missing' => [null],
+]);
+
+test('the re-authentication returns only to a page of this app', function (string $referer, string $expected) {
+    Http::fake([
+        'https://idp.test/.well-known/openid-configuration' => [
+            'issuer' => 'https://idp.test',
+            'authorization_endpoint' => 'https://idp.test/authorize',
+            'token_endpoint' => 'https://idp.test/token',
+            'jwks_uri' => 'https://idp.test/jwks',
+        ],
+    ]);
+
+    $this->actingAs($this->user)
+        ->withSession(['url.intended' => url('/settings/security')])
+        ->get(route('oidc.redirect', ['confirm' => 1]), ['Referer' => $referer]);
+
+    expect(session('url.intended'))->toBe($expected);
+})->with([
+    'another site' => ['https://evil.test/phish', 'http://localhost:8000/settings/profile'],
+    'a look-alike host' => ['http://localhost:8000.evil.test/x', 'http://localhost:8000/settings/profile'],
+    'the page with the button' => ['http://localhost:8000/settings/profile', 'http://localhost:8000/settings/profile'],
+    'the confirm page keeps the protected page' => ['http://localhost:8000/user/confirm-password', 'http://localhost:8000/settings/security'],
+]);
 
 test('a password can be set without a current one, right after confirming', function () {
     $this->actingAs($this->user)

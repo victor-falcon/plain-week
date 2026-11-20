@@ -293,14 +293,18 @@ What happens when someone logs in through the IdP:
 2. Otherwise, an existing account with the same email is linked to it, **only if the IdP says the email is verified**
    (`email_verified: true`). An unverified address could belong to anyone, so the login is refused with an explanation;
    the user can still log in with their password. An account already linked to another identity at the same IdP is
-   never relinked.
+   never relinked. If the account's own email was never verified in Plain Week, it loses its password, two-factor,
+   passkeys, other sessions and app tokens when it is linked, since someone else could have signed up with that
+   address; its owner logs in through the IdP and can set a new password.
 3. Otherwise a new account is created (name and email from the IdP, the email marked verified when the IdP verified
    it), only while sign-up is open (`REGISTRATION_ENABLED`, see [Closing sign-up](#closing-sign-up)). Accounts created
    this way have no password.
 
 Two-factor authentication still applies: an account with two-factor on gets its code prompt after the IdP. Before
 sensitive settings (two-factor, passkeys, deleting the account), an account without a password confirms by logging in
-at the IdP again instead of typing a password. In Settings › Security it can set a password, to also log in with its
+at the IdP again instead of typing a password. Plain Week asks the IdP to log the user in again (`prompt=login`,
+`max_age`) and needs a recent `auth_time` in the ID token, which the OpenID Connect spec requires in that case. If
+confirming fails with "did not ask you to log in again", the IdP left it out. In Settings › Security it can set a password, to also log in with its
 email (unless `OIDC_ONLY` is on). Logging out of Plain Week does not log out of the IdP.
 
 `OIDC_ONLY=true` makes the IdP the only way in: the login page shows only its button, and password login, the sign-up

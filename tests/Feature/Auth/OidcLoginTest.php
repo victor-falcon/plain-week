@@ -3,6 +3,7 @@
 use App\Models\User;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -129,16 +130,34 @@ describe('callback', function () {
     });
 
     test('an existing account with the same verified email is linked', function () {
-        $user = User::factory()->unverified()->create(['email' => 'ada@example.com']);
+        $user = User::factory()->withTwoFactor()->create(['email' => 'ada@example.com']);
 
-        oidcCallback(oidcIdentity(['email' => 'Ada@Example.com']))->assertRedirect(route('home'));
+        oidcCallback(oidcIdentity(['email' => 'Ada@Example.com']))->assertRedirect(route('two-factor.login'));
 
-        $this->assertAuthenticatedAs($user);
         $user->refresh();
         expect($user->oidc_issuer)->toBe('https://idp.test')
             ->and($user->oidc_sub)->toBe('idp-user-1')
+            ->and($user->hasPassword())->toBeTrue()
+            ->and($user->two_factor_secret)->not->toBeNull();
+    });
+
+    test('an account whose own email was never verified is linked without its previous credentials', function () {
+        // Someone could have signed up with the address before its owner ("pre-hijacking").
+        $user = User::factory()->unverified()->withTwoFactor()->create(['email' => 'ada@example.com']);
+        DB::table('passkeys')->insert(['user_id' => $user->id, 'name' => 'Key', 'credential_id' => 'cred', 'credential' => '{}']);
+        $rememberToken = $user->remember_token;
+
+        oidcCallback(oidcIdentity())->assertRedirect(route('home'));
+
+        $this->assertAuthenticatedAs($user);
+        $user->refresh();
+        expect($user->oidc_sub)->toBe('idp-user-1')
             ->and($user->email_verified_at)->not->toBeNull()
-            ->and($user->password)->not->toBeNull();
+            ->and($user->hasPassword())->toBeFalse()
+            ->and($user->two_factor_secret)->toBeNull()
+            ->and($user->two_factor_confirmed_at)->toBeNull()
+            ->and($user->passkeys()->count())->toBe(0)
+            ->and($user->remember_token)->not->toBe($rememberToken);
     });
 
     test('"email_verified" sent as the string "true" counts', function () {
@@ -249,6 +268,16 @@ describe('callback', function () {
         Event::assertDispatched(TwoFactorAuthenticationChallenged::class);
 
         $this->get(route('two-factor.login'))->assertOk();
+    });
+
+    test('a signed-in browser is never switched to another account', function () {
+        $signedIn = User::factory()->create();
+        User::factory()->create(['oidc_issuer' => 'https://idp.test', 'oidc_sub' => 'idp-user-1']);
+
+        $this->actingAs($signedIn);
+        oidcCallback(oidcIdentity())->assertRedirect(route('home'));
+
+        $this->assertAuthenticatedAs($signedIn);
     });
 
     test('cancelling at the IdP says so', function () {

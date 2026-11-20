@@ -848,17 +848,21 @@ otherwise `App\Http\Middleware\EnsureOidcEnabled` answers `404` on `/auth/oidc/r
 (both `throttle:oidc`, 20 a minute per IP), and the shared `oidc` prop (`enabled`, `only`, `label`) hides the button.
 
 - **Protocol.** `App\Auth\Oidc\OidcProvider` is a first-party Socialite driver (`oidc`, registered in
-  `FortifyServiceProvider`): the authorization code flow with PKCE (S256), Socialite's `state` and a `nonce`, endpoints
+  `OidcServiceProvider`): the authorization code flow with PKCE (S256), Socialite's `state` and a `nonce`, endpoints
   from the discovery document (`OidcDiscovery`, cached an hour; it must name the configured issuer). The ID token is
   verified against the IdP's JWKS (refetched once for an unknown `kid`; `none` and HMAC algorithms are never accepted):
-  `iss`, `aud` (and `azp` with several audiences), `exp`/`iat`/`nbf` with a minute of leeway, and the session's `nonce`.
+  `iss`, `aud` (and `azp` with several audiences), `exp` and `iat` (required) and `nbf` with a minute of leeway, and the
+  session's `nonce`.
   Its `sub` is authoritative; the userinfo response, when the IdP has the endpoint, adds the profile claims and must
   carry the same `sub`. The token request uses `client_secret_basic` (or `client_secret_post` when it is the only one
   the IdP lists), or no secret for a public client.
 - **Accounts.** `users.oidc_issuer` + `users.oidc_sub` (unique together) link an account; `users.password` is nullable.
   `App\Auth\Oidc\ResolveOidcUser` finds the account by issuer and `sub`, else links the account with the same email
   only when `email_verified` is `true` (and it is not linked to another `sub` at the same issuer; a link to another
-  issuer is replaced), else creates a password-less account while `Registration::open()`. Each refusal is an
+  issuer is replaced), else creates a password-less account while `Registration::open()`. Linking an account whose own
+  email was never verified first drops every credential it had (password, two-factor, passkeys, remember token,
+  database sessions, Passport tokens and codes): whoever signed up with the address before its owner proved it
+  ("pre-hijacking") keeps no way in. A unique-constraint race between two first logins retries the lookup once. Each refusal is an
   `OidcLoginRefused` reason flashed as `oidcError` and explained on the login page (`auth.oidcError.*`).
 - **Two-factor.** An account with confirmed two-factor goes through Fortify's challenge after the IdP
   (`login.id`/`login.remember` in the session, like a password login): the IdP replaces the password, not the second
@@ -867,12 +871,15 @@ otherwise `App\Http\Middleware\EnsureOidcEnabled` answers `404` on `/auth/oidc/r
   Laravel asks to confirm the password (`password.confirm`: Settings › Security, two-factor and passkey setup), the
   confirm page offers "Confirm with single sign-on": `/auth/oidc/redirect?confirm=1` asks the IdP for `prompt=login`
   and `max_age=600`, and the callback marks the password confirmed (`auth.password_confirmed_at`) only for the same
-  issuer and `sub`, and not when the IdP's `auth_time` is older than ten minutes. Deleting the account and setting a
+  issuer and `sub`, and only with an ID token `auth_time` from the last ten minutes (an IdP must send it when `max_age`
+  is asked; without it the IdP may have reused its session). It returns to the page RequirePassword stored, or to the
+  page with the button (the Referer), only when that is a URL of this app. Deleting the account and setting a
   password (no current password for them) need that recent confirmation instead of a password field
   (`App\Auth\PasswordConfirmation`).
 - **`OIDC_ONLY`.** `App\Http\Middleware\EnsurePasswordLoginAllowed` (Fortify's route middleware, and on
   `user-password.update`) answers `404` on password login, sign-up, password reset, passkey login and setting a
   password; `canRegister` is false and the login page shows only the IdP button.
+- The callback never switches a signed-in browser to another account (only a re-authentication comes back signed in).
 - Logout is local; the IdP session is left alone (no RP-initiated logout).
 
 **Email verification never blocks the app.** Self-hosted instances often have no mail server, so no route uses the

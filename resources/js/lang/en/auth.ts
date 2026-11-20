@@ -111,4 +111,8 @@ export const auth = {
         'There is no account with this email, and sign-up is closed on this instance.',
     'auth.oidcError.wrong_account':
         'You logged in at your identity provider as someone else. Log in with the identity linked to this account.',
+    'auth.oidcError.not_reauthenticated':
+        'Your identity provider did not ask you to log in again, so it could not confirm it is you. Try again.',
+    'auth.confirmNoWayDescription':
+        'This account has no password, and single sign-on is not available for it right now. Log out and log in again with single sign-on, or set a password with "Forgot it?" on the login page.',
 } as const;

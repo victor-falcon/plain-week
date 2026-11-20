@@ -67,6 +67,7 @@ const OIDC_ERRORS: Record<string, TextKey> = {
     linked_elsewhere: 'auth.oidcError.linked_elsewhere',
     registration_closed: 'auth.oidcError.registration_closed',
     wrong_account: 'auth.oidcError.wrong_account',
+    not_reauthenticated: 'auth.oidcError.not_reauthenticated',
 };
 
 /** The message for a refused single sign-on (a generic one for an unknown reason). */

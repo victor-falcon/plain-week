@@ -83,7 +83,13 @@ class OidcProvider extends AbstractProvider
             throw new OidcException('The userinfo response is for another subject.');
         }
 
-        return $this->userInstance($response, [...$claims, ...$userinfo, 'sub' => $claims['sub']]);
+        // The ID token's own claims (who, and when the IdP authenticated them) win over the userinfo's.
+        return $this->userInstance($response, [
+            ...$claims,
+            ...$userinfo,
+            'sub' => $claims['sub'],
+            'auth_time' => $claims['auth_time'] ?? null,
+        ]);
     }
 
     /**
@@ -174,6 +180,11 @@ class OidcProvider extends AbstractProvider
 
         if (! is_string($nonce) || ! is_string($claims['nonce'] ?? null) || ! hash_equals($nonce, $claims['nonce'])) {
             throw new OidcException('The ID token nonce does not match this login.');
+        }
+
+        // The JWT library checks `exp` only when it is there; an ID token must have it (OIDC Core 2).
+        if (! is_numeric($claims['exp'] ?? null) || ! is_numeric($claims['iat'] ?? null)) {
+            throw new OidcException('The ID token has no expiry or issue time.');
         }
 
         if (! is_string($claims['sub'] ?? null) || $claims['sub'] === '') {

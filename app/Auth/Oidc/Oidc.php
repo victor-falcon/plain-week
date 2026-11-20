@@ -63,7 +63,7 @@ final class Oidc
 
         return [
             'enabled' => $enabled,
-            'only' => $enabled && (bool) config('oidc.only'),
+            'only' => self::only(),
             'label' => $enabled ? self::label() : null,
         ];
     }
