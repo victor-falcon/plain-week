@@ -601,7 +601,8 @@ writes the local database (`moveTask`); sync follows in the background.
 | `lib/planner/drop.ts`                               | Pure functions: drop target → `moveTask` input and the insertion line (`resolveDrop`), edge-zone dates (`edgeDropDate`)             |
 
 - Sensors: mouse after 5 px of movement (so a click still opens the task; the right button never drags), touch with a
-  press that holds 250 ms and then moves (a swipe scrolls, a still hold opens the task's context menu instead; see
+  press that holds 250 ms, which picks the task up, and then moves (a swipe scrolls; a long press never opens the
+  context menu, which touch users reach from the row's ⋮ button; see
   [style.md](./style.md#touch-gestures-on-a-task-row)), keyboard from the row's move button (Space or Enter, arrows,
   Space or Enter to drop, Escape to cancel).
   The click that follows a pointer drag (also one cancelled with Escape) is swallowed. Planner shortcuts are

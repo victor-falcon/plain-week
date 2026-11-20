@@ -118,6 +118,7 @@ export const planner = {
     'planner.markNotDone': 'Mark as not done',
     'planner.markDone': 'Mark as done',
     'planner.taskMenu': 'Task: {text}',
+    'planner.moreTaskActions': 'More actions for {text}',
     'planner.taskColor': 'Task color',
     'planner.tomorrow': 'Tomorrow',
     'planner.nextWeekMove': 'Next week',

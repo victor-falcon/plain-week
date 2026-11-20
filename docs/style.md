@@ -330,6 +330,7 @@ follow Tweek; colors, radius and font come from the tokens.
 | Someday         | The last cell, after Sunday (three tracks wide, one or two by window shape): one ruled list; a header like a day's (bold title, 2px `border-foreground` bottom)                                                                                                                                                                                                                                                                                                                                                                                                                                             | One list, then a single empty row                                          |
 | Task text       | `text-sm`, wraps up to 3 lines (`line-clamp-3`, `wrap-anywhere`); the full text is in the task dialog                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | `text-base`, same wrapping                                                 |
 | Complete button | Check icon at the row end, shown on hover or keyboard focus with a mouse (always on touch screens and when done)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | Always shown                                                               |
+| More button     | A quiet `EllipsisVertical` button (`icon-sm`, `text-muted-foreground`) after the check, opening the task menu as a dropdown (`TaskMenuButton`); hidden only on desktops without a touch screen (`lg:pointer-fine:not-any-pointer-coarse:hidden`), whose users right click                                                                                                                                                                                                                                                                                                                                   | Same                                                                       |
 
 Row behaviour:
 
@@ -465,7 +466,8 @@ rich-text notes and attachments are not part of Plain Week yet.
 ## Task context menu
 
 Built in `resources/js/components/planner/task-context-menu.tsx` (shadcn `ContextMenu`) and wrapped around every task
-row, in the days and in Someday. The actions come in as props (`onColorChange`, `onMoveToTomorrow`,
+row, in the days and in Someday. The row's "more" button (`TaskMenuButton`, shadcn `DropdownMenu`) opens the same items:
+both render one `TaskMenuItems` list, given the context menu's or the dropdown's parts. The actions come in as props (`onColorChange`, `onMoveToTomorrow`,
 `onMoveToNextWeek`, `onMoveToSomeday`, `onDuplicate`, `onDelete`); `TaskRow` wires them to the shared task actions in
 `lib/planner/task-actions.ts`, which the task dialog uses too.
 
@@ -479,9 +481,10 @@ row, in the days and in Someday. The actions come in as props (`onColorChange`, 
 
 On a recurring task, a color change and Delete ask the scope first (moves never do: they move only that task).
 
-It opens with a right click, with Shift+F10 or the context menu key while focus is in the row (anchored to the row's
-start corner), and with a still touch hold (below). A right click never starts a drag (the mouse sensor ignores the
-right button) and never opens the task dialog.
+It opens with a right click, or with Shift+F10 or the context menu key while focus is in the row (anchored to the row's
+start corner). A right click never starts a drag (the mouse sensor ignores the right button) and never opens the task
+dialog. On a touch screen a long press never opens it, since that press drags the task (below): touch users open the
+same items from the row's ⋮ button, which drops the press before the row's drag listeners see it.
 
 ## Recurring tasks
 
@@ -545,19 +548,18 @@ the last loaded item while the next id loads, so it never closes or flashes in b
 A press on a task row means three things on a touch screen, told apart by time and movement. The values live in
 `planner-dnd.tsx`:
 
-| Gesture                                                               | Result                                                                |
-| --------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| Tap                                                                   | Opens the task dialog                                                 |
-| Moving more than 5 px (`TOUCH_DRAG_TOLERANCE_PX`) in the first 250 ms | Scrolls the page; nothing is picked up                                |
-| Holding 250 ms (`TOUCH_DRAG_DELAY_MS`), then moving more than 8 px    | Drags the task (`TOUCH_HOLD_TOLERANCE_PX`); the menu does not open    |
-| Holding still for 500 ms (`TOUCH_MENU_DELAY_MS`)                      | Opens the context menu at the finger; moving afterwards does not drag |
+| Gesture                                                               | Result                                                                 |
+| --------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| Tap                                                                   | Opens the task dialog                                                  |
+| Moving more than 8 px (`TOUCH_DRAG_TOLERANCE_PX`) in the first 250 ms | Scrolls the page; nothing is picked up                                 |
+| Holding 250 ms (`TOUCH_DRAG_DELAY_MS`)                                | Picks the task up where it is; moving it then drags, however long held |
 
-After 250 ms the dnd-kit touch sensor has activated, so the page no longer scrolls under the finger, but the drag stays
-invisible ("held": no dragged pill, no dimmed row, no edge zones, no auto-scroll) until the finger moves. Holding
-still until 500 ms cancels that drag and dispatches a `contextmenu` event at the touch point, which opens the Radix
-menu like a right click. Releasing a held task before it moved does nothing. Radix's own touch long press (700 ms,
-cancelled by any movement) stays as a fallback and only ever reopens the same menu; the row ignores `contextmenu` while
-it is being dragged, so a browser long-press event cannot open the menu mid-drag.
+After 250 ms the dnd-kit touch sensor activates: the task lifts at once (dragged pill, dimmed row, edge zones), so the
+finger knows it can move, and the page no longer scrolls under it. Until the finger has moved more than 8 px
+(`TOUCH_HOLD_TOLERANCE_PX`) the task is "held": no insertion line, no auto-scroll, and releasing it moves nothing.
+A long press never opens the context menu: the row prevents a touch `pointerdown` (which skips Radix's own 700 ms long
+press) and ignores `contextmenu` while a finger is on it (Android sends one on a long press). The menu is on the row's
+⋮ button instead.
 
 ## Settings layout
 

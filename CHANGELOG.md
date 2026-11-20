@@ -18,6 +18,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Close sign-up on private instances.** `REGISTRATION_ENABLED=false` turns off sign-up: the sign-up page answers `404`,
   the login page has no "Sign up" link and the planner's "Sync your week" leads to the login page. Existing users log in
   and reset their password as before. A fresh instance with no users stays open until its first account is created.
+- **A ⋮ button on task rows on touch screens.** It opens the task menu (colors, Tomorrow, Next week, Someday,
+  Duplicate, Delete) that a right click opens on desktop.
+
+### Changed
+
+- **Moving tasks on a phone is easier** ([#85](https://github.com/victor-falcon/plain-week/issues/85)). Press and
+  hold a task and it lifts at once; then move it, however long you held it. A long press no longer opens the task
+  menu instead, and a little jitter while holding no longer turns the press into a scroll.
 
 ### Changed
 
