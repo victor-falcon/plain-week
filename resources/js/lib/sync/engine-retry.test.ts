@@ -82,7 +82,7 @@ function createTransport() {
     }
 
     const transport: SyncTransport = {
-        push: (tasks, signal) => {
+        push: ({ tasks }, signal) => {
             state.pushes++;
             state.pushSizes.push(tasks.length);
 

@@ -1,11 +1,12 @@
 import { Dexie } from 'dexie';
 import type { EntityTable } from 'dexie';
-import type { MetaEntry, OutboxEntry, Task } from './types';
+import type { MetaEntry, OutboxEntry, Task, TaskLabel } from './types';
 
 export class PlainWeekDatabase extends Dexie {
     tasks!: EntityTable<Task, 'id'>;
     outbox!: EntityTable<OutboxEntry, 'task_id'>;
     meta!: EntityTable<MetaEntry, 'key'>;
+    labels!: EntityTable<TaskLabel, 'color'>;
 
     constructor(name = 'plain-week') {
         super(name);
@@ -33,6 +34,9 @@ export class PlainWeekDatabase extends Dexie {
                         task.occurrence_date ??= null;
                     }),
             );
+
+        // Label names, one row per colour.
+        this.version(3).stores({ labels: 'color' });
     }
 }
 
@@ -40,7 +44,7 @@ export const db = new PlainWeekDatabase();
 
 /** Every table of the database; transactions that wipe must include them all. */
 export function allTables(database: PlainWeekDatabase) {
-    return [database.tasks, database.outbox, database.meta];
+    return [database.tasks, database.outbox, database.meta, database.labels];
 }
 
 /**

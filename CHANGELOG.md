@@ -16,6 +16,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   still applies. Accounts created this way have no password: they confirm sensitive settings by logging in at the IdP
   again, and can set a password in Settings › Security. `OIDC_ONLY=true` makes the IdP the only way in, and
   `OIDC_ENABLED=false` turns it off (off by default in SaaS mode). See docs/self-hosting.md.
+- **Label names for task colors (data layer).** Each task color can carry a name that is stored on the device and synced
+  with the account (sync format 3: `labels` on push and pull, in a new `task_labels` table). Clients and native apps on
+  an older sync format keep working and never see labels; an updated client pulls everything once to pick them up.
+  Guests keep their names locally and push them when they sign in, and exports include them. The settings page and the
+  `#label` shortcut come next.
 
 ## [0.4.2] - 2026-11-20
 

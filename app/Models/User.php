@@ -107,6 +107,14 @@ class User extends Authenticatable implements HasLocalePreference, MustVerifyEma
     }
 
     /**
+     * @return HasMany<TaskLabel, $this>
+     */
+    public function taskLabels(): HasMany
+    {
+        return $this->hasMany(TaskLabel::class);
+    }
+
+    /**
      * @return HasMany<McpActivity, $this>
      */
     public function mcpActivities(): HasMany

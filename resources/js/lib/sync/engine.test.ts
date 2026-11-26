@@ -201,7 +201,7 @@ describe('pull', () => {
             new Set(server.requests.map((r) => r.url.split('?')[0])),
         ).toEqual(new Set(['/sync/push', '/sync/pull']));
         server.requests.forEach(({ init }) =>
-            expect(new Headers(init?.headers).get('X-Sync-Format')).toBe('2'),
+            expect(new Headers(init?.headers).get('X-Sync-Format')).toBe('3'),
         );
     });
 
@@ -225,7 +225,7 @@ describe('pull', () => {
             type: 'daily',
             every: 21,
         });
-        expect((await db.meta.get('cursor_format'))?.value).toBe(2);
+        expect((await db.meta.get('cursor_format'))?.value).toBe(3);
 
         await engine.sync();
 

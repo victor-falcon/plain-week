@@ -13,4 +13,12 @@ enum TaskColor: string
     case Mango = 'mango';
     case Green = 'green';
     case Lilac = 'lilac';
+
+    /**
+     * Whether the color can have a label name (every color but `none`).
+     */
+    public function isLabel(): bool
+    {
+        return $this !== self::None;
+    }
 }

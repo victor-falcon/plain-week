@@ -16,6 +16,28 @@ export const TASK_COLORS = [
 
 export type TaskColor = (typeof TASK_COLORS)[number];
 
+/** The colours that can have a label name: every colour but `none`. */
+export type LabelColor = Exclude<TaskColor, 'none'>;
+
+export const LABEL_COLORS = TASK_COLORS.filter(
+    (color): color is LabelColor => color !== 'none',
+);
+
+/** The longest label name, in characters, once trimmed. */
+export const MAX_LABEL_NAME_LENGTH = 24;
+
+/**
+ * The name a user gave a task colour, with exactly the shape of the sync
+ * contract (docs/architecture.md). One record per colour; an empty `name`
+ * means the colour's default (translated) name. Tasks keep storing `color`
+ * only, so renaming never changes them.
+ */
+export type TaskLabel = {
+    color: LabelColor;
+    name: string;
+    updated_at: string;
+};
+
 /**
  * Someday's legacy columns: only a sort key now (Someday is one list on
  * screen), kept as-is for the schema and the sync contract.
@@ -77,12 +99,21 @@ export type Task = {
     occurrence_date: string | null;
 };
 
+/** The kinds of synced records. */
+export type SyncEntity = 'task' | 'label';
+
 /**
- * A pending local change. `revision` grows on every local mutation of the task,
- * so the sync engine can tell whether a record changed while it was in flight.
+ * A pending local change. `revision` grows on every local mutation of the
+ * record, so the sync engine can tell whether it changed while in flight.
  */
 export type OutboxEntry = {
+    /**
+     * The record's key: a task id, or a label's colour (`entity: 'label'`).
+     * Colours never collide with task ids (UUIDs).
+     */
     task_id: string;
+    /** Absent on task entries (they predate labels). */
+    entity?: SyncEntity;
     revision: number;
     /**
      * Set when the server refused this revision as invalid (422). The entry is

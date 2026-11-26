@@ -15,6 +15,7 @@ export async function buildExport(
 ): Promise<ExportFile> {
     const demo = await demoIds(database);
     const rows = await database.tasks.toArray();
+    const labels = await database.labels.toArray();
 
     return {
         format: EXPORT_FORMAT,
@@ -22,5 +23,6 @@ export async function buildExport(
         exported_at: now.toISOString(),
         app_version: appVersion,
         tasks: backupRows(rows.filter((row) => !demo.has(row.id))),
+        labels: labels.filter((label) => label.name !== ''),
     };
 }

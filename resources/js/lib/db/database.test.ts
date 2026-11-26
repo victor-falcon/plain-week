@@ -44,3 +44,23 @@ describe('schema upgrades', () => {
         upgraded.close();
     });
 });
+
+describe('version 3', () => {
+    it('adds the labels table and keeps the tasks', async () => {
+        const previous = new Dexie(NAME);
+
+        previous.version(2).stores({
+            tasks: 'id, date, [date+position], someday_column, updated_at, deleted_at, recurrence.type, [series_id+occurrence_date]',
+            outbox: 'task_id',
+            meta: 'key',
+        });
+        await previous.table('tasks').put(makeTask({ id: 'kept' }));
+        previous.close();
+
+        const upgraded = new PlainWeekDatabase(NAME);
+
+        expect(await upgraded.tasks.get('kept')).toBeDefined();
+        expect(await upgraded.labels.count()).toBe(0);
+        upgraded.close();
+    });
+});

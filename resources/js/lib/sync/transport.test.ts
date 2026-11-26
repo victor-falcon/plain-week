@@ -33,7 +33,7 @@ describe('parseRetryAfter', () => {
 describe('syncHeaders', () => {
     it('sends the sync format and the browser’s time zone', () => {
         expect(syncHeaders()).toEqual({
-            'X-Sync-Format': '2',
+            'X-Sync-Format': '3',
             'X-Timezone': Intl.DateTimeFormat().resolvedOptions().timeZone,
         });
     });
@@ -43,7 +43,7 @@ describe('syncHeaders', () => {
             throw new RangeError('No time zone data');
         });
 
-        expect(syncHeaders()).toEqual({ 'X-Sync-Format': '2' });
+        expect(syncHeaders()).toEqual({ 'X-Sync-Format': '3' });
     });
 });
 
@@ -55,7 +55,7 @@ describe('fetchTransport', () => {
         vi.stubGlobal('fetch', fetch);
 
         await fetchTransport.pull(0, 10);
-        await fetchTransport.push([]);
+        await fetchTransport.push({ tasks: [], labels: [] });
 
         for (const [, init] of fetch.mock.calls as unknown as [
             string,
@@ -63,7 +63,7 @@ describe('fetchTransport', () => {
         ][]) {
             const headers = new Headers(init.headers);
 
-            expect(headers.get('X-Sync-Format')).toBe('2');
+            expect(headers.get('X-Sync-Format')).toBe('3');
             expect(headers.get('X-Timezone')).toBe(
                 Intl.DateTimeFormat().resolvedOptions().timeZone,
             );
@@ -93,7 +93,9 @@ describe('fetchTransport', () => {
             });
         });
 
-        const error = await fetchTransport.push([]).catch((e: unknown) => e);
+        const error = await fetchTransport
+            .push({ tasks: [], labels: [] })
+            .catch((e: unknown) => e);
 
         expect(error).toBeInstanceOf(SyncHttpError);
         expect(error).toMatchObject({ status: 429, retryAfterMs: 12_000 });

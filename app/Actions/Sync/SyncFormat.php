@@ -22,6 +22,11 @@ enum SyncFormat: int
     case DailyRules = 2;
 
     /**
+     * Clients that also sync label names (`labels` on push and pull).
+     */
+    case Labels = 3;
+
+    /**
      * The format of a request: a missing or malformed header means a legacy client, a higher one the newest known.
      */
     public static function fromRequest(Request $request): self
@@ -32,11 +37,21 @@ enum SyncFormat: int
             return self::Legacy;
         }
 
-        return self::tryFrom((int) $value) ?? ((int) $value > self::DailyRules->value ? self::DailyRules : self::Legacy);
+        return self::tryFrom((int) $value) ?? ((int) $value > self::newest()->value ? self::newest() : self::Legacy);
     }
 
     public function understandsDailyRules(): bool
     {
         return $this->value >= self::DailyRules->value;
+    }
+
+    public function understandsLabels(): bool
+    {
+        return $this->value >= self::Labels->value;
+    }
+
+    private static function newest(): self
+    {
+        return self::Labels;
     }
 }

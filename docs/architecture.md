@@ -42,6 +42,21 @@ Same shape on the client and on the wire. Keys are `snake_case` both on the wire
 Server-only columns: `user_id` (foreign key) and `version` (unsigned bigint, monotonically increasing, assigned on every
 accepted write).
 
+## Data model: TaskLabel
+
+The name a user gave a task color, synced with the account (all devices). One record per color and user, keyed by
+`color`; there is no id. Tasks keep storing `color` only, so renaming a label never changes a task.
+
+| Field        | Type                                                                                                     | Notes                                                     |
+| ------------ | -------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| `color`      | `'pink'` \| `'yellow'` \| `'black'` \| `'grey'` \| `'cornflower'` \| `'mango'` \| `'green'` \| `'lilac'` | Every task color but `none`                               |
+| `name`       | string                                                                                                   | Trimmed, at most 24 characters; `''` is the default name  |
+| `updated_at` | ISO-8601 string (UTC, ms)                                                                                | Set by the client on every change; drives last-write-wins |
+
+A color without a record, or with `name: ''`, is shown with its translated default name ("Pink", the
+`planner.color<Color>` keys). Resetting a name writes `''` (there are no tombstones: the record is the whole state).
+Same server-only columns as a task.
+
 ### Recurring tasks
 
 A recurring task is stored as one **series** row plus optional **exception** rows; occurrences are computed on the
@@ -95,9 +110,11 @@ Each user may send 120 sync requests a minute (`throttle:sync`, shared with the 
 (native apps) use the same contract under `/api/v1/sync/*`, see [App API](#app-api).
 
 Both take an optional `X-Sync-Format: <int>` header that says what the client understands: none (or `1`) is a client
-up to v0.0.3; `2` adds daily rules. A missing or malformed header counts as `1`; a higher one as the newest the server
-knows. The client sends `2` (`SYNC_FORMAT` in `lib/sync/transport.ts`); the server's side is
-`App\Actions\Sync\SyncFormat`. What changes for an older format is in [Recurring tasks](#recurring-tasks).
+up to v0.0.3; `2` adds daily rules; `3` adds label names (`labels` on push and pull). A missing or malformed header
+counts as `1`; a higher one as the newest the server knows. The client sends `3` (`SYNC_FORMAT` in
+`lib/sync/transport.ts`); the server's side is `App\Actions\Sync\SyncFormat`. What changes for an older format is in
+[Recurring tasks](#recurring-tasks) and below: a pull below `3` has no `labels` key at all (its cursor passes over
+label versions, so a client that moves to `3` pulls from `0` once, see [Client sync engine](#client-sync-engine)).
 
 Both also take an optional `X-Timezone: <IANA name>` header: the browser's time zone
 (`Intl.DateTimeFormat().resolvedOptions().timeZone`, read on every request by `syncHeaders()` in
@@ -110,25 +127,33 @@ first sync.
 
 ### `POST /sync/push`
 
-Request: `{ "tasks": [<Task>, ...] }` with full records, at most 500.
+Request: `{ "tasks": [<Task>, ...], "labels": [<TaskLabel>, ...] }` with full records, at most 500 tasks. `tasks` is
+required (it may be empty); `labels` is optional (clients before format 3 never send it), at most one record per color.
 
 For each record the server upserts, scoped to the current user, using last-write-wins: the record is applied only if
 there is no stored row or the incoming `updated_at` is greater than or equal to the stored `updated_at`. A record whose
 `id` belongs to another user is rejected (ignored and reported). Every applied write gets a new `version`, greater than
 every existing version.
 
-Response `200`: `{ "applied": [ids], "rejected": [ids], "cursor": <max version for this user> }`.
+Labels follow the same last-write-wins rule, keyed by the user and `color`, and take their versions from the same block
+as the tasks of the push. They are never rejected and are not listed in `applied` or `rejected` (which hold task ids).
+
+Response `200`: `{ "applied": [ids], "rejected": [ids], "cursor": <max version for this user, tasks and labels> }`.
 Validation errors return `422` in Laravel's standard shape.
 
 ### `GET /sync/pull?cursor=<int, default 0>&limit=<int 1–1000, default 500>`
 
-Response `200`: `{ "tasks": [<Task>, ...], "cursor": <version of the last returned row, or the input cursor>, "has_more": bool }`,
-with tasks ordered by `version` ascending. Tombstones (`deleted_at` not null) are included. A `limit` outside 1–1000 is
-a `422` (it is not clamped).
+Response `200`: `{ "tasks": [<Task>, ...], "labels": [<TaskLabel>, ...], "cursor": <version of the last returned row, or
+the input cursor>, "has_more": bool }`, each list ordered by `version` ascending. Tombstones (`deleted_at` not null) are
+included. A `limit` outside 1–1000 is a `422` (it is not clamped).
+
+Tasks and labels share one version sequence, so a page holds the `limit` rows of either kind with the lowest versions
+after the cursor, and `cursor` is the highest of them. `labels` is only in the response for format `3` and up.
 
 ## Client sync engine
 
-- Every local mutation writes the record and an outbox entry (keyed by the task id) in the same Dexie transaction.
+- Every local mutation writes the record and an outbox entry (keyed by the task id, or the color for a label) in the
+  same Dexie transaction.
 - The engine runs only when `auth.user` (Inertia shared prop) is present and `navigator.onLine` is true.
 - Triggers: app start, after local mutations (debounced about 1 s), the `online` event, window focus, the page becoming
   visible, and every 30 s while it is visible. A failed run is retried on its own with backoff.
@@ -141,8 +166,8 @@ a `422` (it is not clamped).
   (`cursor_format`). A cursor from another format (or none: v0.0.3 did not store it) is dropped once and the client
   pulls from `0`, because the server sent rows that format could not read as tombstones. Re-applying the rest is harmless (LWW). The `user_id` is stored there too; if a different
   user logs in, the local database is wiped first.
-- Guest to account: guest data is already in the outbox, so the first authenticated sync pushes it and guest work is
-  kept. Untouched demo tasks are deleted first and never pushed ([Guest onboarding](#guest-onboarding-demo-tasks)).
+- Guest to account: guest data (label names included) is already in the outbox, so the first authenticated sync pushes
+  it and guest work is kept. Untouched demo tasks are deleted first and never pushed ([Guest onboarding](#guest-onboarding-demo-tasks)).
 - Leaving a session wipes the local database completely (privacy on shared devices): on logout, when sync finds the
   session gone, and when a guest page finds data a signed-out user left behind. The device is then a first-time guest's,
   so the demo tasks come back. A guest's own data (no `user_id`) is never wiped on load.
@@ -157,17 +182,20 @@ a `422` (it is not clamped).
 Everything lives in `resources/js/lib/db` (local data), `resources/js/lib/sync` (sync engine) and `resources/js/hooks`.
 The UI imports the repository functions and the hooks; it never talks to `fetch` or to Dexie tables directly.
 
-### IndexedDB schema (Dexie database `plain-week`, version 2)
+### IndexedDB schema (Dexie database `plain-week`, version 3)
 
 | Table    | Primary key | Indexes                                                                                                                   | Content                                                                                                                                                            |
 | -------- | ----------- | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `tasks`  | `id`        | `date`, `[date+position]`, `someday_column`, `updated_at`, `deleted_at`, `recurrence.type`, `[series_id+occurrence_date]` | `Task` records, tombstones included                                                                                                                                |
-| `outbox` | `task_id`   |                                                                                                                           | `{ task_id, revision, failed_revision? }`: pending changes                                                                                                         |
+| `outbox` | `task_id`   |                                                                                                                           | `{ task_id, entity?, revision, failed_revision? }`: pending changes. `entity: 'label'` marks a label, whose key is its color                                       |
 | `meta`   | `key`       |                                                                                                                           | `cursor` (last pulled version), `cursor_format`, `user_id` (owner of the local data), `demo_seeded`, `demo_ids` ([Guest onboarding](#guest-onboarding-demo-tasks)) |
+| `labels` | `color`     |                                                                                                                           | `TaskLabel` records ([Data model](#data-model-tasklabel)); a color never renamed has none                                                                          |
 
 IndexedDB leaves a row out of an index when the indexed value is null, so `recurrence.type` lists series rows only and
 `[series_id+occurrence_date]` exception rows only. Version 2 added both indexes and an upgrade that sets `recurrence`,
-`series_id` and `occurrence_date` to `null` on existing rows.
+`series_id` and `occurrence_date` to `null` on existing rows. Version 3 added `labels`. The outbox keeps its primary key
+(`task_id`) because Dexie cannot change one; an entry without `entity` is a task's, and a color never collides with a
+task id (a UUID).
 
 Helpers that run inside a caller's transaction (`clearAllTables`, `purgeDemoTasks`) return Dexie promises, not native
 ones from an `async` function: awaiting a native promise from a nested async helper can resume outside the transaction
@@ -175,7 +203,8 @@ zone, and Dexie then commits early (`PrematureCommitError`) before the caller's 
 made the first sync of a fresh login fail.
 
 Types are in `lib/db/types.ts`: `Task` (exactly the contract shape), `Recurrence`, `TaskColor` and `TASK_COLORS`
-(colour ids only; the UI owns the swatches), `SomedayColumn`, `Subtask`. Schema changes need a new `this.version(n)` in
+(colour ids only; the UI owns the swatches), `TaskLabel`, `LabelColor` and `LABEL_COLORS` (every colour but `none`),
+`SomedayColumn`, `Subtask`. Schema changes need a new `this.version(n)` in
 `lib/db/database.ts`; never edit a released version.
 
 ### Repository API (`lib/db/tasks.ts`)
@@ -226,10 +255,29 @@ with no readable `done_at` (older data) counts as archived. It is a read filter 
 (`done_at` back to `null`) brings it back. The repository (`listTasksIn`, `moveTask`) still sees archived tasks; they
 keep their positions, and inserting between two shown neighbours stays between them.
 
+### Label names (`lib/db/labels.ts`, `lib/planner/task-labels.ts`)
+
+`setLabelName(color, name)` writes the record and its outbox entry (`entity: 'label'`) in one transaction, with
+`nextTimestamp()` for `updated_at`, then calls `notifyLocalChange()`. The name is trimmed with inner whitespace collapsed
+(`normalizeLabelName`); `''` gives the color back its default name. It throws for `none` or a name over 24 characters,
+and writes nothing when the name does not change. Guests keep names locally; they are pushed on sign-in like guest
+tasks, and the wipes (logout, another user) clear them with everything else.
+
+Pure helpers for the UI, in `lib/planner/task-labels.ts`:
+
+| Function                    | What it does                                                                                                                                                         |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `resolveLabels(stored)`     | Every label color in picker order as `{ color, name, customName, isCustom }`: `name` is the custom name or `defaultLabelName(color)` (`TASK_COLOR_STYLES[c].label`). |
+| `labelTag(name)`            | The slug typed after `#`: lowercase, whitespace as `-` ("Deep work" → `deep-work`).                                                                                  |
+| `labelKey(value)`           | The matching key: lowercase, without spaces or hyphens.                                                                                                              |
+| `findLabel(query, labels)`  | The label whose color id, else effective name, has the query's `labelKey`; null for none or an empty key. The color id always matches, even after a rename.          |
+| `validateLabelNames(names)` | Per color with a custom name: `tooLong`, `reserved` (another color's id or default name: `#green` always means green) or `duplicate` (another custom name).          |
+
 ### Hooks
 
 | Hook                                | Returns                                                                                                                       |
 | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `useTaskLabels()`                   | `{ labels, isLoading, setLabelName }`: `resolveLabels` of the live records (default names during the first read)              |
 | `useWeekTasks(weekStart: Date)`     | `Record<'YYYY-MM-DD', PlannerTask[]>` for the 7 days from `weekStart` (every day present), occurrences included, timed first  |
 | `useSomedayTasks(weekStart, today)` | `PlannerTask[]`, the Someday list in order, without tasks archived before `weekStart`                                         |
 | `useTask(id)`                       | The item (`id` may be an occurrence id), `null` if missing/deleted, `undefined` while loading (also right after `id` changes) |
@@ -449,7 +497,9 @@ only on this device.
    the outbox entry in one transaction from a repository module, with `nextTimestamp()` for `updated_at` and
    `notifyLocalChange()` after commit.
 3. Extend the contract here and the push/pull payloads (server and `lib/sync/transport.ts`), then group the outbox by
-   entity in `SyncEngine.push` and apply the new collection in `SyncEngine.applyRemote` with the same LWW rule.
+   entity in `SyncEngine.recordsOf` and apply the new collection in `SyncEngine.applyRemote` with the same LWW rule
+   (`lastWriteWins`). Labels are the worked example: a new `X-Sync-Format`, so older clients never get the new key and
+   an updated client pulls from `0` once.
 4. Add the new table to `allTables()` in `lib/db/database.ts` so every wipe and sync transaction includes it.
 5. Cover it with Vitest tests (repository + engine against `test/fake-sync-server.ts`).
 
@@ -475,7 +525,8 @@ the claim wipes another user's leftover local data (which only exists after a se
     "version": 1,
     "exported_at": "2026-10-15T08:35:00.123Z",
     "app_version": "0.0.3",
-    "tasks": [<Task>, ...]
+    "tasks": [<Task>, ...],
+    "labels": [<TaskLabel>, ...]
 }
 ```
 
@@ -487,6 +538,9 @@ the claim wipes another user's leftover local data (which only exists after a se
   exception of a live series, because it is what hides a deleted occurrence; without it the occurrence would come back.
   Demo tasks ([Guest onboarding](#guest-onboarding-demo-tasks), `meta.demo_ids`) are never exported: `buildExport`
   skips them, and `prepareLocalData`'s claim already purges the untouched ones, like the first sync of a new account.
+- `labels` holds the renamed colors only, with the [TaskLabel](#data-model-tasklabel) wire shape. It is optional on
+  import (files from before label names have none), and an invalid entry is skipped rather than refusing the file.
+  Import only names a color that still has its default name, so it never renames one.
 - `version` changes only for incompatible changes. A newer version is refused with a message to update Plain Week.
 
 | Function (`lib/transfer`)                      | What it does                                                                                                                                                                                                                                                                                                                         |
@@ -931,6 +985,17 @@ leading spaces in `text`) round-trip exactly.
 | `language`                  | string(35), nullable | Interface language picked in Settings › Preferences; null follows the browser (see [Translations](#translations))  |
 | `welcomed_at`               | timestamp, nullable  | When the welcome email was claimed (SaaS mode, first access; see [saas.md](./saas.md#welcome-email))               |
 
+`task_labels`: the [label names](#data-model-tasklabel), unique on `(user_id, color)`.
+
+| Column       | Type                  | Notes                                                    |
+| ------------ | --------------------- | -------------------------------------------------------- |
+| `id`         | bigint, primary key   | Server-only; never on the wire                           |
+| `user_id`    | foreign key → `users` | Cascades on user delete                                  |
+| `color`      | string(16)            | `App\Enums\TaskColor`, never `none`                      |
+| `name`       | string(64)            | Trimmed, at most 24 characters; `''` is the default name |
+| `updated_at` | datetime(3)           | Client-owned, UTC; drives last-write-wins                |
+| `version`    | unsigned bigint       | From `sync_versions`, like tasks; indexed with `user_id` |
+
 `sync_versions`: a single row (`id = 1`) holding the last version handed out, seeded by its migration.
 
 `google_calendar_connections`: at most one per user (see [Google Calendar](#google-calendar)).
@@ -1337,7 +1402,7 @@ curl -H "Authorization: Bearer $TOKEN" -H 'X-Sync-Format: 2' "$APP_URL/api/v1/sy
 ### Versioning
 
 A push runs in one database transaction (`App\Actions\Sync\PushTasks`). Its first statement increments the
-`sync_versions` counter by the number of records in the batch, reserving a block of versions. Because that write comes
+`sync_versions` counter by the number of records in the batch (tasks and labels), reserving a block of versions. Because that write comes
 first, the transaction holds the write lock from the start (the row lock on MySQL/PostgreSQL, the database write lock
 on SQLite), so concurrent pushes wait for each other and commit their versions in order. A reader therefore never sees
 a version appear behind a cursor it has already passed.
@@ -1355,7 +1420,7 @@ instead of failing.
   touched.
 - A record older than the stored row (`updated_at` strictly lower) is skipped silently: it is in neither `applied` nor
   `rejected`. Equal `updated_at` is applied.
-- `cursor` is the highest version among the user's tasks after the push (`0` if the user has none). It is **not** a
+- `cursor` is the highest version among the user's tasks and labels after the push (`0` if the user has none). It is **not** a
   pull position: other devices may have written versions below it that this client has not pulled yet. Only advance
   the stored pull cursor from `/sync/pull` responses.
 
@@ -1366,7 +1431,9 @@ Validation (`App\Http\Requests\Sync\PushRequest`, with the record rules in `App\
 `id` a string of at most 255 characters);
 timestamps exactly `YYYY-MM-DDTHH:mm:ss.sssZ` (what `Date.prototype.toISOString()` produces); `id` must be lowercase
 (the primary key is case sensitive). `text`, `notes` and subtask `text` have no length limit; `position` is at most
-255 characters.
+255 characters. `labels`, when present, must be a list of at most 8 records with exactly `color` (one of the eight
+label colors, each at most once), `name` (a string of at most 24 characters once trimmed; stored trimmed) and
+`updated_at`.
 
 A `422` is not transient: retrying the same batch fails again. The client should surface it as an error instead of
 retrying forever, and must not drop the other records of the batch. `5xx` and network errors are transient (for
