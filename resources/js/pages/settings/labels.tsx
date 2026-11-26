@@ -1,6 +1,6 @@
 import { Head } from '@inertiajs/react';
 import { RotateCcw } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useRef } from 'react';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
 import { SyncProvider } from '@/components/sync-provider';
@@ -12,6 +12,7 @@ import {
     TooltipContent,
     TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { useLabelNameField } from '@/hooks/use-label-name-field';
 import { useTaskLabels } from '@/hooks/use-task-labels';
 import { normalizeLabelName } from '@/lib/db/labels';
 import { MAX_LABEL_NAME_LENGTH } from '@/lib/db/types';
@@ -21,13 +22,10 @@ import {
     defaultLabelName,
     labelKey,
     labelTag,
-    validateLabelNames,
 } from '@/lib/planner/task-labels';
 import type { LabelNameError, TaskLabelView } from '@/lib/planner/task-labels';
 import { TASK_COLOR_STYLES } from '@/lib/planner/task-colors';
-
-/** How long typing pauses before a valid name is saved. */
-const SAVE_DELAY_MS = 400;
+import { cn } from '@/lib/utils';
 
 /**
  * Settings › Labels: a name for each task color, typed after `#` in a new
@@ -74,24 +72,6 @@ export default function Labels() {
     );
 }
 
-/**
- * The error for `name` typed for `color`, checked against the names the
- * other colors have now (not against other fields' unsaved edits).
- */
-function nameError(
-    color: LabelColor,
-    name: string,
-    labels: readonly TaskLabelView[],
-): LabelNameError | undefined {
-    const names: Partial<Record<LabelColor, string>> = {};
-    labels.forEach((label) => {
-        names[label.color] = label.customName ?? '';
-    });
-    names[color] = name;
-
-    return validateLabelNames(names)[color];
-}
-
 function errorMessage(
     error: LabelNameError,
     color: LabelColor,
@@ -122,21 +102,8 @@ function errorMessage(
 }
 
 /**
- * The name to store for what was typed: `''` (the default name) for an empty
- * field or the color's own name.
- */
-function nameToStore(color: LabelColor, typed: string): string {
-    const name = normalizeLabelName(typed);
-
-    return labelKey(name) === labelKey(defaultLabelName(color)) ? '' : name;
-}
-
-/**
- * One label: swatch, color name, the name field, the tag it gives and a
- * reset button while it has a custom name. The field shows the typed text
- * (`draft`) until the stored name catches up; after that it follows the
- * stored name, so a rename synced from another device shows up. An invalid
- * name stays in the field with its error and is not saved.
+ * One label: swatch, color name, the name field (`useLabelNameField`), the
+ * tag it gives and a reset button while it has a custom name.
  */
 function LabelRow({
     label,
@@ -148,88 +115,12 @@ function LabelRow({
     onSave: (color: LabelColor, name: string) => Promise<void>;
 }) {
     const { color } = label;
-    const [draft, setDraft] = useState<string | null>(null);
-    const value = draft ?? label.customName ?? '';
-    const error = nameError(color, value, labels);
-    const pending = useRef<string | null>(null);
+    const inputRef = useRef<HTMLInputElement>(null);
+    const field = useLabelNameField(label, labels, onSave, inputRef);
     const colorName = defaultLabelName(color);
     const inputId = `label-${color}`;
     const errorId = `${inputId}-error`;
-
-    const save = (name: string) => {
-        pending.current = null;
-
-        if (name !== (label.customName ?? '')) {
-            void onSave(color, name).catch((reason: unknown) => {
-                console.warn('Could not save the label name.', reason);
-            });
-        }
-    };
-
-    // Save a valid edit once typing pauses.
-    const target = draft !== null && !error ? nameToStore(color, draft) : null;
-    useEffect(() => {
-        if (target === null) {
-            return;
-        }
-
-        pending.current = target;
-        const timer = window.setTimeout(() => save(target), SAVE_DELAY_MS);
-
-        return () => window.clearTimeout(timer);
-        // `save` reads the latest stored name; only a new target reschedules.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [target]);
-
-    // Leaving the page saves what is still waiting.
-    const saveRef = useRef(save);
-    saveRef.current = save;
-    useEffect(
-        () => () => {
-            if (pending.current !== null) {
-                saveRef.current(pending.current);
-            }
-        },
-        [],
-    );
-
-    // A stored name that changes while the field is not being edited (the
-    // save landed, or a rename synced) replaces the typed text.
-    const [focused, setFocused] = useState(false);
-    const [stored, setStored] = useState(label.customName);
-    if (label.customName !== stored) {
-        setStored(label.customName);
-
-        if (!focused) {
-            setDraft(null);
-        }
-    }
-
-    const flush = () => {
-        if (draft === null || error) {
-            return;
-        }
-
-        const name = nameToStore(color, draft);
-        save(name);
-
-        // Nothing changes: the stored name will not come back to clear it.
-        if (name === (label.customName ?? '')) {
-            setDraft(null);
-        }
-    };
-
-    const reset = () => {
-        pending.current = null;
-        setDraft(null);
-        save('');
-    };
-
-    const shown =
-        draft !== null && !error
-            ? nameToStore(color, draft) || colorName
-            : label.name;
-    const canReset = value.trim() !== '' || label.isCustom;
+    const tag = `#${labelTag(field.shownName)}`;
 
     return (
         <li
@@ -239,50 +130,57 @@ function LabelRow({
             <div className="flex items-center gap-2 sm:h-9 sm:w-28 sm:shrink-0">
                 <span
                     aria-hidden
-                    className={`size-4 shrink-0 rounded-full ${TASK_COLOR_STYLES[color].swatch}`}
+                    className={cn(
+                        'size-4 shrink-0 rounded-full',
+                        TASK_COLOR_STYLES[color].swatch,
+                    )}
                 />
                 <Label htmlFor={inputId}>{colorName}</Label>
             </div>
             <div className="flex min-w-0 flex-1 items-start gap-2">
                 <div className="min-w-0 flex-1 space-y-1">
                     <Input
+                        ref={inputRef}
                         id={inputId}
-                        value={value}
+                        value={field.value}
                         placeholder={colorName}
                         maxLength={MAX_LABEL_NAME_LENGTH}
                         autoComplete="off"
                         spellCheck={false}
-                        aria-invalid={error ? true : undefined}
-                        aria-describedby={error ? errorId : undefined}
-                        onChange={(event) => setDraft(event.target.value)}
-                        onFocus={() => setFocused(true)}
-                        onBlur={() => {
-                            setFocused(false);
-                            flush();
-                        }}
+                        aria-invalid={field.error ? true : undefined}
+                        aria-describedby={field.error ? errorId : undefined}
+                        onChange={(event) => field.onChange(event.target.value)}
+                        onFocus={field.onFocus}
+                        onBlur={field.onBlur}
                         onKeyDown={(event) => {
                             if (event.key === 'Enter') {
-                                flush();
+                                field.commit();
                             }
                         }}
                     />
                     <InputError
                         id={errorId}
                         message={
-                            error
-                                ? errorMessage(error, color, value, labels)
+                            field.error
+                                ? errorMessage(
+                                      field.error,
+                                      color,
+                                      field.value,
+                                      labels,
+                                  )
                                 : undefined
                         }
                     />
                 </div>
                 <span
-                    className="flex h-9 w-24 shrink-0 items-center truncate font-mono text-xs text-muted-foreground"
+                    className="h-9 w-24 shrink-0 truncate font-mono text-xs leading-9 text-muted-foreground"
+                    title={tag}
                     data-test={`label-tag-${color}`}
                 >
-                    #{labelTag(shown)}
+                    {tag}
                 </span>
                 <div className="size-9 shrink-0">
-                    {canReset && (
+                    {label.isCustom && (
                         <Tooltip>
                             <TooltipTrigger asChild>
                                 <Button
@@ -292,7 +190,7 @@ function LabelRow({
                                     aria-label={t('labels.reset', {
                                         color: colorName,
                                     })}
-                                    onClick={reset}
+                                    onClick={field.reset}
                                 >
                                     <RotateCcw />
                                 </Button>

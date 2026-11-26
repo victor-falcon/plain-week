@@ -626,7 +626,8 @@ locally once typing pauses (400 ms), on blur or Enter. An invalid one (`validate
 the other colors have) stays in the field with `aria-invalid` and an `InputError` under it ("Already used by Pink. Pick
 another name.", "“Green” is the name of another color.") and is not saved; the tag keeps showing the stored name.
 Typing the color's own name counts as no custom name. A muted footnote says an empty name uses the color name and that
-renaming never recolors tasks. The page mounts `SyncProvider`, so renames push while it is open.
+renaming never recolors tasks. The page mounts `SyncProvider`, so renames push while it is open; each field's draft,
+validation and debounced save live in `hooks/use-label-name-field.ts`.
 
 ## Settings › Notifications
 

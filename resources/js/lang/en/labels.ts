@@ -10,5 +10,5 @@ export const labels = {
     'labels.errorDuplicate': 'Already used by {color}. Pick another name.',
     'labels.errorReserved': '“{name}” is the name of another color.',
     'labels.errorTooLong': 'Use at most {max} characters.',
-    'labels.errorInvalid': 'Use at least one letter or number.',
+    'labels.errorInvalid': 'Use at least one character other than a hyphen.',
 } as const;

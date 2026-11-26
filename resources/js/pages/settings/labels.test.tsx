@@ -96,7 +96,7 @@ describe('Settings › Labels', () => {
         );
         expect(screen.queryByRole('button', { name: /save/i })).toBeNull();
         expect(
-            screen.getByRole('button', {
+            await screen.findByRole('button', {
                 name: 'Reset Pink to its color name',
             }),
         ).toBeTruthy();
@@ -139,6 +139,33 @@ describe('Settings › Labels', () => {
                 name: 'Reset Green to its color name',
             }),
         ).toBeNull();
+        // The button is gone: focus stays in the row.
+        expect(document.activeElement).toBe(screen.getByLabelText('Green'));
+    });
+
+    it('does not save an earlier valid name when leaving with an invalid one', async () => {
+        await setup();
+        const field = screen.getByLabelText('Cornflower');
+
+        fireEvent.change(field, { target: { value: 'ab' } });
+        fireEvent.change(field, { target: { value: 'Green' } });
+        cleanup();
+
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        expect(await storedName('cornflower')).toBeUndefined();
+    });
+
+    it('saves a waiting name when leaving the page', async () => {
+        await setup();
+
+        fireEvent.change(screen.getByLabelText('Cornflower'), {
+            target: { value: 'Calls' },
+        });
+        cleanup();
+
+        await waitFor(async () =>
+            expect(await storedName('cornflower')).toBe('Calls'),
+        );
     });
 
     it('refuses a name another label already has', async () => {
