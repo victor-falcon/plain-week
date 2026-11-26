@@ -228,6 +228,28 @@ describe('NewTaskRow smart title', () => {
         expect(task).toMatchObject({ text: 'Gym', color: 'pink' });
     });
 
+    it('opens the suggestions again for a new tag after Esc', async () => {
+        const { user, input } = await startTyping();
+
+        await user.keyboard('Gym #pi{Escape}');
+        expect(input.getAttribute('aria-expanded')).toBe('false');
+
+        await user.keyboard('n');
+        expect(input.getAttribute('aria-expanded')).toBe('false');
+
+        await user.keyboard('{Backspace}{Backspace}{Backspace}{Backspace}#');
+        expect(input.getAttribute('aria-expanded')).toBe('true');
+    });
+
+    it('never repeats text in the mirror when a label sits inside a date', async () => {
+        const { user, input } = await startTyping();
+
+        await user.keyboard('31 #pink Dec Gym');
+
+        const mirror = document.querySelector('[data-smart-mirror]')!;
+        expect(mirror.textContent).toBe(input.value);
+    });
+
     it('creates the task with its time and colour', async () => {
         const { user } = await startTyping();
 

@@ -105,6 +105,11 @@ export function NewTaskRow({
         [tag, labels],
     );
     const open = focused && tag !== null && dismissedAt !== tag.start;
+
+    // A dismissal lasts until its tag is gone: a new `#` opens them again.
+    if (tag === null && dismissedAt !== null) {
+        setDismissedAt(null);
+    }
     const active =
         suggestions.find((item) => item.color === activeColor) ??
         suggestions[0];
@@ -214,7 +219,9 @@ export function NewTaskRow({
     };
 
     const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-        if (event.nativeEvent.isComposing) {
+        // Safari sends the Enter that commits an IME candidate after
+        // `compositionend`, as key code 229.
+        if (event.nativeEvent.isComposing || event.keyCode === 229) {
             return;
         }
 
@@ -259,6 +266,7 @@ export function NewTaskRow({
 
     const hasChips =
         parsed.date !== null || parsed.time !== null || parsed.color !== null;
+    const showsChips = focused && (hasChips || value === '');
 
     return (
         // The keyboard cursor stops on the row itself, not its input: keys
@@ -303,7 +311,7 @@ export function NewTaskRow({
                             aria-activedescendant={
                                 open ? listIds.active : undefined
                             }
-                            aria-describedby={focused ? chipsId : undefined}
+                            aria-describedby={showsChips ? chipsId : undefined}
                             autoComplete="off"
                             enterKeyHint="done"
                             value={value}
@@ -318,7 +326,7 @@ export function NewTaskRow({
                                 'relative h-full rounded-none border-0 bg-transparent text-transparent caret-foreground shadow-none selection:bg-primary/25 selection:text-transparent focus-visible:ring-0',
                             )}
                         />
-                        {focused && (
+                        {showsChips && (
                             <SmartTitleChips
                                 id={chipsId}
                                 parsed={parsed}

@@ -91,6 +91,12 @@ export function SmartTitleMirror({
     let at = 0;
 
     marksOf(parsed).forEach((mark) => {
+        // A label typed inside a date ("31 #pink Dec") overlaps it: keep the
+        // first mark so the mirror never repeats text.
+        if (mark.start < at) {
+            return;
+        }
+
         parts.push(value.slice(at, mark.start));
         parts.push(
             <mark
@@ -167,7 +173,7 @@ export function SmartTitleChips({ id, parsed, labels, showHint }: ChipsProps) {
             id={id}
             data-smart-chips
             aria-label={t('planner.smartTitleChips')}
-            className="pointer-events-none absolute start-2 top-full z-20 mt-1 flex max-w-[calc(100%-1rem)] flex-wrap gap-1"
+            className="pointer-events-none absolute start-2 top-full z-20 mt-1 flex max-w-[calc(100%-1rem)] gap-1 overflow-hidden"
         >
             {date && (
                 <li>
@@ -229,7 +235,11 @@ export function LabelSuggestions({
             onValueChange={(value) => onActiveChange(value as LabelColor)}
             className="rounded-2xl"
         >
-            <CommandList ref={ref} label={t('planner.labelSuggestions')}>
+            <CommandList
+                ref={ref}
+                label={t('planner.labelSuggestions')}
+                className="max-h-60"
+            >
                 <CommandEmpty className="px-3 py-2 text-start text-muted-foreground">
                     {t('planner.noLabelMatch', { query })}
                 </CommandEmpty>
