@@ -175,6 +175,8 @@ function LabelRow({
                 <span
                     className="h-9 w-24 shrink-0 truncate font-mono text-xs leading-9 text-muted-foreground"
                     title={tag}
+                    // Keeps the `#` before the name in right-to-left text.
+                    dir="ltr"
                     data-test={`label-tag-${color}`}
                 >
                     {tag}
