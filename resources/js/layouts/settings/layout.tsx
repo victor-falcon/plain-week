@@ -70,9 +70,10 @@ const sectionNavItems: SettingsNavItem[] = [
         title: 'settings.nav.integrations',
         href: editIntegrations(),
         visible: (props) =>
-            (props.integrations?.googleCalendar ||
-                props.integrations?.icsFeed) ??
-            false,
+            Boolean(
+                props.integrations?.googleCalendar ||
+                props.integrations?.icsFeed,
+            ),
     },
     {
         title: 'settings.nav.agents',

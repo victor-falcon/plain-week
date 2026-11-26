@@ -212,7 +212,9 @@ export default function Integrations({
     icsFeed,
     canEnableIcsFeed,
 }: Props) {
-    const googleAvailable =
+    // Whether the instance has Google keys is a shared prop (the nav uses it
+    // too); `googleCalendar` above is this account's connection.
+    const googleConfigured =
         usePage().props.integrations?.googleCalendar ?? false;
 
     return (
@@ -228,7 +230,7 @@ export default function Integrations({
                     description={t('settings.integrations.description')}
                 />
 
-                {googleAvailable && (
+                {googleConfigured && (
                     <GoogleCalendarCard connection={googleCalendar} />
                 )}
 

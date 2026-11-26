@@ -171,6 +171,35 @@ describe('Calendar feed', () => {
         });
     });
 
+    it('keeps the dialog open and says so when the request fails', async () => {
+        router.post.mockImplementation(
+            (
+                _url: unknown,
+                _data: unknown,
+                options: {
+                    onHttpException: () => boolean;
+                    onFinish: () => void;
+                },
+            ) => {
+                expect(options.onHttpException()).toBe(false);
+                options.onFinish();
+            },
+        );
+        const user = renderPage({ icsFeed: { url: FEED_URL } });
+
+        await user.click(
+            screen.getByRole('button', { name: 'Regenerate URL' }),
+        );
+        await user.click(
+            within(screen.getByRole('alertdialog')).getByRole('button', {
+                name: 'Regenerate URL',
+            }),
+        );
+
+        expect(await screen.findByText(/That did not work/)).toBeTruthy();
+        expect(screen.getByRole('alertdialog')).toBeTruthy();
+    });
+
     it('says calendars stopped updating without a plan and keeps only Disable', () => {
         renderPage({ icsFeed: { url: FEED_URL }, canEnableIcsFeed: false });
 
@@ -179,6 +208,9 @@ describe('Calendar feed', () => {
         ).toBeTruthy();
         expect(
             screen.queryByRole('button', { name: 'Regenerate URL' }),
+        ).toBeNull();
+        expect(
+            screen.queryByRole('link', { name: 'Open in Calendar app' }),
         ).toBeNull();
         expect(screen.getByRole('button', { name: 'Disable' })).toBeTruthy();
     });

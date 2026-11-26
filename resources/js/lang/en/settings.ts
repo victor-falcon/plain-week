@@ -203,7 +203,10 @@ export const settings = {
         'The calendar feed needs a paid plan: <plan>choose a plan</plan> to turn it on.',
     'settings.integrations.ics.enable': 'Enable',
     'settings.integrations.ics.urlLabel': 'Calendar feed URL',
+    'settings.integrations.ics.copy': 'Copy',
     'settings.integrations.ics.copied': 'URL copied',
+    'settings.integrations.ics.copyFailed':
+        'Could not copy. Select the URL and copy it instead.',
     'settings.integrations.ics.open': 'Open in Calendar app',
     'settings.integrations.ics.private':
         'Keep this link private: anyone with it can see your tasks and notes.',
@@ -211,6 +214,8 @@ export const settings = {
     /** `<plan>` wraps the link to the plans page. */
     'settings.integrations.ics.paused':
         'The calendar feed needs a paid plan. <plan>Choose a plan</plan> to get updates again, or disable it.',
+    'settings.integrations.ics.failed':
+        'That did not work. Try again in a minute.',
     'settings.integrations.ics.howTo': 'How to subscribe',
     /** `<b>` wraps the app name and the menu path. */
     'settings.integrations.ics.howToApple':

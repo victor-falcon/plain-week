@@ -709,8 +709,9 @@ has two states:
   `InputGroupButton` (the icon turns into a check and a toast confirms), an `Alert` "Keep this link private…", a
   `Collapsible` "How to subscribe" with one line per app, and in the footer a filled "Open in Calendar app" link (the
   same URL with `webcal://`), an outline "Regenerate URL" and a ghost "Disable", each behind an `AlertDialog` with a
-  destructive action. Without a plan in SaaS mode a destructive `Alert` says calendars stopped updating (link to
-  `/plans`) and "Regenerate URL" is hidden; "Disable" always works.
+  destructive action (the dialog stays open, with a `toast.error`, when the request fails). Without a plan in SaaS
+  mode a destructive `Alert` says calendars stopped updating (link to `/plans`) and "Open in Calendar app" and
+  "Regenerate URL" are hidden; "Disable" always works.
 
 ## Settings › Agents & apps
 

@@ -7,7 +7,7 @@ import {
     Copy,
     ShieldAlert,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { toast } from 'sonner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -53,7 +53,7 @@ import { destroy, store } from '@/routes/integrations/ics';
 export type IcsFeed = { url: string };
 
 /** The same URL with the `webcal://` scheme, which opens the calendar app. */
-export function webcalUrl(url: string): string {
+function webcalUrl(url: string): string {
     return url.replace(/^https?:\/\//, 'webcal://');
 }
 
@@ -73,6 +73,33 @@ const planLink = (text: ReactNode) => (
     </Link>
 );
 
+type Callbacks = { onSuccess?: () => void; onFinish: () => void };
+
+/**
+ * Turns the feed on or gives it a new URL (`post`), or turns it off
+ * (`delete`). The server answers with a redirect and a toast; a failed request
+ * (the rate limit, the network) gets a toast instead of Inertia's error page.
+ */
+function send(method: 'post' | 'delete', callbacks: Callbacks) {
+    const failed = () => {
+        toast.error(t('settings.integrations.ics.failed'));
+
+        return false;
+    };
+    const options = {
+        preserveScroll: true,
+        ...callbacks,
+        onHttpException: failed,
+        onNetworkError: failed,
+    };
+
+    if (method === 'post') {
+        router.post(store(), {}, options);
+    } else {
+        router.delete(destroy(), options);
+    }
+}
+
 /** A button that asks before a request that can't be undone (a new URL, turning it off). */
 function ConfirmButton({
     label,
@@ -85,7 +112,7 @@ function ConfirmButton({
     label: string;
     title: string;
     description: string;
-    run: (onFinish: () => void) => void;
+    run: (callbacks: Callbacks) => void;
     variant: 'outline' | 'ghost';
     testId: string;
 }) {
@@ -119,9 +146,10 @@ function ConfirmButton({
                         onClick={(event) => {
                             event.preventDefault();
                             setProcessing(true);
-                            run(() => {
-                                setProcessing(false);
-                                setOpen(false);
+                            // The dialog stays open when the request fails.
+                            run({
+                                onSuccess: () => setOpen(false),
+                                onFinish: () => setProcessing(false),
                             });
                         }}
                         data-test={`${testId}-confirm`}
@@ -137,8 +165,19 @@ function ConfirmButton({
 
 /** The feed URL, read-only, with a button that copies it. */
 function FeedUrl({ url }: { url: string }) {
-    const [copiedText, copy] = useClipboard();
-    const copied = copiedText === url;
+    const [, copy] = useClipboard();
+    const [copied, setCopied] = useState(false);
+
+    // The check mark goes back to the copy icon after a moment.
+    useEffect(() => {
+        if (!copied) {
+            return;
+        }
+
+        const timer = setTimeout(() => setCopied(false), 2000);
+
+        return () => clearTimeout(timer);
+    }, [copied]);
 
     return (
         <InputGroup>
@@ -155,17 +194,20 @@ function FeedUrl({ url }: { url: string }) {
                 <InputGroupButton
                     onClick={async () => {
                         if (await copy(url)) {
+                            setCopied(true);
                             toast.success(
                                 t('settings.integrations.ics.copied'),
                             );
                         } else {
-                            toast.error(t('settings.agents.copyFailed'));
+                            toast.error(
+                                t('settings.integrations.ics.copyFailed'),
+                            );
                         }
                     }}
                     data-test="ics-feed-copy"
                 >
                     {copied ? <Check /> : <Copy />}
-                    {t('settings.agents.copy')}
+                    {t('settings.integrations.ics.copy')}
                 </InputGroupButton>
             </InputGroupAddon>
         </InputGroup>
@@ -223,11 +265,7 @@ export function IcsFeedCard({
 
     const enable = () => {
         setEnabling(true);
-        router.post(
-            store(),
-            {},
-            { preserveScroll: true, onFinish: () => setEnabling(false) },
-        );
+        send('post', { onFinish: () => setEnabling(false) });
     };
 
     return (
@@ -235,7 +273,7 @@ export function IcsFeedCard({
             <CardHeader>
                 <CardTitle>{t('settings.integrations.ics.title')}</CardTitle>
                 <CardDescription>
-                    {feed === null
+                    {feed === null || !canEnable
                         ? t('settings.integrations.ics.description')
                         : t('settings.integrations.ics.enabled')}
                 </CardDescription>
@@ -297,15 +335,17 @@ export function IcsFeedCard({
                     </Button>
                 ) : (
                     <>
-                        <Button asChild>
-                            <a
-                                href={webcalUrl(feed.url)}
-                                data-test="ics-feed-open"
-                            >
-                                <CalendarPlus />
-                                {t('settings.integrations.ics.open')}
-                            </a>
-                        </Button>
+                        {canEnable && (
+                            <Button asChild>
+                                <a
+                                    href={webcalUrl(feed.url)}
+                                    data-test="ics-feed-open"
+                                >
+                                    <CalendarPlus />
+                                    {t('settings.integrations.ics.open')}
+                                </a>
+                            </Button>
+                        )}
                         {canEnable && (
                             <ConfirmButton
                                 variant="outline"
@@ -318,13 +358,7 @@ export function IcsFeedCard({
                                 description={t(
                                     'settings.integrations.ics.regenerateDescription',
                                 )}
-                                run={(onFinish) =>
-                                    router.post(
-                                        store(),
-                                        {},
-                                        { preserveScroll: true, onFinish },
-                                    )
-                                }
+                                run={(callbacks) => send('post', callbacks)}
                                 testId="ics-feed-regenerate"
                             />
                         )}
@@ -335,12 +369,7 @@ export function IcsFeedCard({
                             description={t(
                                 'settings.integrations.ics.disableDescription',
                             )}
-                            run={(onFinish) =>
-                                router.delete(destroy(), {
-                                    preserveScroll: true,
-                                    onFinish,
-                                })
-                            }
+                            run={(callbacks) => send('delete', callbacks)}
                             testId="ics-feed-disable"
                         />
                     </>
