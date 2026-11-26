@@ -711,7 +711,7 @@ has two states:
   same URL with `webcal://`), an outline "Regenerate URL" and a ghost "Disable", each behind an `AlertDialog` with a
   destructive action (the dialog stays open, with a `toast.error`, when the request fails). Without a plan in SaaS
   mode a destructive `Alert` says calendars stopped updating (link to `/plans`) and "Open in Calendar app" and
-  "Regenerate URL" are hidden; "Disable" always works.
+  "Regenerate URL" and the how-to are hidden; "Disable" (outline then) always works.
 
 ## Settings › Agents & apps
 

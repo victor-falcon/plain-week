@@ -319,7 +319,7 @@ export function IcsFeedCard({
                             </AlertDescription>
                         </Alert>
                     )}
-                    <HowTo />
+                    {canEnable && <HowTo />}
                 </CardContent>
             )}
 
@@ -363,7 +363,7 @@ export function IcsFeedCard({
                             />
                         )}
                         <ConfirmButton
-                            variant="ghost"
+                            variant={canEnable ? 'ghost' : 'outline'}
                             label={t('settings.integrations.ics.disable')}
                             title={t('settings.integrations.ics.disableTitle')}
                             description={t(
