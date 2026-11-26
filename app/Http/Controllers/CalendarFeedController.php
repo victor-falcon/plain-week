@@ -27,6 +27,9 @@ class CalendarFeedController extends Controller
             'Content-Type' => 'text/calendar; charset=utf-8',
             'Content-Disposition' => 'inline; filename="plain-week.ics"',
             'Cache-Control' => 'private, no-cache',
+            // The URL is a secret: never sent on as a referrer, never indexed.
+            'Referrer-Policy' => 'no-referrer',
+            'X-Robots-Tag' => 'noindex, nofollow',
         ]);
 
         // DTSTAMP is the time of the request, so it is left out of the ETag: an unchanged planner answers 304.

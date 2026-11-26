@@ -94,6 +94,21 @@ test('the integrations page passes the feed URL, or null when it is off', functi
         ->assertInertia(fn (Assert $page) => $page->where('icsFeed', ['url' => $feed->url()]));
 });
 
+test('after APP_KEY changed the page shows the feed as off instead of failing, and enabling makes a new URL', function () {
+    $old = IcsFeed::enableFor($this->user);
+    DB::table('ics_feeds')->update(['token' => 'not-decryptable']);
+
+    $this->actingAs($this->user->fresh())
+        ->get(route('integrations.edit'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->where('icsFeed', null));
+
+    $this->actingAs($this->user)->post(route('integrations.ics.store'))->assertRedirect(route('integrations.edit'));
+
+    expect(IcsFeed::findByToken($old->token))->toBeNull()
+        ->and($this->user->icsFeed()->sole()->urlIfReadable())->not->toBeNull();
+});
+
 test('in SaaS mode the page says whether the account can enable the feed', function () {
     config(['saas.enabled' => true]);
 

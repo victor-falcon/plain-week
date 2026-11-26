@@ -15,7 +15,10 @@ final readonly class PlannerEvent
     /** How long a timed task's event lasts. */
     public const int TIMED_MINUTES = 20;
 
-    /** Google refuses an event whose description is too long (about 8 KB), so long notes are cut. */
+    /**
+     * Google refuses an event whose description is too long (about 8 KB), so long notes are cut; in every calendar, so
+     * they all show the same.
+     */
     private const int NOTES_LIMIT = 6000;
 
     private const int TEXT_LIMIT = 1000;

@@ -215,7 +215,10 @@ to it from Apple Calendar, Outlook or any app that takes a `webcal://` or `.ics`
 `APP_URL`, so it must be the address calendar apps can reach: a feed on a private network only works for apps on that
 network (iCloud and Outlook.com fetch it from their own servers). The feed is served as the request comes in, so it
 needs neither the queue worker nor the scheduler. Rotating `APP_KEY` keeps the feeds working but the settings page can
-no longer show their URLs; users then create a new one.
+no longer show their URLs (it shows the feed as off); users then enable it again to get a new one. The feed's limit
+of 600 fetches a minute per IP counts the client address, so a reverse proxy on a public IP must be listed in
+`TRUSTED_PROXIES`, or every feed shares the proxy's address. The secret token is part of the URL path, so it shows up
+in access logs.
 
 ## Notifications
 

@@ -99,6 +99,7 @@ describe('the feed', function () {
             'DTSTAMP' => '20261026T100000Z',
             'DTSTART;VALUE=DATE' => '20261027',
             'DTEND;VALUE=DATE' => '20261028',
+            'TRANSP' => 'TRANSPARENT',
             'SUMMARY' => '🎯 Buy milk',
             'DESCRIPTION' => 'Oat milk\nTwo bottles\, cold\; please\n\nOpen in Plain Week: '.$link,
             'URL' => $link,
@@ -121,7 +122,7 @@ describe('the feed', function () {
     test('a timed task is a 20-minute event in UTC, placed in the user\'s time zone across a DST change', function (string $date, string $start, string $end) {
         feedTask(['date' => $date, 'time' => '09:30']);
 
-        expect(onlyFeedEvent())->toMatchArray(['DTSTART' => $start, 'DTEND' => $end]);
+        expect(onlyFeedEvent())->toMatchArray(['DTSTART' => $start, 'DTEND' => $end])->not->toHaveKey('TRANSP');
     })->with([
         'summer time' => ['2026-10-24', '20261024T073000Z', '20261024T075000Z'],
         'the day clocks go back' => ['2026-10-25', '20261025T083000Z', '20261025T085000Z'],
@@ -234,6 +235,19 @@ describe('the feed', function () {
         feedTask();
 
         expect(fetchFeed()->assertOk()->headers->getCookies())->toBeEmpty();
+    });
+
+    test('keeps its secret URL out of referrers and search engines', function () {
+        fetchFeed()->assertOk()
+            ->assertHeader('Referrer-Policy', 'no-referrer')
+            ->assertHeader('X-Robots-Tag', 'noindex, nofollow');
+    });
+
+    test('an empty planner is a valid calendar without events', function () {
+        $ics = (string) fetchFeed()->assertOk()->getContent();
+
+        expect($ics)->toStartWith("BEGIN:VCALENDAR\r\n")->toEndWith("X-PUBLISHED-TTL:PT15M\r\nEND:VCALENDAR\r\n")
+            ->and(feedEvents($ics))->toBe([]);
     });
 });
 

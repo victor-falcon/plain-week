@@ -39,13 +39,19 @@ final readonly class IcsCalendar
             ->raw('REFRESH-INTERVAL;VALUE=DURATION', self::REFRESH_INTERVAL)
             ->raw('X-PUBLISHED-TTL', self::REFRESH_INTERVAL);
 
+        $events = [];
+
         foreach ($this->window->items($user, $today) as $item) {
             // A feed has no memory of what it sent, so unlike Google an occurrence that is no longer fresh just goes.
-            if (! CalendarWindow::isFresh($item, $today)) {
-                continue;
+            if (CalendarWindow::isFresh($item, $today)) {
+                $event = PlannerEvent::for($item, $timeZone);
+                // One event per key, like Google: two with the same UID would make a broken feed.
+                $events[$event->key] = $event;
             }
+        }
 
-            self::event($ics, PlannerEvent::for($item, $timeZone), $host, $now);
+        foreach ($events as $event) {
+            self::event($ics, $event, $host, $now);
         }
 
         return $ics->end('VCALENDAR')->toString();
@@ -55,7 +61,7 @@ final readonly class IcsCalendar
      * The UID calendar apps match events by: stable across edits and moves, so they update an event instead of adding
      * another. Task ids are unique across accounts.
      */
-    public static function uid(PlannerEvent $event, string $host): string
+    private static function uid(PlannerEvent $event, string $host): string
     {
         return "{$event->key}@{$host}";
     }
@@ -67,7 +73,8 @@ final readonly class IcsCalendar
             ->utc('DTSTAMP', $now);
 
         if ($event->start === null || $event->end === null) {
-            $ics->date('DTSTART', $event->date)->date('DTEND', $event->dayAfter());
+            // A task on a day does not make the user busy all day.
+            $ics->date('DTSTART', $event->date)->date('DTEND', $event->dayAfter())->raw('TRANSP', 'TRANSPARENT');
         } else {
             $ics->utc('DTSTART', $event->start)->utc('DTEND', $event->end);
         }

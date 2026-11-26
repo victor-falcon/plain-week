@@ -27,7 +27,8 @@ class IntegrationsController extends Controller
                 'lastSyncedAt' => $connection->last_synced_at?->toIso8601String(),
                 'lastError' => $connection->isBroken() ? null : $connection->last_error,
             ],
-            'icsFeed' => $feed === null ? null : ['url' => $feed->url()],
+            // Null when off, and when APP_KEY changed since it was made: enabling it again makes a new URL.
+            'icsFeed' => ($url = $feed?->urlIfReadable()) === null ? null : ['url' => $url],
             // Enabling it (or a new URL) needs a plan in SaaS mode; turning it off never does.
             'canEnableIcsFeed' => $user->hasAccess(),
         ]);

@@ -2,11 +2,13 @@
 
 namespace App\Models;
 
+use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 /**
  * A user's ICS subscription feed: the secret token in its URL. See docs/architecture.md, "ICS feed".
@@ -44,7 +46,13 @@ class IcsFeed extends Model
     {
         $token = self::newToken();
 
-        return $user->icsFeed()->updateOrCreate([], ['token' => $token, 'token_hash' => self::hash($token)]);
+        // Replaced rather than updated: an update compares with the old token, which no longer decrypts after an
+        // APP_KEY change.
+        return DB::transaction(function () use ($user, $token) {
+            $user->icsFeed()->delete();
+
+            return $user->icsFeed()->create(['token' => $token, 'token_hash' => self::hash($token)]);
+        });
     }
 
     public static function findByToken(string $token): ?self
@@ -58,6 +66,19 @@ class IcsFeed extends Model
     public function url(): string
     {
         return route('ics-feed.show', ['token' => $this->token]);
+    }
+
+    /**
+     * {@see self::url}, or null when the token can no longer be decrypted (APP_KEY changed). The feed still answers at
+     * its URL, since it is found by hash; only the page can't show it.
+     */
+    public function urlIfReadable(): ?string
+    {
+        try {
+            return $this->url();
+        } catch (DecryptException) {
+            return null;
+        }
     }
 
     /**

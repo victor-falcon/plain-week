@@ -1238,7 +1238,8 @@ nothing configured on the instance. Code lives in `app/Integrations/IcsFeed`; wh
   a plan is needed in SaaS mode). One feed per account (`ics_feeds`). The token is 32 random bytes, base64url (43
   characters); the row stores its SHA-256 for the lookup and an encrypted copy so the page can show the URL again
   (Inertia props `icsFeed: { url } | null` and `canEnableIcsFeed`; shared prop `integrations.icsFeed` is always
-  true). Enabling again gives a new token, so the old URL answers `404` at once. Disabling (`DELETE`) deletes the row;
+  true; `icsFeed` is also null when the token no longer decrypts after an `APP_KEY` change, and enabling again
+  fixes it). Enabling again gives a new token, so the old URL answers `404` at once. Disabling (`DELETE`) deletes the row;
   so does deleting the account (cascade). The URL is `APP_URL/calendar/<token>.ics`; `webcal://` is the same URL with
   that scheme.
 - **The endpoint.** `GET /calendar/{token}.ics` is registered outside the web group (`bootstrap/app.php`): calendar
@@ -1246,18 +1247,21 @@ nothing configured on the instance. Code lives in `app/Integrations/IcsFeed`; wh
   SaaS mode an account without a plan gets `402`. `throttle:ics-feed` allows 20 fetches a minute per feed and 600 per
   IP (calendar services fetch many feeds from the same addresses). The answer is `text/calendar; charset=utf-8`, with
   an `ETag` over the document without its `DTSTAMP` lines, so an unchanged planner answers `304` to `If-None-Match`.
-  It is built on every request from the server's tasks: nothing is queued or stored.
+  It is built on every request from the server's tasks: nothing is queued or stored. `Referrer-Policy: no-referrer`
+  and `X-Robots-Tag: noindex, nofollow` keep the secret URL from leaking; it still shows up in access logs.
 - **The document** (`IcsCalendar`, written by `IcsWriter`, a small RFC 5545 writer: CRLF lines folded at 75 octets
   without splitting a UTF-8 character, TEXT escaping of `\`, `;`, `,` and line breaks, other control characters
   dropped). `VCALENDAR` with `VERSION:2.0`, `PRODID`, `CALSCALE:GREGORIAN`, `METHOD:PUBLISH`, `X-WR-CALNAME:Plain
 Week`, `X-WR-TIMEZONE` (the user's time zone) and a 15-minute refresh hint (`REFRESH-INTERVAL`, `X-PUBLISHED-TTL`).
   One `VEVENT` per item, no `RRULE` and no `VALARM` (Plain Week sends its own notifications): `UID` `<key>@<APP_URL
 host>`, so an edited or moved occurrence (even one that became an exception row) updates the same event;
-  `DTSTAMP` the time of the request; all day as `DTSTART;VALUE=DATE` / `DTEND;VALUE=DATE` (the next day); timed as
+  `DTSTAMP` the time of the request; all day as `DTSTART;VALUE=DATE` / `DTEND;VALUE=DATE` (the next day) with
+  `TRANSP:TRANSPARENT` (a task does not make the user busy all day); timed as
   20 minutes in UTC (`…Z`), computed in the user's time zone (`User::timezoneOrDefault()`), so DST days are right and
   no `VTIMEZONE` is needed; `SUMMARY`, `DESCRIPTION` and `URL` as in Google; `STATUS:CONFIRMED`.
 - **The window.** The same as Google's, except that a feed keeps no memory: items before the 30-day window, and
-  generated occurrences older than 7 days, are not in it, so calendar apps drop them.
+  generated occurrences older than 7 days, are not in it, so calendar apps drop them. One event per key, like Google.
+  Changing the host of `APP_URL` changes every UID, but also the feed URL, so users subscribe again anyway.
 
 ### Push notifications
 
