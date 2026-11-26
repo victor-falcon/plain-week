@@ -881,7 +881,7 @@ Laravel provides:
 | `GET /settings/preferences`                  | `preferences.edit`                    | `auth`. Inertia page `settings/preferences` (values stored in the browser).          |
 | `GET /settings/labels`                       | `labels.edit`                         | `auth`. Inertia page `settings/labels` (names in IndexedDB, synced).                 |
 | `PATCH /settings/language`                   | `language.update`                     | `auth`. `{ language: <offered locale> \| null }` (`users.language`); redirects back. |
-| `GET /settings/integrations`                 | `integrations.edit`                   | `auth`.² Inertia page `settings/integrations`.                                       |
+| `GET /settings/integrations`                 | `integrations.edit`                   | `auth`. Inertia page `settings/integrations` (the Google card only with ²'s keys).   |
 | `GET /settings/integrations/google/connect`  | `integrations.google.connect`         | `auth`.¹ ² Redirects to Google's consent screen (`throttle:10,1`).                   |
 | `GET /settings/integrations/google/callback` | `integrations.google.callback`        | `auth`.¹ ² Google's OAuth redirect URI: stores the connection, creates the calendar. |
 | `DELETE /settings/integrations/google`       | `integrations.google.destroy`         | `auth`.² Deletes the calendar, revokes the grant, forgets the connection.            |
@@ -904,7 +904,8 @@ gets `402` (sync). Billing and legal routes are listed in [saas.md](./saas.md).
 
 ² Plus `EnsureGoogleCalendarConfigured`: `404` unless `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are set. Only
 connecting needs a plan in SaaS mode, so an account whose plan lapsed can still see and remove its connection.
-`integrations.edit` still has it until the page shows the ICS feed card; the ICS routes never do.
+`integrations.edit` and the ICS routes don't have it: the page always shows the ICS feed card and adds the Google
+Calendar card only when the keys are set.
 
 ³ Plus `EnsureWebPushConfigured`: `404` unless `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` and `VAPID_SUBJECT` are set.
 Unsubscribing needs no plan in SaaS mode, so a browser can always be removed.

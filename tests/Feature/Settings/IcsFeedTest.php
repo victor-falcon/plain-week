@@ -64,7 +64,22 @@ test('the routes need no Google credentials', function () {
     $this->actingAs($this->user)->delete(route('integrations.ics.destroy'))->assertRedirect();
 });
 
+test('the integrations page needs no Google credentials and then hides the Google card', function () {
+    config(['services.google.client_id' => null, 'services.google.client_secret' => null]);
+
+    $this->actingAs($this->user)
+        ->get(route('integrations.edit'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('settings/integrations')
+            ->where('integrations.googleCalendar', false)
+            ->where('integrations.icsFeed', true)
+            ->where('icsFeed', null)
+            ->where('canEnableIcsFeed', true));
+});
+
 test('guests are redirected to the login page', function () {
+    $this->get(route('integrations.edit'))->assertRedirect(route('login'));
     $this->post(route('integrations.ics.store'))->assertRedirect(route('login'));
     $this->delete(route('integrations.ics.destroy'))->assertRedirect(route('login'));
 });

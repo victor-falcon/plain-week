@@ -75,7 +75,7 @@ The service worker is only registered by production builds (see [PWA](#pwa-offli
 `bun run build && php artisan serve`.
 
 Google Calendar sync is off by default: `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are empty in `.env.example`, so
-Settings › Integrations is hidden and its routes are `404`. To turn it on, create a test OAuth client as described in
+Settings › Integrations shows only the calendar feed and the Google routes are `404`. To turn it on, create a test OAuth client as described in
 [self-hosting.md](./self-hosting.md#google-calendar) with the redirect URI `APP_URL/settings/integrations/google/callback`
 (`http://localhost:8000/settings/integrations/google/callback` with the default `.env`; open the app on that same
 host so the session survives the round trip), add your Google account as a test user, put both values in `.env` (never

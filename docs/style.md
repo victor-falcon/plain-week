@@ -111,8 +111,8 @@ Installed in `resources/js/components/ui/` and where they are used:
 | `badge`                                                       | Launch discount, "Needs reconnecting", new-task row preview chips                      |
 | `switch`                                                      | Settings › Preferences ("Move unfinished tasks to today")                              |
 | `tabs`                                                        | Settings › Agents & apps (setup snippets per client)                                   |
-| `collapsible`                                                 | Installed, not used yet                                                                |
-| `command` (+ `input-group`)                                   | `#label` suggestions in the new-task row (`smart-title.tsx`); `input-group` unused     |
+| `collapsible`                                                 | "How to subscribe" on the calendar feed card                                           |
+| `command` (+ `input-group`)                                   | `#label` suggestions (`smart-title.tsx`); `input-group`: the calendar feed URL         |
 
 `icon.tsx` and `placeholder-pattern.tsx` in the same folder are starter kit helpers, not shadcn components.
 
@@ -678,11 +678,13 @@ several), then:
 ## Settings › Integrations
 
 Optional connections to other services at `/settings/integrations` (`pages/settings/integrations.tsx`, between
-Preferences and Data in the settings nav). The nav entry and the page exist only when the instance offers an
-integration (shared prop `integrations`). Settings nav entries are a list in
-`layouts/settings/layout.tsx`; an entry with a `visible(props)` predicate is shown only when it returns true.
+Preferences and Data in the settings nav). The nav entry and the page are always there, because the calendar feed
+needs nothing configured; the Google Calendar card shows only when the instance has its keys (shared prop
+`integrations`). Settings nav entries are a list in `layouts/settings/layout.tsx`; an entry with a `visible(props)`
+predicate is shown only when it returns true.
 
-One small `Heading` ("Integrations"), then a `Card` per integration. Google Calendar has three states:
+One small `Heading` ("Integrations"), then a `Card` per integration: Google Calendar (when offered), then the calendar
+feed. Google Calendar has three states:
 
 - **Not connected**: a short description and a filled "Connect" button (a plain link: the browser leaves for Google's
   consent screen and comes back to this page with a toast).
@@ -696,6 +698,19 @@ One small `Heading` ("Integrations"), then a `Card` per integration. Google Cale
 
 Errors from the OAuth round trip (expired sign-in, missing permission, Google down) come back as `toast.error`; a
 cancelled consent screen comes back silently.
+
+The **Calendar feed** card (`components/integrations/ics-feed-card.tsx`, the [ICS feed](./architecture.md#ics-feed))
+has two states:
+
+- **Off**: a description (Apple Calendar, iCloud, Outlook or any calendar app; read-only; refreshes every 15 minutes to
+  a few hours) and a filled "Enable" button. In SaaS mode without a plan the button is disabled and a line links to
+  `/plans`.
+- **On**: the URL in a read-only `InputGroup` (`font-mono text-xs`, `dir="ltr"`, selects itself on focus) with a "Copy"
+  `InputGroupButton` (the icon turns into a check and a toast confirms), an `Alert` "Keep this link private…", a
+  `Collapsible` "How to subscribe" with one line per app, and in the footer a filled "Open in Calendar app" link (the
+  same URL with `webcal://`), an outline "Regenerate URL" and a ghost "Disable", each behind an `AlertDialog` with a
+  destructive action. Without a plan in SaaS mode a destructive `Alert` says calendars stopped updating (link to
+  `/plans`) and "Regenerate URL" is hidden; "Disable" always works.
 
 ## Settings › Agents & apps
 

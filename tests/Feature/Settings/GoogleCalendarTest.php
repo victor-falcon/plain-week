@@ -79,11 +79,16 @@ function googleConnection(User $user, array $overrides = []): GoogleCalendarConn
 describe('when Google is not configured', function () {
     beforeEach(fn () => config(['services.google.client_id' => null]));
 
-    test('the routes are 404', function () {
+    test('the Google routes are 404, but the integrations page is not', function () {
         $user = User::factory()->create();
         googleConnection($user);
 
-        $this->actingAs($user)->get(route('integrations.edit'))->assertNotFound();
+        $this->actingAs($user)
+            ->get(route('integrations.edit'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('settings/integrations')
+                ->where('integrations.googleCalendar', false));
         $this->actingAs($user)->get(route('integrations.google.connect'))->assertNotFound();
         $this->actingAs($user)->get(route('integrations.google.callback'))->assertNotFound();
         $this->actingAs($user)->delete(route('integrations.google.destroy'))->assertNotFound();
@@ -101,7 +106,7 @@ test('empty credentials count as not configured', function (string $key) {
     config(["services.google.{$key}" => '']);
     $user = User::factory()->create();
 
-    $this->actingAs($user)->get(route('integrations.edit'))->assertNotFound();
+    $this->actingAs($user)->get(route('integrations.google.connect'))->assertNotFound();
     $this->actingAs($user)
         ->get(route('profile.edit'))
         ->assertInertia(fn (Assert $page) => $page->where('integrations.googleCalendar', false));

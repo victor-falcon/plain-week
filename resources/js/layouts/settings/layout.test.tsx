@@ -57,7 +57,7 @@ beforeEach(() => {
         auth: { user },
         feedbackUrl: 'https://github.com/victor-falcon/plain-week/discussions',
         notifications: { enabled: false },
-        integrations: { googleCalendar: false },
+        integrations: { googleCalendar: false, icsFeed: true },
         mcp: { enabled: true },
         saas: { enabled: false },
     };
@@ -94,6 +94,7 @@ describe('SettingsLayout', () => {
             'Appearance',
             'Preferences',
             'Labels',
+            'Integrations',
             'Agents & apps',
             'Data',
         ]);
@@ -113,7 +114,7 @@ describe('SettingsLayout', () => {
         props = {
             ...props,
             notifications: { enabled: true },
-            integrations: { googleCalendar: true },
+            integrations: { googleCalendar: true, icsFeed: true },
             saas: { enabled: true },
         };
         renderLayout();
@@ -136,6 +137,16 @@ describe('SettingsLayout', () => {
             'Data',
             'Billing',
         ]);
+    });
+
+    it('hides Integrations when the instance offers none', () => {
+        props = {
+            ...props,
+            integrations: { googleCalendar: false, icsFeed: false },
+        };
+        renderLayout();
+
+        expect(screen.queryByRole('link', { name: 'Integrations' })).toBeNull();
     });
 
     it('has no log out without a signed-in user', () => {

@@ -1,7 +1,9 @@
-import { Head, router } from '@inertiajs/react';
+import { Head, router, usePage } from '@inertiajs/react';
 import { CircleAlert } from 'lucide-react';
 import { useState } from 'react';
 import Heading from '@/components/heading';
+import { IcsFeedCard } from '@/components/integrations/ics-feed-card';
+import type { IcsFeed } from '@/components/integrations/ics-feed-card';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -39,6 +41,10 @@ type GoogleCalendarConnection = {
 
 type Props = {
     googleCalendar: GoogleCalendarConnection | null;
+    /** Null when off (or when its URL no longer decrypts after an APP_KEY change). */
+    icsFeed: IcsFeed | null;
+    /** False in SaaS mode without a plan. */
+    canEnableIcsFeed: boolean;
 };
 
 function DisconnectButton({
@@ -197,11 +203,18 @@ function GoogleCalendarCard({
 }
 
 /**
- * Settings › Integrations: optional connections to other services. Each one
- * is server-side background work and is listed only when the instance has
+ * Settings › Integrations: optional connections to other services. The
+ * calendar feed is always offered; Google Calendar only when the instance has
  * its credentials.
  */
-export default function Integrations({ googleCalendar }: Props) {
+export default function Integrations({
+    googleCalendar,
+    icsFeed,
+    canEnableIcsFeed,
+}: Props) {
+    const googleAvailable =
+        usePage().props.integrations?.googleCalendar ?? false;
+
     return (
         <>
             <Head title={t('settings.integrations.title')} />
@@ -215,7 +228,11 @@ export default function Integrations({ googleCalendar }: Props) {
                     description={t('settings.integrations.description')}
                 />
 
-                <GoogleCalendarCard connection={googleCalendar} />
+                {googleAvailable && (
+                    <GoogleCalendarCard connection={googleCalendar} />
+                )}
+
+                <IcsFeedCard feed={icsFeed} canEnable={canEnableIcsFeed} />
             </div>
         </>
     );

@@ -50,13 +50,16 @@ Route::middleware(['auth'])->group(function () {
         Route::patch('settings/notifications', [NotificationsController::class, 'update'])->name('notifications.update');
     });
 
+    // Settings › Integrations: always there, because the ICS feed needs nothing configured. The page shows the Google
+    // Calendar card only when the instance has its credentials.
+    Route::get('settings/integrations', [IntegrationsController::class, 'edit'])->name('integrations.edit');
+
     // Google Calendar sync: only when the instance has Google OAuth credentials. Connecting is a paid feature in
     // SaaS mode; the page and disconnecting stay reachable, so a lapsed plan can still remove the calendar.
     Route::middleware(EnsureGoogleCalendarConfigured::class)
         ->prefix('settings/integrations')
         ->name('integrations.')
         ->group(function () {
-            Route::get('/', [IntegrationsController::class, 'edit'])->name('edit');
             Route::delete('google', [GoogleCalendarController::class, 'destroy'])->name('google.destroy');
 
             Route::middleware(EnsureHasAccess::class)->group(function () {

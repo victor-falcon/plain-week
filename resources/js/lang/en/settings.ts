@@ -193,6 +193,42 @@ export const settings = {
     /** `<when>` wraps the relative time ("5 minutes ago"), which is `{time}`. */
     'settings.integrations.lastSynced': 'Last synced <when>{time}</when>.',
     'settings.integrations.syncProblem': 'The last sync had a problem',
+    'settings.integrations.ics.title': 'Calendar feed',
+    'settings.integrations.ics.description':
+        'Subscribe to your planned tasks from Apple Calendar, iCloud, Outlook or any calendar app. It is read-only: edit tasks here. Calendar apps refresh it every 15 minutes to a few hours, depending on the app.',
+    'settings.integrations.ics.enabled':
+        'Add this URL to your calendar app as a subscription. Calendar apps refresh it every 15 minutes to a few hours, depending on the app.',
+    /** `<plan>` wraps the link to the plans page. */
+    'settings.integrations.ics.needsPlan':
+        'The calendar feed needs a paid plan: <plan>choose a plan</plan> to turn it on.',
+    'settings.integrations.ics.enable': 'Enable',
+    'settings.integrations.ics.urlLabel': 'Calendar feed URL',
+    'settings.integrations.ics.copied': 'URL copied',
+    'settings.integrations.ics.open': 'Open in Calendar app',
+    'settings.integrations.ics.private':
+        'Keep this link private: anyone with it can see your tasks and notes.',
+    'settings.integrations.ics.pausedTitle': 'Your calendars stopped updating',
+    /** `<plan>` wraps the link to the plans page. */
+    'settings.integrations.ics.paused':
+        'The calendar feed needs a paid plan. <plan>Choose a plan</plan> to get updates again, or disable it.',
+    'settings.integrations.ics.howTo': 'How to subscribe',
+    /** `<b>` wraps the app name and the menu path. */
+    'settings.integrations.ics.howToApple':
+        '<b>Apple Calendar</b> (Mac): File › New Calendar Subscription, or use “Open in Calendar app”.',
+    'settings.integrations.ics.howToIcloud':
+        '<b>iCloud</b> (web): next to Calendars, click + › Add Subscribed Calendar.',
+    'settings.integrations.ics.howToOutlook':
+        '<b>Outlook</b>: Add calendar › Subscribe from web.',
+    'settings.integrations.ics.howToGoogle':
+        '<b>Google Calendar</b>: Other calendars › + › From URL.',
+    'settings.integrations.ics.regenerate': 'Regenerate URL',
+    'settings.integrations.ics.regenerateTitle': 'Make a new URL?',
+    'settings.integrations.ics.regenerateDescription':
+        'The current URL stops working at once: calendars subscribed to it stop updating, and you need to subscribe again with the new one.',
+    'settings.integrations.ics.disable': 'Disable',
+    'settings.integrations.ics.disableTitle': 'Disable the calendar feed?',
+    'settings.integrations.ics.disableDescription':
+        'The URL stops working at once and calendars subscribed to it stop updating. Remove the subscription from your calendar apps. Your tasks stay in Plain Week.',
 
     // Agents
     'settings.agents.title': 'Agents & apps',

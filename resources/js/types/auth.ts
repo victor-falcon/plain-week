@@ -35,6 +35,8 @@ export type Saas = {
 /** Integrations this instance offers; each needs its own credentials. */
 export type Integrations = {
     googleCalendar: boolean;
+    /** The ICS subscription feed: needs nothing configured, so always true. */
+    icsFeed: boolean;
 };
 
 /** Web Push on this instance (`VAPID_*` keys); the key is base64url. */
