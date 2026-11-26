@@ -614,9 +614,23 @@ A second section, "Language", shows only when the instance offers more than Engl
 `Intl.DisplayNames`). Unlike the planner preferences it belongs to the account (`PATCH /settings/language`); once saved,
 the page reloads in the new language.
 
+## Settings › Labels
+
+Names for the task colors at `/settings/labels` (`pages/settings/labels.tsx`, right after Preferences in the settings
+nav). One small `Heading` ("Labels", saying that `#name` in a new task applies one and that names sync), then a bordered
+list (`divide-y rounded-lg border`), one row per label in `TASK_COLORS` order without `none`: the swatch and the color
+name as the `Label` of an `Input` (placeholder the color name, `maxLength` 24), the tag it gives (`#deep-work`, mono,
+muted) and, while the name is custom, a ghost icon button (`RotateCcw`, "Reset Pink to its color name", tooltip "Use
+the color name"). On phones the swatch and name sit above the field. There is no save button: a valid name is saved
+locally once typing pauses (400 ms), on blur or Enter. An invalid one (`validateLabelNames`, checked against the names
+the other colors have) stays in the field with `aria-invalid` and an `InputError` under it ("Already used by Pink. Pick
+another name.", "“Green” is the name of another color.") and is not saved; the tag keeps showing the stored name.
+Typing the color's own name counts as no custom name. A muted footnote says an empty name uses the color name and that
+renaming never recolors tasks. The page mounts `SyncProvider`, so renames push while it is open.
+
 ## Settings › Notifications
 
-Web Push reminders at `/settings/notifications` (`pages/settings/notifications.tsx`, between Preferences and
+Web Push reminders at `/settings/notifications` (`pages/settings/notifications.tsx`, between Labels and
 Integrations in the settings nav, shown only when the shared prop `notifications.enabled` is true). One small `Heading`
 ("Notifications"), a short paragraph saying exactly what is sent (one notification each morning with the pending
 tasks without a time, and one 5 minutes before a timed task; opening one opens its task, or the planner when it lists
@@ -742,4 +756,8 @@ Usage rules:
   is the single source of truth: per color it gives a `label`, the `pill` classes (background and text color around
   the task text; its shape and padding live in `TaskLabel`) and the `swatch` classes (for pickers). The color ids
   themselves live in `lib/db/types.ts` (`TASK_COLORS`).
+- Every color but `none` is also a label the user can rename (Settings › Labels). Pickers name a color with
+  `useTaskColorName()` (the effective label name), not `TASK_COLOR_STYLES[color].label`: in the item's `aria-label`,
+  and in a tooltip on the swatch (`TaskColorSwatch`'s `label` prop; the tooltip sits on the swatch, not on the menu or
+  toggle item, so it does not override the item's `data-state`).
 - To change a color, change its two tokens in both themes and this table.

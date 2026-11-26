@@ -24,6 +24,7 @@ import { edit as editAppearance } from '@/routes/appearance';
 import { edit as editBilling } from '@/routes/billing';
 import { edit as editData } from '@/routes/data';
 import { edit as editIntegrations } from '@/routes/integrations';
+import { edit as editLabels } from '@/routes/labels';
 import { edit as editNotifications } from '@/routes/notifications';
 import { edit as editPreferences } from '@/routes/preferences';
 import { edit } from '@/routes/profile';
@@ -55,6 +56,10 @@ const sectionNavItems: SettingsNavItem[] = [
     {
         title: 'settings.nav.preferences',
         href: editPreferences(),
+    },
+    {
+        title: 'settings.nav.labels',
+        href: editLabels(),
     },
     {
         title: 'settings.nav.notifications',

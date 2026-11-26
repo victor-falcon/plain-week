@@ -9,6 +9,7 @@ export const settings = {
     'settings.nav.security': 'Security',
     'settings.nav.appearance': 'Appearance',
     'settings.nav.preferences': 'Preferences',
+    'settings.nav.labels': 'Labels',
     'settings.nav.notifications': 'Notifications',
     'settings.nav.integrations': 'Integrations',
     'settings.nav.agents': 'Agents & apps',

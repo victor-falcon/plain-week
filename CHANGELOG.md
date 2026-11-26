@@ -21,6 +21,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   an older sync format keep working and never see labels; an updated client pulls everything once to pick them up.
   Guests keep their names locally and push them when they sign in, and exports include them. The settings page and the
   `#label` shortcut come next.
+- **Settings › Labels.** A new settings page to name each task color (for example Pink → "Deep work"): it shows the
+  `#tag` each name gives, saves as you type, offline, and refuses a name another label or color already has. A custom
+  name can be reset to the color name. The color pickers (task menu and task dialog) now name each color after its
+  label.
 
 ## [0.4.2] - 2026-11-20
 

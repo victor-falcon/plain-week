@@ -93,6 +93,7 @@ describe('SettingsLayout', () => {
             'Security',
             'Appearance',
             'Preferences',
+            'Labels',
             'Agents & apps',
             'Data',
         ]);
@@ -128,6 +129,7 @@ describe('SettingsLayout', () => {
             'Security',
             'Appearance',
             'Preferences',
+            'Labels',
             'Notifications',
             'Integrations',
             'Agents & apps',

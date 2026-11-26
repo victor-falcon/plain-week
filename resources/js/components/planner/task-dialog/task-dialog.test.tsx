@@ -13,6 +13,7 @@ import { ScopePromptProvider } from '@/components/planner/scope-prompt';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { db, wipeLocalDatabase } from '@/lib/db/database';
+import { setLabelName } from '@/lib/db/labels';
 import { createTask, listTasksIn } from '@/lib/db/tasks';
 import { toastAction } from '@/test/toasts';
 import type { Task } from '@/lib/db/types';
@@ -230,6 +231,26 @@ describe('TaskDialog', () => {
                 .getByRole('radio', { name: 'Pink' })
                 .getAttribute('aria-checked'),
         ).toBe('true');
+    });
+
+    it('names the colors after their labels', async () => {
+        await setLabelName('green', 'Errands');
+        const { task, user, dialog } = await open();
+
+        await user.click(
+            within(dialog).getByRole('button', { name: 'Color: No color' }),
+        );
+        const green = await screen.findByRole('radio', { name: 'Errands' });
+        expect(screen.queryByRole('radio', { name: 'Green' })).toBeNull();
+
+        await user.hover(green.firstElementChild!);
+        expect((await screen.findByRole('tooltip')).textContent).toBe(
+            'Errands',
+        );
+
+        await user.click(green);
+        await within(dialog).findByRole('button', { name: 'Color: Errands' });
+        expect((await stored(task.id))?.color).toBe('green');
     });
 
     it('adds, edits, toggles and deletes subtasks', async () => {

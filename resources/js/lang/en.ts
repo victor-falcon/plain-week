@@ -3,6 +3,7 @@ import { app } from './en/app';
 import { auth } from './en/auth';
 import { billing } from './en/billing';
 import { common } from './en/common';
+import { labels } from './en/labels';
 import { landing } from './en/landing';
 import { planner } from './en/planner';
 import { pwa } from './en/pwa';
@@ -25,6 +26,7 @@ export const en = {
     ...task,
     ...settings,
     ...preferences,
+    ...labels,
     ...auth,
     ...billing,
     ...landing,

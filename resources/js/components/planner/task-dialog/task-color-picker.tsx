@@ -6,6 +6,7 @@ import {
     PopoverTrigger,
 } from '@/components/ui/popover';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { useTaskColorName } from '@/hooks/use-task-labels';
 import { TASK_COLORS } from '@/lib/db/types';
 import { updateTask } from '@/lib/db/tasks';
 import { TASK_COLOR_STYLES, isTaskColor } from '@/lib/planner/task-colors';
@@ -17,12 +18,13 @@ import { TOOLBAR_BUTTON_CLASS, ToolbarTooltip } from './toolbar-tooltip';
 
 /**
  * Toolbar button showing the task's color as a dot. Its popover holds the
- * nine swatches; the current one is checked.
+ * nine swatches, named after their labels; the current one is checked.
  */
 export function TaskColorPicker() {
     const { task, edit } = useTaskEditor();
     const current = TASK_COLOR_STYLES[task.color];
     const picker = useToolbarPicker('color');
+    const colorName = useTaskColorName();
 
     return (
         <Popover {...picker}>
@@ -33,7 +35,7 @@ export function TaskColorPicker() {
                         variant="ghost"
                         size="icon-sm"
                         aria-label={t('task.colorValue', {
-                            color: current.label,
+                            color: colorName(task.color),
                         })}
                         className={cn(TOOLBAR_BUTTON_CLASS, 'group/color')}
                     >
@@ -68,12 +70,13 @@ export function TaskColorPicker() {
                         <ToggleGroupItem
                             key={color}
                             value={color}
-                            aria-label={TASK_COLOR_STYLES[color].label}
+                            aria-label={colorName(color)}
                             className="size-9 rounded-full p-0 data-[state=on]:bg-transparent"
                         >
                             <TaskColorSwatch
                                 color={color}
                                 checked={color === task.color}
+                                label={colorName(color)}
                             />
                         </ToggleGroupItem>
                     ))}

@@ -32,6 +32,9 @@ Route::middleware(['auth'])->group(function () {
 
     // Planner preferences are stored per device in the browser; the server only serves the page.
     Route::inertia('settings/preferences', 'settings/preferences')->name('preferences.edit');
+    // Label names live in IndexedDB and sync with the account like tasks; the server only serves the page.
+    Route::inertia('settings/labels', 'settings/labels')->name('labels.edit');
+
     // The interface language is the exception: it belongs to the account, so emails and push notifications use it.
     Route::patch('settings/language', [LanguageController::class, 'update'])->name('language.update');
 
