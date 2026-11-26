@@ -15,7 +15,6 @@ import {
     usePlannerDnd,
 } from '@/components/planner/planner-dnd';
 import { TaskRow } from '@/components/planner/task-row';
-import { toDateKey } from '@/lib/db/dates';
 import { createTask, toggleDone } from '@/lib/db/tasks';
 import type { TaskPlacement } from '@/lib/db/tasks';
 import type { PlannerTask } from '@/lib/recurrence/expand';
@@ -23,7 +22,7 @@ import { placementKey } from '@/lib/planner/drop';
 import { formatShortDate, formatWeekday } from '@/lib/planner/format';
 import { rowKey } from '@/lib/planner/repeat';
 import type { ListDropData } from '@/lib/planner/drop';
-import { parseNewTaskInput } from '@/lib/planner/smart-input';
+import type { ParsedNewTask } from '@/lib/planner/smart-input';
 import { t } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 
@@ -99,16 +98,15 @@ export function TaskList({
         }
     }, [taskCount]);
 
-    const handleSubmit = (input: string) => {
-        const { text, date, time } = parseNewTaskInput(
-            input,
-            toDateKey(new Date()),
-        );
+    const handleSubmit = (
+        { text, date, time, color }: ParsedNewTask,
+        input: string,
+    ) => {
         const target = date === null ? placement : { ...placement, date };
         // A task dated elsewhere leaves this list: say where it went.
         const leavesList = date !== null && date !== placement.date;
 
-        createTask({ ...target, text, time })
+        createTask({ ...target, text, time, ...(color && { color }) })
             .then(() => {
                 if (leavesList) {
                     toast(

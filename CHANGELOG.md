@@ -25,6 +25,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   `#tag` each name gives, saves as you type, offline, and refuses a name another label or color already has. A custom
   name can be reset to the color name. The color pickers (task menu and task dialog) now name each color after its
   label.
+- **`#label` in a new task.** Type `#` and a label anywhere in a new task's title ("Gym #pink now") to give it that
+  color; the color id always works (`#green`), and so does a renamed label's name (`#deep-work`). Only the first label
+  applies, and a `#word` that names no label stays in the text. While typing, the row marks the date, time and label it
+  recognized in place, previews them in small chips under the row, and suggests labels as you type `#` (↑ ↓ to move,
+  Enter or Tab to pick, Esc to close).
 
 ## [0.4.2] - 2026-11-20
 

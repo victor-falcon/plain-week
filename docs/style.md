@@ -94,7 +94,7 @@ Installed in `resources/js/components/ui/` and where they are used:
 | `accordion`                                                   | Landing card FAQ                                                                       |
 | `alert-dialog`                                                | Scope prompt (`scope-prompt.tsx`), import preview (Settings › Data), Google disconnect |
 | `progress`                                                    | Import progress (Settings › Data)                                                      |
-| `popover`                                                     | Task dialog date, time, repeat and color pickers                                       |
+| `popover`                                                     | Task dialog date, time, repeat and color pickers; `#label` suggestions (new-task row)  |
 | `calendar`                                                    | Task dialog date picker, repeat end date                                               |
 | `toggle-group` (+ `toggle`)                                   | Task color picker, repeat picker (kind and weekdays)                                   |
 | `select`                                                      | Repeat picker (day of the month)                                                       |
@@ -108,10 +108,11 @@ Installed in `resources/js/components/ui/` and where they are used:
 | `alert`, `card`, `label`, `spinner`, `input-otp`, `separator` | Auth cards and settings pages (from the Laravel starter kit)                           |
 | `skeleton`                                                    | Landing card prices while loading                                                      |
 | `sidebar`, `sheet`, `navigation-menu`, `breadcrumb`           | Installed, not used (left from the starter kit app shell)                              |
-| `badge`                                                       | Launch discount (plan choice, landing card, Settings › Billing), "Needs reconnecting"  |
+| `badge`                                                       | Launch discount, "Needs reconnecting", new-task row preview chips                      |
 | `switch`                                                      | Settings › Preferences ("Move unfinished tasks to today")                              |
 | `tabs`                                                        | Settings › Agents & apps (setup snippets per client)                                   |
 | `collapsible`                                                 | Installed, not used yet                                                                |
+| `command` (+ `input-group`)                                   | `#label` suggestions in the new-task row (`smart-title.tsx`); `input-group` unused     |
 
 `icon.tsx` and `placeholder-pattern.tsx` in the same folder are starter kit helpers, not shadcn components.
 
@@ -345,6 +346,8 @@ Row behaviour:
   need text after them; an impossible one ("31 Feb Gym", "25:00 Gym") stays in the text. A sentence that starts with a
   number and a month word ("2 may be late") is read as a date too; the task can be edited. A task dated away from the
   list it was typed in (Someday included) leaves it with an "Added to Thu 31 Dec" toast and focus stays in the row.
+- A `#label` anywhere in the text gives the task that label's color and is taken out of the text ("Gym #pink now" →
+  pink, "Gym now"); see [Smart title](#smart-title-in-the-new-task-row).
 - The row being typed in lifts with `shadow-md`, a background and extra horizontal padding.
 - A task row holds sibling `Button`s: the text (click, Enter or Space opens the task through `onOpen(taskId)`, the
   seam for the task dialog; a web link in the text is underlined and a click on it opens the link in a new tab
@@ -414,6 +417,30 @@ on its row, which shows the hint). Hints sit only where a key helps:
 
 Row hints use `ROW_HINT_KEY_CLASS` (20px caps, a little smaller than the dialog's); tooltips restyle `Kbd` on their own
 (`in-data-[slot=tooltip-content]`).
+
+### Smart title in the new-task row
+
+`new-task-row.tsx` with its parts in `smart-title.tsx`; the reading is `parseNewTaskInput` (`lib/planner/smart-input.ts`).
+
+- **Marks in place.** The input's text is transparent (`text-transparent caret-foreground`) and a mirror behind it
+  (`aria-hidden`, same padding and font through one shared class string, scrolled with the input by `translateX`)
+  draws the text again with the recognized parts marked: date and time `rounded-sm bg-primary/10 text-primary`, a
+  `#label` that applies its own pill (`TASK_COLOR_STYLES[color].pill`, `rounded-sm`), the tag still being typed
+  underlined (`decoration-2`, solid in the label color once it names one, dotted `decoration-muted-foreground` while it
+  does not). Marks have no padding, so the text never shifts against the caret. The selection is a soft
+  `bg-primary/25` over the mirror's text.
+- **Preview chips.** While the row is focused and something is recognized, outline `Badge`s (`h-6`, `bg-background`,
+  `shadow-sm`) float just under the row: the date ("Fri 27 Nov", locale-aware), the time and the label (swatch dot and
+  name). Focused and empty, a muted hint takes their place: "Start with a day or a time, add #label anywhere". They are
+  `pointer-events-none`, overlay what is below and are the input's `aria-describedby`.
+- **Suggestions.** A `#word` at the end of the text (no space after it yet) opens a `Popover` anchored to the field
+  (`align="start"`, below the chips) holding a `Command` (`shouldFilter={false}`) of the labels whose name, tag or
+  color id starts with what was typed: swatch, name, and the color name muted when the label was renamed. With none:
+  "No label called “x”. It will stay as text." Focus never leaves the input: it is the `combobox`
+  (`aria-expanded`, `aria-controls`, `aria-activedescendant` follow cmdk's list and highlighted option), ↑ ↓ move,
+  Enter or Tab pick (the partial tag becomes `#<tag> `), Esc closes the suggestions (a second Esc cancels the row) and
+  a pointer pick keeps focus (`mousedown` is prevented, so the row is not blurred and the task not created). Enter
+  with the suggestions closed, or with no match, creates the task.
 
 ## Sync status dot
 

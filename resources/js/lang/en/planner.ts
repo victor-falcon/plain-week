@@ -111,6 +111,11 @@ export const planner = {
     'planner.previousWeek': 'Previous week',
     'planner.nextWeek': 'Next week',
     'planner.addedTo': 'Added to {weekday} {date}',
+    'planner.smartTitleHint': 'Start with a day or a time, add #label anywhere',
+    'planner.smartTitleChips': 'Will be added with',
+    'planner.labelSuggestions': 'Labels',
+    /** {query} is what was typed after #. */
+    'planner.noLabelMatch': 'No label called “{query}”. It will stay as text.',
     'planner.saveFailed': 'Could not save "{text}".',
     'planner.taskRepeats': '(repeats)',
     'planner.taskDone': '(done)',

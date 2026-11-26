@@ -610,8 +610,27 @@ measurements in [style.md](./style.md#planner-layout)). It follows the offline-f
 - Unfinished tasks of earlier days move to today: see [Carry over](#carry-over-unfinished-tasks).
 - Pure logic lives in `lib/planner/` with unit tests: ISO week math (`week.ts`; the desktop week grid itself is CSS,
   see [style.md](./style.md#planner-layout)), smart time and date (`smart-time.ts`,
-  `smart-date.ts`, combined by `smart-input.ts`), date labels (`format.ts`), task color styles (`task-colors.ts`) and
+  `smart-date.ts`, combined with `#label` by `smart-input.ts`, see [Smart input](#smart-input)), date labels (`format.ts`), task color styles (`task-colors.ts`) and
   drop resolution (`drop.ts`).
+
+### Smart input
+
+`parseNewTaskInput(input, today, labels)` (`lib/planner/smart-input.ts`) reads what a new-task row was given and stays
+pure: the row passes the live labels (`useTaskLabels()`) and today (`useToday()`), and creates the task with the
+result's `text`, `date`, `time` and `color`.
+
+- **Label first.** The first `#word` (a `#` at the start of the text or after whitespace) that `findLabel` resolves
+  sets `color` and is taken out of the text with the spaces on one side, so words stay one space apart. It can be
+  anywhere ("Gym #pink now", "#pink 31 Dec Gym"); matching ignores case, spaces and hyphens and the color id always
+  matches, even after a rename. Later tags and `#words` naming no label stay as text (hashtags keep working). A tag
+  that would leave the task without a title ("#pink", "17:30 #pink" keeps the time as text) stays as text too.
+- **Then a leading date and time**, in either order, on what is left (see `smart-date.ts` and `smart-time.ts`).
+- **Ranges.** `ranges.date`, `ranges.time` and `ranges.label` are `{ start, end }` offsets in the original input, for
+  the marks drawn in place (see [style.md](./style.md#smart-title-in-the-new-task-row)).
+- **In-progress tag.** `tag` is the `#word` the input ends with (no whitespace after it), with its `query` (possibly
+  empty), for the suggestions; once it fully names a label it already applies. It is null when an earlier tag already
+  applied, since a second one would stay as text. `suggestLabels(query, labels)` lists the labels whose name (so
+  their tag) or color id starts with the query, and `completeTag` swaps the partial tag for `#<labelTag(name)> `.
 
 ### Carry over unfinished tasks
 
