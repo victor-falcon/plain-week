@@ -75,11 +75,11 @@ The service worker is only registered by production builds (see [PWA](#pwa-offli
 `bun run build && php artisan serve`.
 
 Google Calendar sync is off by default: `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are empty in `.env.example`, so
-Settings › Integrations shows only the calendar feed and the Google routes are `404`. To turn it on, create a test OAuth client as described in
-[self-hosting.md](./self-hosting.md#google-calendar) with the redirect URI `APP_URL/settings/integrations/google/callback`
-(`http://localhost:8000/settings/integrations/google/callback` with the default `.env`; open the app on that same
-host so the session survives the round trip), add your Google account as a test user, put both values in `.env` (never
-commit them) and run `php artisan config:clear`. Tests never call Google: they use `Http::fake()`.
+Settings › Integrations shows only the calendar feed and the Google routes are `404`. To turn it on, create a test
+OAuth client as described in [self-hosting.md](./self-hosting.md#google-calendar) with the redirect URI
+`APP_URL/settings/integrations/google/callback` (`http://localhost:8000/settings/integrations/google/callback` with the
+default `.env`; open the app on that same host so the session survives the round trip), add your Google account as a
+test user, put both values in `.env` (never commit them) and run `php artisan config:clear`. Tests never call Google: they use `Http::fake()`.
 
 The MCP server for AI agents is on (`MCP_ENABLED=true`). `composer setup` creates the key pair that signs its tokens
 (`storage/oauth-*.key`, gitignored); on an older checkout run `php artisan passport:keys` once. Create a personal token

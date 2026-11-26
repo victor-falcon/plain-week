@@ -710,8 +710,8 @@ has two states:
   `Collapsible` "How to subscribe" with one line per app, and in the footer a filled "Open in Calendar app" link (the
   same URL with `webcal://`), an outline "Regenerate URL" and a ghost "Disable", each behind an `AlertDialog` with a
   destructive action (the dialog stays open, with a `toast.error`, when the request fails). Without a plan in SaaS
-  mode a destructive `Alert` says calendars stopped updating (link to `/plans`) and "Open in Calendar app" and
-  "Regenerate URL" and the how-to are hidden; "Disable" (outline then) always works.
+  mode a destructive `Alert` says calendars stopped updating (link to `/plans`); "Open in Calendar app", "Regenerate
+  URL" and the how-to are hidden, and "Disable" (outline then) always works.
 
 ## Settings › Agents & apps
 

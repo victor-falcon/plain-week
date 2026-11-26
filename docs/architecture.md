@@ -881,7 +881,7 @@ Laravel provides:
 | `GET /settings/preferences`                  | `preferences.edit`                    | `auth`. Inertia page `settings/preferences` (values stored in the browser).          |
 | `GET /settings/labels`                       | `labels.edit`                         | `auth`. Inertia page `settings/labels` (names in IndexedDB, synced).                 |
 | `PATCH /settings/language`                   | `language.update`                     | `auth`. `{ language: <offered locale> \| null }` (`users.language`); redirects back. |
-| `GET /settings/integrations`                 | `integrations.edit`                   | `auth`. Inertia page `settings/integrations` (the Google card only with ²'s keys).   |
+| `GET /settings/integrations`                 | `integrations.edit`                   | `auth`. Inertia page `settings/integrations`; its Google card only when ² is met.    |
 | `GET /settings/integrations/google/connect`  | `integrations.google.connect`         | `auth`.¹ ² Redirects to Google's consent screen (`throttle:10,1`).                   |
 | `GET /settings/integrations/google/callback` | `integrations.google.callback`        | `auth`.¹ ² Google's OAuth redirect URI: stores the connection, creates the calendar. |
 | `DELETE /settings/integrations/google`       | `integrations.google.destroy`         | `auth`.² Deletes the calendar, revokes the grant, forgets the connection.            |
