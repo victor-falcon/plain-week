@@ -7,6 +7,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.4.3] - 2026-11-26
+
 ### Added
 
 - **Log in with your identity provider (OIDC).** Self-hosted instances can let users log in with an existing account at
@@ -16,20 +18,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   still applies. Accounts created this way have no password: they confirm sensitive settings by logging in at the IdP
   again, and can set a password in Settings › Security. `OIDC_ONLY=true` makes the IdP the only way in, and
   `OIDC_ENABLED=false` turns it off (off by default in SaaS mode). See docs/self-hosting.md.
-- **Label names for task colors (data layer).** Each task color can carry a name that is stored on the device and synced
-  with the account (sync format 3: `labels` on push and pull, in a new `task_labels` table). Clients and native apps on
-  an older sync format keep working and never see labels; an updated client pulls everything once to pick them up.
-  Guests keep their names locally and push them when they sign in, and exports include them. The settings page and the
-  `#label` shortcut come next.
-- **Settings › Labels.** A new settings page to name each task color (for example Pink → "Deep work"): it shows the
-  `#tag` each name gives, saves as you type, offline, and refuses a name another label or color already has. A custom
-  name can be reset to the color name. The color pickers (task menu and task dialog) now name each color after its
-  label.
+- **Color labels.** Each task color can now carry a name. A new **Settings › Labels** page names each color (for
+  example Pink → "Deep work"): it shows the `#tag` each name gives, saves as you type, offline, refuses a name another
+  label or color already has, and can reset a custom name to the color name. The color pickers (task menu and task
+  dialog) name each color after its label.
 - **`#label` in a new task.** Type `#` and a label anywhere in a new task's title ("Gym #pink now") to give it that
   color; the color id always works (`#green`), and so does a renamed label's name (`#deep-work`). Only the first label
   applies, and a `#word` that names no label stays in the text. While typing, the row marks the date, time and label it
   recognized in place, previews them in small chips under the row, and suggests labels as you type `#` (↑ ↓ to move,
   Enter or Tab to pick, Esc to close).
+
+### Changed
+
+- **Sync format 3.** Label names are stored on the device and synced with the account (`labels` on push and pull, in a
+  new `task_labels` table). Clients and native apps on an older sync format keep working and never see labels; an
+  updated client pulls everything once to pick them up. Guests keep their names locally and push them when they sign
+  in, and exports include them.
 
 ## [0.4.2] - 2026-11-20
 
@@ -559,7 +563,8 @@ between devices.
   app, so an instance without mail works.
 - **Documentation** for contributors and coding agents in `docs/` and `AGENTS.md`.
 
-[Unreleased]: https://github.com/victor-falcon/plain-week/compare/v0.4.2...HEAD
+[Unreleased]: https://github.com/victor-falcon/plain-week/compare/v0.4.3...HEAD
+[0.4.3]: https://github.com/victor-falcon/plain-week/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/victor-falcon/plain-week/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/victor-falcon/plain-week/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/victor-falcon/plain-week/compare/v0.3.19...v0.4.0
