@@ -1155,8 +1155,8 @@ so a change to one side goes into both. Browsers pick its writes up on their nex
 A one-way sync from Plain Week to Google Calendar, server side and in the background. It exists only when the
 instance has Google OAuth credentials (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` in `config/services.php`; see
 [self-hosting.md](./self-hosting.md#google-calendar)); otherwise its routes are `404` and the settings nav hides it
-(shared Inertia prop `integrations.googleCalendar`). Code lives in `app/Integrations/GoogleCalendar`, and what it shares with the [ICS feed](#ics-feed) in
-`app/Integrations/Calendar`.
+(shared Inertia prop `integrations.googleCalendar`). Code lives in `app/Integrations/GoogleCalendar`, and what it
+shares with the [ICS feed](#ics-feed) in `app/Integrations/Calendar`.
 
 - **Connect** (`GoogleOAuth`): authorization code flow with PKCE and a `state` kept in the session. Scopes `openid`,
   `email` and `https://www.googleapis.com/auth/calendar.app.created`, so Plain Week only ever sees calendars it
@@ -1239,8 +1239,8 @@ nothing configured on the instance. Code lives in `app/Integrations/IcsFeed`; wh
   characters); the row stores its SHA-256 for the lookup and an encrypted copy so the page can show the URL again
   (Inertia props `icsFeed: { url } | null` and `canEnableIcsFeed`; shared prop `integrations.icsFeed` is always
   true; `icsFeed` is also null when the token no longer decrypts after an `APP_KEY` change, and enabling again
-  fixes it). Enabling again gives a new token, so the old URL answers `404` at once. Disabling (`DELETE`) deletes the row;
-  so does deleting the account (cascade). The URL is `APP_URL/calendar/<token>.ics`; `webcal://` is the same URL with
+  fixes it). Enabling again gives a new token, so the old URL answers `404` at once. Disabling (`DELETE`) deletes the
+  row; so does deleting the account (cascade). The URL is `APP_URL/calendar/<token>.ics`; `webcal://` is the same URL with
   that scheme.
 - **The endpoint.** `GET /calendar/{token}.ics` is registered outside the web group (`bootstrap/app.php`): calendar
   apps send no cookies, so it starts no session and sets none. An unknown, malformed or disabled token is `404`; in
@@ -1251,12 +1251,12 @@ nothing configured on the instance. Code lives in `app/Integrations/IcsFeed`; wh
   and `X-Robots-Tag: noindex, nofollow` keep the secret URL from leaking; it still shows up in access logs.
 - **The document** (`IcsCalendar`, written by `IcsWriter`, a small RFC 5545 writer: CRLF lines folded at 75 octets
   without splitting a UTF-8 character, TEXT escaping of `\`, `;`, `,` and line breaks, other control characters
-  dropped). `VCALENDAR` with `VERSION:2.0`, `PRODID`, `CALSCALE:GREGORIAN`, `METHOD:PUBLISH`, `X-WR-CALNAME:Plain
-Week`, `X-WR-TIMEZONE` (the user's time zone) and a 15-minute refresh hint (`REFRESH-INTERVAL`, `X-PUBLISHED-TTL`).
-  One `VEVENT` per item, no `RRULE` and no `VALARM` (Plain Week sends its own notifications): `UID` `<key>@<APP_URL
-host>`, so an edited or moved occurrence (even one that became an exception row) updates the same event;
-  `DTSTAMP` the time of the request; all day as `DTSTART;VALUE=DATE` / `DTEND;VALUE=DATE` (the next day) with
-  `TRANSP:TRANSPARENT` (a task does not make the user busy all day); timed as
+  dropped). `VCALENDAR` with `VERSION:2.0`, `PRODID`, `CALSCALE:GREGORIAN`, `METHOD:PUBLISH`, the name
+  `X-WR-CALNAME:Plain Week`, `X-WR-TIMEZONE` (the user's time zone) and a 15-minute refresh hint (`REFRESH-INTERVAL`,
+  `X-PUBLISHED-TTL`). One `VEVENT` per item, no `RRULE` and no `VALARM` (Plain Week sends its own notifications):
+  `UID` is `<key>@<host>` (the host of `APP_URL`), so an edited or moved occurrence (even one that became an exception
+  row) updates the same event; `DTSTAMP` is the time of the request; all day as `DTSTART;VALUE=DATE` /
+  `DTEND;VALUE=DATE` (the next day) with `TRANSP:TRANSPARENT` (a task does not make the user busy all day); timed as
   20 minutes in UTC (`…Z`), computed in the user's time zone (`User::timezoneOrDefault()`), so DST days are right and
   no `VTIMEZONE` is needed; `SUMMARY`, `DESCRIPTION` and `URL` as in Google; `STATUS:CONFIRMED`.
 - **The window.** The same as Google's, except that a feed keeps no memory: items before the 30-day window, and
