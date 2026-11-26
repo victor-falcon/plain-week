@@ -130,8 +130,11 @@ describe('Settings › Labels', () => {
         );
 
         await waitFor(async () => expect(await storedName('green')).toBe(''));
-        expect((screen.getByLabelText('Green') as HTMLInputElement).value).toBe(
-            '',
+        // The field follows the stored name once the live query reads it.
+        await waitFor(() =>
+            expect(
+                (screen.getByLabelText('Green') as HTMLInputElement).value,
+            ).toBe(''),
         );
         expect(tag('green')).toBe('#green');
         expect(
