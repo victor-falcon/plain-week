@@ -25,7 +25,7 @@ class PushTasks
      * @param  list<array{color: string, name: string, updated_at: string}>  $labels  Validated label records.
      * @return array{applied: list<string>, rejected: list<string>, cursor: int}
      */
-    public function handle(User $user, array $records, SyncFormat $format, array $labels = []): array
+    public function handle(User $user, array $records, SyncFormat $format, array $labels): array
     {
         $applied = [];
         $rejected = [];

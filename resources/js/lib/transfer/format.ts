@@ -1,6 +1,10 @@
 import { toDateKey } from '@/lib/db/dates';
 import type { Task, TaskLabel } from '@/lib/db/types';
 
+/** A label name in a file; `updated_at` is informational and ignored on import. */
+export type ExportedLabel = Pick<TaskLabel, 'color' | 'name'> &
+    Partial<Pick<TaskLabel, 'updated_at'>>;
+
 /**
  * The export file (a JSON backup). See "Export format" in
  * docs/architecture.md.
@@ -23,7 +27,7 @@ export type ExportFile = {
      * The colours the user renamed, with the wire shape of a label. Files
      * from before label names have none.
      */
-    labels: TaskLabel[];
+    labels: ExportedLabel[];
 };
 
 /** `plain-week-export-YYYY-MM-DD.json`, with the local date. */

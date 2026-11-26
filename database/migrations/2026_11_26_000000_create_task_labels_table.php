@@ -16,6 +16,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->string('color', 16);
+            // At most 24 characters (validated); the column leaves room for databases that count bytes.
             $table->string('name', 64);
             // Client-owned timestamp (UTC, millisecond precision).
             $table->dateTime('updated_at', 3);

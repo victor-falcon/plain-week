@@ -8,7 +8,7 @@ import type { PlainWeekDatabase } from '@/lib/db/database';
 import { compareTimestamps } from '@/lib/db/dates';
 import { purgeDemoTasks } from '@/lib/db/demo';
 import { isLabelColor, normalizeLabelName } from '@/lib/db/labels';
-import type { LabelColor, OutboxEntry, Task, TaskLabel } from '@/lib/db/types';
+import type { OutboxEntry, Task, TaskLabel } from '@/lib/db/types';
 import { withSyncLock } from './lock';
 import {
     hasStatus,
@@ -736,7 +736,8 @@ export class SyncEngine {
             this.db.labels.bulkGet(
                 entries
                     .filter((entry) => isLabelEntry(entry))
-                    .map((entry) => entry.task_id as LabelColor),
+                    .map((entry) => entry.task_id)
+                    .filter(isLabelColor),
             ),
         ]);
 
@@ -861,7 +862,7 @@ export class SyncEngine {
             this.lastWriteWins(
                 remoteLabels,
                 remoteLabels.map((label) => label.color),
-                (colors) => db.labels.bulkGet(colors as LabelColor[]),
+                (colors) => db.labels.bulkGet(colors),
             ),
         ]);
 
@@ -875,17 +876,20 @@ export class SyncEngine {
      * `applyRemote`. `keys` are the records' outbox keys (task id, label
      * colour); `getLocal` reads the local records by those keys.
      */
-    private async lastWriteWins<T extends { updated_at: string }>(
+    private async lastWriteWins<
+        T extends { updated_at: string },
+        K extends string,
+    >(
         remotes: T[],
-        keys: string[],
-        getLocal: (keys: string[]) => Promise<Array<T | undefined>>,
-    ): Promise<{ toPut: T[]; toUnqueue: string[] }> {
+        keys: K[],
+        getLocal: (keys: K[]) => Promise<Array<T | undefined>>,
+    ): Promise<{ toPut: T[]; toUnqueue: K[] }> {
         const [locals, pending] = await Promise.all([
             getLocal(keys),
             this.db.outbox.bulkGet(keys),
         ]);
         const toPut: T[] = [];
-        const toUnqueue: string[] = [];
+        const toUnqueue: K[] = [];
 
         remotes.forEach((remote, i) => {
             const local = locals[i];

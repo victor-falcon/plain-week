@@ -110,6 +110,12 @@ describe('validateLabelNames', () => {
         });
     });
 
+    it('refuses a name no tag can reach', () => {
+        expect(validateLabelNames({ pink: '- -' })).toEqual({
+            pink: 'invalid',
+        });
+    });
+
     it('refuses names that are too long', () => {
         expect(validateLabelNames({ pink: 'a'.repeat(25) })).toEqual({
             pink: 'tooLong',

@@ -1,5 +1,7 @@
+import { Dexie } from 'dexie';
 import { notifyLocalChange } from './changes';
 import { db } from './database';
+import type { PlainWeekDatabase } from './database';
 import { nextTimestamp } from './dates';
 import { LABEL_COLORS, MAX_LABEL_NAME_LENGTH } from './types';
 import type { LabelColor, TaskLabel } from './types';
@@ -49,37 +51,50 @@ export async function setLabelName(
         );
     }
 
-    const changed = await db.transaction(
-        'rw',
-        [db.labels, db.outbox],
-        async () => {
-            const [current, entry] = await Promise.all([
-                db.labels.get(color),
-                db.outbox.get(color),
-            ]);
-
-            if ((current?.name ?? '') === normalized) {
-                return false;
-            }
-
-            await db.labels.put({
-                color,
-                name: normalized,
-                updated_at: nextTimestamp(current?.updated_at),
-            });
-            await db.outbox.put({
-                task_id: color,
-                entity: 'label',
-                revision: (entry?.revision ?? 0) + 1,
-            });
-
-            return true;
-        },
+    const changed = await db.transaction('rw', [db.labels, db.outbox], () =>
+        writeLabel(db, color, normalized),
     );
 
     if (changed) {
         notifyLocalChange();
     }
+}
+
+/**
+ * Stores a normalized name for `color` with its outbox entry, unless it
+ * already has that name; resolves with whether it wrote. `updated_at` comes
+ * after the stored one, so the write wins last-write-wins. Call it inside a
+ * read-write transaction over `labels` and `outbox`: it returns a Dexie
+ * promise so that transaction stays active (see `clearAllTables`).
+ */
+export function writeLabel(
+    database: PlainWeekDatabase,
+    color: LabelColor,
+    name: string,
+): Promise<boolean> {
+    return Dexie.Promise.all([
+        database.labels.get(color),
+        database.outbox.get(color),
+    ]).then(([current, entry]) => {
+        if ((current?.name ?? '') === name) {
+            return false;
+        }
+
+        return database.labels
+            .put({
+                color,
+                name,
+                updated_at: nextTimestamp(current?.updated_at),
+            })
+            .then(() =>
+                database.outbox.put({
+                    task_id: color,
+                    entity: 'label',
+                    revision: (entry?.revision ?? 0) + 1,
+                }),
+            )
+            .then(() => true);
+    });
 }
 
 /** The stored label records (colours never renamed have none). */

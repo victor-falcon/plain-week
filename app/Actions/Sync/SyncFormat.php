@@ -52,6 +52,8 @@ enum SyncFormat: int
 
     private static function newest(): self
     {
-        return self::Labels;
+        $cases = self::cases();
+
+        return $cases[array_key_last($cases)];
     }
 }

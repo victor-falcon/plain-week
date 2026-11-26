@@ -9,6 +9,7 @@ import {
     isLabelColor,
     isLabelNameTooLong,
     normalizeLabelName,
+    writeLabel,
 } from '@/lib/db/labels';
 import {
     compareSomedayOrder,
@@ -18,9 +19,9 @@ import {
 import type { SomedaySortKey } from '@/lib/db/position';
 import { SOMEDAY_COLUMNS } from '@/lib/db/types';
 import { t } from '@/lib/i18n';
-import type { Task, TaskLabel } from '@/lib/db/types';
+import type { Task } from '@/lib/db/types';
 import { EXPORT_FORMAT, EXPORT_VERSION } from './format';
-import type { ExportFile } from './format';
+import type { ExportFile, ExportedLabel } from './format';
 import { backupRows } from './rows';
 import { ImportError, taskLabel, validateTask } from './validate';
 
@@ -44,7 +45,7 @@ export type ImportPlan = ImportSummary & {
     /** The rows to write: series first, then plain tasks, then exceptions. */
     tasks: Task[];
     /** Label names for colours that have none yet. */
-    labels: TaskLabel[];
+    labels: ExportedLabel[];
 };
 
 /** Far above any real planner (10 000 tasks are about 5 MB). */
@@ -143,12 +144,12 @@ export async function parseImport(input: Blob | string): Promise<ExportFile> {
  * nicety next to the tasks, so an entry that is not valid is left out
  * instead of refusing the file; so is a second entry for the same colour.
  */
-function parseLabels(value: unknown): TaskLabel[] {
+function parseLabels(value: unknown): ExportedLabel[] {
     if (!Array.isArray(value)) {
         return [];
     }
 
-    const labels = new Map<string, TaskLabel>();
+    const labels = new Map<string, ExportedLabel>();
 
     value.forEach((entry: unknown) => {
         if (typeof entry !== 'object' || entry === null) {
@@ -168,7 +169,7 @@ function parseLabels(value: unknown): TaskLabel[] {
             !isLabelNameTooLong(normalized) &&
             !labels.has(color)
         ) {
-            labels.set(color, { color, name: normalized, updated_at: '' });
+            labels.set(color, { color, name: normalized });
         }
     });
 
@@ -335,7 +336,7 @@ export async function planImport(
         })),
         labels: file.labels
             .filter((label) => !named.has(label.color))
-            .map((label) => ({ ...label, updated_at: now })),
+            .map(({ color, name }) => ({ color, name })),
     };
 }
 
@@ -362,25 +363,12 @@ export async function applyImport(
                 database.labels,
                 database.outbox,
                 async () => {
-                    // Renamed since `planImport`: the user's name stays.
-                    const current = await database.labels.bulkGet(
-                        plan.labels.map((label) => label.color),
-                    );
-                    const labels = plan.labels.filter(
-                        (_, i) => (current[i]?.name ?? '') === '',
-                    );
-                    const entries = await database.outbox.bulkGet(
-                        labels.map((label) => label.color),
-                    );
-
-                    await database.labels.bulkPut(labels);
-                    await database.outbox.bulkPut(
-                        labels.map((label, i) => ({
-                            task_id: label.color,
-                            entity: 'label' as const,
-                            revision: (entries[i]?.revision ?? 0) + 1,
-                        })),
-                    );
+                    for (const { color, name } of plan.labels) {
+                        // Renamed since `planImport`: the user's name stays.
+                        if (!(await database.labels.get(color))?.name) {
+                            await writeLabel(database, color, name);
+                        }
+                    }
                 },
             );
         }

@@ -575,6 +575,25 @@ describe('label names', () => {
         expect((await db.labels.get('mango'))?.name).toBe('Errands');
     });
 
+    it('wins over a reset name with a later timestamp', async () => {
+        await db.labels.put({
+            color: 'mango',
+            name: '',
+            updated_at: '2999-01-01T00:00:00.000Z',
+        });
+        await importText(
+            JSON.stringify({
+                ...JSON.parse(fileWith([])),
+                labels: [{ color: 'mango', name: 'Errands' }],
+            }),
+        );
+
+        const label = await db.labels.get('mango');
+
+        expect(label?.name).toBe('Errands');
+        expect(label!.updated_at > '2999-01-01T00:00:00.000Z').toBe(true);
+    });
+
     it('reads files without labels and skips invalid entries', async () => {
         expect((await parseImport(fileWith([]))).labels).toEqual([]);
 
@@ -593,9 +612,7 @@ describe('label names', () => {
             }),
         );
 
-        expect(file.labels).toEqual([
-            { color: 'green', name: 'Health', updated_at: '' },
-        ]);
+        expect(file.labels).toEqual([{ color: 'green', name: 'Health' }]);
     });
 });
 

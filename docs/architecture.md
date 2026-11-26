@@ -258,20 +258,21 @@ keep their positions, and inserting between two shown neighbours stays between t
 ### Label names (`lib/db/labels.ts`, `lib/planner/task-labels.ts`)
 
 `setLabelName(color, name)` writes the record and its outbox entry (`entity: 'label'`) in one transaction, with
-`nextTimestamp()` for `updated_at`, then calls `notifyLocalChange()`. The name is trimmed with inner whitespace collapsed
+`nextTimestamp(stored updated_at)` for `updated_at` (`writeLabel`, shared with the import), then calls
+`notifyLocalChange()`. The name is trimmed with inner whitespace collapsed
 (`normalizeLabelName`); `''` gives the color back its default name. It throws for `none` or a name over 24 characters,
 and writes nothing when the name does not change. Guests keep names locally; they are pushed on sign-in like guest
 tasks, and the wipes (logout, another user) clear them with everything else.
 
 Pure helpers for the UI, in `lib/planner/task-labels.ts`:
 
-| Function                    | What it does                                                                                                                                                         |
-| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `resolveLabels(stored)`     | Every label color in picker order as `{ color, name, customName, isCustom }`: `name` is the custom name or `defaultLabelName(color)` (`TASK_COLOR_STYLES[c].label`). |
-| `labelTag(name)`            | The slug typed after `#`: lowercase, whitespace as `-` ("Deep work" → `deep-work`).                                                                                  |
-| `labelKey(value)`           | The matching key: lowercase, without spaces or hyphens.                                                                                                              |
-| `findLabel(query, labels)`  | The label whose color id, else effective name, has the query's `labelKey`; null for none or an empty key. The color id always matches, even after a rename.          |
-| `validateLabelNames(names)` | Per color with a custom name: `tooLong`, `reserved` (another color's id or default name: `#green` always means green) or `duplicate` (another custom name).          |
+| Function                    | What it does                                                                                                                                                                                                                                                                           |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `resolveLabels(stored)`     | Every label color in picker order as `{ color, name, customName, isCustom }`: `name` is the custom name or `defaultLabelName(color)` (`TASK_COLOR_STYLES[c].label`).                                                                                                                   |
+| `labelTag(name)`            | The slug typed after `#`: lowercase, whitespace as `-` ("Deep work" → `deep-work`).                                                                                                                                                                                                    |
+| `labelKey(value)`           | The matching key: lowercase, without spaces or hyphens.                                                                                                                                                                                                                                |
+| `findLabel(query, labels)`  | The label whose color id, else effective name, has the query's `labelKey`; null for none or an empty key. The color id always matches, even after a rename.                                                                                                                            |
+| `validateLabelNames(names)` | Per color with a custom name: `tooLong`, `invalid` (empty key, e.g. only hyphens), `reserved` (another color's id or default name: `#green` always means green) or `duplicate` (another custom name). Advisory: the server does not enforce it, so `findLabel` must cope with clashes. |
 
 ### Hooks
 

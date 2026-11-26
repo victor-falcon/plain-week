@@ -15,7 +15,7 @@ export type TaskLabelView = {
     isCustom: boolean;
 };
 
-export type LabelNameError = 'duplicate' | 'reserved' | 'tooLong';
+export type LabelNameError = 'duplicate' | 'reserved' | 'tooLong' | 'invalid';
 
 /** The colour's translated name ("Pink"), used until the user renames it. */
 export function defaultLabelName(color: LabelColor): string {
@@ -72,7 +72,8 @@ export function findLabel<T extends Pick<TaskLabelView, 'color' | 'name'>>(
 
 /**
  * Checks names being edited (by colour; `''` or absent keeps the default
- * name). A custom name is refused when it is too long, matches another
+ * name). A custom name is refused when it is too long, has no letters left
+ * to match a tag by (`invalid`: only hyphens), matches another
  * colour's id or default name (`reserved`: `#green` always means green), or
  * matches another custom name (`duplicate`), comparing with `labelKey`.
  * Colours left with their default name never get an error.
@@ -97,6 +98,8 @@ export function validateLabelNames(
 
         if (isLabelNameTooLong(name)) {
             errors[color] = 'tooLong';
+        } else if (key === '') {
+            errors[color] = 'invalid';
         } else if (
             others.some(
                 (other) =>
@@ -106,10 +109,9 @@ export function validateLabelNames(
         ) {
             errors[color] = 'reserved';
         } else if (
-            others.some(
-                (other) =>
-                    custom.has(other) &&
-                    labelKey(custom.get(other) as string) === key,
+            [...custom].some(
+                ([other, otherName]) =>
+                    other !== color && labelKey(otherName) === key,
             )
         ) {
             errors[color] = 'duplicate';
