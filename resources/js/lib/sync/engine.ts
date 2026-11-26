@@ -144,6 +144,46 @@ function isLabelEntry(entry: OutboxEntry): boolean {
 }
 
 /**
+ * The rule of `SyncEngine.applyRemote` for one kind of record: the remote
+ * records to store and the outbox keys to drop. `keys` are the records'
+ * outbox keys (task id, label colour), with the local records and the
+ * outbox entries read by them.
+ */
+function lastWriteWins<T extends { updated_at: string }>(
+    remotes: T[],
+    keys: string[],
+    locals: Array<T | undefined>,
+    pending: Array<OutboxEntry | undefined>,
+): { toPut: T[]; toUnqueue: string[] } {
+    const toPut: T[] = [];
+    const toUnqueue: string[] = [];
+
+    remotes.forEach((remote, i) => {
+        const local = locals[i];
+
+        if (!local) {
+            toPut.push(remote);
+
+            return;
+        }
+
+        const order = compareTimestamps(remote.updated_at, local.updated_at);
+
+        if (order > 0) {
+            toPut.push(remote);
+
+            if (pending[i]) {
+                toUnqueue.push(keys[i]);
+            }
+        } else if (order === 0 && !pending[i]) {
+            toPut.push(remote);
+        }
+    });
+
+    return { toPut, toUnqueue };
+}
+
+/**
  * Binds the local database to `userId` in one transaction over every table:
  * data of a different user is wiped, data without an owner (guest work) is
  * kept, except untouched demo tasks, which are deleted (they never reach the
@@ -852,70 +892,31 @@ export class SyncEngine {
         remoteTasks: Task[],
         remoteLabels: TaskLabel[],
     ): Promise<void> {
+        // Every await stays here, in the caller's transaction: a nested async
+        // helper could resume outside its zone (see `clearAllTables`).
         const { db } = this;
-        const [tasks, labels] = await Promise.all([
-            this.lastWriteWins(
-                remoteTasks,
-                remoteTasks.map((task) => task.id),
-                (ids) => db.tasks.bulkGet(ids),
-            ),
-            this.lastWriteWins(
-                remoteLabels,
-                remoteLabels.map((label) => label.color),
-                (colors) => db.labels.bulkGet(colors),
-            ),
+        const taskIds = remoteTasks.map((task) => task.id);
+        const colors = remoteLabels.map((label) => label.color);
+        const [localTasks, localLabels, pending] = await Promise.all([
+            db.tasks.bulkGet(taskIds),
+            db.labels.bulkGet(colors),
+            db.outbox.bulkGet([...taskIds, ...colors]),
         ]);
+        const tasks = lastWriteWins(
+            remoteTasks,
+            taskIds,
+            localTasks,
+            pending.slice(0, taskIds.length),
+        );
+        const labels = lastWriteWins(
+            remoteLabels,
+            colors,
+            localLabels,
+            pending.slice(taskIds.length),
+        );
 
         await db.tasks.bulkPut(tasks.toPut);
         await db.labels.bulkPut(labels.toPut);
         await db.outbox.bulkDelete([...tasks.toUnqueue, ...labels.toUnqueue]);
-    }
-
-    /**
-     * The remote records to store and the outbox keys to drop, by the rule of
-     * `applyRemote`. `keys` are the records' outbox keys (task id, label
-     * colour); `getLocal` reads the local records by those keys.
-     */
-    private async lastWriteWins<
-        T extends { updated_at: string },
-        K extends string,
-    >(
-        remotes: T[],
-        keys: K[],
-        getLocal: (keys: K[]) => Promise<Array<T | undefined>>,
-    ): Promise<{ toPut: T[]; toUnqueue: K[] }> {
-        const [locals, pending] = await Promise.all([
-            getLocal(keys),
-            this.db.outbox.bulkGet(keys),
-        ]);
-        const toPut: T[] = [];
-        const toUnqueue: K[] = [];
-
-        remotes.forEach((remote, i) => {
-            const local = locals[i];
-
-            if (!local) {
-                toPut.push(remote);
-
-                return;
-            }
-
-            const order = compareTimestamps(
-                remote.updated_at,
-                local.updated_at,
-            );
-
-            if (order > 0) {
-                toPut.push(remote);
-
-                if (pending[i]) {
-                    toUnqueue.push(keys[i]);
-                }
-            } else if (order === 0 && !pending[i]) {
-                toPut.push(remote);
-            }
-        });
-
-        return { toPut, toUnqueue };
     }
 }
