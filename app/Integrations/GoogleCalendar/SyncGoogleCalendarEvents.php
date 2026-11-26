@@ -2,10 +2,10 @@
 
 namespace App\Integrations\GoogleCalendar;
 
+use App\Integrations\Calendar\CalendarWindow;
 use App\Models\GoogleCalendarConnection;
 use App\Models\GoogleCalendarEvent;
 use App\Models\User;
-use App\Tasks\TaskOccurrences;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
@@ -16,25 +16,13 @@ use Illuminate\Http\Client\RequestException;
  * payload hash) and creates, updates or deletes only what changed. Every call to Google is saved as it succeeds, so a
  * run cut short (rate limits, its time limit, a stop) carries on where it was.
  *
- * The window: dated tasks and exception rows from {@see self::PAST_DAYS} days ago on, with no limit ahead; occurrences
- * a series generates only from {@see self::OCCURRENCE_PAST_DAYS} days ago to {@see self::OCCURRENCE_FUTURE_DAYS} days
- * ahead, so the window moves with the days. Events dated before the window are left as they are: the calendar keeps the
- * past.
+ * The window is {@see CalendarWindow}'s. Events dated before it are left as they are: the calendar keeps the past.
  */
 class SyncGoogleCalendarEvents
 {
-    public const int PAST_DAYS = 30;
-
-    public const int OCCURRENCE_PAST_DAYS = 7;
-
-    public const int OCCURRENCE_FUTURE_DAYS = 60;
-
-    /** The end of "no limit ahead" for dated rows. */
-    private const string LAST_DATE = '9999-12-31';
-
     public function __construct(
         private readonly GoogleCalendarClient $client,
-        private readonly TaskOccurrences $occurrences,
+        private readonly CalendarWindow $window,
     ) {}
 
     /**
@@ -52,7 +40,7 @@ class SyncGoogleCalendarEvents
 
         $timeZone = $connection->user->timezoneOrDefault();
         $today = CarbonImmutable::now($timeZone)->startOfDay();
-        $windowStart = $today->subDays(self::PAST_DAYS)->toDateString();
+        $windowStart = $today->subDays(CalendarWindow::PAST_DAYS)->toDateString();
         $wanted = $this->wantedEvents($connection->user, $today, $timeZone);
         $sent = $this->sentEvents($connection, $windowStart, array_keys($wanted));
         $refusals = new Refusals;
@@ -102,18 +90,12 @@ class SyncGoogleCalendarEvents
      */
     private function wantedEvents(User $user, CarbonImmutable $today, string $timeZone): array
     {
-        $occurrencesFrom = $today->subDays(self::OCCURRENCE_PAST_DAYS)->toDateString();
-        $occurrencesTo = $today->addDays(self::OCCURRENCE_FUTURE_DAYS);
-
-        $items = $this->occurrences->forUser($user, $today->subDays(self::PAST_DAYS), $occurrencesTo)
-            ->merge($this->occurrences->rowsForUser($user, $occurrencesTo->addDay(), CarbonImmutable::parse(self::LAST_DATE)));
-
         $wanted = [];
 
-        foreach ($items as $item) {
+        foreach ($this->window->items($user, $today) as $item) {
             $event = CalendarEvent::for($item, $timeZone);
             // A generated occurrence outside its window is only kept up to date when it already has an event.
-            $wanted[$event->key] = new WantedEvent($event, creatable: ! $item->isGenerated() || $item->date >= $occurrencesFrom);
+            $wanted[$event->key] = new WantedEvent($event, creatable: CalendarWindow::isFresh($item, $today));
         }
 
         return $wanted;

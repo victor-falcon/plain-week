@@ -29,6 +29,12 @@ class AppServiceProvider extends ServiceProvider
     /** Other app API requests (`throttle:api`) a user may send per minute. */
     public const int API_RATE_LIMIT = 120;
 
+    /** Fetches of one ICS feed (`throttle:ics-feed`) per minute. */
+    public const int ICS_FEED_RATE_LIMIT = 20;
+
+    /** Fetches of ICS feeds from one IP per minute, whatever the feed. */
+    public const int ICS_FEED_IP_RATE_LIMIT = 600;
+
     /**
      * Register any application services.
      */
@@ -97,6 +103,13 @@ class AppServiceProvider extends ServiceProvider
 
         // The rest of the app API (`/api/v1/me`).
         RateLimiter::for('api', fn (Request $request) => Limit::perMinute(self::API_RATE_LIMIT)->by($byUser($request)));
+
+        // `/calendar/{token}.ics`: apps fetch it every 15 minutes or so. Per feed, and per IP against guessing tokens,
+        // generous since a calendar service (iCloud, Outlook.com) fetches many users' feeds from the same addresses.
+        RateLimiter::for('ics-feed', fn (Request $request) => [
+            Limit::perMinute(self::ICS_FEED_RATE_LIMIT)->by('feed:'.hash('sha256', (string) $request->route('token'))),
+            Limit::perMinute(self::ICS_FEED_IP_RATE_LIMIT)->by('ip:'.$request->ip()),
+        ]);
     }
 
     /**

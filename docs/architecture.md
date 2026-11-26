@@ -864,7 +864,7 @@ Laravel provides:
 - The sync endpoints above.
 - The HTML shell and built assets. Planner data is never rendered from server props; pages read it from IndexedDB.
 - Optional integrations that work in the background, never on the path of a planner action (see
-  [Google Calendar](#google-calendar) and [Push notifications](#push-notifications)).
+  [Google Calendar](#google-calendar), the [ICS feed](#ics-feed) and [Push notifications](#push-notifications)).
 - Background work: the scheduler (tasks registered in `routes/console.php`) and a worker for the database queue. The
   Docker image runs both next to the server ([self-hosting.md](./self-hosting.md#configuration)), `composer dev` too.
   It never sits between the user and the planner.
@@ -885,6 +885,9 @@ Laravel provides:
 | `GET /settings/integrations/google/connect`  | `integrations.google.connect`         | `auth`.¹ ² Redirects to Google's consent screen (`throttle:10,1`).                   |
 | `GET /settings/integrations/google/callback` | `integrations.google.callback`        | `auth`.¹ ² Google's OAuth redirect URI: stores the connection, creates the calendar. |
 | `DELETE /settings/integrations/google`       | `integrations.google.destroy`         | `auth`.² Deletes the calendar, revokes the grant, forgets the connection.            |
+| `POST /settings/integrations/ics`            | `integrations.ics.store`              | `auth`.¹ Enables the [ICS feed](#ics-feed), or gives it a new URL (`throttle:10,1`). |
+| `DELETE /settings/integrations/ics`          | `integrations.ics.destroy`            | `auth`. Disables the ICS feed (idempotent).                                          |
+| `GET /calendar/{token}.ics`                  | `ics-feed.show`                       | Public, no session (the token is the credential). See [ICS feed](#ics-feed).         |
 | `GET /settings/notifications`                | `notifications.edit`                  | `auth`.¹ ³ Inertia page `settings/notifications` (`morningTime`, `timezone`).        |
 | `PATCH /settings/notifications`              | `notifications.update`                | `auth`.¹ ³ `{ morning_time: 'HH:mm' }`; redirects back.                              |
 | `POST /notifications/subscriptions`          | `notifications.subscriptions.store`   | `auth`.¹ ³ This browser's `PushSubscription.toJSON()`; `204`.                        |
@@ -901,6 +904,7 @@ gets `402` (sync). Billing and legal routes are listed in [saas.md](./saas.md).
 
 ² Plus `EnsureGoogleCalendarConfigured`: `404` unless `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are set. Only
 connecting needs a plan in SaaS mode, so an account whose plan lapsed can still see and remove its connection.
+`integrations.edit` still has it until the page shows the ICS feed card; the ICS routes never do.
 
 ³ Plus `EnsureWebPushConfigured`: `404` unless `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` and `VAPID_SUBJECT` are set.
 Unsubscribing needs no plan in SaaS mode, so a browser can always be removed.
@@ -1046,6 +1050,14 @@ leading spaces in `text`) round-trip exactly.
 | `date`                          | date                                        | The date the event is on                                                         |
 | `payload_hash`                  | string(64), nullable                        | SHA-256 of the event last sent; null until Google confirmed it                   |
 
+`ics_feeds`: at most one per user (see [ICS feed](#ics-feed)).
+
+| Column       | Type                          | Notes                                                                  |
+| ------------ | ----------------------------- | ---------------------------------------------------------------------- |
+| `user_id`    | foreign key → `users`, unique | Cascades on user delete                                                |
+| `token_hash` | char(64), unique              | SHA-256 of the token in the feed URL, for the lookup                   |
+| `token`      | text                          | `encrypted` cast (`APP_KEY`), so Settings › Integrations shows the URL |
+
 `push_subscriptions`: one per subscribed browser (see [Push notifications](#push-notifications)).
 
 | Column             | Type                  | Notes                                                                                      |
@@ -1143,7 +1155,8 @@ so a change to one side goes into both. Browsers pick its writes up on their nex
 A one-way sync from Plain Week to Google Calendar, server side and in the background. It exists only when the
 instance has Google OAuth credentials (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` in `config/services.php`; see
 [self-hosting.md](./self-hosting.md#google-calendar)); otherwise its routes are `404` and the settings nav hides it
-(shared Inertia prop `integrations.googleCalendar`). Code lives in `app/Integrations/GoogleCalendar`.
+(shared Inertia prop `integrations.googleCalendar`). Code lives in `app/Integrations/GoogleCalendar`, and what it shares with the [ICS feed](#ics-feed) in
+`app/Integrations/Calendar`.
 
 - **Connect** (`GoogleOAuth`): authorization code flow with PKCE and a `state` kept in the session. Scopes `openid`,
   `email` and `https://www.googleapis.com/auth/calendar.app.created`, so Plain Week only ever sees calendars it
@@ -1212,6 +1225,39 @@ never reads it back: an event edited in Google is overwritten the next time its 
   `google-calendar:sync` (`App\Console\Commands\SyncGoogleCalendars`) daily at 03:00, which queues one for every
   working connection (`GoogleCalendarConnection::syncable()`) to move the occurrence window
   and catch up anything missed. Nothing of this sits on the sync request's path.
+
+### ICS feed
+
+A read-only calendar subscription: a private URL that Apple Calendar, Outlook or any app that subscribes to a
+`webcal://` / `.ics` URL fetches. It shows the same events as the [Google Calendar](#google-calendar) sync and needs
+nothing configured on the instance. Code lives in `app/Integrations/IcsFeed`; what both calendars share lives in
+`app/Integrations/Calendar`: `CalendarWindow` (which items, the window of [Event sync](#event-sync)) and
+`PlannerEvent` (summary, description, link, key, start and end, like [Event sync](#event-sync) describes).
+
+- **Turning it on.** Off until the user enables it in Settings › Integrations (`POST /settings/integrations/ics`;
+  a plan is needed in SaaS mode). One feed per account (`ics_feeds`). The token is 32 random bytes, base64url (43
+  characters); the row stores its SHA-256 for the lookup and an encrypted copy so the page can show the URL again
+  (Inertia props `icsFeed: { url } | null` and `canEnableIcsFeed`; shared prop `integrations.icsFeed` is always
+  true). Enabling again gives a new token, so the old URL answers `404` at once. Disabling (`DELETE`) deletes the row;
+  so does deleting the account (cascade). The URL is `APP_URL/calendar/<token>.ics`; `webcal://` is the same URL with
+  that scheme.
+- **The endpoint.** `GET /calendar/{token}.ics` is registered outside the web group (`bootstrap/app.php`): calendar
+  apps send no cookies, so it starts no session and sets none. An unknown, malformed or disabled token is `404`; in
+  SaaS mode an account without a plan gets `402`. `throttle:ics-feed` allows 20 fetches a minute per feed and 600 per
+  IP (calendar services fetch many feeds from the same addresses). The answer is `text/calendar; charset=utf-8`, with
+  an `ETag` over the document without its `DTSTAMP` lines, so an unchanged planner answers `304` to `If-None-Match`.
+  It is built on every request from the server's tasks: nothing is queued or stored.
+- **The document** (`IcsCalendar`, written by `IcsWriter`, a small RFC 5545 writer: CRLF lines folded at 75 octets
+  without splitting a UTF-8 character, TEXT escaping of `\`, `;`, `,` and line breaks, other control characters
+  dropped). `VCALENDAR` with `VERSION:2.0`, `PRODID`, `CALSCALE:GREGORIAN`, `METHOD:PUBLISH`, `X-WR-CALNAME:Plain
+Week`, `X-WR-TIMEZONE` (the user's time zone) and a 15-minute refresh hint (`REFRESH-INTERVAL`, `X-PUBLISHED-TTL`).
+  One `VEVENT` per item, no `RRULE` and no `VALARM` (Plain Week sends its own notifications): `UID` `<key>@<APP_URL
+host>`, so an edited or moved occurrence (even one that became an exception row) updates the same event;
+  `DTSTAMP` the time of the request; all day as `DTSTART;VALUE=DATE` / `DTEND;VALUE=DATE` (the next day); timed as
+  20 minutes in UTC (`…Z`), computed in the user's time zone (`User::timezoneOrDefault()`), so DST days are right and
+  no `VTIMEZONE` is needed; `SUMMARY`, `DESCRIPTION` and `URL` as in Google; `STATUS:CONFIRMED`.
+- **The window.** The same as Google's, except that a feed keeps no memory: items before the 30-day window, and
+  generated occurrences older than 7 days, are not in it, so calendar apps drop them.
 
 ### Push notifications
 

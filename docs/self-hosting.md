@@ -208,6 +208,15 @@ If connecting fails ("Google did not connect"), the container logs (`docker logs
 causes are a redirect URI that does not match `APP_URL` exactly, the Calendar API not enabled in the project, or a
 Google account that is not a test user while the consent screen is in Testing.
 
+## Calendar feed (ICS)
+
+Nothing to configure. Signed-in users can turn on a private calendar feed in **Settings › Integrations** and subscribe
+to it from Apple Calendar, Outlook or any app that takes a `webcal://` or `.ics` URL (read only). The URL is built from
+`APP_URL`, so it must be the address calendar apps can reach: a feed on a private network only works for apps on that
+network (iCloud and Outlook.com fetch it from their own servers). The feed is served as the request comes in, so it
+needs neither the queue worker nor the scheduler. Rotating `APP_KEY` keeps the feeds working but the settings page can
+no longer show their URLs; users then create a new one.
+
 ## Notifications
 
 Optional. Signed-in users can get push notifications in their browsers: every morning one listing the pending tasks of

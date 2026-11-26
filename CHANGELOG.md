@@ -7,6 +7,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **Calendar feed (ICS), server side.** Each account can turn on a private `.ics` subscription URL
+  (`/calendar/<token>.ics`) for Apple Calendar, Outlook and other calendar apps: the same events as the Google Calendar
+  sync (dated tasks from 30 days ago on, recurring occurrences from 7 days ago to 60 days ahead, notes and a link to
+  the task), refreshed every 15 minutes. A new URL can be made at any time, which stops the old one. It needs nothing
+  configured on self-hosted instances; in SaaS mode it needs a plan. The settings card comes in a follow-up.
+
 ## [0.4.3] - 2026-11-26
 
 ### Added

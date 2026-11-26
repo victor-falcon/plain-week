@@ -48,6 +48,7 @@ It is used by:
 | Inertia shared props                         | `saas.enabled`, `account: { hasAccess, plan } \| null` (null for guests)                      |
 | `SyncProvider` and the sync engine           | The engine does not start; a `402` stops it, keeps local data, shows `/plans`                 |
 | `EnsureHasAccess` on Google Calendar connect | Redirect to `/plans` (the page and disconnecting stay reachable)                              |
+| `EnsureHasAccess` on enabling the ICS feed   | Redirect to `/plans` (disabling stays reachable); the feed URL itself answers `402`           |
 | MCP server `tools/call` (`/mcp`)             | A tool error saying a plan is needed, with the `/plans` URL (`get_profile` works)             |
 | `EnsureHasAccess` on `/api/v1/sync/*`        | `402 Payment Required` (never a redirect); `GET /api/v1/me` works and says `hasAccess: false` |
 

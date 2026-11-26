@@ -139,6 +139,14 @@ class User extends Authenticatable implements HasLocalePreference, MustVerifyEma
     }
 
     /**
+     * @return HasOne<IcsFeed, $this>
+     */
+    public function icsFeed(): HasOne
+    {
+        return $this->hasOne(IcsFeed::class);
+    }
+
+    /**
      * Whether the account may use account features (sync). Always true on a
      * self-hosted instance; in SaaS mode it needs a paid plan.
      */

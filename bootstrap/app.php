@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Billing\WebhookController;
+use App\Http\Controllers\CalendarFeedController;
 use App\Http\Controllers\RobotsController;
 use App\Http\Middleware\AddResourceMetadataHeader;
 use App\Http\Middleware\AddRobotsTag;
@@ -25,6 +26,13 @@ return Application::configure(basePath: dirname(__DIR__))
         // Outside the web group: crawlers get no session or cookies. Dynamic so APP_NOINDEX can close the instance.
         then: function () {
             Route::get('robots.txt', RobotsController::class)->name('robots');
+
+            // The ICS subscription feed, outside the web group: calendar apps send no cookies, the token is the
+            // credential. See docs/architecture.md, "ICS feed".
+            Route::get('calendar/{token}.ics', CalendarFeedController::class)
+                ->where('token', '[A-Za-z0-9_-]{43}')
+                ->middleware('throttle:ics-feed')
+                ->name('ics-feed.show');
 
             // Cashier's path, outside the web group (no session, no CSRF); the signature is checked instead.
             Route::post('stripe/webhook', [WebhookController::class, 'handleWebhook'])

@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\Settings\AgentsController;
 use App\Http\Controllers\Settings\GoogleCalendarController;
+use App\Http\Controllers\Settings\IcsFeedController;
+use App\Http\Controllers\Settings\IntegrationsController;
 use App\Http\Controllers\Settings\LanguageController;
 use App\Http\Controllers\Settings\NotificationsController;
 use App\Http\Controllers\Settings\ProfileController;
@@ -54,7 +56,7 @@ Route::middleware(['auth'])->group(function () {
         ->prefix('settings/integrations')
         ->name('integrations.')
         ->group(function () {
-            Route::get('/', [GoogleCalendarController::class, 'edit'])->name('edit');
+            Route::get('/', [IntegrationsController::class, 'edit'])->name('edit');
             Route::delete('google', [GoogleCalendarController::class, 'destroy'])->name('google.destroy');
 
             Route::middleware(EnsureHasAccess::class)->group(function () {
@@ -63,6 +65,17 @@ Route::middleware(['auth'])->group(function () {
                     ->name('google.connect');
                 Route::get('google/callback', [GoogleCalendarController::class, 'callback'])->name('google.callback');
             });
+        });
+
+    // The ICS subscription feed: needs no Google credentials. Enabling it (or a new URL) is a paid feature in SaaS
+    // mode; turning it off always works. The feed itself is outside the web group (bootstrap/app.php).
+    Route::prefix('settings/integrations/ics')
+        ->name('integrations.ics.')
+        ->group(function () {
+            Route::post('/', [IcsFeedController::class, 'store'])
+                ->middleware([EnsureHasAccess::class, 'throttle:10,1'])
+                ->name('store');
+            Route::delete('/', [IcsFeedController::class, 'destroy'])->name('destroy');
         });
 
     // Settings › Agents & apps: the personal tokens and OAuth apps behind the MCP server and the app API. Always on

@@ -73,6 +73,8 @@ class HandleInertiaRequests extends Middleware
             // Integrations this instance offers (each needs its own credentials).
             'integrations' => [
                 'googleCalendar' => GoogleOAuth::configured(),
+                // The ICS feed needs nothing configured.
+                'icsFeed' => true,
             ],
             // Web Push: the settings page and the subscribe flow exist only with VAPID keys.
             'notifications' => [
